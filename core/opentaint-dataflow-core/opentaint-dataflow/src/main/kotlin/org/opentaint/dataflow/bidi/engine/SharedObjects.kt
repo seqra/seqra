@@ -11,6 +11,7 @@ import org.opentaint.dataflow.bidi.interp.FormCacheStatistics
 import org.opentaint.dataflow.bidi.interp.Interpreter
 import org.opentaint.dataflow.bidi.interp.UnresolvedCallObserver
 import org.opentaint.dataflow.bidi.store.RecordStore
+import org.opentaint.dataflow.bidi.store.N1Statistics
 import org.opentaint.dataflow.bidi.store.VulnerabilityStore
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.util.Cancellation
@@ -35,6 +36,7 @@ class SharedObjects(
     val cancellationTimeout: Duration = 30.seconds,
     val diagnostics: Boolean = false,
     val formStatistics: FormCacheStatistics? = null,
+    val n1Statistics: N1Statistics? = if (java.lang.Boolean.getBoolean("org.opentaint.bidi.optimizationStatistics")) N1Statistics() else null,
 ) : AutoCloseable {
     @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
     val dispatcher: ExecutorCoroutineDispatcher = newFixedThreadPoolContext(threads, "bidi-worker")

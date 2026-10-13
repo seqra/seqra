@@ -17,35 +17,187 @@ sealed interface RequestKind {
     data class Position(val path: PathNode) : RequestKind               // a static position, cut to <= 2 accessors
 }
 
-/** Standing requests of one method in run 1. Mark and position requests have different positional index keys. */
-class RequestStore(private val cancellation: Cancellation? = null) {
-    private val seen = HashSet<Pair<InitialAp, RequestKind>>()
-    private val index = PathTrie<Pair<InitialAp, RequestKind>>(cancellation)
+/** Actor-owned exact standing relation. Rows, not logical memberships, enter the positional index. */
+class RequestStore(
+    private val cancellation: Cancellation? = null,
+    private val statistics: N1Statistics? = null,
+) {
+    private val census = statistics?.newCensus()
+    private val origins = RequestOrigins(census, cancellation)
+    private val rows = RequestDirectory<Row>(census)
+    private val positions = HashMap<PathNode, Int>()
+    private val memberRows = RequestIntLane(census)
+    private val memberKeys = RequestIntLane(census)
+    private val index = RequestPathIndex(cancellation, census)
+    private var released = false
+
+    private class Row(
+        val origin: Int,
+        val position: RequestKind.Position?,
+        val query: Pattern,
+        val bucket: RequestBucket,
+        census: N1Statistics.Census?,
+        cancellation: Cancellation?,
+    ) {
+        val members = RequestMembers(census, cancellation)
+    }
+
+    private fun active() {
+        check(!released) { "The request store was released" }
+        cancellation?.checkpoint()
+    }
 
     fun add(premise: InitialAp, kind: RequestKind): Boolean {
-        cancellation?.checkpoint()
+        active()
         check(premise.tail == Tail.STAR && premise.exclusion == ExclusionSet.Empty && premise.mark == MarkSlot.STAR) {
             "A request needs a policy initial or position answer"
         }
-        val request = premise to kind
-        if (!seen.add(request)) return false
-        when (kind) {
-            is RequestKind.Mark -> index.add(premise.base, premise.pathArray, request)
-            is RequestKind.Position -> index.add(STATIC, kind.path.toIntArray(), request)
+        val origin = origins.getOrAdd(premise)
+        val previous = when (kind) {
+            is RequestKind.Mark -> origins.markRow(origin)
+            is RequestKind.Position -> positions[kind.path] ?: -1
         }
+        val key = when (kind) {
+            is RequestKind.Mark -> kind.mark.id
+            is RequestKind.Position -> origin
+        }
+        if (previous >= 0 && rows[previous].members[key] >= 0) {
+            statistics?.duplicate()
+            return false
+        }
+        // All cancellation checks precede the exact membership commit. An interrupted path build
+        // can leave empty topology, but never a seen member missing from its encounter lane.
+        val rowHandle = if (previous >= 0) previous else {
+            val query = when (kind) {
+                is RequestKind.Mark -> premise.toPattern()
+                is RequestKind.Position -> Pattern(PathFact(STATIC, kind.path.toList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty)
+            }
+            val bucket = index.bucket(query.fact.base, query.fact.path.toIntArray())
+            val handle = rows.add(Row(origin, kind as? RequestKind.Position, query, bucket, census, cancellation))
+            bucket.rows.add(handle)
+            when (kind) {
+                is RequestKind.Mark -> origins.setMarkRow(origin, handle)
+                is RequestKind.Position -> positions[kind.path] = handle
+            }
+            census?.row(kind is RequestKind.Mark)
+            handle
+        }
+        cancellation?.checkpoint()
+        val row = rows[rowHandle]
+        val member = memberRows.size
+        val previousSize = row.members.size
+        row.members.put(key, member)
+        memberRows.add(rowHandle)
+        memberKeys.add(key)
+        row.bucket.lane.add(member)
+        if (row.position != null) row.bucket.positions.add(member)
+        census?.member(kind is RequestKind.Mark, previousSize)
         return true
     }
 
-    /** Every standing request that overlaps a new added leaf, with annotations checked after the path lookup. */
+    /** The raw geometric relation, including marks that cannot act. Snapshot is taken at this call. */
     fun overlapping(a: Pattern): Sequence<Pair<InitialAp, RequestKind>> {
-        cancellation?.checkpoint()
-        return index.around(a.fact.base, a.fact.path.toIntArray()).asSequence().filter { (initial, kind) ->
-            cancellation?.checkpoint()
-            val query = when (kind) {
-                is RequestKind.Mark -> initial.toPattern()
-                is RequestKind.Position -> Pattern(PathFact(STATIC, kind.path.toList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty)
+        active()
+        val horizon = memberRows.size
+        val buckets = index.around(a.fact.base, a.fact.path)
+        return sequence {
+            for (bucket in buckets) {
+                val bound = bucket.lane.countBefore(horizon)
+                for (offset in 0 until bound) {
+                    active()
+                    val member = bucket.lane[offset]
+                    val row = rows[memberRows[member]]
+                    if (overlap(a, row.query)) yield(initial(row, member) to kind(row, member))
+                }
             }
-            overlap(a, query)
         }
+    }
+
+    /** Only action-eligible mark memberships, and all geometric position memberships, in raw order.
+     *  One horizon and one bucket snapshot cover the whole query, including later callback visits. */
+    internal fun visitActionCandidates(a: Pattern, visit: (InitialAp, RequestKind) -> Unit) {
+        active()
+        val horizon = memberRows.size
+        val rowHorizon = rows.size
+        val buckets = index.around(a.fact.base, a.fact.path)
+        val counts = if (statistics == null) null else N1Statistics.Candidates()
+        fun candidate(member: Int) {
+            active()
+            if (counts != null) counts.selected++
+            val row = rows[memberRows[member]]
+            if (!overlap(a, row.query)) return
+            if (counts != null) counts.overlapping++
+            visit(initial(row, member), kind(row, member))
+        }
+        try {
+            for (bucket in buckets) {
+                active()
+                if (counts != null) counts.coarse += bucket.lane.countBefore(horizon)
+                when (val mark = a.fact.mark) {
+                    is MarkSlot.Star -> {
+                        val bound = bucket.lane.countBefore(horizon)
+                        for (offset in 0 until bound) {
+                            active()
+                            val member = bucket.lane[offset]
+                            val row = rows[memberRows[member]]
+                            if (row.position != null || TaintMark(memberKeys[member]) !in mark.excluded) candidate(member)
+                        }
+                    }
+                    is MarkSlot.Concrete -> {
+                        // Mark rows contribute at most one membership each. Position memberships have
+                        // their own ordered lane; merge it without scanning unrelated requested marks.
+                        var singleton = -1
+                        var selected: RequestIntLane? = null
+                        val rowBound = bucket.rows.countBefore(rowHorizon)
+                        for (offset in 0 until rowBound) {
+                            active()
+                            val row = rows[bucket.rows[offset]]
+                            if (row.position != null) continue
+                            val member = row.members[mark.mark.id]
+                            if (member >= 0 && member < horizon) {
+                                if (singleton < 0) singleton = member
+                                else {
+                                    val lane = selected ?: RequestIntLane(null).also { it.add(singleton); selected = it }
+                                    lane.add(member)
+                                }
+                            }
+                        }
+                        val markMembers = selected?.sorted()
+                        val markCount = markMembers?.size ?: if (singleton >= 0) 1 else 0
+                        val positionBound = bucket.positions.countBefore(horizon)
+                        var markOffset = 0
+                        var positionOffset = 0
+                        while (markOffset < markCount || positionOffset < positionBound) {
+                            val markMember = if (markOffset < markCount) markMembers?.get(markOffset) ?: singleton else Int.MAX_VALUE
+                            val positionMember = if (positionOffset < positionBound) bucket.positions[positionOffset] else Int.MAX_VALUE
+                            if (markMember < positionMember) { candidate(markMember); markOffset++ }
+                            else { candidate(positionMember); positionOffset++ }
+                        }
+                    }
+                }
+            }
+        } finally {
+            if (counts != null) statistics?.candidates(counts)
+        }
+    }
+
+    internal fun query(premise: InitialAp, kind: RequestKind): Pattern {
+        active()
+        val handle = when (kind) {
+            is RequestKind.Mark -> origins.markRow(origins.find(premise))
+            is RequestKind.Position -> positions.getValue(kind.path)
+        }
+        return rows[handle].query
+    }
+
+    private fun initial(row: Row, member: Int): InitialAp = origins[if (row.position == null) row.origin else memberKeys[member]]
+    private fun kind(row: Row, member: Int): RequestKind = row.position ?: RequestKind.Mark(TaintMark(memberKeys[member]))
+
+    /** Called only after the actor's run has joined. No standing member is retired during analysis. */
+    internal fun release() {
+        if (released) return
+        released = true
+        origins.clear(); rows.clear(); positions.clear(); memberRows.clear(); memberKeys.clear(); index.clear()
+        census?.release()
     }
 }

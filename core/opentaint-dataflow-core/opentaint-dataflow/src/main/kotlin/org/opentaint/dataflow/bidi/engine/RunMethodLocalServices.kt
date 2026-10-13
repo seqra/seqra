@@ -12,23 +12,52 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 /** One method owns its standing requests, forward literal joins and seed triggers. */
 class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
     private var owner: RunMethodAnalyzer? = core
-    private var requests: RequestStore? = if (core.config.run1) RequestStore(core.ap.cancellation) else null
+    private val requestStatistics = core.context.shared.n1Statistics
+    private var requests: RequestStore? = if (core.config.run1) RequestStore(core.ap.cancellation, requestStatistics) else null
     private var conjunctionStore: ConjunctionStore? = if (core.forward) ConjunctionStore(core.ap) else null
     private var predicateStore: RulePredicateStore? =
         if (core.forward) RulePredicateStore(core.ap, core.context.shared.formStatistics) else null
     override val conjunctions: ConjunctionStore? get() = conjunctionStore
     private var triggered: HashSet<Pair<CommonInst, Any>>? = HashSet()
-    private var requestJoin: StandingJoin<Pair<InitialAp, RequestKind>, Link>? =
-        if (!core.config.run1) null else StandingJoin(
-            nearB = { (initial, kind) ->
-                when (kind) {
-                    is RequestKind.Mark -> core.links.overlapping(initial.base, initial.path)
-                    is RequestKind.Position -> core.links.overlapping(STATIC, kind.path)
+    private var requestJoin: RequestJoin? = if (core.config.run1) RequestJoin() else null
+
+    private inner class RequestJoin {
+        fun newA(initial: InitialAp, kind: RequestKind) {
+            val core = activeCore()
+            val query = checkNotNull(requests).query(initial, kind)
+            val links = when (kind) {
+                is RequestKind.Mark -> core.links.overlapping(initial.base, initial.path)
+                is RequestKind.Position -> core.links.overlapping(STATIC, kind.path)
+            }
+            val counts = if (requestStatistics == null) null else N1Statistics.Actions()
+            try {
+                for (link in links) {
+                    core.ap.cancellation.checkpoint()
+                    if (counts != null) counts.existingLinks++
+                    if (kind is RequestKind.Mark) when (val mark = link.addedFact.fact.mark) {
+                        is MarkSlot.Concrete -> if (mark.mark != kind.mark) continue
+                        is MarkSlot.Star -> if (kind.mark in mark.excluded) continue
+                    }
+                    if (!overlap(link.addedFact, query)) continue
+                    if (counts != null) counts.selectedLinks++
+                    act(initial, kind, link.addedFact, link.caller, counts)
                 }
-            },
-            nearA = { link -> checkNotNull(requests).overlapping(link.addedFact) },
-            meet = { (initial, kind), link -> act(initial, kind, link.addedFact, link.caller) },
-        )
+            } finally {
+                if (counts != null) requestStatistics?.actions(counts)
+            }
+        }
+        fun newB(link: Link) {
+            activeCore()
+            val counts = if (requestStatistics == null) null else N1Statistics.Actions()
+            try {
+                checkNotNull(requests).visitActionCandidates(link.addedFact) { initial, kind ->
+                    act(initial, kind, link.addedFact, link.caller, counts)
+                }
+            } finally {
+                if (counts != null) requestStatistics?.actions(counts)
+            }
+        }
+    }
 
     private fun activeCore(): RunMethodAnalyzer =
         checkNotNull(owner) { "The local services were frozen" }.also { it.ap.cancellation.checkpoint() }
@@ -38,7 +67,7 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
         check(core.config.run1) { "Requests exist only in run 1" }
         if (checkNotNull(requests).add(premise, kind)) {
             core.ap.cancellation.checkpoint()
-            checkNotNull(requestJoin).newA(premise to kind)
+            checkNotNull(requestJoin).newA(premise, kind)
         }
     }
 
@@ -51,13 +80,19 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
         }
     }
 
-    private fun act(initial: InitialAp, kind: RequestKind, added: Pattern, caller: CallerRef) {
+    private fun act(initial: InitialAp, kind: RequestKind, added: Pattern, caller: CallerRef,
+                    counts: N1Statistics.Actions?) {
         val core = activeCore()
         when (val action = core.ops.requestAction(initial, kind, added, caller)) {
-            RequestAction.None -> Unit
-            is RequestAction.Answer -> core.addInitial(action.initial)
-            is RequestAction.Climb ->
+            RequestAction.None -> if (counts != null) counts.none++
+            is RequestAction.Answer -> {
+                if (counts != null) counts.answers++
+                core.addInitial(action.initial)
+            }
+            is RequestAction.Climb -> {
+                if (counts != null) counts.climbs++
                 core.runnerPort.send(RunEvent.RequestIn(caller.caller, action.premise, action.request))
+            }
         }
     }
 
@@ -247,6 +282,7 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
 
     override fun freeze() {
         requestJoin = null
+        requests?.release()
         requests = null
         conjunctionStore = null
         predicateStore = null

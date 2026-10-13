@@ -30,7 +30,7 @@ class MethodLocalServicesTest {
         for (index in 1..4) MethodAnalysisFixtures().use { f ->
             val (_, service) = core(f, index)
             assertEquals(index == 1, fieldOfType(service, RequestStore::class.java) != null, "run $index")
-            assertEquals(index == 1, fieldOfType(service, StandingJoin::class.java) != null, "run $index")
+            assertEquals(index == 1, fieldNamed(service, "requestJoin") != null, "run $index")
             if (index % 2 == 1) {
                 val conjunctions = assertNotNull(service.conjunctions)
                 assertSame(conjunctions, service.conjunctions)
@@ -121,12 +121,13 @@ class MethodLocalServicesTest {
             val (actor, service) = core(f)
             populateState(f, actor, service)
             assertNotNull(fieldOfType(service, RequestStore::class.java))
-            assertNotNull(fieldOfType(service, StandingJoin::class.java))
+            val requestJoin = service.javaClass.getDeclaredField("requestJoin").also { it.isAccessible = true }
+            assertNotNull(requestJoin.get(service))
             assertNotNull(service.conjunctions)
             assertTrue(collectionFields(service).any { it.isNotEmpty() })
             service.freeze()
             assertNull(fieldOfType(service, RequestStore::class.java))
-            assertNull(fieldOfType(service, StandingJoin::class.java))
+            assertNull(requestJoin.get(service))
             assertNull(service.conjunctions)
             assertTrue(collectionFields(service).all { it.isEmpty() })
             assertEquals(1L, actor.triggerSeeds)
@@ -144,7 +145,7 @@ class MethodLocalServicesTest {
             assertFails { actor.runnerPort }
             assertFails { actor.context }
             assertNull(fieldOfType(service, RequestStore::class.java))
-            assertNull(fieldOfType(service, StandingJoin::class.java))
+            assertNull(fieldNamed(service, "requestJoin"))
             assertNull(service.conjunctions)
             assertTrue(collectionFields(service).all { it.isEmpty() })
             assertEquals(1L, actor.triggerSeeds)
@@ -223,6 +224,11 @@ class MethodLocalServicesTest {
             field.isAccessible = true
             field.get(owner) as? Collection<*> ?: emptyList<Any>()
         }
+
+    private fun fieldNamed(owner: Any, name: String): Any? = owner.javaClass.getDeclaredField(name).let {
+        it.isAccessible = true
+        it.get(owner)
+    }
 
     private fun fieldOfType(owner: Any, type: Class<*>): Any? = owner.javaClass.declaredFields
         .single { it.type == type }.let { field -> field.isAccessible = true; field.get(owner) }

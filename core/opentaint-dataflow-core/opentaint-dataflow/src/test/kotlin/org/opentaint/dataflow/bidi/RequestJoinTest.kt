@@ -33,6 +33,75 @@ class RequestJoinTest {
     private fun climbs(f: MethodAnalysisFixtures): List<RunEvent.RequestIn> = f.events.filterIsInstance<RunEvent.RequestIn>()
 
     @Test
+    fun `a callback request for a later bucket joins once through its own new-request path`(): Unit {
+        MethodAnalysisFixtures().use { f ->
+            val cls = f.manager.accessors.index(ClassStaticAccessor("Box"))
+            val field = f.field("f")
+            val t = f.mark("T")
+            val u = f.mark("U")
+            val root = policy(f, static)
+            val atClass = policy(f, static, listOf(cls))
+            val atField = policy(f, static, listOf(cls, field))
+            val actor = core(f)
+            actor.addInitial(root)
+            actor.addRequest(root, RequestKind.Position(checkNotNull(f.manager.path(listOf(cls)))))
+            actor.addRequest(atField, RequestKind.Mark(u))
+            var inserted = false
+            f.onCut = { point, _ ->
+                if (point == Cut.ENTRY_RULES && !inserted) {
+                    inserted = true
+                    actor.addRequest(atField, RequestKind.Mark(t))
+                }
+            }
+            val a = caller(f, "A", static, flow = true)
+            val added = f.fact(base = static, path = listOf(cls, field), tail = Tail.STAR, mark = MarkSlot.STAR)
+            actor.addLink(a, Layer.NORMAL, added)
+            assertTrue(inserted)
+            assertEquals(listOf(RunEvent.RequestIn(a.caller, a.premise as InitialAp, RequestKind.Mark(t)),
+                RunEvent.RequestIn(a.caller, a.premise as InitialAp, RequestKind.Mark(u))), climbs(f))
+            assertTrue(atClass in actor.initials.all().toSet())
+            f.onCut = null
+            val b = caller(f, "B", static, flow = true)
+            actor.addLink(b, Layer.NORMAL, added)
+            assertEquals(listOf(RunEvent.RequestIn(b.caller, b.premise as InitialAp, RequestKind.Mark(u)),
+                RunEvent.RequestIn(b.caller, b.premise as InitialAp, RequestKind.Mark(t))), climbs(f).takeLast(2))
+        }
+    }
+
+    @Test
+    fun `F75 excluded disjoint cleaner request remains standing for a later concrete link`(): Unit {
+        MethodAnalysisFixtures().use { f ->
+            val t = f.mark("T")
+            val a = f.field("a")
+            val b = f.field("b")
+            val i = policy(f)
+            val actor = core(f)
+            val excluded = MarkSlot.Star(f.manager.markSetOf(t))
+            actor.addLink(caller(f, "abstract", flow = true), Layer.NORMAL,
+                f.fact(tail = Tail.STAR, mark = excluded))
+            val input = f.fact(path = listOf(a), tail = Tail.STAR, mark = excluded)
+            val cleaner = Cleaner(x, f.manager.path(listOf(b)), CleanReach.EXACT, t)
+            val cleaned = ArrayList<Facts>()
+            f.ops.clean(input, i, cleaner, actor.mode, actor.collect(i, input) { premise, facts ->
+                assertSame(i, premise)
+                cleaned += facts
+            })
+            val residual = assertIs<FlowTree>(cleaned.single())
+            val original = assertIs<FlowTree>(input)
+            assertSame(original.root, residual.root)
+            assertEquals(original.base, residual.base)
+            assertEquals(original.layer, residual.layer)
+            assertEquals(original.exclusion, residual.exclusion)
+            assertEquals(original.markExclusion, residual.markExclusion)
+            assertEquals(setOf(i), actor.initials.all().toSet())
+            assertTrue(climbs(f).isEmpty())
+            actor.addLink(caller(f, "concrete"), Layer.NORMAL, f.fact(mark = MarkSlot.Concrete(t)))
+            assertEquals(setOf(i, initial(f, x, emptyList(), Tail.EXACT, t)), actor.initials.all().toSet())
+            assertTrue(climbs(f).isEmpty())
+        }
+    }
+
+    @Test
     fun `both arrival orders give an exact root answer or a demand chain answer with the incoming policy key`(): Unit {
         for (firstRequest in listOf(true, false)) for (below in listOf(false, true)) {
             MethodAnalysisFixtures().use { f ->

@@ -7,6 +7,7 @@ import org.opentaint.dataflow.bidi.fixtures.StoreFixtures
 import org.opentaint.dataflow.bidi.store.AddedFactStore
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.Link
+import org.opentaint.dataflow.bidi.store.N1Statistics
 import org.opentaint.dataflow.bidi.store.RequestKind
 import org.opentaint.dataflow.bidi.store.RequestStore
 import org.opentaint.dataflow.util.Cancellation
@@ -243,5 +244,194 @@ class RequestStoreTest {
         assertTrue(store.add(initial, rejected))
         assertFalse(store.add(initial, rejected))
         assertEquals(setOf(initial to existing, initial to rejected), store.overlapping(added).toSet())
+    }
+
+    @Test
+    fun `selective visitor preserves mixed mark and position encounter order in one bucket`(): Unit {
+        val store = RequestStore()
+        val q = p(cls, f)
+        val root = policy(base = STATIC)
+        val atClass = policy(p(cls), STATIC)
+        val atField = policy(q, STATIC)
+        val v = fixture.mark("V")
+        val requested = listOf(root to position(q), atField to RequestKind.Mark(u),
+            atClass to position(q), atField to RequestKind.Mark(t), atField to position(q),
+            atField to RequestKind.Mark(v))
+        for ((initial, kind) in requested) assertTrue(store.add(initial, kind))
+        val concrete = pattern(q, Tail.EXACT, mt, base = STATIC)
+        assertEquals(requested, store.overlapping(concrete).toList(), "The raw view does not filter marks")
+        val selected = ArrayList<Pair<InitialAp, RequestKind>>()
+        store.visitActionCandidates(concrete) { initial, kind -> selected += initial to kind }
+        assertEquals(listOf(requested[0], requested[2], requested[3], requested[4]), selected)
+        selected.clear()
+        val abstract = pattern(q, Tail.STAR, MarkSlot.Star(marks(t.id, u.id)), base = STATIC)
+        store.visitActionCandidates(abstract) { initial, kind -> selected += initial to kind }
+        assertEquals(listOf(requested[0], requested[2], requested[4], requested[5]), selected)
+    }
+
+    @Test
+    fun `query horizon excludes callback insertions in existing and new later buckets`(): Unit {
+        val store = RequestStore()
+        val root = policy()
+        val atF = policy(p(f))
+        val deep = policy(p(f, g))
+        val foreign = ApManager(Cancellation())
+        val other = foreign.initial(x, foreign.path(p(f)), Tail.STAR, ExclusionSet.Empty, MarkSlot.STAR)
+        val original: List<Pair<InitialAp, RequestKind>> = listOf(root to RequestKind.Mark(t), atF to RequestKind.Mark(t))
+        original.forEach { (initial, kind) -> store.add(initial, kind) }
+        val added = pattern(p(), Tail.STAR, MarkSlot.STAR)
+        val rawAtEntry = store.overlapping(added)
+        val visited = ArrayList<Pair<InitialAp, RequestKind>>()
+        var inserted = false
+        store.visitActionCandidates(added) { initial, kind ->
+            visited += initial to kind
+            if (!inserted) {
+                inserted = true
+                assertTrue(store.add(atF, RequestKind.Mark(u)))
+                assertTrue(store.add(other, RequestKind.Mark(t)))
+                assertTrue(store.add(deep, RequestKind.Mark(t)))
+            }
+        }
+        assertEquals(original, visited)
+        assertEquals(original, rawAtEntry.toList(), "Raw sequences also capture their call-entry horizon")
+        val all = listOf(original[0], original[1], atF to RequestKind.Mark(u), other to RequestKind.Mark(t),
+            deep to RequestKind.Mark(t))
+        assertEquals(all, store.overlapping(added).toList())
+        visited.clear()
+        store.visitActionCandidates(added) { initial, kind -> visited += initial to kind }
+        assertEquals(all, visited)
+    }
+
+    @Test
+    fun `sparse membership promotion accepts signed and widely separated mark IDs`(): Unit {
+        val store = RequestStore()
+        val initial = policy()
+        val ids = listOf(Int.MIN_VALUE, Int.MAX_VALUE, -1, -1_000_000_000) + (1..257).map { it * 7919 }
+        val requested: List<Pair<InitialAp, RequestKind>> = ids.map { initial to RequestKind.Mark(TaintMark(it)) }
+        for ((i, kind) in requested) assertTrue(store.add(i, kind))
+        for ((i, kind) in requested) assertFalse(store.add(i, kind))
+        assertEquals(requested, store.overlapping(pattern(p(), Tail.STAR, MarkSlot.STAR)).toList())
+        for (id in ids) {
+            val selected = ArrayList<Pair<InitialAp, RequestKind>>()
+            store.visitActionCandidates(pattern(p(), Tail.EXACT, MarkSlot.Concrete(TaintMark(id)))) { i, kind -> selected += i to kind }
+            assertEquals(listOf<Pair<InitialAp, RequestKind>>(initial to RequestKind.Mark(TaintMark(id))), selected, "mark=$id")
+        }
+        val excluded = ids.filterIndexed { index, _ -> index % 3 == 0 }.toSet()
+        val selected = ArrayList<Pair<InitialAp, RequestKind>>()
+        store.visitActionCandidates(pattern(p(), Tail.STAR, MarkSlot.Star(MarkSet(excluded.toIntArray())))) { i, kind -> selected += i to kind }
+        assertEquals(requested.filter { (it.second as RequestKind.Mark).mark.id !in excluded }, selected)
+    }
+
+    @Test
+    fun `local origin handles preserve manager ID collisions and grouped position origins`(): Unit {
+        val store = RequestStore()
+        val origins = List(33) { ApManager(Cancellation()).initial(STATIC, null, Tail.STAR, ExclusionSet.Empty, MarkSlot.STAR) }
+        assertEquals(1, origins.map { it.id }.toSet().size)
+        val kind = position(p(cls, f))
+        for (initial in origins) {
+            assertTrue(store.add(initial, RequestKind.Mark(t)))
+            assertTrue(store.add(initial, kind))
+        }
+        for (initial in origins) {
+            assertFalse(store.add(initial, RequestKind.Mark(t)))
+            assertFalse(store.add(initial, position(p(cls, f))))
+        }
+        val expected = origins.map { it to RequestKind.Mark(t) } + origins.map { it to kind }
+        val added = pattern(p(cls, f), Tail.EXACT, base = STATIC)
+        assertEquals(expected, store.overlapping(added).toList())
+        val visited = ArrayList<Pair<InitialAp, RequestKind>>()
+        store.visitActionCandidates(added) { initial, request -> visited += initial to request }
+        assertEquals(expected, visited)
+    }
+
+    @Test
+    fun `deep single-row index is iterative and preserves the complete request chain`(): Unit {
+        val statistics = N1Statistics()
+        val store = RequestStore(fixture.cancellation, statistics)
+        val path = List(32768) { f }
+        val initial = policy(path)
+        val kind = RequestKind.Mark(t)
+        assertTrue(store.add(initial, kind))
+        val added = pattern(path, Tail.EXACT)
+        assertEquals(listOf(initial to kind), store.overlapping(added).toList())
+        val selected = ArrayList<Pair<InitialAp, RequestKind>>()
+        store.visitActionCandidates(added) { i, request -> selected += i to request }
+        assertEquals(listOf<Pair<InitialAp, RequestKind>>(initial to kind), selected)
+        assertEquals(32769L, statistics.snapshot().liveIndexNodes)
+        assertEquals(1L, statistics.snapshot().liveIndexBuckets)
+        store.release()
+        assertEquals(0L, statistics.snapshot().liveIndexNodes)
+    }
+
+    @Test
+    fun `visitor checkpoints between callbacks without changing standing membership`(): Unit {
+        val store = RequestStore(fixture.cancellation)
+        val initial = policy()
+        val requested: List<Pair<InitialAp, RequestKind>> = listOf(initial to RequestKind.Mark(t), initial to RequestKind.Mark(u))
+        requested.forEach { (i, kind) -> store.add(i, kind) }
+        val added = pattern(p(), Tail.STAR, MarkSlot.STAR)
+        val selected = ArrayList<Pair<InitialAp, RequestKind>>()
+        assertFailsWith<Cancellation.Cancelled> {
+            store.visitActionCandidates(added) { i, kind ->
+                selected += i to kind
+                fixture.cancellation.cancel()
+            }
+        }
+        assertEquals(listOf(requested[0]), selected)
+        fixture.cancellation.activate()
+        assertEquals(requested, store.overlapping(added).toList())
+        store.release()
+        store.release()
+        assertFails { store.add(initial, RequestKind.Mark(t)) }
+        assertFails { store.overlapping(added) }
+        assertFails { store.visitActionCandidates(added) { _, _ -> error("A released store cannot call back") } }
+    }
+
+    @Test
+    fun `optional census distinguishes live storage final row density and cumulative attempts`(): Unit {
+        val statistics = N1Statistics()
+        val store = RequestStore(statistics = statistics)
+        val other = RequestStore(statistics = statistics)
+        val root = policy(base = STATIC)
+        val atClass = policy(p(cls), STATIC)
+        store.add(root, RequestKind.Mark(t)); store.add(root, RequestKind.Mark(u))
+        store.add(root, position(p(cls, f))); store.add(atClass, position(p(cls, f)))
+        store.add(atClass, RequestKind.Mark(t))
+        assertFalse(store.add(root, RequestKind.Mark(t)))
+        other.add(policy(), RequestKind.Mark(u))
+        val added = pattern(p(cls, f), Tail.EXACT, base = STATIC)
+        assertEquals(5, store.overlapping(added).count())
+        store.visitActionCandidates(added) { _, _ -> }
+        val live = statistics.snapshot()
+        assertEquals(2L, live.liveStores)
+        assertEquals(6L, live.insertions)
+        assertEquals(1L, live.duplicates)
+        assertEquals(4L, live.liveMarkRequests)
+        assertEquals(2L, live.livePositionRequests)
+        assertEquals(3L, live.liveMarkRows)
+        assertEquals(1L, live.livePositionRows)
+        assertEquals(listOf(2L, 2L), live.liveRowSizeHistogram.take(2))
+        assertEquals(5L, live.coarseCandidates)
+        assertEquals(4L, live.selectedCandidates)
+        assertEquals(4L, live.overlappingCandidates)
+        assertTrue(live.livePrimitiveCells > 0)
+        assertTrue(live.liveReferenceCells > 0)
+        assertFailsWith<UnsupportedOperationException> { (live.liveRowSizeHistogram as MutableList<Long>).add(1) }
+        store.release()
+        val remaining = statistics.snapshot()
+        assertEquals(1L, remaining.liveStores)
+        assertEquals(1L, remaining.liveMarkRequests)
+        assertEquals(listOf(1L, 0L), remaining.liveRowSizeHistogram.take(2))
+        assertEquals(listOf(1L, 2L), remaining.releasedRowSizeHistogram.take(2))
+        other.release()
+        val final = statistics.snapshot()
+        assertEquals(0L, final.liveStores)
+        assertEquals(0L, final.livePrimitiveCells)
+        assertEquals(0L, final.liveReferenceCells)
+        assertEquals(0L, final.liveIndexNodes)
+        assertEquals(0L, final.liveRowSizeHistogram.sum())
+        assertEquals(listOf(2L, 2L), final.releasedRowSizeHistogram.take(2))
+        assertEquals(live.allocatedPrimitiveCells, final.allocatedPrimitiveCells)
+        assertEquals(6L, final.insertions)
     }
 }
