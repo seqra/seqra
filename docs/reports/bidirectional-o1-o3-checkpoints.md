@@ -79,6 +79,9 @@ the command row's F1 state. The later O3 heap query does establish it: both nati
 `os-command-injection:sink:1` and `os-command-injection:sink:3`, are retained run-1 `DEMAND` entries.
 Their witness counts are two and one. The active manager is at F3/limit 3. This proves coarse F1
 demand retention through the failed F3; final F1 state and the first actual mark loss remain unproved.
+The O1 heap has the same two native run-1 `DEMAND` entries. Its selected witness counts are four and
+two, compared with O3's two and one. Different proof representations and support shapes prevent a
+semantic conclusion from these counts alone. Both checkpoints retain F1 through an incomplete F3.
 
 The source differential and local probe do not prove an O1 or O2 defect. The positive source condition
 and exact returned cleaner have the same relevant behavior at O3 and O1. The local NORMAL `$ARGS`
@@ -161,6 +164,34 @@ The checkpoint's optional compiled counters are wired: they record 157,704 predi
 and 173,907 leaves cumulatively. Its observed counters are not passed into `SharedObjects`; their
 printed zeros are unavailable runtime totals. Old cache access/build/pin counters are also uninstrumented.
 The final implementation has the counter wiring verified by the complete core test gate.
+
+All 34 O1 ThingsBoard overview queries succeed. Its reachable heap has 358,368,691 objects and
+11,486,260,320 shallow bytes. All 73,549 actors are current F1/limit-1 actors in 562 open runners.
+Strong cache arrays retain 4,393,215,672 bytes; NNF descriptor/source/sink roots retain 2,301,710,424
+bytes. These sets overlap. The live census has 2,471,818 predicates. In contrast, observed predicate
+stores retain 5,317,256 bytes, with 14 state scopes, 24 interned proofs and four canonical/emitted
+roots. This capture shows substantial compiled potential storage and a small observed support store.
+
+The request tables have 4,247,048 seen pairs; queues have 2,328,141 entries. The manager has handled
+25,532,581 events. These are different progress points from O3 and final, so the cache and request
+sizes are not a paired saving. Cumulative compilation records 2,610,266 predicates, 2,950,142 nodes
+and 2,789,339 leaves. Runtime counter zeros remain unavailable because of the older wiring gap.
+The inherited query titled "manual cube source and sink roots" also selects NNF-backed `SinkRule`
+objects at O1. Its heterogeneous retained set is not evidence that production NNF lowering builds cubes.
+
+The O1 PDF overview accounts for all 34 requests, with 32 nonempty and two verified empty outputs.
+Its reachable heap has 234,270,507 objects and 7,646,386,000 shallow bytes. All 7,270 actors are current
+F3/limit-3 actors in 90 open runners. Strong cache arrays retain 1,391,567,056 bytes and method-edge
+stores retain 3,091,706,680 bytes. These sets overlap. Live predicate support stores retain 3,170,256
+bytes, with 673 state scopes, 3,710 interned proofs and 1,035 canonical/emitted roots. The live census
+has 664,496 compiled predicates. No standing request store or join is present in this restricted phase.
+IR storage retains 1,084,457,856 bytes and remains outside scope. Edge state is a larger owner than
+compiled cache arrays at this snapshot. Different progress prevents an isolated comparison to O3.
+
+All seven OOM checkpoint overviews are now parsed and checked against their source layouts. The
+consolidated external manifest is `heap-analysis/checkpoints-preparation/all-seven-overview-review.json`.
+Earlier observed-counter zeros, empty selections and heterogeneous class filters retain the limits
+above. These results identify remaining owners; they do not turn any failed scan into a completed one.
 
 Continuous JFR files exist for all eight runs. Seven normal profiler captures have saved collapsed
 stacks and successful capture logs. O3 OWASP cannot attach, returns 1 and has no collapsed output;

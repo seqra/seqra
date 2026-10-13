@@ -133,8 +133,10 @@ The current manager is at forward run 3, limit 3, while the report builder still
 
 Thus the O3 output preserves coarse F1 demands after an incomplete F3. The final run completes F3
 and can replace that unconfirmed demand set. This proves the earlier entries' state; it does not prove
-the command's state in final F1 or the first full-run mark-loss point. The O1 heap and selected witness
-headers remain under review. Keep the strict loss visible and do not assign it to O2 solely from these
+the command's state in final F1 or the first full-run mark-loss point. The O1 heap has the same two
+run-1 `DEMAND` entries, with selected witness counts four and two. That count difference alone does
+not establish different semantics. Selected witness headers remain under review. Keep the strict loss
+visible and do not assign it to O2 solely from these
 different forward barriers. The [checkpoint report](../bidirectional-o1-o3-checkpoints.md) records
 all eight results and their limits.
 
