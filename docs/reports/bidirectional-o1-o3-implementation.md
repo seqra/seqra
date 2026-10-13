@@ -1,6 +1,6 @@
 # O1–O3 implementation and test record
 
-Status: core implementation verified. Fresh fixed-project scans are in progress; resource gates remain open.
+Status: core implementation verified. All four fresh fixed-project pairs have finished; resource gates remain open.
 The selected scope is the [implementation plan](../design/bidirectional-o1-o3-implementation-plan.md).
 IR storage and O4–O12 are outside this work.
 
@@ -12,7 +12,7 @@ The control patch and manifest are in `/drive-testcomp/opentaint-go-rules/bidi-o
 That directory also holds command logs and copied test XML. Existing diagnostic changes were preserved.
 
 Remote main was checked with `git ls-remote` on 12 October 2026. Its head is
-`f945f92c5ae554ff4f5fc7696ee5a269210478bb`. The fresh baseline scans will use that revision.
+`f945f92c5ae554ff4f5fc7696ee5a269210478bb`. The fresh baseline scans use that revision.
 Previous project scan results do not prove the result of this implementation.
 
 The control test command passed: 1,226 common tests and 247 selected JVM tests, with no failures or skipped tests.
@@ -120,5 +120,10 @@ incomplete refinement; they are not final false-positive counts. The guard saved
 before cancellation. The fresh [ThingsBoard pair](bidirectional-o1-o3-projects/thingsboard.md) stopped on
 the memory guard in forward run 1 at limit 1. No forward report was accepted, so all 14 main sink identities
 are absent from its empty output. The guard saved an 18.7 GB heap snapshot. Conductor and ThingsBoard resource
-gates have not passed. Stirling-PDF is running; per-optimization attribution and heap-owner diagnostics
-remain pending.
+gates have not passed. The fresh [Stirling-PDF pair](bidirectional-o1-o3-projects/Stirling-PDF.md) timed out
+in backward run 4. Its retained report has 56 unique sink identities: 14 main identities remain, three are
+absent and 42 are added. Two strict differences have source-backed exit-location mappings. An offline probe
+reproduces command-mark loss at a later `List.add` return rewriter under the specified source override policy;
+the first loss point in the full run remains unproved. Fresh CPU/JFR reviews for all four projects are saved.
+Per-optimization attribution and strong heap-owner diagnostics remain open; the four-project resource gate
+has not passed.
