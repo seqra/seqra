@@ -125,5 +125,8 @@ in backward run 4. Its retained report has 56 unique sink identities: 14 main id
 absent and 42 are added. Two strict differences have source-backed exit-location mappings. An offline probe
 reproduces command-mark loss at a later `List.add` return rewriter under the specified source override policy;
 the first loss point in the full run remains unproved. Fresh CPU/JFR reviews for all four projects are saved.
-Per-optimization attribution and strong heap-owner diagnostics remain open; the four-project resource gate
-has not passed.
+All eight [O3/O1 checkpoint scans](bidirectional-o1-o3-checkpoints.md) have finished. O1 completes OWASP
+with all baseline identities and the same 9,179 occurrences as the final run. The other seven checkpoint
+scans stop on memory. Both PDF checkpoints retain F1 output after F3 fails, while the final run accepts F3;
+that output difference does not prove an O1/O2 regression. Checkpoint heap/profile attribution and the
+command's full-run proof history remain open. The four-project resource gate has not passed.
