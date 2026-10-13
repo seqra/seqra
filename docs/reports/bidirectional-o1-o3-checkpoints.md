@@ -75,7 +75,10 @@ Both checkpoint outputs contain the main command sink in
 with fingerprint `wY2lI7b1TEw2RC154xc+UyLWgRr7oi07c8cEICJI+QM=`. Each contains two occurrences.
 Both stop before the F3 barrier, so the output still contains F1 findings. The final run accepts F3
 and then lacks this identity. SARIF has no per-row CONFIRMED/DEMAND property, so it cannot establish
-the command row's F1 state.
+the command row's F1 state. The later O3 heap query does establish it: both native entries, for
+`os-command-injection:sink:1` and `os-command-injection:sink:3`, are retained run-1 `DEMAND` entries.
+Their witness counts are two and one. The active manager is at F3/limit 3. This proves coarse F1
+demand retention through the failed F3; final F1 state and the first actual mark loss remain unproved.
 
 The source differential and local probe do not prove an O1 or O2 defect. The positive source condition
 and exact returned cleaner have the same relevant behavior at O3 and O1. The local NORMAL `$ARGS`
@@ -145,6 +148,19 @@ store or standing-request join is present, consistent with restricted forward ru
 conjunction state remains. IR storage retains 1,091,063,632 bytes and remains outside scope. The
 separate report/witness queries must establish the retained command finding's F1 state before this
 checkpoint can explain the final finding difference.
+
+The O1 Conductor overview accounts for all 34 requests, with 29 nonempty CSV outputs and five valid
+empty outputs. The complete histogram independently has no live request store, standing join or
+predicate support store. All 17,525 actors and 219 runners belong to active B2/limit-2 work. Strong
+cache arrays retain 1,080,360,544 bytes, while NNF descriptor/source/sink roots retain 147,350,352 bytes;
+these sets overlap. The live census has 156,231 predicate descriptors. IR storage retains
+2,418,601,528 bytes and remains outside scope. This is a different progress point from the O3 and final
+snapshots, so the cache sizes do not isolate an NNF saving.
+
+The checkpoint's optional compiled counters are wired: they record 157,704 predicates, 190,545 nodes
+and 173,907 leaves cumulatively. Its observed counters are not passed into `SharedObjects`; their
+printed zeros are unavailable runtime totals. Old cache access/build/pin counters are also uninstrumented.
+The final implementation has the counter wiring verified by the complete core test gate.
 
 Continuous JFR files exist for all eight runs. Seven normal profiler captures have saved collapsed
 stacks and successful capture logs. O3 OWASP cannot attach, returns 1 and has no collapsed output;

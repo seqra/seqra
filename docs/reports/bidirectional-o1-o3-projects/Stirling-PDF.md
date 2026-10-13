@@ -122,6 +122,22 @@ caller contexts or F1/F3 fact history. It cannot prove the first actual loss poi
 The strict missing finding remains a failed gate. A change to the source override policy or rule model
 requires further review.
 
+### Checkpoint report state at the command site
+
+Both the O3 and O1 checkpoint outputs contain two occurrences at this strict command identity. Both
+complete F1 and B2, then stop on memory in F3 without its report barrier. The O3 heap now establishes
+the retained state directly: the two native entries are `os-command-injection:sink:1` and
+`os-command-injection:sink:3`, both `DEMAND`, both from run 1. Their selected witness counts are two
+and one. Native owner, full descriptor, instruction 8 and line 183 match the baseline command site.
+The current manager is at forward run 3, limit 3, while the report builder still holds these F1 entries.
+
+Thus the O3 output preserves coarse F1 demands after an incomplete F3. The final run completes F3
+and can replace that unconfirmed demand set. This proves the earlier entries' state; it does not prove
+the command's state in final F1 or the first full-run mark-loss point. The O1 heap and selected witness
+headers remain under review. Keep the strict loss visible and do not assign it to O2 solely from these
+different forward barriers. The [checkpoint report](../bidirectional-o1-o3-checkpoints.md) records
+all eight results and their limits.
+
 ### Fresh XSS exit-location evidence
 
 | Method | Main return | Current same-rule/full-method candidate | Current sink fingerprint |
