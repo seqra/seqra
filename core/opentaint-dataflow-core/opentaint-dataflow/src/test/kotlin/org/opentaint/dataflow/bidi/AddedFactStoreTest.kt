@@ -5,6 +5,7 @@ import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.fixtures.StoreFixtures
 import org.opentaint.dataflow.bidi.store.AddedFactStore
+import org.opentaint.dataflow.bidi.store.AddedFactAccumulator
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.Link
 import org.opentaint.dataflow.util.Cancellation
@@ -98,6 +99,44 @@ class AddedFactStoreTest {
         assertNull(store.add(ref, Layer.NORMAL, original))
         assertEquals(expected, store.links().map { it.addedFact }.toSet())
         assertEquals(3, store.overlapping(x, m.path(p(f))).count())
+    }
+
+    @Test
+    fun `accumulator keeps the admitted must key when an exact delta clears its exclusion`(): Unit {
+        val accumulator = AddedFactAccumulator(m)
+        val ref = caller()
+        val must = pattern(p(), Tail.ANY_TAINT, exclusion = ex(g))
+        val exact = pattern(p(f), Tail.EXACT, mu)
+        val first = assertNotNull(accumulator.add(ref, Layer.NORMAL, typed(must)))
+        val mixed = taint(listOf(must, exact), ex(g))
+        val second = assertNotNull(accumulator.add(ref, Layer.NORMAL, mixed))
+        assertEquals(first.handle, second.handle)
+        assertEquals(ex(g), second.snapshot.group.exclusion)
+        assertEquals(ExclusionSet.Empty, second.delta.groupKey.exclusion)
+        assertEquals(setOf(exact), decode(second.delta))
+        assertEquals(setOf(must, exact), decode(second.snapshot.facts))
+        assertEquals(setOf(must), decode(first.snapshot.facts), "An old update keeps its immutable value")
+        assertNull(accumulator.add(ref, Layer.NORMAL, mixed))
+
+        val exactGroup = assertNotNull(accumulator.add(ref, Layer.NORMAL, typed(exact)))
+        assertTrue(first.handle != exactGroup.handle, "The Empty-E group is a separate admitted input")
+        assertEquals(2, accumulator.size)
+        assertEquals(setOf(must, exact), decode(accumulator.snapshot(first.handle).facts))
+        assertEquals(setOf(exact), decode(accumulator.snapshot(exactGroup.handle).facts))
+    }
+
+    @Test
+    fun `indexed wrapper preserves cumulative must annotations after exact-only growth`(): Unit {
+        val store = AddedFactStore(m)
+        val ref = caller()
+        val must = pattern(p(), Tail.ANY_TAINT, exclusion = ex(g))
+        val exact = pattern(p(f), Tail.EXACT, mu)
+        assertNotNull(store.add(ref, Layer.NORMAL, typed(must)))
+        assertEquals(setOf(exact), decode(assertNotNull(store.add(ref, Layer.NORMAL, taint(listOf(must, exact), ex(g))))))
+        assertEquals(setOf(Link(must, Layer.NORMAL, ref), Link(exact, Layer.NORMAL, ref)), store.links().toSet())
+        assertEquals(setOf(Link(must, Layer.NORMAL, ref), Link(exact, Layer.NORMAL, ref)),
+            store.overlapping(x, m.path(p(f))).toSet())
+        assertEquals(setOf(Link(must, Layer.NORMAL, ref)), store.overlapping(x, m.path(p(h))).toSet())
     }
 
     @Test
@@ -208,7 +247,7 @@ class AddedFactStoreTest {
         val any = sortedSetOf<Int>()
         val children = sortedMapOf<Int, Prefix>()
     }
-    private fun taint(leaves: List<Pattern>): TaintTree {
+    private fun taint(leaves: List<Pattern>, exclusion: ExclusionSet = ExclusionSet.Empty): TaintTree {
         val root = Prefix()
         for (leaf in leaves) {
             var at = root
@@ -218,7 +257,7 @@ class AddedFactStoreTest {
         }
         fun build(at: Prefix): TaintNode = m.taintAlg.node(m.taintLeaves(MarkSet(at.exact.toIntArray()), MarkSet(at.any.toIntArray())),
             at.children.keys.toIntArray(), at.children.values.map(::build).toTypedArray())
-        return m.taintTree(x, Layer.NORMAL, build(root))
+        return m.taintTree(x, Layer.NORMAL, build(root), exclusion)
     }
     private fun decode(facts: Facts): Set<Pattern> {
         val result = LinkedHashSet<Pattern>()
