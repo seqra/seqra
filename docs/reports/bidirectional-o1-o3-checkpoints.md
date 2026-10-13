@@ -91,6 +91,17 @@ sizes. Source-specific MAT queries must distinguish strong cached forms, current
 compiled conditions, provider data and IR owners. O3/O1 caches use alternating forward/reverse
 entries in `Object[]`; current O2 slot and soft-payload queries do not apply to them.
 
+The first O3 OWASP overview has 28 successful queries. MAT indexes 293,368,874 reachable objects with
+7,734,079,192 shallow bytes, after removing 28,561 unreachable objects. It uses no object-discard
+options. Strong cache arrays retain 6,222,787,016 bytes; compiled forms retain 6,220,162,152 bytes;
+source/sink cube roots retain 5,279,227,672 bytes. These sets overlap and cannot be added. Method
+entries alone retain 6,400,972,072 bytes. The complete census has 18,460,694 sink descriptors,
+55,543,007 path facts and 52,406,657 patterns. In comparison, active method-edge stores retain
+11,477,600 bytes and event queues retain 682,312 bytes. All 6,345 actors are active F1 actors in
+nine open runners. This snapshot identifies compiled cached forms as the dominant owner at O3;
+fresh child/strong-path queries must still identify the largest methods and condition expansions.
+It is not a before/after heap saving because the O1 and final runs reach different progress points.
+
 Continuous JFR files exist for all eight runs. Each requested the normal profile window; O3 OWASP's
 profiler returns 1 as the process finishes. Captures still need phase/window validation and CPU,
 allocation and GC review. No run reaches its configured near-limit window. Counter fields absent

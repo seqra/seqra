@@ -62,7 +62,8 @@ internal partition behind each duplicate remains unproved. Do not infer one resu
 The driver stops with `COMPLETE / STOP_RULE`. This proves completion within the fixed IFDS budget. It does not
 show a speed improvement over main. RSS includes native memory and is not the live Java heap. Neither memory
 guard nor JVM OOME fired, so no guard heap dump was needed in this pair. The separate live-heap measurement
-below supplements this pair. Checkpoint attribution remains open.
+below supplements this pair. All eight [checkpoint scans](../bidirectional-o1-o3-checkpoints.md) have
+finished; their heap and profile attribution remains under review.
 
 The final optional counters record 884,662 successful forward builds, 308,762 reverse builds and 71,103,285
 hits from 71,987,947 accesses. Aggregate build time is 199.603 seconds across builds; it is not an exclusive wall
@@ -135,9 +136,36 @@ share this compiled representation; the predicate count is not a count of sink c
 
 Each row sums shallow bytes in one requested retained set. These sets overlap and cannot be added.
 The compact-container row includes referenced graphs; it is not exclusive container overhead or an O3
-saving. Strong and all-reference paths are prepared separately to distinguish managed cache reachability
-from active callback pins. This warm heap does not yet prove how much cache memory is exclusively reclaimable,
-or establish a peak-heap or main-versus-bidi memory saving. IR changes remain outside scope.
+saving. This warm heap does not establish a peak-heap or main-versus-bidi memory saving. IR changes remain
+outside scope.
+
+The owner follow-up measures a complete cached-payload retained union of 3,307,810,712 bytes. The wrapper
+union is 3,319,325,960 bytes and agrees with the initial soft-reference dominator group. These unions
+overlap; do not add them. The payload-root set contains all 287,882 payload objects, while the wrapper
+set contains 287,881. One 32-byte payload has another owner. One active callback pin is recorded at the
+capture, but these queries do not identify that payload's exact root. Neither union is a guaranteed
+cleanup recovery estimate.
+
+Three payloads selected from the earlier 1,000-row prefix have no default strong path to a GC root.
+Their all-reference paths go through `SoftReference.referent`, the wrapper registry and the form
+manager. Each has a forward call plan and no backward form. The registry itself retains 4,194,408 bytes.
+A strongly held registry keeps its wrappers; its links to these payloads are soft. These three examples
+show no unintended strong form owner, but do not prove the same result for every cached payload.
+
+All 12,083 actors are current F1/limit-1 actors with nonnull runners, contexts and work stores. They
+belong to nine runners. The largest active runner retains 280,574,888 bytes. A selected predicate store
+retains 259,648 bytes through an active actor and worker. Method entries retain 339,435,272 bytes through
+the interpreter and main thread. These are expected active or persistent owners, with overlapping
+graphs. They do not show actors retained from a completed run.
+
+The initial follow-up accounts for all 30 requests: 28 succeed and two scoped address comparisons fail
+to parse. A separate two-query correction preserves both selections with decimal long address literals.
+Both corrected queries succeed and measure 48,292 caches under the form manager and 287,882 soft references
+under its queue. All 30 unique requests are now fulfilled through 32 executions; the original failures
+remain in the evidence. The complete initial census and manager fields independently establish 287,882
+nonnull cached slots and 287,882 registered form wrappers. The other three reference managers are enabled
+with no registered wrappers. The heap-wide soft-reference count is 373,022, so not every soft reference
+belongs to the form cache.
 
 ## Evidence
 
@@ -152,7 +180,14 @@ The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
 - `live-heap-replay`: separate actual run/capture manifests, native process evidence and unchanged strict
   findings. Capture times and CPU windows do not replace the primary pair.
 - `heap-analysis/OWASP-live`: bound snapshot, actual MAT commands, archived results and saved-output
-  review; `warm-owners1.xml` is the prepared strong-owner follow-up.
+  reviews. `warm-owner-review` contains the measured cache paths, actor lifecycle, complete retained
+  unions and original query failures; `warm-fix2.xml` preserves the two corrected selections.
 
-The remaining work is warm-cache strong-owner analysis and the O3/O1 checkpoint runs. IR storage and O4–O12 remain
-outside the selected implementation.
+The O1 checkpoint completes OWASP with a strong form cache and the same 4,112 unique identities and
+9,179 occurrences as the final run. O3 fails in F1. Its parsed guard heap has 7,734,079,192 reachable
+shallow bytes. Strong cache arrays retain an overlapping 6,222,787,016-byte set, and materialized
+source/sink cube roots retain 5,279,227,672 bytes. The census contains 18,460,694 sink descriptors and
+55,543,007 path facts. This identifies compiled cached forms as the dominant O3 memory owner.
+These two captures have different progress points, so they do not measure a paired heap saving.
+The final OWASP resource pass cannot be assigned to O2 alone. Checkpoint owner details and profile
+attribution remain open. IR storage and O4–O12 remain outside the selected implementation.
