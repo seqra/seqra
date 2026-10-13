@@ -5,6 +5,7 @@ import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.store.AddedFactStore
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.ConjunctionStore
+import org.opentaint.dataflow.bidi.store.NdBinding
 import org.opentaint.dataflow.bidi.store.Record
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -308,29 +309,33 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         check(core.forward) { "Backward transfer has no conjunctive summaries" }
         check(!part.zeroOnly && part.added !is Reach && !premise.member(member).isZero)
         val conclusion = checkNotNull(pub.conclusion as? TaintTree) { "A multi-premise publication is TAINT" }
+        val matched = matches(part, pub, member, core.ops, core.mode) ?: return
+        check(matched is TaintTree) { "An E6 member input is TAINT" }
+        check(part.linkLayer == matched.layer) { "The matched fact and link have the same layer" }
         val store = checkNotNull(core.localServices.conjunctions) { "Forward calls need their local conjunction store" }
-        val join = store.ndJoin<Subscription>(ConjunctionStore.NdKey(part.callee, premise, pub.layer, part.ref.call))
-        for ((parts, result) in join.addSubscription(member, part)) {
+        val join = store.ndJoin<NdBinding>(ConjunctionStore.NdKey(part.callee, premise, pub.layer, part.ref.call))
+        val binding = NdBinding(part.ref, matched.layer)
+        for ((parts, result) in join.addSubscription(member, binding)) {
             core.ap.cancellation.checkpoint()
-            applyCombination(parts, premise, result)
+            applyCombination(parts, result)
         }
         for ((parts, result) in join.addConclusion(conclusion)) {
             core.ap.cancellation.checkpoint()
-            applyCombination(parts, premise, result)
+            applyCombination(parts, result)
         }
     }
 
-    private fun applyCombination(parts: List<Subscription>, premise: PremiseSet, conclusion: TaintTree) {
+    private fun applyCombination(parts: List<NdBinding>, conclusion: TaintTree) {
         val core = active()
         var union = parts[0].ref.premise
-        val inputs = ArrayList<Pair<Facts, InitialAp>>(parts.size)
+        val layers = ArrayList<Layer>(parts.size)
         for (index in parts.indices) {
             core.ap.cancellation.checkpoint()
             if (index != 0) union = core.ap.union(union, parts[index].ref.premise)
-            inputs += parts[index].added to premise.member(index)
+            layers += parts[index].linkLayer
         }
         val results = ArrayList<PlanFact>()
-        core.ops.applyCombination(inputs, conclusion, core.mode, core.collect(union, conclusion) { pr, result ->
+        core.ops.applyMatchedCombination(layers, conclusion, core.collect(union, conclusion) { pr, result ->
             results += PlanFact(pr, result, false)
         })
         resumeCallees(parts[0].ref, results)

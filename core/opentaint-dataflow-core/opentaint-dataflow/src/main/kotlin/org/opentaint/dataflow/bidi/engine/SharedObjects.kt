@@ -37,6 +37,7 @@ class SharedObjects(
     val diagnostics: Boolean = false,
     val formStatistics: FormCacheStatistics? = null,
     val n1Statistics: N1Statistics? = if (java.lang.Boolean.getBoolean("org.opentaint.bidi.optimizationStatistics")) N1Statistics() else null,
+    val n2Statistics: N2Statistics? = if (java.lang.Boolean.getBoolean("org.opentaint.bidi.optimizationStatistics")) N2Statistics() else null,
 ) : AutoCloseable {
     @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
     val dispatcher: ExecutorCoroutineDispatcher = newFixedThreadPoolContext(threads, "bidi-worker")

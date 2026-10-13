@@ -45,6 +45,10 @@ class ApOps(val manager: ApManager) {
     fun applyCombination(parts: List<Pair<Facts, InitialAp>>, g: TaintTree, mode: ApMode, out: ApOut) =
         applyCombinationPart(manager, parts, g, mode, out)
 
+    /** Used only after E6's full matching and TAINT guards. Caller layers remain in the resume context. */
+    internal fun applyMatchedCombination(linkLayers: List<Layer>, g: TaintTree, out: ApOut) =
+        applyMatchedCombinationPart(manager, linkLayers, g, out)
+
     fun without(c: Facts, part: Facts): Facts? = withoutPart(manager, c, part)
     fun reverse(e: PathEdge): PathEdge? = revEdge(e)
     fun leaves(f: Facts): Sequence<Pattern> = leafViews(manager, f)

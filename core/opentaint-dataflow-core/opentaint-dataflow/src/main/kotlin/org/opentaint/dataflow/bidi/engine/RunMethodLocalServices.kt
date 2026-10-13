@@ -14,7 +14,7 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
     private var owner: RunMethodAnalyzer? = core
     private val requestStatistics = core.context.shared.n1Statistics
     private var requests: RequestStore? = if (core.config.run1) RequestStore(core.ap.cancellation, requestStatistics) else null
-    private var conjunctionStore: ConjunctionStore? = if (core.forward) ConjunctionStore(core.ap) else null
+    private var conjunctionStore: ConjunctionStore? = if (core.forward) ConjunctionStore(core.ap, core.context.shared.n2Statistics) else null
     private var predicateStore: RulePredicateStore? =
         if (core.forward) RulePredicateStore(core.ap, core.context.shared.formStatistics) else null
     override val conjunctions: ConjunctionStore? get() = conjunctionStore

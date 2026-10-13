@@ -7,6 +7,8 @@ import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
 import org.opentaint.dataflow.bidi.fixtures.QueuedProtocolSteps
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.store.CallerRef
+import org.opentaint.dataflow.bidi.store.ConjunctionStore
+import org.opentaint.dataflow.bidi.store.NdBinding
 import kotlin.test.*
 
 class NdJoinAdapterTest {
@@ -29,6 +31,70 @@ class NdJoinAdapterTest {
     private fun part(f: MethodAnalysisFixtures, callee: MethodKey, premise: PremiseKey, added: Facts,
                      call: Int = 1, caller: MethodKey = f.key, callerLayer: Layer = Layer.NORMAL): Subscription =
         Subscription(callee, CallerRef(caller, premise, callerLayer, f.inst(call)), added.layer, added)
+
+    @Test fun `matched root growth reuses E6 bindings while new full references and conclusions still transfer`(): Unit {
+        MethodAnalysisFixtures().use { f ->
+            val t = MarkSlot.Concrete(f.mark("T"))
+            val j1 = f.manager.initial(f.pattern(firstBase, mark = t))
+            val j2 = f.manager.initial(f.pattern(secondBase, mark = t))
+            val premise = assertIs<PremiseSet>(f.manager.union(j1, j2))
+            val callee = f.store.key(context = "callee")
+            f.call(1, plan(callee))
+            val actor = core(f)
+            val publication = Publication(premise, f.fact(result, mark = t))
+            val first = part(f, callee, j1, f.fact(firstBase, mark = t), callerLayer = Layer.DEMAND)
+            val second = part(f, callee, j2, f.fact(secondBase, mark = t))
+            actor.applySummary(first, publication, premise.members.indexOf(j1))
+            actor.applySummary(second, publication, premise.members.indexOf(j2))
+            f.drain(actor)
+            val join = assertNotNull(actor.localServices.conjunctions).ndJoin<NdBinding>(
+                ConjunctionStore.NdKey(callee, premise, publication.layer, first.ref.call))
+            assertEquals(2, join.memberCount)
+            assertEquals(1, join.combinationCount)
+            val cuts = f.cuts.count { it.first == Cut.CALL }
+            // Both roots match in run-1, but neither root contributes to combination transfer.
+            actor.applySummary(first.copy(added = f.fact(firstBase, listOf(f.field("later")), mark = t)),
+                publication, premise.members.indexOf(j1))
+            f.drain(actor)
+            assertEquals(2, join.memberCount)
+            assertEquals(1, join.combinationCount)
+            assertEquals(cuts, f.cuts.count { it.first == Cut.CALL })
+            val alternate = f.manager.initial(f.pattern(AccessPathBase.Argument(2), mark = t))
+            actor.applySummary(first.copy(ref = first.ref.copy(premise = alternate)), publication,
+                premise.members.indexOf(j1))
+            f.drain(actor)
+            assertEquals(3, join.memberCount)
+            assertEquals(2, join.combinationCount)
+            val grown = Publication(premise, f.fact(result, listOf(f.field("returned")), mark = t))
+            actor.applySummary(first, grown, premise.members.indexOf(j1))
+            f.drain(actor)
+            assertEquals(3, join.memberCount)
+            assertEquals(2, join.combinationCount)
+            val expectedPremises = setOf(premise, f.manager.union(alternate, j2))
+            assertEquals(expectedPremises, methodEntries(f.ops, actor.summaries.all()).map { it.first }.toSet())
+            assertTrue(methodEntries(f.ops, actor.summaries.all()).all { !it.second.demand })
+            assertEquals(cuts + 3, f.cuts.count { it.first == Cut.CALL })
+        }
+    }
+
+    @Test fun `nonmatching direct E6 input cannot become a normalized member binding`(): Unit {
+        MethodAnalysisFixtures().use { f ->
+            val j1 = f.manager.initial(f.pattern(firstBase))
+            val j2 = f.manager.initial(f.pattern(secondBase))
+            val premise = assertIs<PremiseSet>(f.manager.union(j1, j2))
+            val callee = f.store.key(context = "callee")
+            f.call(1, plan(callee))
+            val actor = core(f)
+            val publication = Publication(premise, f.fact(result))
+            actor.applySummary(part(f, callee, j1, f.fact(AccessPathBase.Argument(9))), publication,
+                premise.members.indexOf(j1))
+            actor.applySummary(part(f, callee, j2, f.fact(secondBase)), publication,
+                premise.members.indexOf(j2))
+            f.drain(actor)
+            assertTrue(actor.summaries.all().none())
+            assertTrue(f.cuts.none { it.first == Cut.CALL })
+        }
+    }
 
     @Test fun `actual E6 adapter waits for every member in either order and uses the shared local conjunction store`(): Unit {
         for (reverse in listOf(false, true)) MethodAnalysisFixtures().use { f ->

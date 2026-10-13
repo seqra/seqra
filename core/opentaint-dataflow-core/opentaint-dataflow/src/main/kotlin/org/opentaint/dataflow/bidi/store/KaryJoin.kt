@@ -8,6 +8,8 @@ class KaryJoin<T : Any>(val arity: Int, private val cancellation: Cancellation? 
     private val slots = Array(arity) { LinkedHashSet<T>() }
     private var missing = arity
 
+    internal val memberCount: Int get() = slots.sumOf { it.size }
+
     fun add(slot: Int, value: T): List<List<T>> {
         cancellation?.checkpoint()
         require(slot in 0 until arity) { "A literal index must be within the join's arity" }

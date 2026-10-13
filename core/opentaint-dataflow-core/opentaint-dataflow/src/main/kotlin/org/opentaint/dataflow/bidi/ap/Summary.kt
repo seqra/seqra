@@ -185,11 +185,25 @@ internal fun applyCombinationPart(
 ) {
     manager.cancellation.checkpoint()
     check(parts.size >= 2)
-    var layer = g.layer
+    val layers = ArrayList<Layer>(parts.size)
     for ((part, _) in parts) {
         manager.cancellation.checkpoint()
         check(part is TaintTree)
-        if (part.layer == Layer.DEMAND) layer = Layer.DEMAND
+        layers += part.layer
+    }
+    applyMatchedCombinationPart(manager, layers, g, out)
+}
+
+/** E6's full member matcher has checked TAINT inputs. Their roots do not affect this transfer. */
+internal fun applyMatchedCombinationPart(
+    manager: ApManager, linkLayers: List<Layer>, g: TaintTree, out: ApOut,
+) {
+    manager.cancellation.checkpoint()
+    check(linkLayers.size >= 2)
+    var layer = g.layer
+    for (linkLayer in linkLayers) {
+        manager.cancellation.checkpoint()
+        if (linkLayer == Layer.DEMAND) layer = Layer.DEMAND
     }
     out.result(manager.taintTree(g.base, layer, g.root, g.exclusion))
 }

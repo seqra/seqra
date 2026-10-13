@@ -2,11 +2,15 @@ package org.opentaint.dataflow.bidi.store
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
+import org.opentaint.dataflow.bidi.engine.N2Statistics
 import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.Collections
 
+/** The semantic E6 member after full matching; no accepted Facts version is retained. */
+internal data class NdBinding(val ref: CallerRef, val linkLayer: Layer)
+
 /** Standing literal inputs for one method and run. One writer owns this store. */
-class ConjunctionStore(private val m: ApManager) {
+class ConjunctionStore(private val m: ApManager, private val statistics: N2Statistics? = null) {
     /** Facts already accepted by the literal; layer is the effective contribution layer. */
     data class Input(val premise: PremiseKey, val layer: Layer, val facts: Facts? = null)
     class Combination(val premise: PremiseKey, val layer: Layer, val inputs: List<Input>)
@@ -49,21 +53,29 @@ class ConjunctionStore(private val m: ApManager) {
     @Suppress("UNCHECKED_CAST")
     fun <S : Any> ndJoin(key: NdKey): NdSummaryJoin<S> {
         m.cancellation.checkpoint()
-        return ndJoins.getOrPut(key) { NdSummaryJoin<S>(m, key.premise.size) } as NdSummaryJoin<S>
+        return ndJoins.getOrPut(key) { NdSummaryJoin<S>(m, key.premise.size, statistics) } as NdSummaryJoin<S>
     }
 }
 
 /** E6 keeps every full member combination and growing TAINT conclusions. Matching is caller-owned. */
-class NdSummaryJoin<S : Any>(private val m: ApManager, arity: Int) {
+class NdSummaryJoin<S : Any>(private val m: ApManager, arity: Int, private val statistics: N2Statistics? = null) {
     private val members = KaryJoin<S>(arity, m.cancellation)
     private val full = ArrayList<List<S>>()
     private val interners = m.newInterners()
     private val conclusion = HashMap<AccessPathBase, TaintGroup>(2)
 
+    internal val memberCount: Int get() = members.memberCount
+    internal val combinationCount: Int get() = full.size
+
     /** Put a subscription under every member index it satisfies; new combinations meet all stored values. */
     fun addSubscription(index: Int, s: S): List<Pair<List<S>, TaintTree>> {
         m.cancellation.checkpoint()
+        val previousMembers = if (statistics != null) members.memberCount else 0
         val fresh = members.add(index, s)
+        statistics?.let {
+            val newBindings = members.memberCount - previousMembers
+            it.recordE6(newBindings, 1 - newBindings, fresh.size)
+        }
         val out = ArrayList<Pair<List<S>, TaintTree>>()
         for (inputs in fresh) {
             m.cancellation.checkpoint()
