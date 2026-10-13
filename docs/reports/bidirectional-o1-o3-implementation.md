@@ -1,6 +1,6 @@
 # O1–O3 implementation and test record
 
-Status: core implementation verified. Fresh fixed-project scans and resource gates are pending.
+Status: core implementation verified. Fresh fixed-project scans are in progress; resource gates remain open.
 The selected scope is the [implementation plan](../design/bidirectional-o1-o3-implementation-plan.md).
 IR storage and O4–O12 are outside this work.
 
@@ -113,5 +113,9 @@ Run OWASP, Conductor, ThingsBoard and Stirling-PDF through `runProjectAnalyzer`.
 heaps and time limits. For each project, record strict finding-location comparison, each iteration time,
 OOM/timeout status, CPU profiles and any OOM memory snapshot. Explain each missing baseline finding and each
 remaining large memory owner. The fresh [OWASP pair](bidirectional-o1-o3-projects/OWASP.md) completed within
-the fixed budget and retained all 4,112 main sink identities. Conductor is running; ThingsBoard, Stirling-PDF,
-per-optimization attribution and separate heap-owner diagnostics remain pending.
+the fixed budget and retained all 4,112 main sink identities. The fresh
+[Conductor pair](bidirectional-o1-o3-projects/conductor.md) retained all seven main sink identities, but
+the backward run at limit 2 stopped on the memory guard. Its 293 added sink identities are from an
+incomplete refinement; they are not final false-positive counts. The guard saved an 11.7 GB heap snapshot
+before cancellation. ThingsBoard and Stirling-PDF scans, per-optimization attribution and heap-owner
+diagnostics remain pending. The Conductor resource gate has not passed.
