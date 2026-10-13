@@ -61,11 +61,12 @@ func extract(dir string) ([]usage, error) {
 	for _, pkg := range loaded {
 		for _, file := range pkg.Syntax {
 			ast.Inspect(file, func(node ast.Node) bool {
-				call, ok := node.(*ast.CallExpr)
+				expr, ok := node.(ast.Expr)
 				if !ok {
 					return true
 				}
-				fn := calledFunction(call.Fun, pkg.TypesInfo)
+				// Include references passed, stored, or called through function values.
+				fn := referencedFunction(expr, pkg.TypesInfo)
 				if fn == nil || fn.Pkg() == nil {
 					return true
 				}
@@ -95,14 +96,14 @@ func extract(dir string) ([]usage, error) {
 	return rows, nil
 }
 
-func calledFunction(expr ast.Expr, info *types.Info) *types.Func {
+func referencedFunction(expr ast.Expr, info *types.Info) *types.Func {
 	switch value := expr.(type) {
 	case *ast.ParenExpr:
-		return calledFunction(value.X, info)
+		return referencedFunction(value.X, info)
 	case *ast.IndexExpr:
-		return calledFunction(value.X, info)
+		return referencedFunction(value.X, info)
 	case *ast.IndexListExpr:
-		return calledFunction(value.X, info)
+		return referencedFunction(value.X, info)
 	case *ast.Ident:
 		fn, _ := info.Uses[value].(*types.Func)
 		return fn

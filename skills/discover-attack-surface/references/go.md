@@ -13,6 +13,8 @@ Built-in Go source rules are in `go/lib/` under the rules root from `opentaint h
 - The signature is `args:<count>`. It is the number of explicit function arguments. A receiver is not an explicit argument.
 - Copy the method and signature to the source tracking unit without a change.
 
+Discovery includes typed function and method references used as values, including assigned functions, callbacks and bound methods. This is conservative: a reference can appear in a plan even when it is never invoked. Classify the actual boundary behavior from the source rather than assuming that every planned member executes.
+
 Use `go list -m -json all` in the project to find the module path, version, replacement, and source directory. Use `go doc <import-path>.<name>` for public API text. Read the dependency source in the module directory when the API text is not sufficient.
 
 ### 3. Write the source units

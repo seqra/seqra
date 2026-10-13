@@ -79,6 +79,6 @@ This skill appends each method whose sample passes to `build.done` as `{ method,
 
 OpenTaint is a whole-program, interprocedural, field-sensitive alias analysis engine. It already propagates through visible application code, calls, aliases, and individual fields; custom rules and approximations model only the assigned source, sink, or opaque-method boundary. Compile-time constants and literals carry no taint, so a source or carrier whose output is only a constant introduces nothing.
 
-- Verify only with the approximation test on the test project
+- Verify only with the model test command in the language reference on the fixed test project
 - The test project's sample sources are a fixed input — never edit or recompile them to force a pass; if a faithful model can't pass, leave the method out and report it (per Output)
 - Model every dataflow method and overload the batch lists, not only the ones you have a sample for

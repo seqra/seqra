@@ -233,7 +233,7 @@ Rule and approximation test runs write `test-result.json` and `test-results.sari
 
 ### opentaint compile
 
-Compiles Java and Kotlin projects and generates project models for analysis. Useful when you want to separate compilation from scanning or need to inspect the project model.
+Compiles Java and Kotlin projects and generates project models for analysis. For Go modules and workspaces, it writes a project model pointing to the source directory; Go sources are loaded at analysis time. Useful when you want to separate project preparation from scanning or need to inspect the project model.
 
 ```bash
 opentaint compile --output ./my-project-model /path/to/project
@@ -285,7 +285,7 @@ If you run `approximation init` again, it keeps the model sources. It replaces `
 | Command | Description |
 |---------|-------------|
 | `opentaint approximation init <output-dir> --language LANGUAGE` | Create a dataflow approximation project |
-| `opentaint compile approximations <approximation-project>` | Compile a Java dataflow approximation project |
+| `opentaint compile approximations <approximation-project>` | Compile a Java model project; Go models load from source via `--go-models` |
 
 | Flag | Description |
 |------|-------------|
@@ -294,6 +294,8 @@ If you run `approximation init` again, it keeps the model sources. It replaces `
 | `--output`, `-o` | Path to the compiled models (default: `<approximation-project>/.opentaint/build`, `compile approximations` only) |
 
 Java compilation before a scan is optional. Scanning and testing build Java projects when needed. Go models are source modules. Do not run `compile approximations` for a Go model.
+
+The bundled `test approximation init` scaffold and `test approximation run` harness currently target Java. For Go model tests, create a Go sample module with an explicit Go source-to-sink harness and `rule-test.yaml`, prepare it with `opentaint compile`, then run `opentaint test rule run <project-model> --ruleset <go-test-rules> --go-models <model-module>`. See [the Go test-project reference](../skills/create-test-project/references/go-approximation.md) for the complete layout. Go test models point to live sample sources; keep those sources fixed while repairing models.
 
 ### opentaint summary
 
