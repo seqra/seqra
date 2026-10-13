@@ -969,52 +969,58 @@ immutable snapshot that the writer publishes with a volatile write.
 One `SubscriptionManager` per runner. Per callee, it keeps the subscriptions of the unit in a path trie keyed by
 `base :: added fact path` (`ap.md` §8.4).
 
+The N2 representation stores one cumulative entry per full caller reference and admitted conclusion group.
+Its immutable Facts contain every accepted leaf for that key. A stable handle occurs once at each relevant
+index position. There is no permanent list or index of historical delta parts. The admitted key is taken
+from the incoming group, not from the fresh delta: a must group with nonempty E can grow an exact-only
+delta whose normalized E is Empty. Zero-only subscriptions keep their separate full-reference, first-wins rule.
+
+`CalleeSubscriptions.add` returns a fresh immutable Subscription delta for replay, or null on no growth.
+Replay captures this delta when it is admitted. A delayed replay must not read a later cumulative value.
+Delivery snapshots the current candidate values before any application callback. It selects each candidate
+with the same full `matches` operation as replay. A callback can add a subscription; that new growth has
+its own registered replay and cannot depend on a live candidate iterator.
+
 ```kotlin
-class SubscriptionManager(private val runner: UnitRunner, private val config: RunConfig) {
-    private val byCallee = HashMap<MethodKey, CalleeSubscriptions>()       // runner-local (O3)
-
-    /** §4.5 SUBSCRIBE. */
-    fun subscribe(sub: Subscription) {
-        val storage = runner.summaryStorage(sub.callee)                    // O2: any unit
-        val entry = byCallee.getOrPut(sub.callee) {
-            CalleeSubscriptions().also { storage.addSubscriber(this) }       // P1: register the handler first
-        }
-        if (!entry.add(sub)) return                                          // an equal subscription: no replay
-        val analyzer = runner.analyzer(sub.caller)
-        for (pub in storage.candidates(sub.addedFact, config))               // P1: read after the registration; P3
-            if (matches(sub, pub, config)) analyzer.applySummary(sub, pub)   // P4
-        if (sub.zeroOnly) return
-        val a = sub.addedFact
-        for (rec in config.records.byEntry(sub.callee, a))                   // records: read-only (A4); `around`
-            if (rec.direction == config.direction && recordApplies(rec.premise.toPattern(), a))
-                analyzer.applyRecord(sub, rec)
-        for (rec in config.records.byExit(sub.callee, a))                    // the other direction (ap.md §8.7 R3)
-            if (rec.direction != config.direction)
-                for (rev in rec.reversedAt(a))                               // one reversal per leaf that byExit returns
-                    if (recordApplies(rev.premise, a)) analyzer.applyRecordView(sub, rev)
+// SubscriptionManager excerpts. active(), byCallee and replayRecords are its owner/read helpers.
+fun subscribe(sub: Subscription) {
+    val port = active()
+    val storage = port.summaryStorage(sub.callee)
+    val entry = byCallee.getOrPut(sub.callee) {
+        CalleeSubscriptions(port.ops).also { storage.addSubscriber(this) }   // P1: register first
     }
-
-    /** The notification of a callee storage: one Delivery event to the channel of this runner. */
-    fun notify(callee: MethodKey, pubs: List<Publication>) = runner.send(Delivery(callee, pubs))
-
-    /** The handler of a Delivery. P6: match against the subscriptions NOW. */
-    fun onDelivery(callee: MethodKey, pubs: List<Publication>) {
-        val entry = byCallee[callee] ?: return
-        for (pub in pubs)
-            for (sub in entry.candidates(pub, config))                       // complete for `matches`
-                if (matches(sub, pub, config)) runner.analyzer(sub.caller).applySummary(sub, pub)  // P4
-    }
+    val fresh = entry.add(sub) ?: return
+    port.steps.replay { replay(storage, fresh) }                            // retain this immutable delta
 }
 
-/** P4: the ONE match function of the replay and of the delivery (ap.md §4.3). */
-fun matches(sub: Subscription, pub: Publication, config: RunConfig): Boolean {
-    val premise = pub.premise                                                // PremiseKey, ap.md §7.1
-    if (sub.zeroOnly) return premise.isZero                                  // backward rule zret: no test
-    return (0 until premise.size).any { k ->                                 // one member; several members: §5.4
-        satisfies(premise.member(k).toPattern(), sub.addedFact, config.restricted)   // ap.md §6.3 `satisfies`:
-        // restricted: canonical FLOW uses overlap; other FLOW retains inside/applicable; concrete uses inside
-    }
+private fun replay(storage: SummaryStorage, fresh: Subscription) {
+    val port = active()
+    for ((pub, member) in storage.candidates(fresh, port.config.mode))       // P3
+        applyMatch(fresh, pub, member)
+    if (!fresh.zeroOnly && port.config.restricted) replayRecords(fresh)     // R3/R4: previous-run native/view reads
 }
+
+fun notify(callee: MethodKey, pubs: List<Publication>): Boolean =
+    active().post(RunEvent.Delivery(callee, pubs))                            // no caller-state read here
+
+fun onDelivery(callee: MethodKey, pubs: List<Publication>) {
+    val port = active()
+    val entry = byCallee[callee] ?: return
+    for (pub in pubs) for (member in 0 until pub.premise.size)
+        for (part in entry.candidates(pub, member, port.config.mode))        // owned cumulative snapshot, P6
+            applyMatch(part, pub, member)
+}
+
+private fun applyMatch(part: Subscription, pub: Publication, member: Int) {
+    val port = active()
+    val selected = matches(part, pub, member, port.ops, port.config.mode) ?: return
+    port.applier(part.caller).applySummary(part.copy(added = selected), pub, member)
+}
+
+/** P4: replay and delivery use the same complete selected-Facts operation. */
+fun matches(sub: Subscription, pub: Publication, member: Int, ops: ApOps, mode: ApMode): Facts? =
+    if (sub.zeroOnly) sub.added.takeIf { pub.premise.isZero }
+    else ops.satisfying(sub.added, pub.premise.member(member), mode)
 
 /** ap.md §8.7 R4, Lean `DR.retRec`: a record applies by `applicable` or by `inside`. A record with an `[any-taint]`
  *  premise that only `applicable` accepts gives its results in the demand layer (§4.2 `applyRecord`; Lean
@@ -1073,22 +1079,32 @@ Each lookup returns every entry that its exact test accepts (`PipelineStore.repl
 contains every accepted entry, including the canonical overlap branch. Both paths then call `matches`; the
 candidate queries stay unchanged.
 
-The subscription insert deduplicates exactly. It never drops a subscription that a stored subscription subsumes.
+The subscription insert deduplicates exactly. It never drops an accepted logical leaf because a stored leaf subsumes it.
 Reason: the run-1 test is not monotone in the added fact (a fact above `j` does not satisfy `j`). So a subsumed
 subscription can match a publication that the stored one does not match. The same holds for the links.
+Cumulative storage is an exact leaf union inside one full admitted key; it does not use spatial subsumption
+or annotation folding to remove a subscription.
+
+P5 is defined on decoded logical subscriptions, not on delta object identity. Each accepted leaf remains in
+its full-key cumulative entry until run release. A transient replay delta can be released after replay.
+[CumulativeSubscriptions.lean](lean/ApSpec/CumulativeSubscriptions.lean) proves the exact accepted-leaf
+encoding after finite growth, logical persistence, fresh-delta union and position/effect lifting. The old
+`Pipeline` definitions remain the reference logical protocol. Instantiating its no-loss theorem with the
+new storage also needs the current AP selection/transfer law. The generic lifting theorem exposes this
+condition; it does not prove it for every current AP shape or certify whole-engine closure.
 
 THE PROTOCOL CONDITIONS. The model step `Step` (§5.5) builds in P1 to P6, A3 and the exact part of E-3 (the
 subsumption part is `Pipeline.StepD`, §5.5). P1 to P4 are necessary: each has a counterexample in
 `PipelineProofs.lean`, a reachable quiescent state that misses an object of the closure.
 
-| # | Condition | Today | In the model |
+| # | Condition | Current implementation | In the model |
 |---|---|---|---|
 | P1 | REGISTER BEFORE READ: the subscriber registers its handler on the storage before the replay read. | yes (the first `getOrPut` registers) | `proc`; counterexample `PCex.cex_P1` |
-| P2 | INSERT BEFORE NOTIFY: the publisher inserts the publication before it reads the handler list. | yes (`addEdges`) | `proc`, `notify`; counterexample `PCex.cex_P2` |
-| P3 | LINEARIZABLE READ: the replay read sees every publication whose insert came before it (A2). | not formally (no lock on the read) | `replay`; counterexample `PCex.cex_P3` |
-| P4 | ONE MATCH FUNCTION: the replay and the delivery use the same exact test on complete candidate sets. | no (Appendix A) | `replay`, `deliver` both use `join`; counterexample `PCex.cex_P4` |
-| P5 | NO REMOVAL: a handler, a subscription and a stored publication stay until the run ends. | yes (`cleanup` runs after the run) | built in: no step removes them |
-| P6 | MATCH AT DELIVERY: a delivery matches against the subscriptions of the runner when the runner handles it. | yes (`processMethodSummary`) | `deliver`. The no-loss theorem would also hold with a match at notification time. The code needs P6 because the subscriptions are local to their runner (O3). |
+| P2 | INSERT BEFORE NOTIFY: the publisher inserts the publication before it reads the handler list. | yes (`SummaryStorage.publish`) | `proc`, `notify`; counterexample `PCex.cex_P2` |
+| P3 | LINEARIZABLE READ: the replay read sees every publication whose insert came before it (A2). | read and publication insertion use the same `SummaryStorage` lock | `replay`; counterexample `PCex.cex_P3` |
+| P4 | ONE MATCH FUNCTION: the replay and the delivery use the same exact test on complete candidate sets. | shared `matches`; cumulative candidates are captured before callbacks | `replay`, `deliver` both use `join`; counterexample `PCex.cex_P4` |
+| P5 | LOGICAL NO REMOVAL: handler registration, accepted subscription leaves under their full keys, and the stored publication denotation stay until the run ends. Historical subscription delta objects may be released. | cumulative subscriptions retain exact accepted leaves; teardown is after join | reference `Step` has no logical removal; `CumulativeSubscriptions.growth_trace_encodes` and `accepted_persists` establish the cumulative subscription representation |
+| P6 | MATCH AT DELIVERY: a delivery matches against the subscriptions of the runner when the runner handles it. | yes (`SubscriptionManager.onDelivery`) | `deliver`. The no-loss theorem would also hold with a match at notification time. The code needs P6 because the subscriptions are local to their runner (O3). |
 
 ### 5.4 Summaries with several premises (E6)
 
@@ -1096,19 +1112,34 @@ A publication `{j1, …, jk} → g` (`ap.md` §4.6) reaches the caller by the re
 publication. It can be NORMAL or DEMAND. The caller combines it in its conjunction store (`ap.md` §8.9):
 
 * Key: (callee, premise key, layer of the publication, call statement). Value: the merged conclusion that has arrived
-  so far, and per premise index `m` the subscriptions at that call statement whose added fact satisfies `jm`.
-* A subscription goes under EVERY index that it satisfies. No member is the zero fact (`ap.md` §4.6: a conjunction
+  so far, and per premise index `m` the checked bindings at that call statement whose added fact satisfies `jm`.
+  A binding is `(full CallerRef, linkLayer)`; it contains no matched root or cumulative Facts version.
+* Create a binding only after full `matches`, the nonzero-member guard and the TAINT-input guard. It goes under
+  EVERY index that the input satisfies. No member is the zero fact (`ap.md` §4.6: a conjunction
   drops the zero fact), so the zero subscription never takes part (`PipelineNDZ.clDNz_ndpub_no_zero`,
   `clDNz_ndpub_zero_sub`; run 1; a restricted run is argued, `ap.md` §11.2). The backward run has no summary with several
   premises: it reverses a conjunction into one micro edge per literal, with every result in the demand layer
   (`ap.md` §9.1, §9.2; §4.3 THE REVERSAL OF A CONJUNCTION).
-* A new subscription under an index: combine it with the stored subscriptions of the other indexes (one per index,
+* A new binding under an index: combine it with the stored bindings of the other indexes (one per index,
   every combination), and apply the stored conclusion to each full combination.
 * A new conclusion delta: apply it to every full combination.
 
 The combination is NORMAL if the publication and every participating added fact on its link are NORMAL;
 otherwise it is DEMAND. The binding back and field limit then apply as usual. Several premises do not force DEMAND,
 and selecting the publication for the next-run hand-off does not change its layer (`ap.md` §8.5).
+
+Union all full caller premise keys and keep the ordered binding references for resume/support scope. The result
+layer joins publication and link layers. `CallerRef.callerLayer` remains in the full reference and resume
+context; it is not a contribution to this AP layer join. W7 makes the target uncorrelated, so successfully
+matched input roots do not affect this transfer. Canonical result construction still applies W8's demand
+normalization and clears E as required. Do not use this projection before matching or in source/sink joins,
+which can retain matched facts for different purposes.
+
+`CumulativeSubscriptions.projected_choices` proves the ordered Cartesian binding quotient in both
+directions. `combination_effects_quotient` preserves every full ordered combination effect;
+`combination_root_insensitive` proves equal output descriptors for equal checked bindings. These are local
+representation results. They retain all conclusion growth, full contexts, caller premise keys, layers,
+call sites and member slots. They do not prove the current AP matcher or whole pipeline instance.
 
 The key does not contain the conclusion. So a combination meets every delta of the conclusion, in any order of the
 replays and the deliveries. Both sides of this join are in the caller.

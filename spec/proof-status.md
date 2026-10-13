@@ -65,6 +65,17 @@ they are not an integrated current closure/iteration theorem.
 | Root EXACT cleaner produces the coarse demand link and preserves the precise descendant in the DLINK fixture | [CurrentDemandLink.lean](lean/ApSpec/CurrentDemandLink.lean): `precise_descendant_disjoint`, `Certificate.check` | Actual annotated read, binding, cut, concrete emission and cleaner vectors at limits 2–5. Local fact trace only; no CFG, source-hit, hand-off or full five-run confirmation theorem. A named field cleaner uses F74 lowering and cannot supply this demotion fixture. |
 | Alias selection accepts every demand-layer result and skips only normal identity results | [CurrentAliasGuard.lean](lean/ApSpec/CurrentAliasGuard.lean): `demand_passes`, `normal_identity_skips`, `selection_iff` | Local origin/layer guard used by the engine and form reference. Computed regression retains demand default identity and constructor results. Does not prove alias analysis or the whole call plan. |
 | Restricted runs have no request objects | `Current.FC_no_req`, `BC_no_req` | By closure definition, not by concreteness. Abstract facts can occur. |
+| Cumulative subscription storage preserves logical P5 and the checked E6 binding quotient | [CumulativeSubscriptions.lean](lean/ApSpec/CumulativeSubscriptions.lean): `grow_encodes`, `growth_trace_encodes`, `accepted_persists`, `fresh_delta_union`, `index_refines`, `effects_refine`, `projected_choices`, `combination_root_insensitive`, `combination_effects_quotient`, `normal_result` | Constructive exact accepted-leaf encoding per full admitted key, finite growth and position/effect lifting; proof history is ghost data, not a retained runtime list. Ordered E6 member projection preserves full references/link layers and every result descriptor after matching. Target denotes the pre-factory conclusion root; equal joined layers give equal canonical factory results. Does not prove the full current AP matcher/transfer distribution, protocol implementation simulation or whole-engine closure. |
+
+For N2, P5 means that accepted logical leaves remain under their full caller/group keys, even when transient
+replay delta objects are released. The admitted group is not reconstructed from a delta's normalized E.
+The independent cumulative fixtures compare raw accepted history with current candidate selection and
+summary transfer in run 1 and restricted modes, and compare ordered returned cleaners/aliases/cuts at
+positive limits 1, 2 and 3. These are bounded implementation checks. The remaining proof obligation is to
+instantiate `effects_refine` with every admitted current AP selector/transfer and to connect the cumulative
+encoding to the generic reliable-join protocol under re-entry, records/read views and full current forms.
+Existing base/concrete pipeline theorems do not discharge that obligation. N3 scheduler/accounting changes
+are deferred and are not part of this proof module.
 
 An existence result is not obtained by selecting data from a proposition. The
 certificates above compute the relevant AP function first and carry its proof.

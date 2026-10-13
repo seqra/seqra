@@ -112,3 +112,4 @@ import ApSpec.CurrentSimplifications
 import ApSpec.CurrentProposal
 import ApSpec.CurrentSummaryApplication
 import ApSpec.CurrentRecordTiming
+import ApSpec.CumulativeSubscriptions

@@ -1,6 +1,7 @@
-# N1 and N2: next optimization iteration
+# N1 and N2: implementation and validation plan
 
-Status: N1 and N2 selected for the next iteration; not implemented. N3 deferred. Date: 13 October 2026.
+Status: N1 and N2 implemented; common/JVM checks passed; fresh project checks pending. N3 deferred.
+Date: 13 October 2026. Runtime implementation ends at `314349718`.
 This proposal refines N1 and N2 in the [current memory proposal](bidirectional-core-optimization-20261013.md).
 The [N3 design](bidirectional-n3-deferred-proposal.md) is retained for future reconsideration if the queue pattern persists.
 The [analysis](bidirectional-n1-n3-analysis.md) explains why storage packing alone is insufficient.
@@ -13,7 +14,9 @@ Keep request transport, reservation accounting, runner scheduling and queue layo
 The changes preserve all logical requests, accepted subscription leaves and required analysis effects.
 They remove redundant subscription history, request storage objects and unsuccessful join scans.
 They do not merge caller contexts or cap valid state.
-No implementation, project run or new memory capture is part of this document change.
+This document records the approved design. Its descriptions of the old/current layout refer to the
+pre-iteration runtime below. The [implementation report](../reports/bidirectional-n1-n2-implementation-20261013.md)
+records the implementation commits, verified checks and pending project measurements.
 
 ## Behavior changes at a glance
 
@@ -32,9 +35,10 @@ implementation can be accepted; no measured saving or unchanged incomplete repor
 
 ## 1. Evidence and scope
 
-The current runtime is `38a400c0d`; the scan manifest revision is `bd6810823`. Commit `23f25e8a8` changes
+The pre-iteration measurement runtime is `38a400c0d`; the scan manifest revision is `bd6810823`. Commit `23f25e8a8` changes
 documentation only. The [rollback report](../reports/bidirectional-core-rollback-20261013.md) gives the
-reviewed evidence and the fixed project settings.
+reviewed historical evidence and the fixed project settings. These prior results are not the fresh release
+gate. The table gives the latest reached iterations of that prior batch; the new batch is pending.
 
 | Project | Latest reached iteration | Last complete engine | Last accepted forward report |
 | --- | --- | --- | --- |
@@ -344,5 +348,6 @@ A project reaching a later run is useful progress, but is not proof of lower byt
 trade-off in memory, allocation and service time. If large unique relations still dominate, use that evidence
 for a separate algorithm proposal instead of adding an unreviewed cap or cache.
 
-This proposal is ready for implementation review. Its algorithmic equivalence and resource gates remain
-open until the stages above are implemented and checked.
+The implementation and bounded equivalence checks are complete. The common/JVM suites and constructive
+Lean audit pass. Full current AP/protocol proofs retain the limits in `spec/proof-status.md`. Fresh fixed-project
+output, profile and memory checks remain open; no resource saving is certified before those measurements.

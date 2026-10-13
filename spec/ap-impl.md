@@ -1893,11 +1893,23 @@ Keep successful matching and the W7 concrete exact/any target; unmatched inputs 
  *  g has only exact/any tails (W7). The caller unions caller premise sets, binds the result back and cuts it. */
 fun ApOps.applyCombination(parts: List<Pair<Facts, InitialAp>>, g: TaintTree, mode: ApMode, out: ApOut) {
     check(parts.size >= 2 && parts.all { it.first is TaintTree })
-    val layer = if (g.layer == Layer.DEMAND || parts.any { it.first.layer == Layer.DEMAND })
-        Layer.DEMAND else Layer.NORMAL
+    applyMatchedCombination(parts.map { it.first.layer }, g, out)
+}
+
+/** Internal checked E6 transfer. Full matching and nonzero TAINT-member guards ran before binding projection. */
+internal fun ApOps.applyMatchedCombination(linkLayers: List<Layer>, g: TaintTree, out: ApOut) {
+    check(linkLayers.size >= 2)
+    val layer = if (g.layer == Layer.DEMAND || linkLayers.any { it == Layer.DEMAND }) Layer.DEMAND else Layer.NORMAL
     out.result(manager.taintTree(g.base, layer, g.root, g.exclusion))   // canonical factory clears E in DEMAND
 }
 ```
+
+The E6 member store uses `NdBinding(ref: CallerRef, linkLayer: Layer)` after successful full matching.
+Matched roots and immutable cumulative Facts versions are not part of its member identity. Full caller
+method/context, premise key, caller layer and call remain in `ref`; caller layer is not added to the AP result
+layer join. Keep the ordered member slots and every distinct binding combination. This projection does not
+apply to literal/source/sink joins that retain matched facts. `CumulativeSubscriptions.projected_choices`
+and `combination_effects_quotient` prove the local ordered quotient; the matcher is an explicit precondition.
 
 ### 5.5 `filter` and the mark policy (`ap.md` §4.8, `interpreter.md` §5.1)
 
@@ -3244,6 +3256,16 @@ driver computes at the barrier from the links (`analyzer-impl.md` §7.5).
 
 ### 7.5 `AddedFactStore`, `CallerRef`, `Link` (`ap.md` §8.3; DD4)
 
+N2 separates the exact accumulator from the positional link-store wrapper. `AddedFactAccumulator` keeps
+one immutable cumulative value per `(full CallerRef, admitted GroupKey)` and returns its stable handle,
+cumulative snapshot and fresh delta on growth. It has no path index. `AddedFactStore` wraps it with the
+position index needed by requests and Support. Its existing `add`, `overlapping` and `links` contracts remain.
+The following direct store form states those contracts; runtime accumulation is shared with subscriptions.
+
+Take the key from the admitted input, not from a normalized delta. An exact-only delta can have Empty E
+even when it belongs to a normal must group with nonempty E. A fresh exact leaf stays in that full group.
+No added-link subsumption or E/mark-exclusion fold is introduced by this split.
+
 ```kotlin
 /** E-2 of analyzer-core.md §5.1: the caller side of a link. */
 data class CallerRef(val caller: MethodKey, val premise: PremiseKey, val callerLayer: Layer, val call: CommonInst)
@@ -3523,6 +3545,12 @@ loss diagnostics in Lean are historical; they do not define current demand selec
 
 ### 7.9 `RequestStore`, `RequestKind` (`ap.md` §8.8)
 
+N1 stores the exact standing relation as grouped mark and position rows. A mark row owns one full origin
+InitialAp and its requested marks. A position row owns the full requested static path and each distinct
+origin. Index each row once. Preserve the raw pair relation and encounter order through the existing `add`
+and `overlapping` interfaces. The direct pair-store form below is a compatibility/reference specification.
+It is not a requirement to retain Pair/hash-entry objects in the grouped implementation.
+
 ```kotlin
 /** A request of run 1 (ap.md §4.5, §4.10). */
 sealed interface RequestKind {
@@ -3557,10 +3585,17 @@ class RequestStore {
 }
 ```
 
-Event E5/E7 (a new request) reads `AddedFactStore.overlapping(base, path)`; event E2 (a new link) reads
-`RequestStore.overlapping(leaf)` for each new leaf. `ApOps.requestAction` (§5.10) gives the action of each pair. The
-analyzer joins the pairs with `StandingJoin` (§7.10), with these two stores as its two sides (`analyzer-impl.md`
-§4.8).
+Event E5/E7 (a new request) reads `AddedFactStore.overlapping(base, path)`; event E2 (a new link) uses
+`RequestStore.visitActionCandidates(leaf, visit)` for each new leaf. For a concrete added mark T, probe T
+only; for an abstract added mark `*∖X`, skip requested marks in X. Position requests keep their separate
+geometry and are not filtered by the added mark. Every selected pair still passes full overlap and
+`ApOps.requestAction` (§5.10). Filtering may remove only pairs whose action is None. It is not a filter on
+F75 cleaner request production. Capture candidate buckets and insertion horizons before callbacks, so
+re-entry cannot add a request to an unvisited bucket in the same scan; the new-request path joins it independently.
+`ApOps.requestAction` (§5.10) gives the action of each pair. The runtime analyzer's local `RequestJoin`
+uses this visitor for new links and the selective existing-link scan for new requests. `StandingJoin`
+(§7.10) states the equivalent two-arrival-order rule; it is not a requirement to allocate request Pairs
+for the N1 hot path. Both stores remain actor-owned (`analyzer-impl.md` §4.8).
 
 ### 7.10 `KaryJoin`, `StandingJoin`, `ConjunctionStore`, `NdSummaryJoin` (`ap.md` §8.8, §8.9, `analyzer-core.md` §5.4)
 
@@ -3593,14 +3628,15 @@ class KaryJoin<T : Any>(val arity: Int) {
 | User | Slots | Input |
 |---|---|---|
 | `ConjunctionStore.add` (below) | one per literal of a conjunction (`ap.md` §4.6) or of a conjunctive sink (`ap.md` §4.9) | `Input(premise, layer, facts)` from `MarkCheck.Holds` |
-| `NdSummaryJoin` (below) | one per member of a summary with several premises (`ap.md` §4.6, E6); the conclusion is a `TaintTree` | the subscription of the analyzer that satisfies the member |
+| `NdSummaryJoin` (below) | one per member of a summary with several premises (`ap.md` §4.6, E6); the conclusion is a `TaintTree` | the checked full-reference/link-layer binding that satisfies the member |
 
 
 ```kotlin
 /** The two-sided standing join. The caller stores and deduplicates each side (E-3) BEFORE it calls newA or newB; a new
  *  element meets every stored element of the other side that `near` gives, so each pair meets once (one thread, O1).
  *  `near` must be symmetric: b is in nearB(a) if and only if a is in nearA(b). Users: the requests and the links of
- *  RunMethodAnalyzer (analyzer-impl.md §4.8): nearB = AddedFactStore.overlapping, nearA = RequestStore.overlapping
+ *  Direct/reference request join: nearB = AddedFactStore.overlapping, nearA = RequestStore.overlapping.
+ *  Runtime N1 RequestJoin uses the selective visitor and preserves the same two-arrival-order effects.
  *  (both path-index lookups, Part I §7.2), meet = ApOps.requestAction (Part I §5.10). */
 class StandingJoin<A, B>(private val nearB: (A) -> Sequence<B>, private val nearA: (B) -> Sequence<A>,
                          private val meet: (A, B) -> Unit) {
@@ -3651,8 +3687,8 @@ class ConjunctionStore(private val m: ApManager) {
         inputs.map { it.premise }.reduce(m::union),                     // the union without the zero fact (ap.md §4.6)
         if (inputs.any { it.layer == Layer.DEMAND }) Layer.DEMAND else Layer.NORMAL, inputs)
 
-    /** analyzer-core.md §5.4 (E6): one join per (callee, premise key, layer of the publication, call statement). `S` is the
-     *  link type of the analyzer (its Subscription), so this package does not depend on bidi.engine. */
+    /** analyzer-core.md §5.4 (E6): one join per (callee, premise key, layer of the publication, call statement).
+     *  `S` is the checked binding type NdBinding; it does not retain an engine Subscription or its Facts version. */
     data class NdKey(val callee: MethodKey, val premise: PremiseKey, val layer: Layer, val call: CommonInst)
     private val ndJoins = HashMap<NdKey, NdSummaryJoin<*>>()
     @Suppress("UNCHECKED_CAST")
@@ -3662,6 +3698,8 @@ class ConjunctionStore(private val m: ApManager) {
 
 /** E6: the members of a summary with several premises (a KaryJoin) and its conclusion, which grows by deltas. The
  *  summary has a PremiseSet, so its conclusion is TAINT: one TaintGroup per base. */
+data class NdBinding(val ref: CallerRef, val linkLayer: Layer)            // full checked resume/support header
+
 class NdSummaryJoin<S : Any>(private val m: ApManager, arity: Int) {
     private val members = KaryJoin<S>(arity)
     private val full = ArrayList<List<S>>()                              // the full combinations so far
@@ -3683,6 +3721,12 @@ class NdSummaryJoin<S : Any>(private val m: ApManager, arity: Int) {
     }
 }
 ```
+
+The generic join still retains every full combination and growing TAINT conclusion. E6 instantiates S as
+NdBinding; source/sink joins keep their own input types. A later cumulative root that satisfies an already
+stored member gives no new binding. A different reference/layer or newly satisfied member does. New
+bindings meet all stored conclusions; new conclusion deltas meet all stored combinations. Keep T2/T4
+whole-merged delta behavior. Do not replace the conclusion side by a last-value-only snapshot.
 
 ### 7.11 `SourceHitStore` (`ap.md` §8.11)
 
