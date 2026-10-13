@@ -112,13 +112,54 @@ is material here, but it does not dominate this heap as it does in OWASP. The fi
 heap has cleared cached form references and still fails in B2; its active protocol owners are detailed
 in the [Conductor report](bidirectional-o1-o3-projects/conductor.md).
 
-Continuous JFR files exist for all eight runs. Each requested the normal profile window; O3 OWASP's
-profiler returns 1 as the process finishes. Captures still need phase/window validation and CPU,
-allocation and GC review. No run reaches its configured near-limit window. Counter fields absent
-from the earlier cache implementation are unavailable, rather than zero.
+All 28 O3 ThingsBoard overview queries succeed. Its reachable heap has 354,148,131 objects and
+11,451,469,328 shallow bytes. All 75,618 actors are current F1/limit-1 actors in 562 runners. Strong
+cache arrays retain 2,746,708,144 bytes; standing request stores retain 1,359,497,600 bytes; event
+queues retain 647,244,752 bytes. These unions overlap. The complete request tables have 10,312,959
+seen pairs, and the queues have 10,491,392 entries. The manager has handled 67,316,251 events at
+capture, compared with 189,716,227 in the final primary heap. These are different progress points;
+neither the smaller request set nor the larger cache measures a paired saving. Both snapshots show
+substantial request traffic. The final run clears its form cache and still exhausts the fixed heap,
+with the owners recorded in the [ThingsBoard report](bidirectional-o1-o3-projects/thingsboard.md).
+
+Continuous JFR files exist for all eight runs. Seven normal profiler captures have saved collapsed
+stacks and successful capture logs. O3 OWASP cannot attach, returns 1 and has no collapsed output;
+its normal CPU profile is unavailable. No run reaches its configured near-limit window. Counter
+fields absent from the earlier cache implementation are unavailable, rather than zero.
+
+Five valid normal windows overlap forced GC and heap capture in the OOM guard:
+
+| Checkpoint / project | Containing iteration | Snapshot overlap in requested 30-second window |
+| --- | --- | ---: |
+| O3 / Conductor | B2 | 12.156 s |
+| O3 / ThingsBoard | F1 | 0 |
+| O3 / Stirling-PDF | F3 | 8.063 s |
+| O1 / OWASP | F1 | 0 |
+| O1 / Conductor | B2 | 15.209 s |
+| O1 / ThingsBoard | F1 | 24.342 s |
+| O1 / Stirling-PDF | F3 | 7.191 s |
+
+The windows use the profiler's monotonic metadata, with a two-second uncertainty allowance; guard
+markers have millisecond resolution. Collapsed stacks have no per-sample timestamps, so the capture
+samples cannot be removed afterward. Do not assign the mixed windows' GC/dump weights to analyzer
+algorithms. All failed iterations' final 30 seconds also overlap 17–29 seconds of the guard.
+
+The guard-free O1 OWASP window samples cleaner/filter transfer, with no `JIRCallPlanBuilder.build`
+frame. `cleanChain` appears in 23.80% of samples and `FormsCache.get` in 0.10%. The final primary
+OWASP window has call-plan builder frames in 37.91% of samples under the same saved-stack reader.
+These inclusive shares overlap. They identify construction in the final window, but cannot separate
+first builds from O2 reclamation/rebuild or establish an isolated cache cost. Both windows also have
+substantial ordinary GC.
+
+O3 ThingsBoard's guard-free window samples the request feedback path: local-service request joins,
+manager routing, request admission and standing-link joins. Its final heap review independently
+identifies large standing request and queue state. Conductor and PDF need separate JFR windows before
+the guard for a useful algorithm comparison. The prepared export plan includes engine, barrier,
+whole-iteration, guard and pre-guard windows. CPU/allocation/GC exports remain pending.
 
 Raw logs, terminal summaries, strict comparisons and capture provenance are under
 `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012/attribution-runs` and `attribution-review`.
 The external `attribution-review/index.json`, eight order JSON files and source differential preserve
 the exact counts, nanosecond timings and their limits. Heap plans and later query results are under
-`heap-analysis/checkpoints-preparation`.
+`heap-analysis/checkpoints-preparation`. The saved-stack reader, guard intersections and JFR export
+plan are in `attribution-review/profile-export`.
