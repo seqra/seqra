@@ -78,6 +78,17 @@ for 3,520 samples, or 54.82%, counted once per stack. This includes concurrent G
 pause time. The JFR pause sum above is a separate measure. Java JFR samples identify collection-size access,
 instruction visits and class lookup in run 1, and signed normalization and hash tables in later runs.
 
+The same normal capture contains form-builder frames in 2,512 samples (39.12%), cache-payload frames in
+2,612 (40.68%) and rule/signed/predicate compilation frames in 1,448 (22.55%). These inclusive stack groups
+overlap; their percentages cannot be added. They identify substantial construction work in this early run-1
+window. The final counters do not separate first builds from rebuilds or provide per-iteration build counts.
+
+Later-run JFR samples also identify signed normalization as a construction cost. Its inclusive allocation
+weight is 20.34% in run 2 and 21.53% in run 3. Run 1 allocation stacks include generic compiled-edge application
+(14.87%), fact filtering (10.41%) and cleaner-chain application (9.78%). These estimates overlap and describe
+allocation traffic. They do not identify retained owners or prove that an operation can be removed. The next
+measurements must distinguish necessary transfer work, repeated form construction and retained run state.
+
 Main's full scan ended before the requested 60–90-second window. Its first normal capture began during report
 generation and is excluded from the full-scan comparison. The continuous JFR retains the complete 48.142-second
 main full-scan phase and its final 30 seconds. The capture guard was corrected for later runs. Neither process
@@ -89,8 +100,9 @@ objects and diagnostic sampling need review against the allocation stacks before
 costs. Shape sampling appears in 74 of the 6,421 normal CPU samples, or 1.15%. Its frame/class is absent from
 the retained top-25 JFR allocation rankings, so those tables do not quantify its allocation bytes. The counter
 totals imply 1,193,424 temporary sampler executions. This pair has profiling and optional current-side counters,
-and the host runs other jobs. Treat its
-times as observations from one instrumented pair, rather than a controlled throughput estimate.
+and the host runs other jobs. There is no same-bidi counters-off control to quantify or subtract diagnostic
+overhead. Treat these times as observations from one instrumented pair, rather than a controlled throughput
+estimate.
 
 ## Evidence
 
@@ -100,7 +112,8 @@ The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
 - `fixed-projects/comparison/OWASP.json`: strict identities, completion checks and occurrence differences.
 - `fixed-projects/OWASP/main/profile-capture-review.json`: the misplaced main capture and valid JFR window.
 - `input-audit/pre-run-committed`: complete model/class/dependency/rule/resource manifests.
-- `fixed-projects/OWASP/{review,performance-review}`: independent follow-up review, when complete.
+- `fixed-projects/OWASP/{review,performance-review}`: completed independent finding and performance reviews,
+  including phase measurements, final counters, resource context and read-only reproducers.
 
 The remaining work is real-heap owner analysis and the O3/O1 checkpoint runs. IR storage and O4–O12 remain
 outside the selected implementation.

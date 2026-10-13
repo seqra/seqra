@@ -125,6 +125,12 @@ begins about 60 seconds after full-analysis start, near the end of the 61.865-se
 forward tail, barrier and early backward run, so it is not a pure run-1 profile. Main finishes its full scan
 before a full-scan 60–90-second window exists; its continuous JFR preserves the full 49.627-second phase.
 
+The mixed bidi capture has 29,737 CPU samples. GC stacks account for 13,719 samples (46.13%), AP trie stacks
+for 3,913 (13.16%) and cache-payload stacks for 2,212 (7.44%). Each family counts a matching stack once;
+families overlap. These shares measure CPU work in that window, not wall pauses or the entire run. Optional
+shape-reader stacks account for 280 samples (0.94%); their allocation bytes are not isolated by the saved
+rankings. There is no same-bidi counters-off control.
+
 Saved Java JFR samples in run 1 show equality/hash-table work; its sampled allocation ranking includes generic
 edge application and boxed `Long` comparison values. Run 2 shows hash-table work; `TrieOps.subtract` has 10.76%
 of sampled allocation weight, and the merge lambda has 10.05%. These are allocation traffic estimates and
@@ -132,12 +138,21 @@ overlapping stack shares, not retained owners. They do not authorize queue/trie 
 The recorded whole-JFR GC pause sums include diagnostics. Profile percentages and single-pair timings are
 observations under instrumentation, not a controlled throughput estimate.
 
+Host available memory fell to 1.357 GiB during main and 2.137 GiB during bidi. Both processes incurred thousands
+of major faults. This recorded memory pressure is another limit on the timing comparison.
+
 ## Heap-owner analysis — pending MAT
 
 The memory guard repeatedly reports usage above its 7,730,941,132-byte threshold. Before cancellation it captures
 `guard-live.hprof` with reported heap usage 7,744,179,472 bytes. Capture finishes with an 11,693,829,182-byte file.
 That file size is serialized HPROF size, not retained heap size. No JVM allocation-failure cause is inferred from
 the analyzer's memory-guard OOM status.
+
+Run 2 records 12 soft-reference cleanups and 11 recoveries. The first two recovered after-GC heaps are
+4,722,136,720 and 6,635,586,000 bytes, with observed drops of 3,037,247,856 and 1,099,722,440 bytes. Later recovery
+drops shrink to roughly 9.7 MB while the recovered heap approaches the guard threshold. Cleanup clears all
+registered soft-reference managers and GC also collects ordinary dead objects. These are aggregate heap drops;
+the portion attributable to method forms remains unmeasured.
 
 Fresh MAT parsing, dominator unions, strong root paths and the split between current actor state, compiled forms,
 stable metadata and IR remain **pending**. The cumulative final counters record 578,702 forward builds,
@@ -154,6 +169,8 @@ The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
   message, statuses and grouped occurrence inventory.
 - `input-audit/pre-run-committed`: fixed model/class/dependency/source/rule/model fingerprints and configured
   versus staged extension differences.
+- `fixed-projects/conductor/performance-review`: completed read-only CPU, phase, cleanup and counter review,
+  with tables, source-backed limits and a reproducible reader.
 
 Raw main SARIF SHA-256 is `88ee4fa415256dfb6c5c114c04c5a27a012c0f6b2e3252d28c256e0d75e8d829`;
 raw bidi SARIF SHA-256 is `2bfb701433085c3c87e64144ed2f263ffa1c59058d716f081e62c5ebef743ced`.
