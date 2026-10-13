@@ -117,5 +117,8 @@ the fixed budget and retained all 4,112 main sink identities. The fresh
 [Conductor pair](bidirectional-o1-o3-projects/conductor.md) retained all seven main sink identities, but
 the backward run at limit 2 stopped on the memory guard. Its 293 added sink identities are from an
 incomplete refinement; they are not final false-positive counts. The guard saved an 11.7 GB heap snapshot
-before cancellation. ThingsBoard and Stirling-PDF scans, per-optimization attribution and heap-owner
-diagnostics remain pending. The Conductor resource gate has not passed.
+before cancellation. The fresh [ThingsBoard pair](bidirectional-o1-o3-projects/thingsboard.md) stopped on
+the memory guard in forward run 1 at limit 1. No forward report was accepted, so all 14 main sink identities
+are absent from its empty output. The guard saved an 18.7 GB heap snapshot. Conductor and ThingsBoard resource
+gates have not passed. Stirling-PDF is running; per-optimization attribution and heap-owner diagnostics
+remain pending.
