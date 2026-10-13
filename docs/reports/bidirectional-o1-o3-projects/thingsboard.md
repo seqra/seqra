@@ -97,7 +97,7 @@ repeatedly clears soft references and briefly returns below its threshold before
 an observed workload/backlog symptom, not proof that the queue or a particular store dominates retained memory.
 RSS includes native memory and is not live Java heap size.
 
-## Heap-owner and profile analysis — pending
+## Heap-owner analysis and completed profiles
 
 The guard captures `guard-live.hprof` before cancellation at reported heap use **11,681,061,472 bytes**, above
 its **11,596,411,699-byte** threshold. Capture starts at `00:54:17.540` and ends at `00:54:46.223`, an interval of
@@ -105,11 +105,54 @@ its **11,596,411,699-byte** threshold. Capture starts at `00:54:17.540` and ends
 ordinary engine timing control. The file is **18,711,415,183 bytes**; serialized HPROF size is not retained heap
 size. The analyzer memory-guard status does not by itself prove a JVM allocation failure.
 
-Fresh MAT owner composition, strong root paths and the split among queued events, actor stores, compiled forms,
-metadata and IR are **pending**. No memory owner is assigned here, and earlier ThingsBoard heaps are not used as
-proof. Optional counters are cumulative: 1,286,827 forward builds, zero reversals, 14,455 uncached builds and
-7,287,665 hits. The final active-pin count is zero after teardown; this does not identify what was live at the
-guard snapshot or establish a cache leak.
+Fresh MAT parsing indexes 324,449,635 reachable objects with 11,397,235,120 shallow bytes. It removes
+30,300 unreachable objects with 1,433,280 bytes and uses no object-discard options. The complete histogram
+contains 16,082,584 queue-entry objects with 643,303,360 shallow bytes, and 16,088,748 `RequestIn` messages
+with 386,129,952 shallow bytes. This agrees with substantial pending request work. These class bodies do not
+include referenced fact graphs; their counts alone do not prove which queue retains them or whether
+pending requests repeat the same logical key.
+
+The follow-up inventory confirms all 76,943 actors are current forward actors with live runners, contexts
+and work stores. All 562 runners are open. The manager is still admitting work and has no terminal status
+at capture: 16,097,169 pending reservations and 189,716,227 handled events. The snapshot precedes cancellation.
+The 562 queues contain 16,082,582 entries and 45,116,783 allocated array cells. Two further queue-entry objects
+are outside these queue sizes, so the whole-class count is not identical to queued entries.
+
+| Selected structure | Bytes in retained union |
+| --- | ---: |
+| Standing request stores | 2,885,461,840 |
+| Queue roots | 1,139,704,728 |
+| Queue backing-array roots | 1,210,199,096 |
+| Actor edge stores | 378,314,608 |
+| Callee subscription state | 606,903,488 |
+
+These unions overlap and use different root sets; they must not be added. Standing requests are a larger
+retained owner than queue roots in this capture. Queue capacity also exceeds occupied entries. This identifies
+request storage and pending delivery as core memory targets; it does not establish the saving of a proposed
+change.
+
+A bounded sample reads 48 explicit cells from three large queues. It finds 48 distinct request messages but
+43 structural keys: one full method/premise/mark key repeats three times, and another repeats four times.
+These are concrete duplicate pending requests, with no measured whole-queue duplication rate.
+[RunMethodLocalServices](../../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunMethodLocalServices.kt:53)
+sends each request-climb result. [RequestStore](../../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/store/RequestStore.kt:27)
+deduplicates when the receiving actor handles the request. The sample supports examination of duplicate work
+before that receiver check; it does not authorize a protocol change outside O1–O3.
+
+All 940,423 form slots lack a cached nonnull referent, verified by complete class and complement histograms.
+Managed-reference categories are disabled with zero registered wrappers. The snapshot has zero active form
+pins. The recipe/cache-shell retained union is still 684,989,280 bytes, while actor predicate-state union is
+5,563,896 bytes. These sets overlap other owners. Recipe storage has a longer lifetime than compiled payloads;
+empty slot referents do not imply zero recipe memory.
+
+The concrete persistent vulnerability store is present. The whole heap contains 19 vulnerability keys and
+21 witnesses, despite the empty accepted report. Every witness belongs to run 1 and is unconfirmed.
+Their baseline identity mapping is still under review. They do not change the primary comparison's
+14 missing identities.
+
+Optional counters are cumulative: 1,286,827 forward builds, zero reversals, 14,455 uncached builds and
+7,287,665 hits. Final zero pins after teardown differ from live-snapshot measurements. These totals do not
+establish a cache leak or an exclusive saving. Earlier ThingsBoard heaps are not proof for this run.
 
 The completed 30-second normal bidi CPU capture falls within forward run 1 and has 30,981 samples. GC stacks
 account for 33.36%; monitor/spin stacks account for 24.00%; cache-payload stacks account for 6.34%. These
@@ -118,9 +161,21 @@ coordination work as a measured CPU cost; it does not establish queue retention 
 Optional shape-reader stacks account for 0.14%, without an allocation-byte measurement.
 
 Main's requested normal capture spans the end of its 80.353-second full phase and output/termination; the
-profiler reports `Process exited`. It is not a matched 30-second full-scan comparison. Raw continuous JFR is
-present on both sides. Phase-separated Java CPU, allocation and GC-pause export remains pending until the
-primary batch ends. The completed light review uses only existing CPU stacks, resource samples and logs.
+profiler reports `Process exited`. It is not a matched 30-second full-scan comparison. Continuous JFR is
+present on both sides. The completed phase review checks seven windows against the run logs, with duration
+differences below 2 ms. Main's full phase has 82.16 GB of sampled allocation weight; bidi run 1 has
+680.15 GB. These estimates measure allocation traffic, not live or retained memory.
+
+The largest measured core allocation path in run 1 is the priority-queue comparator: 243.58 GB, or 35.81%
+of that phase's sampled allocation weight. [EventQueue](../../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/EventQueue.kt:8)
+uses generic `compareBy` selectors for an integer rank and two `Long` keys. Boxed `Long` and generic
+comparison stacks account for the same traffic and overlap this attribution. A primitive comparator is
+a concrete performance candidate; this review makes no retained-memory claim or change outside O1–O3.
+
+GC pause fields summed by collection start are 4.145 seconds in main's full phase and 55.555 seconds in
+bidi run 1. Boundary-spanning collections limit exact pause placement. The whole bidi recording includes
+20 `System.gc` full collections and one dump-initiated collection. The final 30-second run-1 window overlaps
+the heap dump and has only ten Java CPU samples; it is not a normal-workload comparison.
 
 ## Evidence and remaining gates
 
@@ -131,8 +186,13 @@ The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
 - `fixed-projects/comparison/thingsboard.json`: all 14 strict differences, full locations, completeness/status
   checks and absence of location/prescan rejection signals.
 - `input-audit/pre-run-committed`: the original fixed input manifests and configured resource limits.
-- `fixed-projects/thingsboard/performance-review`: completed light CPU/counter/cleanup review; JFR phase
-  measurements and allocation/GC rankings remain pending.
+- `fixed-projects/thingsboard/performance-review`: completed CPU/counter/cleanup and JFR phase review,
+  with allocation/GC rankings, timing checks and a reproducible reader.
+- `heap-analysis/thingsboard-bidi`: fresh MAT command, archived reports and complete census review in
+  `overview-review`; strong owner and candidate-key follow-up is separate from the primary scan.
+- `input-audit/post-run-check/combined-endpoint-equality.json`: 41 captured content datasets pass the
+  post-run comparison. Two copied toolchains use a later partial recheck; six dangling link targets are
+  outside the original regular-file scope and remain separately unavailable.
 
 Main SARIF SHA-256 is `06f69df24968b4268f0d99f49a0b1ae4cf9e70ecccd6cc2799e40be1e717ae1e`;
 bidi SARIF SHA-256 is `98057251a76bc213a713dbbab63840472b7e5418e06bc90144cae5995531c501`.

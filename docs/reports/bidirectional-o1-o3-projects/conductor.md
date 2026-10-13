@@ -3,7 +3,8 @@
 The fresh optimized run stops with a memory-guard OOM in backward run 2. Its available SARIF contains all seven
 main sink identities and 293 additional locations. The comparison is incomplete: the retained report has three
 CONFIRMED entries and 298 DEMAND entries. These additions are not a set of final false positives. The fixed
-resource gate fails, and fresh heap-owner analysis is pending MAT.
+resource gate fails. Fresh MAT results identify active backward subscription and actor state as large
+core owners; managed form slots have no cached payload referents after cleanup.
 
 ## Inputs and execution
 
@@ -141,7 +142,7 @@ observations under instrumentation, not a controlled throughput estimate.
 Host available memory fell to 1.357 GiB during main and 2.137 GiB during bidi. Both processes incurred thousands
 of major faults. This recorded memory pressure is another limit on the timing comparison.
 
-## Heap-owner analysis — pending MAT
+## Fresh heap-owner analysis
 
 The memory guard repeatedly reports usage above its 7,730,941,132-byte threshold. Before cancellation it captures
 `guard-live.hprof` with reported heap usage 7,744,179,472 bytes. Capture finishes with an 11,693,829,182-byte file.
@@ -154,10 +155,73 @@ drops shrink to roughly 9.7 MB while the recovered heap approaches the guard thr
 registered soft-reference managers and GC also collects ordinary dead objects. These are aggregate heap drops;
 the portion attributable to method forms remains unmeasured.
 
-Fresh MAT parsing, dominator unions, strong root paths and the split between current actor state, compiled forms,
-stable metadata and IR remain **pending**. The cumulative final counters record 578,702 forward builds,
-348,850 reversals and 18,966 uncached builds, but do not identify the live memory owner. They cannot establish
-cache retention, a leak or the amount reclaimed. Earlier Conductor heaps and reports are not proof for this run.
+MAT parses the fresh dump with a 20 GiB parser heap and no object-discard options. It indexes
+220,919,989 reachable objects with 7,638,215,776 shallow bytes, after removing 30,752 unreachable objects
+with 1,449,664 bytes. The following are individual retained owners. Their reachable graphs overlap;
+these sizes must not be added as a whole-heap total.
+
+| Owner | Retained bytes | Verified ownership |
+| --- | ---: | --- |
+| IR RAM storage | 2,264,721,800 | Existing storage graph; IR changes remain outside scope |
+| Largest active subscription directory | 834,525,800 | `SubscriptionManager.byCallee`; handler and runner lead to worker 1 |
+| Spring rule provider | 372,739,600 | Almost all retained by its base exit-rule provider; analyzer/main root |
+| Largest active runner | 260,497,104 | Current backward actors and runner state |
+| Analysis-wide method entries | 206,697,200 | Physical method recipes and cache shells; interpreter/main root |
+| Current run manager | 89,039,384 | Mainly current summary storage |
+| Persistent record store | 48,558,144 | Previous-run records shared with the driver/current run |
+
+The complete lifecycle queries identify backward run 2 at limit 2. All 17,525 actors retain their current
+runner, context and work stores. All 219 runners and 219 subscription managers belong to that run.
+The subscription directories contain 18,750 callee entries. Their structures contain 2,086,288 accepted
+delta parts, 703,732 merged exact groups and 33,855 zero-only references. The largest directory has 927
+callee entries. These are active work structures before cancellation, rather than completed-run actors
+left after freeze.
+
+Complete retained-set queries give the following component measurements. Each query selects all named roots
+in this snapshot and sums the shallow bytes in their retained union. The unions overlap; their sizes cannot
+be added or treated as independent savings.
+
+| Selected component | Bytes in retained union |
+| --- | ---: |
+| Active actors, runners and subscription managers together | 2,853,512,400 |
+| Active subscription managers | 1,487,146,248 |
+| Active method actors | 1,287,324,328 |
+| Actor method-edge stores | 733,598,936 |
+| Accepted subscription delta parts | 566,535,456 |
+| Delta-part path indexes | 500,992,808 |
+| Merged added-key indexes | 256,274,344 |
+| Merged exact values | 114,537,144 |
+
+These results place substantial core memory in active protocol and AP state after form cleanup. The
+method-edge stores contain 87,874 grouped premises, 17,848 reach premises and 3,246,834 allocated group-array
+reference cells. Those cells measure capacity, not live facts or bytes. Two map-count queries use a field
+that does not exist on `ConcurrentHashMap`; their blank counts remain unavailable. The corresponding
+retained-set queries are valid. No empty count is inferred from a blank cell. Independent unbounded map-entry
+exports supply the missing counts separately, including 17,525 context recipes and 14,838 physical recipes.
+
+The delta-part index union contains 7,264,648 linked-map entries with 290,585,920 shallow bytes, and
+6,778,966 boxed integers with 108,463,456 shallow bytes. Accepted parts retain 3,733,964 trie nodes plus
+their arrays, about 419.6 MB within that component union. The dense method-group arrays account for only
+14,593,136 shallow bytes within the 733.6 MB edge-store union; this snapshot does not support calling those
+arrays the main memory cause.
+
+The underlying Semgrep rule-provider graph retains 372,739,560 bytes. It contains about 3.61 million
+raw/resolved `ContainsMark` nodes and 907,424 exit-sink descriptors. These provider objects are separate
+from compiled NNF predicates; they must not be counted as surviving compiled forms or assigned exclusively
+to Spring-generated rules.
+
+All 257,075 form slots lack a cached nonnull referent. This count comes from complete class and complement
+histograms; the separate nonnull-slot retained-set query failed and is unavailable. Four payload objects
+remain, with two populated payloads rooted in worker locals. They retain 1,880 and 65,952 bytes individually.
+All four managed-reference categories are disabled and have zero registered wrappers. There are two compiled
+predicates and no actor predicate stores in this backward snapshot. The compiled descriptor retained union is
+1,952 bytes; the compact-container union is 250,880 bytes. These unions overlap other owners.
+
+This confirms form cleanup and identifies substantial active protocol/AP state. It does not measure an
+exclusive cache saving or prove a leak. Previous-run records and analysis-wide recipes have longer lifetimes
+by design. The cumulative final
+counters record 578,702 forward builds, 348,850 reversals and 18,966 uncached builds; these are rebuild totals,
+not live objects. Earlier Conductor heaps and reports are not proof for this run.
 
 ## Evidence and remaining gates
 
@@ -171,8 +235,12 @@ The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
   versus staged extension differences.
 - `fixed-projects/conductor/performance-review`: completed read-only CPU, phase, cleanup and counter review,
   with tables, source-backed limits and a reproducible reader.
+- `heap-analysis/conductor-bidi`: frozen query XML, actual MAT commands, archived reports and completed
+  overview/strong-owner/lifecycle reviews in `overview-review`.
+- `input-audit/post-run-check/combined-endpoint-equality.json`: all 41 captured content datasets pass
+  at the recorded endpoints; copied-JDK dangling targets remain separately unavailable.
 
 Raw main SARIF SHA-256 is `88ee4fa415256dfb6c5c114c04c5a27a012c0f6b2e3252d28c256e0d75e8d829`;
 raw bidi SARIF SHA-256 is `2bfb701433085c3c87e64144ed2f263ffa1c59058d716f081e62c5ebef743ced`.
-Heap-owner diagnosis, final fixed-budget completion and O3/O1 checkpoint attribution remain open. IR storage
+Final fixed-budget completion and O3/O1 checkpoint attribution remain open. IR storage
 and O4–O12 remain outside this selected implementation.
