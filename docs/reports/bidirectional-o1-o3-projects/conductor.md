@@ -243,7 +243,11 @@ does not pass the optional statistics owner to the engine. The final implementat
 
 These results support the final heap diagnosis: the fixed-budget failure remains after compiled forms
 are cleared, with substantial active subscription and AP state. All checkpoint overview queries are
-reviewed. Checkpoint JFR export remains pending. See the [checkpoint report](../bidirectional-o1-o3-checkpoints.md)
+reviewed. The checkpoint JFR review is also complete. Before heap capture, the last 30 seconds of B2
+have 99.358 GB of sampled allocation weight in O3 and 122.858 GB in O1, with 6.516 and 6.753 seconds
+of clipped GC pauses. Subtraction accounts for 11.75% and 10.42% of inclusive allocation weight;
+the `mergeAddDelta` lambda accounts for 13.06% and 12.69%. The shares overlap and progress differs. They support the active
+AP/subscription diagnosis, without an isolated O1 speed or saving claim. See the [checkpoint report](../bidirectional-o1-o3-checkpoints.md)
 for revisions, timings, archives, progress counts and query limits.
 
 ## Evidence and remaining gates
@@ -266,5 +270,5 @@ The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
 
 Raw main SARIF SHA-256 is `88ee4fa415256dfb6c5c114c04c5a27a012c0f6b2e3252d28c256e0d75e8d829`;
 raw bidi SARIF SHA-256 is `2bfb701433085c3c87e64144ed2f263ffa1c59058d716f081e62c5ebef743ced`.
-Final fixed-budget completion and checkpoint profile attribution remain open. IR storage
+Final fixed-budget completion remains open. Final and checkpoint heap/profile reviews are complete. IR storage
 and O4–O12 remain outside this selected implementation.

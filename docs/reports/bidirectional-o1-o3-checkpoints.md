@@ -149,8 +149,14 @@ All 7,267 actors are current F3/limit-3 actors in 90 open runners. Strong cache 
 3,149,636,544 bytes and method-edge stores retain 1,731,576,456 bytes; these sets overlap. No request
 store or standing-request join is present, consistent with restricted forward run 3. Forward
 conjunction state remains. IR storage retains 1,091,063,632 bytes and remains outside scope. The
-separate report query establishes retained F1 command demands. Selected witness-header decoding
-remains open; the entries' state alone does not prove the final run's first mark-loss point.
+separate report query establishes retained F1 command demands. The selected witness-header and scalar
+queries are now reviewed. Sink 1 has two unconfirmed F1 witnesses: each checks Arg0 at the root with
+one ANY `$UNTRUSTED` mark in DEMAND and an Arg0/root/STAR premise with that same concrete mark.
+They differ in the context's exact-type flag. Sink 3 has one unconfirmed F1 witness with an EXACT
+`$ARGS` mark in NORMAL and an Arg0/root/EXACT premise. All three have one literal, no end facts,
+no accessor path and an empty exclusion. The exact entry-to-witness-to-literal pointer joins are verified.
+These are coarse F1 supports, not proof of a normal source-to-caller chain or of the final run's first
+mark-loss point. The saved scalar review is under `order-4-O3-Stirling-PDF/job-20261013T053003.061048Z`.
 
 The O1 Conductor overview accounts for all 34 requests, with 29 nonempty CSV outputs and five valid
 empty outputs. The complete histogram independently has no live request store, standing join or
@@ -178,6 +184,16 @@ sizes are not a paired saving. Cumulative compilation records 2,610,266 predicat
 and 2,789,339 leaves. Runtime counter zeros remain unavailable because of the older wiring gap.
 The inherited query titled "manual cube source and sink roots" also selects NNF-backed `SinkRule`
 objects at O1. Its heterogeneous retained set is not evidence that production NNF lowering builds cubes.
+
+A separate six-query aggregate follow-up partitions the complete 2,471,818 live predicates into
+2,329,585 one-node/one-leaf predicates, 16 one-node constants and 142,217 multi-node predicates.
+The singleton descriptor-root union retains 1,758,031,280 bytes. Its 2,329,585 distinct `byBase`
+maps retain an overlapping 969,107,360-byte union. Primitive arrays within the descriptor union total
+987,744,040 shallow bytes; those bytes are already included. The source retains nine topology arrays
+per singleton, four arrays in `BaseLeaves` and further map backing arrays. Construction scratch is
+discarded. This identifies a specialized singleton representation as a storage candidate; it does not
+measure a replacement saving or assign the final OOM to that cache. All six requests and the complete
+partition are verified in `order-7-O1-thingsboard/job-20261013T050224.288015Z/review`.
 
 The O1 PDF overview accounts for all 34 requests, with 32 nonempty and two verified empty outputs.
 Its reachable heap has 234,270,507 objects and 7,646,386,000 shallow bytes. All 7,270 actors are current
@@ -215,7 +231,7 @@ markers have millisecond resolution. Collapsed stacks have no per-sample timesta
 samples cannot be removed afterward. Do not assign the mixed windows' GC/dump weights to analyzer
 algorithms. All failed iterations' final 30 seconds also overlap 17–29 seconds of the guard.
 
-The guard-free O1 OWASP window samples cleaner/filter transfer, with no `JIRCallPlanBuilder.build`
+The guard-free O1 OWASP window samples cleaner/filter transfer, with no sampled `JIRCallPlanBuilder.build`
 frame. `cleanChain` appears in 23.80% of samples and `FormsCache.get` in 0.10%. The final primary
 OWASP window has call-plan builder frames in 37.91% of samples under the same saved-stack reader.
 These inclusive shares overlap. They identify construction in the final window, but cannot separate
@@ -224,9 +240,47 @@ substantial ordinary GC.
 
 O3 ThingsBoard's guard-free window samples the request feedback path: local-service request joins,
 manager routing, request admission and standing-link joins. Its final heap review independently
-identifies large standing request and queue state. Conductor and PDF need separate JFR windows before
-the guard for a useful algorithm comparison. The prepared export plan includes engine, barrier,
-whole-iteration, guard and pre-guard windows. CPU/allocation/GC exports remain pending.
+identifies large standing request and queue state. All eight continuous-JFR exports and their compact
+review are complete, with 151 overlapping engine, barrier, iteration, normal, last-30-second and
+non-guard/pre-guard windows, annotated for guard overlap.
+The manifests match the project, checkpoint, recording and original analysis status; input/native checks
+pass and the reader has no warnings. Export success does not change the seven OOM statuses.
+
+The following windows end before the first heap-capture guard in the named engine. O1 OWASP has no
+guard; its row uses the final 30 seconds of F1. They include ordinary GC. Allocation is sampled weight
+in decimal GB, and pause time is clipped top-level `GCPhasePause` duration.
+
+| Checkpoint / project | Engine | Window | Allocation weight | GC pauses |
+| --- | --- | ---: | ---: | ---: |
+| O3 / OWASP | F1 | 30.000 s | 40.681 GB | 5.718 s |
+| O1 / OWASP | F1 | 30.000 s | 55.886 GB | 0.518 s |
+| O3 / Conductor | B2 | 30.000 s | 99.358 GB | 6.516 s |
+| O1 / Conductor | B2 | 30.000 s | 122.858 GB | 6.753 s |
+| O3 / ThingsBoard | F1 | 30.000 s | 43.240 GB | 15.495 s |
+| O1 / ThingsBoard | F1 | 30.000 s | 61.659 GB | 13.391 s |
+| O3 / Stirling-PDF | F3 | 25.219 s | 88.847 GB | 5.879 s |
+| O1 / Stirling-PDF | F3 | 30.000 s | 116.681 GB | 6.439 s |
+
+O3 OWASP's pre-guard allocation paths include sink construction at 27.35%, cube construction at
+16.74% and call-plan construction at 23.19%, with overlapping inclusive shares. Its separate nominal
+normal JFR interval has only two serialization samples; the failed normal profiler capture remains
+unavailable. O1 OWASP's valid, guard-free normal F1 interval has 59.907 GB sampled allocation weight
+and 0.767 seconds of clipped pauses. Compiled transfer, cleaner-chain and filter paths account for
+18.61%, 13.69% and 13.54% of its inclusive allocation weight.
+
+Conductor's pre-guard B2 subtraction shares are 11.75% for O3 and 10.42% for O1; the `mergeAddDelta`
+lambda shares are 13.06% and 12.69%. ThingsBoard's generic queue comparison/boxed-Long shares are 36.91% and 28.03%
+in the pre-guard windows. Its O3 normal interval is guard-free, with a 47.97% queue/boxing allocation
+share. Ordinary GC still consumes substantial time before capture. PDF's pre-guard F3 subtraction
+shares are 9.76% and 12.17%; the different window lengths and event progress prevent an isolated O1
+performance claim. These observations identify transfer, trie and queue work; they do not authorize
+deferred optimization or IR changes.
+
+JFR execution samples contain Java stacks and omit native GC CPU. Allocation weights are not retained
+bytes. Inclusive shares and windows overlap; neither can be added. Start-attributed GC pause sums remain
+separate from clipped pause durations. Uncovered intervals and missing event types remain unavailable,
+and event-time envelopes do not prove continuous recording coverage. Full tables and source links are
+in `attribution-review/profile-export/exported-review-1/REVIEW.md`.
 
 Raw logs, terminal summaries, strict comparisons and capture provenance are under
 `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012/attribution-runs` and `attribution-review`.

@@ -63,7 +63,7 @@ The driver stops with `COMPLETE / STOP_RULE`. This proves completion within the 
 show a speed improvement over main. RSS includes native memory and is not the live Java heap. Neither memory
 guard nor JVM OOME fired, so no guard heap dump was needed in this pair. The separate live-heap measurement
 below supplements this pair. All eight [checkpoint scans](../bidirectional-o1-o3-checkpoints.md) have
-finished; their heap and profile attribution remains under review.
+finished; their heap and profile reviews are complete.
 
 The final optional counters record 884,662 successful forward builds, 308,762 reverse builds and 71,103,285
 hits from 71,987,947 accesses. Aggregate build time is 199.603 seconds across builds; it is not an exclusive wall
@@ -193,6 +193,11 @@ The final OWASP resource pass cannot be assigned to O2 alone. All checkpoint ove
 cube-owner queries are reviewed. One selected 879,776-byte plan contains 2,960 sink alternatives from
 25 physical bound rule objects and 24 raw condition roots. Its alternative-root union is 862,344 bytes;
 the selected raw-condition union is 20,968 bytes. These are different sets and do not measure whole-project
-savings. They show concrete expansion within a cached plan. Checkpoint JFR export remains pending. See
+savings. They show concrete expansion within a cached plan. Checkpoint JFR review is complete. O3's
+last 30 seconds before capture have 40.681 GB sampled allocation weight and 5.718 seconds of clipped
+GC pauses. Sink, cube and call-plan construction account for 27.35%, 16.74% and 23.19% of inclusive
+allocation weight. These shares overlap. O1's valid normal F1 window has 59.907 GB sampled allocation
+weight and 0.767 seconds of clipped pauses; transfer, cleaner-chain and filter paths account for
+18.61%, 13.69% and 13.54%. Different windows and progress prevent an isolated O1/O2 speed claim. See
 the [checkpoint report](../bidirectional-o1-o3-checkpoints.md) for the selected rule counts, source checks
 and archive references. IR storage and O4–O12 remain outside the selected implementation.

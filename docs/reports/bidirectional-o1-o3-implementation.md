@@ -132,5 +132,10 @@ that output difference does not prove an O1/O2 regression. All seven checkpoint 
 reviewed. They identify compiled form storage in O3 OWASP, active subscription state in Conductor,
 compiled NNF descriptors plus pending requests in O1 ThingsBoard, and active edge stores in O1 PDF.
 These are overlapping unions at different progress points, not isolated memory savings. The bounded
-ThingsBoard singleton-storage follow-up, checkpoint JFR export and the command's full-run proof history
-remain open. The four-project resource gate has not passed.
+ThingsBoard follow-up verifies 2,329,585 single-leaf predicates with a 1,758,031,280-byte descriptor
+union and an overlapping 969,107,360-byte base-index union. The selected PDF F1 witness and scalar
+queries are complete. All eight checkpoint JFR exports and the review of their 151 overlapping windows
+are complete. The command's full-run proof history remains open. A bounded observer compiled and passed
+48 call/report/driver controls in an isolated checkout; its fixed-configuration full run has completed
+F1, B2 and F3 and is active in B4. The original model, heap and timeout are kept. Its diagnostic timings
+do not replace the primary pair. The four-project resource gate has not passed.

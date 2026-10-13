@@ -254,9 +254,17 @@ request-store and standing-join queries are empty in both heaps; forward conjunc
 O1 observed-proof counter zeros are unavailable because the statistics owner is not passed to this
 checkpoint engine. The final implementation supplies that owner.
 
-All checkpoint overview queries are reviewed. The separate command-demand witness review and checkpoint
-JFR export remain open. These OOM heaps explain the checkpoint failures; they do not establish final B4
-retained ownership. See the [checkpoint report](../bidirectional-o1-o3-checkpoints.md) for revisions,
+All checkpoint overview and selected command-demand witness queries are reviewed. Sink 1's two selected
+O3 F1 witnesses check an ANY `$UNTRUSTED` root in DEMAND; sink 3's witness checks an EXACT `$ARGS`
+root in NORMAL. All three are unconfirmed, with a nonzero Arg0 premise, one literal, no path, no end
+facts and an empty exclusion. A NORMAL checked fact alone does not establish caller-chain support.
+
+Checkpoint JFR review is complete. Before capture, O3 F3 records 88.847 GB sampled allocation weight
+and 5.879 seconds of clipped pauses in 25.219 seconds; O1 F3 records 116.681 GB and 6.439 seconds
+in 30 seconds. Subtraction accounts for 9.76% and 12.17% of inclusive allocation weight. Shorter
+windows and different progress prevent an isolated memory or speed claim. These OOM heaps explain
+the checkpoint failures; they do not establish final B4 retained ownership. The separate full-run
+command observer is still active with the original model, heap and timeout. See the [checkpoint report](../bidirectional-o1-o3-checkpoints.md) for revisions,
 timings, archives, report-state joins and query limits.
 
 ## Evidence and remaining gates

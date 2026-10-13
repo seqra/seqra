@@ -205,13 +205,23 @@ The unions overlap. The lower request and queue counts in O1 occur at an earlier
 not isolated savings. O1 retains 2,471,818 compiled predicates, but only 14 live predicate states and
 24 interned proofs. Thus, its large compiled NNF owner is not an observed join-state explosion. The
 inherited source/sink-root query includes NNF-backed sink descriptors; its label does not prove eager
-cube expansion. A bounded singleton-descriptor query is in progress to measure the array and base-index
-cost. The observed-proof counter zeros are unavailable because this checkpoint does not pass the optional
-statistics owner to the engine. The final implementation supplies that owner.
+cube expansion. A separate six-query aggregate measurement verifies 2,329,585 one-node/one-leaf
+predicates, 16 constants and 142,217 multi-node predicates, exactly matching the whole predicate census.
+The singleton descriptor union retains 1,758,031,280 bytes, with an overlapping 969,107,360-byte
+base-index union. Primitive arrays within the descriptor union total 987,744,040 shallow bytes.
+The source retains nine topology arrays plus generic base-map storage per singleton. These measurements
+support a specialized singleton-storage candidate; they do not measure an alternative's savings or the
+final run's retained cache. The observed-proof counter zeros are unavailable because this checkpoint
+does not pass the optional statistics owner to the engine. The final implementation supplies that owner.
 
 The final run clears the form cache and reaches substantially more events before its OOM. Its remaining
 large core owners are standing requests and queued work. All checkpoint overview queries are reviewed;
-checkpoint JFR export remains pending. See the [checkpoint report](../bidirectional-o1-o3-checkpoints.md)
+checkpoint JFR review is also complete. In the last 30 seconds before capture, O3 and O1 record 43.240
+and 61.659 GB of sampled allocation weight, with 15.495 and 13.391 seconds of clipped GC pauses.
+Generic queue comparison and boxed `Long` paths account for 36.91% and 28.03% of inclusive allocation
+weight. O3's valid normal window has no capture overlap and a 47.97% queue/boxing share. This is
+temporary allocation traffic; queue/standing-request retention is measured separately in MAT. The
+different progress points prevent an isolated O1 throughput claim. See the [checkpoint report](../bidirectional-o1-o3-checkpoints.md)
 for source revisions, timings, archives and query limits.
 
 ## Evidence and remaining gates
@@ -233,6 +243,6 @@ The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
 
 Main SARIF SHA-256 is `06f69df24968b4268f0d99f49a0b1ae4cf9e70ecccd6cc2799e40be1e717ae1e`;
 bidi SARIF SHA-256 is `98057251a76bc213a713dbbab63840472b7e5418e06bc90144cae5995531c501`.
-Fixed-budget completion, complete finding preservation, the singleton-descriptor follow-up and checkpoint
-profile attribution remain open. Fresh final and checkpoint heap-owner reviews are complete. IR and O4–O12
+Fixed-budget completion and complete finding preservation remain open.
+Fresh final, checkpoint and singleton heap-owner reviews and checkpoint profiles are complete. IR and O4–O12
 remain outside the selected implementation.
