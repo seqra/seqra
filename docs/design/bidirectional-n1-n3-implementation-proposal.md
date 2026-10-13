@@ -13,6 +13,23 @@ The changes preserve all logical requests, accepted subscription leaves and requ
 They remove redundant history, wrappers and scans. They do not merge caller contexts or cap valid state.
 No implementation, project run or new memory capture is part of this document change.
 
+## Behavior changes at a glance
+
+| Proposal | Current behavior | Proposed behavior | Why it should improve |
+| --- | --- | --- | --- |
+| N1: grouped standing requests and selective joins | Store each origin/request-kind pair in a seen set and a path index. Check geometrically overlapping requests even when their mark cannot produce an action. | Store marks under one full-origin row and position origins under one full-path row. Index each row once. A concrete mark probes only that mark; abstract marks skip excluded requests. Keep requests active for later links. | Fewer object/hash/index entries and fewer unsuccessful join checks. The benefit depends on members per row; the logical request count stays the same. |
+| N2: cumulative subscriptions and stable E6 bindings | Retain each accepted growth delta and its index entries alongside cumulative groups. E6 retains matched Subscription values, including their Facts versions. | Keep one current cumulative entry per full caller reference and exact ordinary group, replay each fresh delta transiently, and use one positional directory. Remove the unused accumulator index. After full matching, E6 stores full caller-reference/link-layer bindings. Keep the separate zero-only policy. | Stop retaining subscription growth history and avoid moving it into E6. Storage follows exact groups, positions and distinct matched bindings rather than every growth step. |
+| N3: grouped request mailboxes and finite service cycles | Each remote send creates a request event. Duplicates reach the receiver before its seen check discards them. The runner drains all incoming events before polling; ordinary events precede nonzero Work. | Buffer unique pending/in-service requests by full destination key, with one counted wake per active mailbox. Claim FIFO batches, coalesce overlapping duplicates, bound intake, and serve both Work classes in finite phases. Then compact the remaining queue lanes. | Fewer message/queue objects and duplicate handlers. Work gets service during an ordinary-event stream. Distinct pending requests remain; scheduling can change progress and incomplete reports. |
+
+For example, 100 requested marks for one origin become one row with 100 memberships in N1. If one
+subscription group grows 100 times, N2 keeps its current value rather than 100 permanent delta records.
+In N3, 100 pending requests for one destination use one live wake, while all 100 distinct keys remain stored.
+These are shape examples, not measured savings.
+
+All three aim to preserve complete analysis results and required effects. N1 preserves encounter order in
+its first version. N3 changes processing order. The equivalence gates below must pass before implementation
+can be accepted; no measured saving or unchanged incomplete report is promised.
+
 ## 1. Evidence and scope
 
 The current runtime is `38a400c0d`; the scan manifest revision is `bd6810823`. Commit `23f25e8a8` changes

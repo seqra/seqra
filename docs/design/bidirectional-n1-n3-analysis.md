@@ -3,6 +3,7 @@
 Status: analysis for detailed design, not an implementation result. Date: 13 October 2026.
 Scope: N1, N2 and N3 from the [memory proposal](bidirectional-core-optimization-20261013.md).
 Use the [detailed implementation proposal](bidirectional-n1-n3-implementation-proposal.md) for the changes.
+It starts with a [short current-versus-new comparison](bidirectional-n1-n3-implementation-proposal.md#behavior-changes-at-a-glance).
 IR objects, storage and providers remain outside the scope. No analyzer code changes in this analysis.
 
 We need both algorithm changes and smaller storage. Start by removing redundant history and event objects,

@@ -11,6 +11,8 @@ queue entries. The [N1–N3 analysis](bidirectional-n1-n3-analysis.md) distingui
 accepted delta history and pending transport. The [detailed proposal](bidirectional-n1-n3-implementation-proposal.md)
 first removes redundant history, event objects and scans, then compacts necessary state. It replaces this
 document's initial storage-first recommendation. Keep NNF for both source and sink conditions; do not restore cubes.
+See the [short current-versus-new comparison](bidirectional-n1-n3-implementation-proposal.md#behavior-changes-at-a-glance)
+for each selected proposal's behavior change and expected benefit.
 Managed method-form references already release compiled forms in the failing Conductor and ThingsBoard
 captures. Further form eviction alone does not address those remaining owners.
 
