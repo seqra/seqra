@@ -126,6 +126,10 @@ are outside these queue sizes, so the whole-class count is not identical to queu
 | Actor edge stores | 378,314,608 |
 | Callee subscription state | 606,903,488 |
 
+The complete standing-store inventory has 22,317,268 distinct seen request pairs across 76,943 stores.
+Of these stores, 14,991 are nonempty; the largest holds 40,734 pairs. Their positional indexes have 23,168
+base roots. This is standing-request cardinality, separate from pending queue messages.
+
 These unions overlap and use different root sets; they must not be added. Standing requests are a larger
 retained owner than queue roots in this capture. Queue capacity also exceeds occupied entries. This identifies
 request storage and pending delivery as core memory targets; it does not establish the saving of a proposed
@@ -147,8 +151,12 @@ empty slot referents do not imply zero recipe memory.
 
 The concrete persistent vulnerability store is present. The whole heap contains 19 vulnerability keys and
 21 witnesses, despite the empty accepted report. Every witness belongs to run 1 and is unconfirmed.
-Their baseline identity mapping is still under review. They do not change the primary comparison's
-14 missing identities.
+Decoded rule, method and instruction fields match nine baseline call/assignment sites. Four more baseline
+rule/method pairs have candidates at appended method-entry boundaries, with different instruction indexes
+from main. The `AdminController.codeProcessingUrl` redirect at index 85 has no matching stored key.
+These partial observations do not change the primary comparison's 14 missing identities or prove a complete
+propagation result. One unsafe-reflection witness has a nonzero argument premise and DEMAND layer, so a
+stored candidate does not imply a confirmable normal finding.
 
 Optional counters are cumulative: 1,286,827 forward builds, zero reversals, 14,455 uncached builds and
 7,287,665 hits. Final zero pins after teardown differ from live-snapshot measurements. These totals do not
