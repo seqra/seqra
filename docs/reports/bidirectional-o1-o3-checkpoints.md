@@ -102,6 +102,16 @@ nine open runners. This snapshot identifies compiled cached forms as the dominan
 fresh child/strong-path queries must still identify the largest methods and condition expansions.
 It is not a before/after heap saving because the O1 and final runs reach different progress points.
 
+The O3 Conductor overview accounts for all 28 queries: 26 nonempty CSV outputs and two valid empty
+standing-request outputs. The complete histogram independently has no `RequestStore` instances.
+Its reachable heap has 228,806,565 objects and 7,670,902,464 shallow bytes. All 17,525 actors belong
+to current B2/limit-2 work in 219 open runners. Strong cache arrays retain 955,109,440 bytes; callee
+subscription state retains 954,585,968 bytes; method-edge stores retain 583,962,520 bytes. These
+unions overlap. IR storage retains 2,409,815,040 bytes and remains outside scope. The O3 form cache
+is material here, but it does not dominate this heap as it does in OWASP. The final Conductor guard
+heap has cleared cached form references and still fails in B2; its active protocol owners are detailed
+in the [Conductor report](bidirectional-o1-o3-projects/conductor.md).
+
 Continuous JFR files exist for all eight runs. Each requested the normal profile window; O3 OWASP's
 profiler returns 1 as the process finishes. Captures still need phase/window validation and CPU,
 allocation and GC review. No run reaches its configured near-limit window. Counter fields absent
