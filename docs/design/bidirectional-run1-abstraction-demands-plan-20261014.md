@@ -23,6 +23,9 @@ request traffic or silently remove failing assertions.
 
 Add small program controls for:
 
+- No request, precomputed request, dynamic request and several requested marks: always retain the
+  eligible abstract `*` initial and add separate supplied concrete answers. A late request or
+  duplicate registration must not remove the abstract initial or restart existing analysis.
 - A caller/callee chain whose only field access is in the deepest callee; diamonds and recursion.
 - `C.g -> local -> C.f -> static check` and `C.g -> local -> local sink` with an actual marked input.
 - The same programs with an abstract `C.g` initial: both must request `T` on that original initial.
@@ -114,6 +117,11 @@ alongside class/field slots. Install interests independently of structural initi
 and process existing and future raw links. Reuse the static answer/start kernel for interested
 marked suppliers: retain full paths and exact/any distinction; demote must to ANY/Empty in run-1.
 Access collection alone emits an abstract slot and does not assume its required mark is known.
+Always emit the eligible abstract-mark initial, whether or not an interest exists. Requested
+concrete answers are additional initials. Use the same additive path for precomputed and dynamic
+interest, with existing initial deduplication and separate concrete alternatives. Keep root/slot
+abstract analysis active when concrete answers arrive. An unsupplied requested mark remains
+pending interest and must not fabricate a concrete fact.
 
 Add an ordinary check helper receiving the original initial and the eligible checked input facts.
 After the normal geometry/mx gate, suppress the dynamic request only if the initial is STATIC

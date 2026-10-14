@@ -18,6 +18,9 @@ are additional emissions; the root provides the summaries that carry static stat
 Also collect static mark interests from rule checks. Abstraction owns these interests and any
 remaining dynamic mark interests. A delivered request becomes a completed policy update; it is
 not a separately indexed standing request awaiting a future answer.
+Mark emission is additive: always emit the eligible abstract-mark initial. A precomputed or
+dynamic mark request adds the corresponding concrete-mark initial when a supplier provides it;
+it never replaces or removes the abstract initial.
 
 **Current versus new behavior**
 
@@ -158,6 +161,26 @@ flowchart LR
     A --> O[Demand to original caller abstraction]
 ```
 
+### Additive mark emission
+
+For every eligible nonzero abstraction, retain the following emission rule:
+
+| Registered mark interest | Emission |
+| --- | --- |
+| None | Abstract `*` mark |
+| Requested `T`, with a matching supplier | Abstract `*` mark plus the concrete `T` answer |
+| Several requested marks | Abstract `*` mark plus a separate concrete answer for each supplied requested mark |
+| Requested mark not yet supplied | Abstract `*` mark; interest remains active for future suppliers |
+
+Precomputed and dynamic requests follow the same rule. A later dynamic request adds concrete
+emissions from existing suppliers and later arrivals; the abstract initial stays active. Use
+the existing initial-fact deduplication so a repeated abstract emission or request does not
+restart already admitted analysis. Each concrete initial is a separate alternative, not a
+member of a conjunctive `PremiseSet` constructed from all requested marks.
+
+The concrete answers retain the existing path, tail and start-layer rules. Zero retains its
+canonical zero policy. Mark interest alone cannot supply a concrete mark from an abstract input.
+
 Keep raw added facts, link layers, caller layers, full MethodKeys, original caller premises and
 call sites in their existing owners. A profile is not a supplier. It never generates a concrete
 mark from a FLOW fact or from catalog membership alone.
@@ -195,6 +218,7 @@ Collecting an accessed static position causes abstract position emission; it doe
 request every concrete mark there. Emit an actual marked supplier when precomputed or dynamic
 mark interest requires it, using the existing static answer/start rules. Do not replace the
 supplier by a fact at a different check position.
+This concrete emission is in addition to the abstract slot and mandatory static-root emissions.
 
 For example:
 
