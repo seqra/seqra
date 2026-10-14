@@ -26,7 +26,9 @@ Add small program controls for:
 - A caller/callee chain whose only field access is in the deepest callee; diamonds and recursion.
 - `C.g -> local -> C.f -> static check` and `C.g -> local -> local sink` with an actual marked input.
 - An argument/receiver origin written to a static field before a callee's static mark check.
-- A caller reading a static field after a callee that does not access it: preserve root identity.
+- A callee with empty static profiles still emits `(S, [], STAR, Empty, STAR)` for an incoming static
+  fact and preserves it for a caller's later read. Also check root summaries under static writes
+  and cleaners, including their kill and exclusion effects.
 - Late suppliers, a new caller for an existing fact, and reentrant demand growth during a scan.
 - Excluded fields, root/class EXACT facts, deep static answers and must-to-ANY demotion.
 - Source and sink NNF AND/OR, false predicates, repeated leaves and same-call support separation.
@@ -82,8 +84,10 @@ position. Check cycles, diamonds, distinct context unions and empty profiles.
 ## Step 4. Move position refinement into abstraction
 
 Add `Run1Abstraction` at the run-1 branch of `RunMethodAnalyzer.emit`; restricted-run emission
-stays separate. Keep root/zero policy and static identity. On raw static updates, test the one
-or two supplier prefixes against structural needs, and emit the current position-answer STAR
+stays separate. Keep zero policy. For every admitted static input, emit the canonical root
+`(S, [], STAR, Empty, STAR)` independently of the catalog, with existing initial deduplication.
+Its normal FLOW analysis must produce the current keep/kill/exclusion summaries. On raw static
+updates, also test the one or two supplier prefixes against structural needs, and emit the current position-answer STAR
 initials through `addInitial`. Never emit a deeper position initial from an abstract ancestor.
 
 During migration, use the old oracle to identify every position request answer/climb. Verify

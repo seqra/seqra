@@ -11,6 +11,9 @@ The [implementation plan](bidirectional-run1-abstraction-demands-plan-20261014.m
 Remove static position requests. Prescan collects the static accesses and rule static positions
 of each method. The resolved call graph supplies transitive static needs. Run-1 abstraction uses
 these needs when incoming facts arrive, and emits the required initial facts directly.
+It must also emit the static-root initial `(S, [], STAR, Empty, STAR)` for every admitted static
+input, including when the method's transitive static sets are empty. Precise static initials
+are additional emissions; the root provides the summaries that carry static state through calls.
 
 Also collect static mark interests from rule checks. Abstraction owns these interests and any
 remaining dynamic mark interests. A delivered request becomes a completed policy update; it is
@@ -21,7 +24,7 @@ not a separately indexed standing request awaiting a future answer.
 | Area | Current | New | Expected benefit |
 | --- | --- | --- | --- |
 | Static positions | Discover, store and climb position requests during run-1 | Use shared transitive prescan profiles in initial emission | Remove runtime position traffic, request rows and their path index |
-| Marked static inputs | Initially emit the static root; request concrete marks later | Admit actual marked suppliers for accessed/rule static positions | Avoid request round trips before an available static fact can be analysed |
+| Marked static inputs | Initially emit the static root; request concrete marks later | Keep the static root and add actual marked suppliers for accessed/rule static positions | Avoid request round trips before an available static fact can be analysed |
 | Static rule marks | Discover interest when a FLOW fact reaches a check | Install precomputed static mark interest in abstraction | Share the interest and suppress delivery to already covered static abstractions |
 | Other mark demands | Keep exact memberships in N1 and join them with raw links | Update the original abstraction's compact mark policy | Complete transport work; keep future emission coverage with one policy per simple chain |
 
@@ -156,6 +159,10 @@ mark from a FLOW fact or from catalog membership alone.
 Retain the static-root identity path for fields outside the callee's profile. A caller can read
 `D.f` after a callee that never accesses `D.f`; the callee must still return that untouched state.
 The catalog selects precise analysis work, not which raw links or static identity effects exist.
+Root emission is mandatory and independent of catalog membership. Deduplicate the root with the
+existing initial-fact store, then analyse its normal FLOW start using the current keep, kill and
+exclusion rules. A summary is computed from those rules; it is not an unconditional identity
+shortcut that could bypass a static write or cleaner.
 
 ### Abstract static position emission
 
