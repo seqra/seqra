@@ -3,13 +3,20 @@
 Date: 14 October 2026. Status: all twelve scans are terminal. This report contains fresh main,
 control and optimized measurements, strict finding comparisons and implementation checks.
 The deeper profile review, all four primary heap-owner reviews, run-1 component/root-path analysis
-and the command-path diagnostic replay are complete. The next proposal now gives a memory ranking
-and run-1 work-avoidance designs. The earliest upstream command-flow loss remains unresolved.
+and both command-path diagnostic replays are complete. The next proposal gives a memory ranking
+and run-1 work-avoidance designs. The second replay identifies the failed NORMAL supplier and
+the source-admission gap at refinement. It does not prove a global first-loss event.
 
 The tested optimization is request mark sets plus a method processing barrier. The implementation
 commit is `a23ad7fcd99553190c82557cff6076503959aec6`. It preserves independent source and sink
 conditions and full request origins. Position requests keep their scalar path. A nonzero Work
 quantum can service a bounded request chunk when the method remains busy.
+
+Summary publication already has a method barrier. `RunMethodAnalyzer.summaryDelta` buffers
+fresh publications, and `work` flushes them after the method fact queue becomes empty. A Work
+quantum yield does not flush summaries. `PublicationIndex` admits fresh deltas, and caller
+delivery still matches and applies those deltas separately. The next proposal addresses that
+remaining matching and graft work.
 
 ## Revisions, fixed inputs and checks
 
@@ -247,10 +254,39 @@ They do not prove the earliest loss of the main NORMAL flow. Some ordinary run-3
 reach their caps; protected report, plan and cleaner records have no drops. The complete run-3 constructor census has only three NORMAL REACH and four NORMAL FLOW
 inputs, with no TAINT input. Restricted concrete sink checks cannot create a witness from those
 FLOW facts. Support review rejects the run-1 nonzero NORMAL witness; report replacement then
-removes the target keys. This identifies the failing refinement boundary, but the earliest
-upstream loss of the main NORMAL flow remains unresolved. The evidence and strict output
+removes the target keys. This first replay identifies the failing refinement boundary. It does
+not name the rejecting upstream supplier. Its evidence and strict output
 comparison are in
 `analysis-preparation/command-loss-diagnostic/jobs/replay-/20261014T160643.886578Z-0356d5e9/terminal-review-final`.
+
+A second isolated replay observes the actual support decisions and completed backward hand-off.
+It also reaches **run-4, backward, limit 4**, with TIMEOUT, after completing and accepting
+**run-3, forward, limit 3**. Its output again matches the primary run: 56 strict identities,
+128 occurrences, and no raw-location or multiplicity changes. Its times remain diagnostic
+measurements. Its two run-1 constructor support queries each visit 17 candidates:
+16 fail the fact-shape test, and one supplies the requested exact ARGS fact. That NORMAL supplier
+is the one-argument `ProcessExecutor.runCommandWithOutputHandling(List)` at call 0. Its caller
+premise is unsupported, so both queries return false. This names the failed supplier; the
+constructor binding and report replacement do not cause that support rejection.
+
+The matching concrete assumption does not establish the main website source path. The recorded
+incoming exact ARGS fact comes from `ColorSpaceConversionStrategy.replace`, call 35, in DEMAND.
+The website controller at call 61 supplies a DEMAND UNTRUSTED fact at `Iterable.Element`.
+Its run-1 entry also has a NORMAL zero-premise command UNTRUSTED source. In the completed run-2
+hand-off, the same full controller key has 11 source hits, all filtered as non-command mark
+edges, and no selected command source seed. The getter has a passive NORMAL FLOW record, but its selected backward
+summary is zero REACH and its outgoing demand count is zero. The exact source-seed check therefore
+does not admit that controller command entry source in run-3. Conditional List.add source
+predicates remain enabled; they do not use this zero-premise source-seed gate.
+
+The support and source-admission failures explain the target's unavailable marked support after
+refinement. The closed protected lanes have no dropped, truncated, unwritten or erroneous rows,
+and the hand-off has no scan cutoffs. The separate local D23 erasure remains a DEMAND example.
+These observations do not prove whole-chain NORMAL erasure, the first backward branch that
+prevents the source hit, or that the main finding is invalid. The diagnostic patch stays in its
+isolated checkout. Its 114 focused tests and root compilation pass; source and helper hashes
+match before and after execution. Evidence is under
+`analysis-preparation/command-support-diagnostic-2/jobs/replay-/20261014T183526.607713Z-05d9ee84`.
 
 Across all four projects, control and optimized output match in strict identities, occurrence
 counts and physical locations. Main still has 16 absent identities: 13 from ThingsBoard and
