@@ -11,9 +11,11 @@ implementation. Do not use the old proposal's owner bytes as current bytes or an
 
 Keep NNF source and sink conditions, signed folding including `P AND NOT P -> false`, full occurrence/proof
 identities, and the cleaner normalization from `saloed/cleaner-action-normalisation`. IR objects, IR storage,
-IR tables and IR providers remain outside scope. No scheduler, transport, mailbox or queue-layout change is
-proposed for the next iteration. The [N3 design](bidirectional-n3-deferred-proposal.md) remains a separate future
-option even if the queue pattern persists in this batch.
+IR tables and IR providers remain outside scope. The C1–C13 candidates below keep request transport,
+scheduling, mailboxes and queue layout unchanged. Following the later request investigation, the user
+has requested a separate [mark-set and processing-barrier proposal](bidirectional-request-set-barriers-20261014.md).
+That proposal is also unselected. It does not activate the older [N3 design](bidirectional-n3-deferred-proposal.md)
+or its broader queue-layout and fairness changes.
 
 ## Current evidence and limits
 
