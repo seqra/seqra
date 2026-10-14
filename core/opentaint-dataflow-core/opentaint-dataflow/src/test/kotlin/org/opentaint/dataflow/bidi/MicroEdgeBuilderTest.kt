@@ -8,7 +8,7 @@ import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.fixtures.StoreFixtures
 import org.opentaint.dataflow.bidi.interp.*
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails

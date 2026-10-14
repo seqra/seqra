@@ -75,6 +75,8 @@ internal class JIRCallPlanBuilder(
         aliasAnalysis?.aliasesPersistedThroughCall(base, at).orEmpty()
     },
     private val formOwner: FormOwner = FormOwner(),
+    potentialUnknownAliases: Boolean = false,
+    private val requireCatalogTarget: (org.opentaint.ir.api.common.CommonMethod, org.opentaint.ir.api.common.CommonMethod) -> Unit = { _, _ -> },
 ) {
     private val lambdas: Map<Int, Set<JIRMethod>> = Collections.unmodifiableMap(lambdas.mapValues { (_, methods) ->
         Collections.unmodifiableSet(LinkedHashSet(methods))
@@ -87,7 +89,7 @@ internal class JIRCallPlanBuilder(
     private val o: AccessPathBase? = (call as? JIRInstanceCallExpr)?.instance?.let(::accessPathBase)
     private val args: List<AccessPathBase?> = call.args.map(::accessPathBase)
     private val rewriter = JIRMarkAwareConditionRewriter(CallPositionToJIRValueResolver(call, returnValue),
-        checker, aliasAnalysis, s)
+        checker, aliasAnalysis, s, potentialUnknownAliases)
     private val types = JIRMethodPositionBaseTypeResolver(callee)
     private fun filter(t: JIRType?) = typeFilters.of(t)
     private val passReads = LinkedHashSet<AccessPathBase>()
@@ -95,12 +97,7 @@ internal class JIRCallPlanBuilder(
     private fun occurrence(kind: RuleKind, ordinal: Int) = RuleOccurrenceId(formKey, kind, ordinal)
 
     fun build(): CallPlan {
-        val mayBeArray = { i: Int -> checker.callArgumentMayBeArray(call, AccessPathBase.Argument(i)) }
-        val sinks = forms.rules.sinkRulesForMethod(callee, s, fact = null).withIndex()
-            .flatMap { (ordinal, rule) ->
-                if (!forms.valid(rule)) emptyList() else forms.sinks(rule,
-                    forms.rewriteSourceOrSink(rule, rewriter), occurrence(RuleKind.CALL_SINK, ordinal), mayBeArray)
-            }
+        val sinks = sinks()
         val (callees, unresolved) = resolve()
         val back = bindBack()
         val stages = buildList {
@@ -123,6 +120,28 @@ internal class JIRCallPlanBuilder(
             aliases(back)?.let { add(Edges(REWRITTEN, AFTER, ALIASES, it, Guard.MemoryEffect)) }
         }
         return CallPlan(touched(), stages, sinks, entry = BEFORE, exit = AFTER, passReads = passReads)
+    }
+
+    private fun sinks(): List<org.opentaint.dataflow.bidi.interp.SinkRule> {
+        val mayBeArray = { i: Int -> checker.callArgumentMayBeArray(call, AccessPathBase.Argument(i)) }
+        return forms.rules.sinkRulesForMethod(callee, s, fact = null).withIndex()
+            .flatMap { (ordinal, rule) ->
+                if (!forms.valid(rule)) emptyList() else forms.sinks(rule,
+                    forms.rewriteSourceOrSink(rule, rewriter), occurrence(RuleKind.CALL_SINK, ordinal), mayBeArray)
+            }
+    }
+
+    /** Potential effective needs only: no resolution, subscription, alias construction or rule activation.
+     * Pass effects conservatively cover unresolved/mixed branches; false rules still contribute nothing.
+     */
+    fun visitStaticMetadata(summary: (StatementSummary) -> Unit,
+                            sink: (org.opentaint.dataflow.bidi.interp.SinkRule) -> Unit,
+                            clean: (CleanStep) -> Unit) {
+        sinks().forEach(sink)
+        summary(sources())
+        cleanSteps().forEach(clean)
+        rewriterSteps().forEach(clean)
+        summary(passRules())
     }
 
     private fun touched(): Set<AccessPathBase> = buildSet {
@@ -235,6 +254,7 @@ internal class JIRCallPlanBuilder(
         var hasNonemptyTarget = false
         fun add(method: MethodWithContext) {
             if ((method.method as JIRMethod).instList.size == 0) return
+            requireCatalogTarget(caller.method, method.method)
             hasNonemptyTarget = true
             callees += keys(method)
         }

@@ -139,6 +139,7 @@ class UnitRunner<A : RunActor> internal constructor(
         } finally {
             queue.clear()
             queued.clear()
+            for (actor in actors.values) (actor as? RunMethodAnalyzer)?.releaseAbstraction()
             actors.clear()
         }
     }

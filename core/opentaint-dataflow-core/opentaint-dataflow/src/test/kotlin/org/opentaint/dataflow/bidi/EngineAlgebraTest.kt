@@ -8,7 +8,6 @@ import org.opentaint.dataflow.bidi.driver.SeedIndex
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
 import org.opentaint.dataflow.bidi.interp.*
-import org.opentaint.dataflow.bidi.store.RequestKind
 import kotlin.test.*
 
 class EngineAlgebraTest {
@@ -100,7 +99,7 @@ class EngineAlgebraTest {
         }
     }
 
-    @Test fun `run1 static position exception requires statement placement and names original FLOW premise`(): Unit {
+    @Test fun `run1 static parent statement waits for catalog refinement without a wide demand result`(): Unit {
         val f = MethodAnalysisFixtures()
         f.shared.use {
             val core = f.core()
@@ -114,7 +113,7 @@ class EngineAlgebraTest {
             val summary = StatementSummary(setOf(AccessPathBase.ClassStatic), listOf(edge), emptyList(), emptyMap())
             assertTrue(applyMethodForm(core, MethodFormMode.STATEMENT, summary, premise, input,
                 Place(f.inst(1), true, true)).isEmpty())
-            assertEquals(listOf<Pair<InitialAp, RequestKind>>(premise to RequestKind.Position(f.manager.path(path)!!)), f.requests)
+            assertTrue(f.requests.isEmpty(), "Catalog refinement has no runtime position request")
             f.requests.clear()
             for (mode in listOf(MethodFormMode.STAGE, MethodFormMode.GEN)) {
                 val result = applyMethodForm(core, mode, summary, premise, input, Place(f.inst(1), false, false))

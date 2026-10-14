@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.bidi.fixtures
 
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.*
@@ -44,9 +45,10 @@ class CurrentModeFixtures : AutoCloseable {
             val run = config.index
             val key = core.key
             object : MethodLocalServices by delegate {
-                override fun addRequest(premise: InitialAp, kind: RequestKind) {
+                override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
+                    val kind = RequestKind.Mark(mark)
                     requestRows += CurrentRequest(run, key, premise.toPattern(), kind)
-                    delegate.addRequest(premise, kind)
+                    delegate.addMarkRequest(premise, mark)
                 }
                 override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
                     marks.forEachMark { requestRows += CurrentRequest(run, key, premise.toPattern(), RequestKind.Mark(it)) }

@@ -190,6 +190,7 @@ class RunManager<A : RunActor>(
             for (analyzer in analyzers) release { analyzer.freeze() }
         } finally {
             if (joined) for (runner in snapshot) release { runner.release() }
+            if (joined && config.run1) shared.releaseRun1StaticProfiles()
             synchronized(admission) {
                 runners.clear()
                 runnerJobs.clear()

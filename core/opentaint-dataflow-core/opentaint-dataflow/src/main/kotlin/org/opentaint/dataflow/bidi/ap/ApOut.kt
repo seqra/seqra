@@ -2,11 +2,10 @@ package org.opentaint.dataflow.bidi.ap
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 
-/** Results of one operation. Requests refer to the input edge's premise. */
+/** Results of one operation. Mark requests refer to the input edge's premise. */
 interface ApOut {
     fun result(f: Facts)
     fun markRequest(mark: TaintMark)
-    fun positionRequest(position: PathNode)
 }
 
 /** One result per kind and canonical key, without store subsumption. */
@@ -54,8 +53,6 @@ internal class Results(private val m: ApManager, private val base: AccessPathBas
 class CollectingOut : ApOut {
     val results = ArrayList<Facts>()
     val markRequests = ArrayList<TaintMark>()
-    val positionRequests = ArrayList<PathNode>()
     override fun result(f: Facts) { results += f }
     override fun markRequest(mark: TaintMark) { markRequests += mark }
-    override fun positionRequest(position: PathNode) { positionRequests += position }
 }

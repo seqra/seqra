@@ -108,6 +108,11 @@ class JIRAnalysisManager(
         }
     }
 
+    /** Borrow each joined context for metadata binding; the callback must not retain it. */
+    fun forEachPrescanContext(visit: (JIRMethodAnalysisContext) -> Unit) {
+        contexts.forEach(visit)
+    }
+
     override fun releasePrescan() {
         contexts.forEach { it.resetAnalysisCache() }
         contexts.clear()

@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi.store
 
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
+
 import org.opentaint.dataflow.bidi.ap.ExclusionSet
 import org.opentaint.dataflow.bidi.ap.Facts
 import org.opentaint.dataflow.bidi.ap.InitialAp
@@ -12,11 +14,6 @@ import org.opentaint.dataflow.bidi.ap.Tail
 import org.opentaint.dataflow.bidi.ap.TaintMark
 import org.opentaint.dataflow.bidi.ap.overlap
 import org.opentaint.dataflow.util.Cancellation
-
-sealed interface RequestKind {
-    data class Mark(val mark: TaintMark) : RequestKind
-    data class Position(val path: PathNode) : RequestKind               // a static position, cut to <= 2 accessors
-}
 
 /** Actor-owned exact standing relation. Rows, not logical memberships, enter the positional index. */
 class RequestStore(

@@ -144,7 +144,7 @@ class JIRBidiOutputTest : BidiJIRTestUtils() {
             assertFailsWith<IllegalStateException> { f.engine.requirePrescanJoined() }
             f.run()
             f.engine.requirePrescanJoined()
-            converter.gather(f.manager, emptyList())
+            converter.gather(f.manager, emptyList(), f.engine.prescanResolvedGraph())
             f.manager.releasePrescan()
             f.engine.releasePrescan()
             assertTrue(f.engine.allUnits().isEmpty())

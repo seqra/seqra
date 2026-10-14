@@ -4,7 +4,6 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.ELEMENT_ACCESSOR_IDX
 import org.opentaint.dataflow.bidi.ap.*
-import org.opentaint.dataflow.bidi.store.RequestKind
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 /** One per-path result with its premise set. */
@@ -13,7 +12,7 @@ typealias ReferenceSink = (Set<Pattern>, Conclusion) -> Unit
 /** Reference transfer, filtering and standing source support for one method and run. */
 class ReferenceAlgebra(
     private val mode: ApMode,
-    request: (Set<Pattern>, RequestKind) -> Unit = { _, _ -> },
+    request: (Set<Pattern>, ReferenceRequestKind) -> Unit = { _, _ -> },
     allowsSource: (CommonInst, MicroEdge) -> Boolean = { _, _ -> true },
     sourceHit: (CommonInst, MicroEdge) -> Unit = { _, _ -> },
     private val manager: ApManager,
@@ -33,8 +32,8 @@ class ReferenceAlgebra(
         val identity = mode.run1 && statementEdge && isStaticIdentity(premise, c)
         when (val o = concat(c, me.edge, edgeDemand = me.may, staticIdentity = identity, restricted = mode.restricted)) {
             is EdgeOutcome.Fact -> out(premise, o.conclusion)
-            is EdgeOutcome.Request -> if (mode.run1) onRequest(premise, RequestKind.Mark(o.mark))
-            is EdgeOutcome.PositionRequest -> if (mode.run1) onRequest(premise, RequestKind.Position(manager.path(o.path)!!))
+            is EdgeOutcome.Request -> if (mode.run1) onRequest(premise, ReferenceRequestKind.Mark(o.mark))
+            is EdgeOutcome.PositionRequest -> if (mode.run1) onRequest(premise, ReferenceRequestKind.Position(manager.path(o.path)!!))
             EdgeOutcome.None -> Unit
         }
     }

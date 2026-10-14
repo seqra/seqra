@@ -18,7 +18,7 @@ import kotlin.time.TimeSource
 /** Entry setup must consume the same budget that the real driver receives. */
 class JIRBidiSetupBudgetTest : BidiJIRTestUtils() {
     @Test
-    fun `rule selection can exhaust a positive entry budget before the first real run`(): Unit {
+    fun `gather selection and catalog preparation consume the caller positive total budget before the first run`(): Unit {
         val budget = 25.milliseconds
         var selections = 0
         val rules = object : TaintRulesProvider by NoTaintRules {
@@ -51,14 +51,18 @@ class JIRBidiSetupBudgetTest : BidiJIRTestUtils() {
             f.run()
             f.engine.requirePrescanJoined()
             val entry = JIRBidiAnalysis(cp, graph, f.units, rules, f.params, policy, f.refManager)
-            entry.gather(f.manager, emptyList())
+            val totalStart = TimeSource.Monotonic.markNow()
+            entry.gather(f.manager, emptyList(), f.engine.prescanResolvedGraph())
+            assertEquals(1, selections, "Selection occurs once before metadata collection")
+            val afterGather = budget - totalStart.elapsedNow()
+            assertTrue(afterGather <= Duration.ZERO, "Gather consumed the caller total budget")
             f.manager.releasePrescan()
             f.engine.releasePrescan()
-            val report = entry.run(budget)
+            val report = entry.run(afterGather)
             assertEquals(1, selections)
             assertEquals(1, remaining.size)
-            assertTrue(remaining.single() <= Duration.ZERO,
-                "Rule selection consumed the positive entry budget; the driver received ${remaining.single()}")
+            assertTrue(remaining.single() < afterGather,
+                "Remapping and closure also consume the remaining budget: $afterGather -> ${remaining.single()}")
             assertEquals(0, stopQueries)
             assertEquals(AnalysisEnd(RunStatus.TIMEOUT, 1, Direction.FORWARD, EndReason.ABNORMAL), report.end)
             assertTrue(report.entries.isEmpty())

@@ -17,7 +17,7 @@ internal class ReferenceSourcePredicates(private val manager: ApManager) {
     fun apply(source: SourceRuleOccurrence, premise: Set<Pattern>, c: Conclusion, node: CommonInst,
               mode: ApMode, statementEdge: Boolean,
               edge: (MicroEdge, Conclusion, Set<Pattern>, Boolean, ReferenceSink) -> Unit,
-              request: (Set<Pattern>, org.opentaint.dataflow.bidi.store.RequestKind) -> Unit,
+              request: (Set<Pattern>, ReferenceRequestKind) -> Unit,
               out: ReferenceSink) {
         manager.cancellation.checkpoint()
         if (source.actions.isEmpty()) return
@@ -53,7 +53,7 @@ internal class ReferenceSourcePredicates(private val manager: ApManager) {
             when (val checked = markCheck(initial, c, literal, restricted = mode.restricted)) {
                 CheckResult.None -> Unit
                 is CheckResult.Request -> if (mode.run1)
-                    request(premise, org.opentaint.dataflow.bidi.store.RequestKind.Mark(checked.mark))
+                    request(premise, ReferenceRequestKind.Mark(checked.mark))
                 CheckResult.Holds -> {
                     val owner = state ?: states.getOrPut(source.id to node) { State() }.also { state = it }
                     val owned = ownedSet(premise.map { p -> p.copy(fact = p.fact.copy(path = ownedList(p.fact.path))) })

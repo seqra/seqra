@@ -8,7 +8,7 @@ import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.ap.TaintMark
 import org.opentaint.dataflow.bidi.interp.*
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.configuration.TaintCleanReach
 import org.opentaint.dataflow.configuration.jvm.*
 import org.opentaint.dataflow.configuration.jvm.TaintMark as RuleMark
@@ -262,14 +262,15 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
         check(action, listOf(c(stat, p(cls, g))), setOf(c(stat, p(cls, g))))
     }
 
-    @Test fun `run one static kill requests the class position on the original static FLOW premise`(): Unit {
+    @Test fun `run one static kill keeps class exclusion and the scalar position on the original FLOW premise`(): Unit {
         val cls = m.accessors.index(ClassStaticAccessor(CLS))
         val stat = AccessPathBase.ClassStatic
         val action = steps(listOf(RemoveAllMarks(at(ClassStatic(CLS), "sField"))))
         val originalPremise = setOf(Pattern(PathFact(stat, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty))
         check(action, listOf(flow(exclusion = ex(g), base = stat)),
             setOf(flow(exclusion = ex(cls, g), base = stat)), run1 = true, fieldLimit = 1,
-            inputPremise = originalPremise, expectedPositions = listOf(checkNotNull(m.path(p(cls)))))
+            inputPremise = originalPremise, expectedPositions = listOf(checkNotNull(m.path(p(cls)))),
+            runtimeRequests = emptyList())
         val blocked = flow(exclusion = ex(cls), base = stat)
         check(action, listOf(blocked), setOf(blocked), run1 = true, fieldLimit = 1,
             inputPremise = originalPremise)
@@ -299,7 +300,8 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
                       run1: Boolean = false, direction: Direction = Direction.FORWARD,
                       fieldLimit: Int = Int.MAX_VALUE, inputPremise: Set<Pattern>? = null,
                       expectedRequests: List<TaintMark> = emptyList(),
-                      expectedPositions: List<PathNode> = emptyList()): WalkResult {
+                      expectedPositions: List<PathNode> = emptyList(),
+                      runtimeRequests: List<TaintMark> = expectedRequests): WalkResult {
         require(inputs.isNotEmpty())
         val flowInput = inputs.first().fact.mark is MarkSlot.Star
         require(inputs.all { (it.fact.mark is MarkSlot.Star) == flowInput }) { "One caller edge has one conclusion kind (K6)" }
@@ -337,11 +339,9 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
         assertTrue(actual.none { it.fact.base is AccessPathBase.CleanerTemporary })
 
         val treeRequests = ArrayList<TaintMark>()
-        val treePositions = ArrayList<PathNode>()
         fun collecting(results: MutableList<Facts>) = object : ApOut {
             override fun result(f: Facts) { results += f }
             override fun markRequest(mark: TaintMark) { treeRequests += mark }
-            override fun positionRequest(position: PathNode) { treePositions += position }
         }
         val applier = FormApplier(object : FactAlgebra<Set<Pattern>, Facts> {
             override fun base(c: Facts) = c.base
@@ -351,7 +351,6 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
                 ops.applyEdge(c, key, me.edge, statementEdge, mode, object : ApOut {
                     override fun result(f: Facts) = out(premise, f)
                     override fun markRequest(mark: TaintMark) { treeRequests += mark }
-                    override fun positionRequest(position: PathNode) { treePositions += position }
                 }, me.may)
             }
             override fun conjunction(cj: ConjunctiveEdge, premise: Set<Pattern>, c: Facts, node: CommonInst,
@@ -361,8 +360,11 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
         })
         fun statement(summary: StatementSummary, input: Facts, cut: Boolean): List<Facts> = buildList {
             applier.statement(summary, callerPremise, input, place,
-                sink = { _, result -> if (cut) ops.limit(result, fieldLimit, collecting(this)) else add(result) },
-                untouched = { _, result -> add(result) })
+                sink = { pr, result ->
+                    assertSame(callerPremise, pr)
+                    if (cut) ops.limit(result, fieldLimit, collecting(this)) else add(result)
+                },
+                untouched = { pr, result -> assertSame(callerPremise, pr); add(result) })
         }
         fun clean(cleaner: Cleaner, input: Facts): List<Facts> = buildList { ops.clean(input, key, cleaner, mode, collecting(this)) }
         var trees = inputs.map { m.factsOf(it.fact, it.exclusion, if (it.demand) Layer.DEMAND else Layer.NORMAL) }
@@ -373,8 +375,7 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
                 .flatMap { statement(step.write, it, cut = true) }.filter { it.base != step.temporary }
         } }
         assertEquals(expected, trees.flatMap(oracle::conclusions).toSet(), "tree inputs=$inputs direction=$direction L=$fieldLimit")
-        assertEquals(expectedRequests, treeRequests)
-        assertEquals(expectedPositions, treePositions)
+        assertEquals(runtimeRequests, treeRequests)
         return WalkResult(actual, requests, temporaryInputs, cuts)
     }
 

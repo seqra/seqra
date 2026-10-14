@@ -11,19 +11,24 @@ class RequestGroupCursor internal constructor(
     private val marks: RequestMarkSelection,
     private val facts: Facts,
     private val caller: CallerRef,
+    query: Pattern? = null,
 ) {
-    private class Prefix(val previous: Prefix?, val accessor: Int)
+    private class Prefix(val previous: Prefix?, val accessor: Int) { val depth: Int = (previous?.depth ?: 0) + 1 }
     private class Frame(val node: TaintNode, val prefix: Prefix?) {
         var entered = false
         var child = 0
     }
-    private val path = initial.pathData
+    private val path = query?.fact?.path?.toIntArray() ?: initial.pathData
+    private val includeDescendants = query == null || query.fact.tail == Tail.STAR || query.fact.tail.isAny
+    private val queryExclusion = if (query?.fact?.tail == Tail.STAR || query?.fact?.tail == Tail.ANY_TAINT)
+        query.exclusion else ExclusionSet.Empty
     private var depth = 0
     private var prefix: Prefix? = null
     private var walking = true
     private var complete = initial.base != facts.base || facts is Reach
     private var flowNode = (facts as? FlowTree)?.root
     private var flowMarks: RequestMarkCursor? = null
+    private var flowChild = 0
     private var taintNode = (facts as? TaintTree)?.root
     private val stack = ArrayDeque<Frame>()
     private var leaf: TaintLeaves? = null
@@ -36,7 +41,7 @@ class RequestGroupCursor internal constructor(
     private var buildPrefix: Prefix? = null
     private var pendingMark: TaintMark? = null
     private var pendingExact = false
-    private var ancestors = false
+    private var staticAnswerAtSupplier = false
 
     var memberScans: Long = 0
         private set
@@ -46,6 +51,7 @@ class RequestGroupCursor internal constructor(
 
     init {
         manager.cancellation.checkpoint()
+        check(query == null || (query.fact.base == initial.base && path.startsWith(initial.pathData)))
         check(initial.tail == Tail.STAR && initial.exclusion == ExclusionSet.Empty && initial.mark == MarkSlot.STAR) {
             "A request needs a policy initial or position answer"
         }
@@ -83,9 +89,17 @@ class RequestGroupCursor internal constructor(
         val node = flowNode
         geometryTests++
         if (node == null) complete = true
-        else if (depth == path.size || (!node.leaf.isEmpty &&
+        else if ((depth == path.size && !node.leaf.isEmpty) || (!node.leaf.isEmpty && depth < path.size &&
                 (flow.layer == Layer.DEMAND || flow.exclusion.admits(path[depth])))) {
             flowMarks = marks.cursor()
+        } else if (depth == path.size) {
+            val children = node.childData
+            if (!includeDescendants || children == null || flowChild == children.size) complete = true
+            else {
+                // Each candidate child consumes this step's one unit. Its subtree is nonempty.
+                val offset = flowChild++
+                if (queryExclusion.admits(node.accessorData!![offset])) flowMarks = marks.cursor()
+            }
         } else {
             flowNode = node.child(path[depth++])
         }
@@ -119,7 +133,7 @@ class RequestGroupCursor internal constructor(
             memberScans++
             if (marks.containsId(id)) {
                 val mark = TaintMark(id)
-                if (initial.base == STATIC && !ancestors && !leafPathReady) {
+                if (initial.base == STATIC && staticAnswerAtSupplier && !leafPathReady) {
                     pendingMark = mark; pendingExact = exact; buildPrefix = leafPrefix
                 } else emit(taint, mark, exact, onAnswer)
             }
@@ -131,7 +145,7 @@ class RequestGroupCursor internal constructor(
             geometryTests++
             if (depth < path.size) {
                 if (!node.leaf.any.isEmpty && taint.exclusion.admits(path[depth])) {
-                    setLeaf(node.leaf, prefix, includeExact = false, ancestor = true)
+                    setLeaf(node.leaf, prefix, includeExact = false)
                 }
                 val accessor = path[depth++]
                 prefix = Prefix(prefix, accessor)
@@ -147,28 +161,31 @@ class RequestGroupCursor internal constructor(
         if (!frame.entered) {
             frame.entered = true
             geometryTests++
-            if (!frame.node.leaf.isEmpty) setLeaf(frame.node.leaf, frame.prefix, includeExact = true, ancestor = false)
+            if (!frame.node.leaf.isEmpty) setLeaf(frame.node.leaf, frame.prefix, includeExact = true)
             return 1
         }
         val children = frame.node.childData
-        if (children != null && frame.child < children.size) {
+        if (includeDescendants && children != null && frame.child < children.size) {
             val offset = frame.child++
-            stack.addLast(Frame(children[offset], Prefix(frame.prefix, frame.node.accessorData!![offset])))
+            val accessor = frame.node.accessorData!![offset]
+            // E tests the first continuation accessor only; deeper branches remain admitted.
+            if (frame.prefix !== prefix || queryExclusion.admits(accessor))
+                stack.addLast(Frame(children[offset], Prefix(frame.prefix, accessor)))
             return 1
         }
         stack.removeLast()
         return 1
     }
 
-    private fun setLeaf(value: TaintLeaves, at: Prefix?, includeExact: Boolean, ancestor: Boolean) {
-        leaf = value; leafPrefix = at; leafExact = includeExact; ancestors = ancestor
+    private fun setLeaf(value: TaintLeaves, at: Prefix?, includeExact: Boolean) {
+        leaf = value; leafPrefix = at; leafExact = includeExact; staticAnswerAtSupplier = (at?.depth ?: 0) >= initial.pathData.size
         exactOffset = 0; anyOffset = 0; leafPath = null; leafPathReady = false
     }
 
     private fun emit(taint: TaintTree, mark: TaintMark, exact: Boolean, onAnswer: (InitialAp) -> Unit) {
         val concrete = MarkSlot.Concrete(mark)
         val result = when {
-            initial.base == STATIC && !ancestors -> manager.initial(STATIC, leafPath,
+            initial.base == STATIC && staticAnswerAtSupplier -> manager.initial(STATIC, leafPath,
                 if (exact) Tail.EXACT else Tail.ANY, ExclusionSet.Empty, concrete)
             exact && leafPrefixDepth() == path.size -> manager.initial(initial.base, initial.path,
                 Tail.EXACT, ExclusionSet.Empty, concrete)

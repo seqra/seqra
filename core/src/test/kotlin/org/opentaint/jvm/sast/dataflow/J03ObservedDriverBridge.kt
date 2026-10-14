@@ -1,5 +1,6 @@
 package org.opentaint.jvm.sast.dataflow
 
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
@@ -104,9 +105,10 @@ class J03ObservedDriverBridge {
         val local = MethodLocalServicesFactory { core ->
             val actual = RunMethodLocalServices(core)
             object : MethodLocalServices by actual {
-                override fun addRequest(premise: InitialAp, kind: RequestKind) {
+                override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
+                    val kind = RequestKind.Mark(mark)
                     // Captures both local requests and climbed requests delivered to this actor.
-                    actual.addRequest(premise, kind)
+                    actual.addMarkRequest(premise, mark)
                     live.requests += request(shared.ap, core.key, premise, kind)
                 }
 

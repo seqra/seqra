@@ -3,7 +3,6 @@ package org.opentaint.dataflow.bidi.ap
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
-import org.opentaint.dataflow.bidi.store.RequestKind
 
 enum class CleanReach { EXACT, BELOW, AT_AND_BELOW }
 
@@ -54,10 +53,4 @@ class ConjunctiveEdge(val literals: List<Pattern>, val target: PathFact) {
         check(target.mark is MarkSlot.Concrete && (target.tail == Tail.EXACT || target.tail == Tail.ANY_TAINT))   // W7, I14
         check(target.base != AccessPathBase.Zero)                       // so targetTree(target, layer) is a TaintTree
     }
-}
-
-sealed interface RequestAction {
-    class Answer(val initial: InitialAp) : RequestAction                             // a new initial fact of this method
-    class Climb(val premise: InitialAp, val request: RequestKind) : RequestAction    // RequestIn to the caller, on its premise
-    data object None : RequestAction
 }

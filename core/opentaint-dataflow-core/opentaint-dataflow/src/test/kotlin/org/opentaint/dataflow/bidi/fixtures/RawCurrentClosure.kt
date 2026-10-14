@@ -2,10 +2,10 @@ package org.opentaint.dataflow.bidi.fixtures
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.bidi.driver.Seed
 import org.opentaint.dataflow.bidi.engine.RunConfig
 import org.opentaint.dataflow.bidi.interp.*
-import org.opentaint.dataflow.bidi.store.RequestKind
 import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.ArrayDeque
 

@@ -5,7 +5,7 @@ import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.EngineShellFixtures
 import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import org.opentaint.dataflow.util.Cancellation
 import kotlin.test.*
@@ -19,7 +19,7 @@ class RequestWorkBarrierTest {
         var answer: InitialAp? = null
         var duringFlush: (() -> Unit)? = null
         override val hasPendingRequests get() = remaining > 0
-        override fun addRequest(premise: InitialAp, kind: RequestKind) {
+        override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
             remaining++
             core.requestWork()
         }
@@ -40,7 +40,7 @@ class RequestWorkBarrierTest {
             val actor = f.core(localFactory = MethodLocalServicesFactory { Deferred(it).also { service = it } })
             val policy = f.manager.initial(AccessPathBase.Argument(0), null, Tail.STAR,
                 ExclusionSet.Empty, MarkSlot.STAR)
-            repeat(3) { actor.addRequest(policy, RequestKind.Mark(f.mark("T$it"))) }
+            repeat(3) { actor.addMarkRequest(policy, f.mark("T$it")) }
             assertTrue(actor in f.enqueued)
             assertEquals(0L, actor.steps)
             assertFails { actor.freeze() }
@@ -60,7 +60,7 @@ class RequestWorkBarrierTest {
             val policy = f.manager.initial(AccessPathBase.Argument(0), null, Tail.STAR,
                 ExclusionSet.Empty, MarkSlot.STAR)
             service.answer = f.manager.zero
-            actor.addRequest(policy, RequestKind.Mark(f.mark("T")))
+            actor.addMarkRequest(policy, f.mark("T"))
             assertFalse(actor.work(1), "The answer added zero work after the phase's completion")
             assertTrue(actor.hasZeroWork)
             assertEquals(0L, actor.steps)
@@ -79,7 +79,7 @@ class RequestWorkBarrierTest {
             val concrete = f.manager.initial(AccessPathBase.Argument(0), null, Tail.EXACT,
                 ExclusionSet.Empty, MarkSlot.Concrete(f.mark("T")))
             actor.addInitial(concrete)
-            actor.addRequest(policy, RequestKind.Mark(f.mark("T")))
+            actor.addMarkRequest(policy, f.mark("T"))
             assertFalse(actor.work(1))
             assertEquals(1, service.flushes)
             assertEquals(1L, actor.steps)
@@ -95,7 +95,7 @@ class RequestWorkBarrierTest {
             actor.addRootZero()
             val policy = f.manager.initial(AccessPathBase.Argument(0), null, Tail.STAR,
                 ExclusionSet.Empty, MarkSlot.STAR)
-            actor.addRequest(policy, RequestKind.Mark(f.mark("T")))
+            actor.addMarkRequest(policy, f.mark("T"))
             assertFalse(actor.work(1))
             assertEquals(0, service.flushes)
             assertTrue(actor.hasZeroWork)
@@ -110,7 +110,7 @@ class RequestWorkBarrierTest {
             val actor = f.core(localFactory = MethodLocalServicesFactory { Deferred(it).also { service = it } })
             val policy = f.manager.initial(AccessPathBase.Argument(0), null, Tail.STAR,
                 ExclusionSet.Empty, MarkSlot.STAR)
-            actor.addRequest(policy, RequestKind.Mark(f.mark("T")))
+            actor.addMarkRequest(policy, f.mark("T"))
             service.duringFlush = { f.cancellation.cancel() }
             assertFailsWith<Cancellation.Cancelled> { actor.work(1) }
         }

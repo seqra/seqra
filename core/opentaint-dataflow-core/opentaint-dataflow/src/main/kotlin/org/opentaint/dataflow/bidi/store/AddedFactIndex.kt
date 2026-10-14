@@ -10,7 +10,7 @@ import org.opentaint.dataflow.util.Cancellation
 internal class AddedFactIndex(private val cancellation: Cancellation) {
     class Node {
         val seen = IntOpenHashSet()
-        val values = RequestIntLane(null)
+        val values = LinkHandleLane()
         val children = Int2ObjectOpenHashMap<Node>()
         val childOrder = ArrayList<Node>()
         fun child(accessor: Int): Node? = children[accessor]
@@ -78,5 +78,18 @@ internal class AddedFactIndex(private val cancellation: Cancellation) {
             }
             return used
         }
+    }
+}
+
+/** Existing raw-link handles keep their append-only lane after request indexing is removed. */
+internal class LinkHandleLane {
+    private var data = IntArray(0)
+    var size = 0
+        private set
+    operator fun get(index: Int): Int = data[index]
+    fun add(value: Int) {
+        if (size == data.size) data = data.copyOf(
+            if (data.isEmpty()) 2 else Math.addExact(data.size, maxOf(1, data.size / 2)))
+        data[size++] = value
     }
 }

@@ -1,5 +1,15 @@
 # AP, stores and IR interpreter — implementation proposal
 
+The selected [run-1 abstraction design](../docs/design/bidirectional-run1-abstraction-demands-20261014.md)
+and its [plan](../docs/design/bidirectional-run1-abstraction-demands-plan-20261014.md) replace the
+standing-request implementation sketches below. Production uses `addMarkRequest(initial, mark)`
+and `MarkRequestsIn(method, initial, marks)`. It has no Position event or output API, no
+`RequestStore`, and no request-specific path index. Prescan profiles supply static refinement;
+`Run1Abstraction` owns compact mark interests and bounded supplier work. The scalar sketches and
+old Position protocol remain independent reference material, with explicit `ReferenceRequestKind`
+and `ReferenceRequestAction` vocabulary. They do not describe production request storage.
+
+
 Implement phase 1 of [bidirectional-task.md](../bidirectional-task.md) in the existing dataflow and JVM modules.
 [ap.md](ap.md) and [interpreter.md](interpreter.md) define the behavior. [analyzer-impl.md](analyzer-impl.md)
 uses the interfaces below. This proposal targets the JVM and keeps the old core for the prescan.

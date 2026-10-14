@@ -36,7 +36,7 @@ internal class CompiledEdge(
 /** The tree form of concat. Field cuts belong to the caller. */
 internal class EdgeApplication(private val m: ApManager, private val ce: CompiledEdge,
                                private val edgeDemand: Boolean, private val mode: ApMode,
-                               private val out: ApOut) {
+                               private val out: ApOut, private val unchangedStaticInitial: InitialAp? = null) {
     val results = Results(m, ce.toBase)
     private val gate = MarkGate(m, ce.fromMark, ce.toMark)
     private val admitsRest = { a: AccessorIdx ->
@@ -66,32 +66,41 @@ internal class EdgeApplication(private val m: ApManager, private val ce: Compile
         check(mx == null || (ce.toTail != Tail.EXACT && ce.toTail != Tail.ANY_TAINT))
         val normal = c.layer == Layer.NORMAL
         val layer = c.layer or edgeDemand
+        val unchanged = if (mode.run1) unchangedStaticFlowPath(c, unchangedStaticInitial) else null
         val u = c.root.walk(ce.fromPathData) { d, n ->
             m.cancellation.checkpoint()
             if (n.leaf.isEmpty || (normal && !c.exclusion.admits(ce.fromPathData[d]))) return@walk
-            if (normal && d == staticAt) out.positionRequest(m.position(ce.fromPathData))
-            else flowHit(mx, c) { results.flow(Layer.DEMAND, ExclusionSet.Empty, it, flagAtTarget()) }
+            if (normal && d == staticAt) {
+                // Prescan catalog emission replaces the old position request. This parent gives no fact.
+            } else flowHit(mx, c, { !sameFlowLeaf(m, unchanged, ce.fromPathData, d) }) {
+                results.flow(Layer.DEMAND, ExclusionSet.Empty, it, flagAtTarget())
+            }
         } ?: return
         val kids = FlowAlgebra.retainChildren(u, m.cancellation, admitsRest)
         when (ce.toTail) {
             Tail.STAR -> {
-                if (kids != null) flowHit(mx, c) {
+                if (kids != null) flowHit(mx, c, { changedFlowSubtree(m, kids, ce.fromPathData, unchanged) }) {
                     results.flow(layer, c.exclusion, it, FlowAlgebra.prepend(m, ce.toPath, kids))
                 }
-                if (!u.leaf.isEmpty) flowHit(mx, c) {
+                if (!u.leaf.isEmpty) flowHit(mx, c, {
+                    !sameFlowLeaf(m, unchanged, ce.fromPathData, ce.fromPathData.size)
+                }) {
                     results.flow(layer, c.exclusion.union(ce.exclusion), it, flagAtTarget())
                 }
             }
-            else -> if (kids != null || !u.leaf.isEmpty) flowHit(mx, c) {
+            else -> if (kids != null || !u.leaf.isEmpty) flowHit(mx, c, {
+                (!u.leaf.isEmpty && !sameFlowLeaf(m, unchanged, ce.fromPathData, ce.fromPathData.size)) ||
+                    (kids != null && changedFlowSubtree(m, kids, ce.fromPathData, unchanged))
+            }) {
                 results.flow(Layer.DEMAND, ExclusionSet.Empty, it, flagAtTarget())
             }
         }
     }
 
-    private inline fun flowHit(mx: MarkSet?, c: FlowTree, add: (MarkSet) -> Unit) {
+    private inline fun flowHit(mx: MarkSet?, c: FlowTree, changed: () -> Boolean, add: (MarkSet) -> Unit) {
         if (mx != null) { add(mx); return }
         val mark = gate.flowRequest(c.markExclusion) ?: return
-        if (mode.run1 && !requested) { out.markRequest(mark); requested = true }
+        if (mode.run1 && !requested && changed()) { out.markRequest(mark); requested = true }
     }
 
     fun taint(c: TaintTree) {

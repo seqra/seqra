@@ -1,7 +1,7 @@
 # Run-1 demands owned by initial fact abstraction
 
-Date: 14 October 2026. Status: detailed redesign and implementation proposal. No runtime change
-or new measurement is included. This design follows the user's selected direction and supersedes
+Date: 14 October 2026. Status: implemented; common/JVM validation passes. Fixed-project retesting is pending.
+No new fixed-project measurement is included. This design follows the user's selected direction and supersedes
 the static request-routing and request-component candidates in the
 [earlier investigation](bidirectional-run1-request-management-20261014.md).
 The [implementation plan](bidirectional-run1-abstraction-demands-plan-20261014.md) gives the work order.
@@ -87,7 +87,18 @@ This includes positions in source and sink conditions, pass rules, source action
 actions, strong-write/RemoveAllMarks keep edges, generated call cleaners and return rewriters.
 The class-only keep position `[<C>]` is distinct from the field position `[<C>, f]`.
 
-Use the existing validation, binding and condition normalization. Enumerate the live NNF leaves;
+Use the existing validation, binding and condition normalization. The collector may borrow only
+an already-computed prescan alias result. An unavailable alias result must not trigger a new
+analysis or resolution pass. For potential-needs collection only, treat its dependent atoms as
+possible in either polarity after signed contradiction folding. Keep known false conditions
+false. This does not alter runtime binding, rule activation or predicate proof.
+
+The subscription export records resolved edges, but does not record every unresolved branch.
+Metadata therefore includes potential default-pass effects at call sites. Normalized false rules
+still contribute no effect. This is a conservative potential-needs union, not a change to the
+runtime default-call policy; report its preparation and emission cost.
+
+Enumerate the live NNF leaves;
 do not expand cubes. Keep normal rule selection and `allRelevant` return-rewriter selection as
 separate inputs with their current eligibility. A false normalized rule contributes no executable
 rule effect; `P AND NOT P` can fold to false. Ordinary program accesses remain present.
@@ -109,7 +120,10 @@ two accessors; full rule literal paths remain in the rule evaluator.
 For `StaticMarks`, include active static `ContainsMark` and `ContainsMarkOnAnyField` leaves of
 both sources and sinks and concrete input-mark gates. Keep the declared position with its mark;
 a check on `C.f` does not by itself establish a concrete-mark interest at `C.g`. Store only actual
-declared pairs, with shared mark sets, rather than a positions-by-marks Cartesian product.
+declared pairs. Group equal full query geometry and role into one shared persistent mark set,
+so a supplier is scanned once for that set. Use an abstract mark placeholder in query metadata;
+the set carries the declared concrete marks, and actual NNF literals stay unchanged. Do not
+construct a positions-by-marks Cartesian product.
 Keep the full literal path, tail and role distinct from its class/field abstraction slot. A
 deep literal must still be evaluated at its full position; slot collection does not rewrite it.
 Include the required static read positions and mark effects of lowered field actions. F75
@@ -149,7 +163,10 @@ analysis budget, and report it separately from the run-1 engine.
 
 Introduce a method-scoped run-1 abstraction service at `RunMethodAnalyzer.emit`. Keep restricted-run
 demand emission on its current path. The service consumes admitted raw-link updates and the
-immutable method profile, and emits through `addInitial` and its existing deduplication.
+immutable method profile, and emits through `addInitial` and its existing deduplication. Emit the
+canonical root immediately. Process precise slots and mark interests through bounded supplier
+cursors at the method barrier. Position selection visits only root/class/field levels, once per
+position rather than once per concrete mark. This avoids a temporary leaf-by-mark expansion.
 
 ```mermaid
 flowchart LR

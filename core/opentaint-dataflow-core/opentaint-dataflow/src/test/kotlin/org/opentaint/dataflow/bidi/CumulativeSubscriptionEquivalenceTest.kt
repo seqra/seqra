@@ -6,7 +6,7 @@ import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.*
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.store.CallerRef
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import kotlin.test.*
 
@@ -99,7 +99,6 @@ class CumulativeSubscriptionEquivalenceTest {
                         for (value in selected) f.ops.applySummary(value, j, publication.conclusion, mode, object : ApOut {
                             override fun result(facts: Facts) { actual += facts }
                             override fun markRequest(mark: TaintMark) = error("A matched summary has no mark request")
-                            override fun positionRequest(position: PathNode) = error("Summary application has no statement static exception")
                         })
                         val expected = expectedSelected.mapNotNull { leaf ->
                             when (val outcome = oracle.transfer(pattern, target, leaf, mode.restricted)) {
@@ -142,9 +141,10 @@ class CumulativeSubscriptionEquivalenceTest {
                 localFactory = MethodLocalServicesFactory { core ->
                     val delegate = RunMethodLocalServices(core)
                     object : MethodLocalServices by delegate {
-                        override fun addRequest(premise: InitialAp, kind: RequestKind) {
+                        override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
+                    val kind = RequestKind.Mark(mark)
                             f.requests += premise to kind
-                            delegate.addRequest(premise, kind)
+                            delegate.addMarkRequest(premise, mark)
                         }
                         override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
                             marks.forEachMark { f.requests += premise to RequestKind.Mark(it) }

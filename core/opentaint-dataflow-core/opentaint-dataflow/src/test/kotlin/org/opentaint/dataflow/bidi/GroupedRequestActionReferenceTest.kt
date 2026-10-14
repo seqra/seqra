@@ -1,5 +1,9 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestAction as RequestAction
+
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
@@ -94,7 +98,7 @@ class GroupedRequestActionReferenceTest {
                                 val want = requests.mapNotNull { (i, kind) -> expected(i, kind, added, caller) }.toSet()
                                 val got = LinkedHashSet<Action>()
                                 store.visitActionCandidates(added) { i, kind ->
-                                    when (val action = f.ops.requestAction(i, kind, added, caller)) {
+                                    when (val action = f.ops.referenceRequestAction(i, kind, added, caller)) {
                                         RequestAction.None -> Unit
                                         is RequestAction.Answer -> got += Action(i.toPattern(), kind, action.initial.toPattern(), null)
                                         is RequestAction.Climb -> got += Action(i.toPattern(), kind, null, action.premise.toPattern())

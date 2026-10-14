@@ -1,5 +1,15 @@
 # Analyzer core — implementation proposal
 
+The selected [run-1 abstraction design](../docs/design/bidirectional-run1-abstraction-demands-20261014.md)
+and its [plan](../docs/design/bidirectional-run1-abstraction-demands-plan-20261014.md) replace the
+standing-request implementation sketches below. Production uses `addMarkRequest(initial, mark)`
+and `MarkRequestsIn(method, initial, marks)`. It has no Position event or output API, no
+`RequestStore`, and no request-specific path index. Prescan profiles supply static refinement;
+`Run1Abstraction` owns compact mark interests and bounded supplier work. The scalar sketches and
+old Position protocol remain independent reference material, with explicit `ReferenceRequestKind`
+and `ReferenceRequestAction` vocabulary. They do not describe production request storage.
+
+
 This proposal implements phase 2 of [bidirectional-task.md](../bidirectional-task.md) for the JVM.
 [analyzer-core.md](analyzer-core.md), [ap.md](ap.md) and [interpreter.md](interpreter.md) define the behavior.
 [ap-impl.md](ap-impl.md) supplies the AP operations, stores and directed forms.

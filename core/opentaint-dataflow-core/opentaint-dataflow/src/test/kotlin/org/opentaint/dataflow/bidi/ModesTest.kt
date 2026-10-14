@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
@@ -192,8 +193,8 @@ class ModesTest {
             val initial = f.manager.initial(f.pattern(x, tail = Tail.STAR, mark = MarkSlot.STAR))
             val static = f.manager.initial(f.pattern(AccessPathBase.ClassStatic, tail = Tail.STAR, mark = MarkSlot.STAR))
             val cls = f.manager.accessors.index(ClassStaticAccessor("Box"))
-            assertFails { core.addRequest(initial, RequestKind.Mark(f.mark("T"))) }
-            assertFails { core.addRequest(static, RequestKind.Position(f.manager.path(listOf(cls, f.field("f")))!!)) }
+            assertFails { core.addMarkRequest(initial, f.mark("T")) }
+            assertFails { core.addMarkRequest(static, f.mark("T")) }
             assertTrue(f.requests.isEmpty())
             assertTrue(core.initials.all().isEmpty())
             assertTrue(f.events.isEmpty())

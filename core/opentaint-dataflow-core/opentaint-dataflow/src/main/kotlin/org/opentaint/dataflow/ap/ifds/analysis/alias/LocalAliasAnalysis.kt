@@ -13,7 +13,12 @@ abstract class LocalAliasAnalysis<AliasInfo, AliasAccessor> {
 
     abstract fun compute(): AnalysisResult?
 
-    val aliasInfo: AnalysisResult? by lazy { compute() }
+    private val aliasInfoLazy = lazy { compute() }
+    val aliasInfo: AnalysisResult? by aliasInfoLazy
+
+    /** Borrow completed prescan data without starting alias analysis after its workers have joined. */
+    fun hasComputedAliasInfo(): Boolean = aliasInfoLazy.isInitialized()
+    fun computedAliasInfo(): AnalysisResult? = if (aliasInfoLazy.isInitialized()) aliasInfoLazy.value else null
 
     val convertedAliases = Long2ObjectOpenHashMap<List<AliasInfo>>()
 

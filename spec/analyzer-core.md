@@ -200,11 +200,11 @@ The mode decides these rules (`ap.md` §6.1):
 
 | Rule | Run 1 (forward) | Restricted forward run | Backward run |
 |---|---|---|---|
-| initial facts of an added fact | the policy fact (`ap.md` §6.2) and the request answers | the emission of `ap.md` §6.3 (§4.4; F72 R2): an entry pattern `D-c` with the mark `*` gives its FLOW FORM, one initial fact for every added fact under it (SHARING); a `D-c` with a concrete mark gives `a ∩ D-c` with the mark of `a`, only for an `a` with that mark: an added fact with the mark `*` or `*∖X` under a concrete pattern emits NOTHING (the user's decision: "The added fact can't satisfy the demand"); the zero fact for the zero added fact | the same emission, with the requirement as the added fact: a `*` pattern weakens the requirement to the FLOW form of the pattern (§4.4); after the hand-off normalization no entry pattern has the mark `*∖X` (§7.3); the zero fact enters every callee (rule `zin`) |
+| initial facts of an added fact | always the abstract policy fact (`ap.md` §6.2); additional supplied structural and concrete answers under the run-1 catalog policy (§4.4, §4.6) | the emission of `ap.md` §6.3 (§4.4; F72 R2): an entry pattern `D-c` with the mark `*` gives its FLOW FORM, one initial fact for every added fact under it (SHARING); a `D-c` with a concrete mark gives `a ∩ D-c` with the mark of `a`, only for an `a` with that mark: an added fact with the mark `*` or `*∖X` under a concrete pattern emits NOTHING (the user's decision: "The added fact can't satisfy the demand"); the zero fact for the zero added fact | the same emission, with the requirement as the added fact: a `*` pattern weakens the requirement to the FLOW form of the pattern (§4.4); after the hand-off normalization no entry pattern has the mark `*∖X` (§7.3); the zero fact enters every callee (rule `zin`) |
 | the marks of the facts | `*` and `*∖X` (the policy facts and their FLOW edges), and concrete marks (the answers, the zero fact, the sources) | NOT CONCRETE since F72: the edges of a FLOW premise (the mark `*`) have the marks `*` and `*∖X` (FLOW trees, `ap.md` §7.2), and their callees can get added facts with these marks; the edges of a concrete premise and of the zero fact have concrete marks. Before F72 every restricted run was concrete | as the restricted forward run |
 | a summary applies to an added fact `a` if | `applicable(j, a)` | location overlap for a canonical FLOW premise `(base, path, STAR, Empty, *)`; otherwise `inside(j, a)`, and for a noncanonical FLOW premise also `applicable(j, a)` (`ap.md` §4.3; F72 R3; §5.3 `matches`). This test applies after the restriction in the callee (the INTERSECTION with a demand pattern, in the locations and the marks, `ap.md` §6.4; §4.6). A callee has a non-zero premise only where a demand pattern of it emits one (§4.4): a callee whose only demand pattern is the zero demand publishes no summary of a non-zero premise, and its callers cross it by its records (next row) | as the restricted forward run; a zero-premise summary applies to the zero fact of the caller with no test and no restriction (rule `zret`) |
 | records (`ap.md` §8.7 R3, R4) | none | same-direction native forward records by `byEntry`; backward records through transient leaf views by `byExit`. Match by `applicable || inside`. A must native record gives demand results on the `applicable`-only part. Native normal singleton summaries give no callee demand; a method with no demand or subtree seed has only zero analysis | native backward records by `byEntry`; transient views of forward records by `byExit`. An exact-premise must conclusion uses a concrete star premise carrying its exclusion and an exact normal target. A must forward premise becomes a may `[any]` demand target. Match the view itself by `applicable || inside`; never start it as an initial fact. Native normal singleton summaries give no callee demand; a demand-layer view result belongs to the caller |
-| mark and position requests, static rule | yes (`ap.md` §4.5, §4.10); a selected-mark cleaner requests T for every same-base abstract fact, before the path test (F75) | no request rule and no static rule (F72 R4). On a fact with the mark `*` or `*∖X`, a concrete mark gate or sink gives nothing; a selected-mark cleaner keeps every same-base fact with mark `*∖(X ∪ {T})`, including disjoint paths (F75, `ap.md` §4.7). No request is raised | as the restricted forward run (the backward run has no sink check) |
+| mark interests and static refinement | abstraction owns mark interests (`ap.md` §4.5, §4.10); shared prescan profiles replace Position transport. A selected-mark cleaner requests T for every same-base abstract fact, before the path test (F75) | no request rule and no static rule (F72 R4). On a fact with the mark `*` or `*∖X`, a concrete mark gate or sink gives nothing; a selected-mark cleaner keeps every same-base fact with mark `*∖(X ∪ {T})`, including disjoint paths (F75, `ap.md` §4.7). No request is raised | as the restricted forward run (the backward run has no sink check) |
 | sinks | the sink check (`ap.md` §4.9) | the sink check; on a `*` or `*∖X` fact it gives nothing (no request, `ap.md` §4.9) | no sink check; the sink seeds (`ap.md` §9.2) |
 | unconditional sources | every source fires | only the source seeds fire (`ap.md` §6.1 rule 6); a zero-premise forward record still applies (`ap.md` §9.2) | every reversed source edge, with no seed filter (the backward run is on the full program, Lean `Reverse.Program.rev P`); it records the source hits (`ap.md` §8.11) |
 | type filters | yes | yes | no |
@@ -261,13 +261,13 @@ only the forms that the analyzer reads: the forward forms of the interpreter, or
 | `links` | added fact store (`ap.md` §8.3) | each added fact with its links: the caller reference and the layer of the added fact on the link |
 | `summaries` | run summary store (`ap.md` §8.5) | Raw summaries per premise key and layer supply R1 records. Selected publications supply demand edges (§4.6; `ap-impl.md` DD17, `RunSummaryStore.addDemand`, `demandEdges()`). The hand-off reads only the stored demand edges (§7.3, §7.4). |
 | `counters` | | Frontier and stop-rule counts (§7.1, §7.8): demand-layer edge and summary deltas, new demand links (§4.2), record applications at a call, nonzero initial-fact presence, and zero-premise edges. Demand links have a demand-layer added fact (AP §8.3). Optional counts record demand results per demotion (§4.3). |
-| `requests` | request store (`ap.md` §8.8) | run 1 only: the standing mark and position requests and their answers |
+| `abstraction` | `Run1Abstraction` (§4.6) | run 1 only: compact mark policies per original initial and shared static profiles; no standing request store or Position transport |
 | `sourceHits` | source hit store (`ap.md` §8.11) | backward run only: the unconditional sources of this method that a requirement reached |
 | `conjunctions` | conjunction store (`ap.md` §8.9) | manual fixed-literal inputs and the E6 combinations of callee summaries with several premises (§5.4) |
 | predicate state | `RulePredicateStore` (`ap.md` §8.9) | forward only: scoped observed source/sink proofs, canonical binding headers and matched sink-fact versions, including evaluated exit `S` parts; no compiled topology |
 | `worklist` | `DeltaWorklist` (§4.3, §10) | the edge deltas to process: the `unchanged` queue with its set, and the `normal` queue |
 | `pendingPublications` | | the publications that the analyzer has not yet given to its `SummaryStorage` (§4.6) |
-| pending request phase | actor-owned frontiers | Run 1 only: fresh mark memberships, one fresh delta per raw link group, a partial join and owned outgoing mark sets. One counted Work token covers these owners. |
+| pending abstraction phase | actor-owned bounded cursor | Run 1 only: fresh mark interests, one fresh delta per raw link group, a captured raw-link view, a partial join and outgoing mark sets. One counted Work token covers these owners. |
 | `queued` | | true while the analyzer has a `Work` event in its runner (§6.2) |
 | `context` | `MethodContextCache` entry and run part | the method graph, the alias analysis, the lambda resolutions, the rule context of the run (§4.8) |
 
@@ -289,9 +289,9 @@ The runner calls these handlers. Each handler is part of one event (§5.1).
 | Handler | When | Actions | `ap.md` |
 |---|---|---|---|
 | `addRootZero()` | the run starts at a root | the zero fact is an initial fact | §6.1 |
-| `addLink(link)` | a caller binds a fact into this method | add the link (exact deduplication). A new added fact: emit its initial facts (§4.4). A new link: check the standing requests (§4.6). A new link whose added fact is in the demand layer (a DEMAND LINK, `ap.md` §8.3) adds one to the demand-layer objects of `counters` (§4.1; the stop rule `NO_DEMAND_EDGE`, §7.1). The zero added fact emits the zero fact. No request matches it. Its link serves the support (§7.5). | E1, E2 |
+| `addLink(link)` | a caller binds a fact into this method | add the link (exact deduplication). A new added fact: emit its initial facts (§4.4). A new link: notify the run-1 abstraction of its raw delta for bounded supplier processing (§4.6). A new link whose added fact is in the demand layer (a DEMAND LINK, `ap.md` §8.3) adds one to the demand-layer objects of `counters` (§4.1; the stop rule `NO_DEMAND_EDGE`, §7.1). The zero added fact emits the zero fact. No request matches it. Its link serves the support (§7.5). | E1, E2 |
 | `addZeroEntry()` | backward: the zero fact of a caller reaches a call to this method | the zero fact is an initial fact (rule `zin`) | §9.2 |
-| `addRequest(premise, request)` | run 1: a callee climbs a request through a link of this method | store it (exact deduplication); check it against every link of this method (§4.6) | E5, E7 |
+| `addMarkRequests(initial, marks)` | run 1: a callee delivers mark interest through a link of this method | update the original initial abstraction policy (exact deduplication); join fresh interest with existing raw links at the bounded barrier (§4.6) | E5, E7 |
 | `applySummary(sub, pub)` | the `SubscriptionManager` matched a publication with a subscription of this method | one premise: apply the summary to the added fact (`ap.md` §4.3), then the stages after the callees stage (§4.5). Several premises: the combination of §5.4. | §4.3, E2, E4, E6 |
 | `applyRecord(sub, record)` | a new subscription; a same-direction native record covers or contains the added fact | apply the record, then the stages after the callees stage (§4.5). Keep its `inside` and `applicable`-only results separate. The latter must-record results keep their exclusions through these stages; demote them immediately before the call field cut. Count one `recordCrossings` increment if either initial result batch is nonempty, before rewriting | AP §4.3, §8.7 R4 |
 | `applyRecordView(sub, view)` | a new subscription; an opposite-direction transient leaf view covers or contains the added fact | apply the view directly with its premise exclusion and result layer, then the stages after the callees stage. Do not emit, start, persist, or demote its premise through `InitialAp`. Count each application with a result as a record crossing | AP §8.7 R3 |
@@ -602,21 +602,41 @@ union of candidates for each member. Apply AP §6.4's member-wise restriction,
 testing each selected whole member, and retain the complete premise set. The
 query never replaces that test.
 
-Requests exist only in run 1 (AP §§4.5,4.10,8.8). Insert each new request and join
-it with every overlapping link; a new link joins every standing request. Both
-sides are local to one method analyzer. Each pair gives an ANSWER, CLIMB to the
-caller premise, or nothing, as AP defines. Requests use the pre-operation incoming
-premise, including cleaner requests (AP §4.7).
+Mark demands exist only in run 1. They use the pre-operation incoming initial,
+including cleaner requests (AP §4.7). Each supplier/interest pair gives an ANSWER,
+CLIMB to the original caller initial, or nothing under the AP geometry rules.
+AP §§4.5,4.10,8.8 also retain the scalar standing-request model as the migration
+reference; production uses the abstraction-owned policy below.
 
-The implementation admits standing mark requests and raw links promptly. It defers
-their mark joins until the method's fact work and publications drain. One target
-`(full MethodKey, canonical requesting InitialAp)` can carry an immutable set of
-independent marks. Each answer still creates its own concrete-mark initial.
-Position requests remain separate and use the scalar join. Answered requests stay
-standing, so a later raw link or caller can still join them.
+The selected catalog-enabled policy moves these interests into the run-1 initial
+abstraction (AP §§4.5,4.10). Copy the existing complete resolved prescan call graph
+after joining, and share its transitive static profiles across method contexts.
+Keep the STATIC root and add catalog slot initials only from raw suppliers at or
+below their slots. Mark interests emit supplied concrete answers in addition to
+the eligible abstract initials. Exact/may/must start rules, raw layers and full
+caller support remain unchanged. The scalar position join is the independent
+migration reference; installed profiles replace its transport.
+
+An ordinary static mark check can suppress its dynamic request only with installed
+catalog coverage, and only when every eligible FLOW leaf equals its original
+started STATIC initial, including path/tail/E/mx/layer. Consumers carry the matched
+input scope; a generic collector lacks it. The exception never gives a predicate
+proof or concrete fact. Copies to another static position or a local base still
+register interest on their original chain. F75 bypasses this exception, including
+disjoint and already-excluded selected-mark cleaners. A completed delivery closes
+bounded processing of one captured frontier; the abstraction continues to observe
+late suppliers and new callers until the joined run ends.
+
+The abstraction admits compact mark interests and raw-link changes promptly. It
+defers supplier joins until the method's fact work and publications drain. One
+target `(full MethodKey, canonical requesting InitialAp)` carries an immutable
+set of independent marks. Each answer creates its own concrete-mark initial in
+addition to the abstract initial. A completed delivery is released. Its policy
+remains active for late suppliers and callers; there is no retained request row,
+request path index or Position event.
 
 A request phase captures both admission horizons before callbacks. It computes
-`(fresh requests × captured current links) ∪ (old requests × fresh links)` with the
+`(fresh interests × captured current links) ∪ (old interests × fresh links)` with the
 ordinary overlap/action relation. Crossed fresh arrivals are in the first arm.
 Retain each raw link's full caller reference, independent link layer and admitted
 group header. An exact-only TAINT delta can have empty E without changing that
@@ -944,8 +964,7 @@ Each runner has one channel and one local priority queue, as today. The events:
 | `Start(root)` | the runner of `root` (sent by the driver) | `addRootZero` | §6.1 | the `MethodWithContext` start event |
 | `LinkIn(callee, link)` | the runner of `callee` | `addLink` | E1, E2 | `ExternalInputFact.InputFact` |
 | `ZeroIn(callee)` | the runner of `callee` (backward) | `addZeroEntry` | §9.2 `zin` | `ExternalInputFact.InputZero` |
-| `RequestIn(method, premise, request)` | the runner of `method` (the caller; run 1) | `addRequest` | E5, E7 | replaces the side-effect channels |
-| `MarkRequestsIn(method, premise, marks)` | the runner of `method` (the caller; run 1) | `addMarkRequests` | Set expansion of E5, E7 | one physical event for independent mark requests |
+| `MarkRequestsIn(method, premise, marks)` | the runner of `method` (the caller; run 1) | `addMarkRequests` | Set expansion of E5 | update the original abstraction with independent mark interests |
 | `Delivery(callee, publications)` | the SUBSCRIBED runner; the publisher's thread sends it | `SubscriptionManager.onDelivery` | E4 | `NewSummaryEdgeEvent` |
 | `Work(analyzer)` | the runner of the analyzer (its local queue) | `step` | | the `MethodAnalyzer` event |
 

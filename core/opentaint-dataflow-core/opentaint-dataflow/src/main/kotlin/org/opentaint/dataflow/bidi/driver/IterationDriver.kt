@@ -93,6 +93,9 @@ class IterationDriver internal constructor(
     }
 
     private fun logOptimizationStatistics(config: RunConfig, phase: String) {
+        shared.abstractionStatistics?.let { statistics ->
+            logger.info { "BIDI_ABSTRACTION_STATISTICS run=${config.index} direction=${config.direction} limit=${config.fieldLimit} phase=$phase totals=${statistics.snapshot()}" }
+        }
         shared.n1Statistics?.let { statistics ->
             logger.info { "BIDI_N1_STATISTICS run=${config.index} direction=${config.direction} limit=${config.fieldLimit} phase=$phase totals=${statistics.snapshot()}" }
         }

@@ -4,7 +4,7 @@ import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.EngineShellFixtures
 import org.opentaint.dataflow.bidi.store.CallerRef
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.ir.api.common.CommonMethod
 import java.util.concurrent.CopyOnWriteArrayList
@@ -139,7 +139,7 @@ class RunShellTest {
                             assertTrue(port.send(RunEvent.Start(f.b)))
                             assertTrue(port.send(RunEvent.LinkIn(f.b, ref, Layer.NORMAL, Reach.NORMAL)))
                             assertTrue(port.send(RunEvent.ZeroIn(f.b)))
-                            assertTrue(port.send(RunEvent.RequestIn(f.b, f.manager.zero, RequestKind.Mark(f.manager.marks.mark("T")))))
+                            assertTrue(port.send(RunEvent.MarkRequestsIn(f.b, f.manager.zero, RequestMarkSet.of(f.manager.marks.mark("T")))))
                             assertFalse(port.send(RunEvent.ZeroIn(f.unknown)))
                             assertTrue(port.post(RunEvent.Delivery(f.b, listOf(publication))))
                         }
@@ -151,7 +151,7 @@ class RunShellTest {
                         port.enqueue(port.analyzer(event.callee))
                     }
                     is RunEvent.ZeroIn -> { port.analyzer(event.callee).add(1); port.enqueue(port.analyzer(event.callee)) }
-                    is RunEvent.RequestIn -> { port.analyzer(event.method).add(1); port.enqueue(port.analyzer(event.method)) }
+                    is RunEvent.MarkRequestsIn -> { port.analyzer(event.method).add(1); port.enqueue(port.analyzer(event.method)) }
                     is RunEvent.MarkRequestsIn -> { port.analyzer(event.method).add(event.marks.size); port.enqueue(port.analyzer(event.method)) }
                     is RunEvent.Delivery -> {
                         assertEquals(f.b, event.callee)

@@ -101,6 +101,19 @@ class TaintAnalysisUnitRunnerManager(
         requireStoppedJobs()
     }
 
+    /** Copy the completed prescan relation before releasing either prescan owner. */
+    fun prescanResolvedGraph(exportCancellation: Cancellation = Cancellation()): ResolvedPrescanGraph = synchronized(lifecycleLock) {
+        requirePrescanJoined()
+        check(status.get() == Status.OK) { "A failed prescan cannot supply a complete static catalog" }
+        val methods = LinkedHashSet<CommonMethod>()
+        val calls = LinkedHashSet<ResolvedPrescanCall>()
+        for (runner in runnerForUnit.values) {
+            exportCancellation.checkpoint()
+            runner.copyResolvedGraph(methods, calls, exportCancellation)
+        }
+        ResolvedPrescanGraph(methods, calls)
+    }
+
     fun releasePrescan(): Unit = synchronized(lifecycleLock) {
         requirePrescanJoined()
         runnerForUnit.clear()

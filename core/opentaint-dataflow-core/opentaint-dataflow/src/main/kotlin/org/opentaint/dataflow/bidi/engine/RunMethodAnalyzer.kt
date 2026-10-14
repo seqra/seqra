@@ -35,6 +35,19 @@ class RunMethodAnalyzer(
     val links: AddedFactStore get() = checkNotNull(linkStore) { "The backward links were released" }
     val summaries = RunSummaryStore(ap)
     val sourceHits: SourceHitStore? = if (forward) null else SourceHitStore()
+    internal var abstraction: Run1Abstraction? = if (config.run1) Run1Abstraction(
+        ops, links, context.shared.run1StaticProfiles?.get(key.method),
+        answer = ::addInitial,
+        send = { method, initial, marks -> runnerPort.send(RunEvent.MarkRequestsIn(method, initial, marks)) },
+        covered = { method, initial, mark -> context.shared.run1StaticProfiles?.get(method.method)?.covers(initial, mark) == true },
+        statistics = context.shared.requestBatchStatistics,
+        policyStatistics = context.shared.abstractionStatistics,
+    ) else null
+        private set
+    internal fun releaseAbstraction() { abstraction?.release(); abstraction = null }
+    internal fun unchangedStaticInitial(premise: PremiseKey): InitialAp? =
+        if (config.run1 && context.shared.run1StaticProfiles != null) premise as? InitialAp else null
+
     private var publicationSink: PublicationSink? = publisher
     private var local: MethodLocalServices? = localFactory.create(this)
     private var calls: MethodCallServices? = callFactory.create(this)
@@ -64,12 +77,14 @@ class RunMethodAnalyzer(
         val delta = update.delta
         if (delta.layer == Layer.DEMAND) demandLayerEdges++
         emit(delta)
+        abstraction?.add(update)
+        if (abstraction?.hasPending == true) requestWork()
         localServices.onAddedLink(update)
     }
 
-    fun addRequest(premise: InitialAp, kind: RequestKind) {
+    fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
         check(config.run1) { "Requests exist only in run 1" }
-        localServices.addRequest(premise, kind)
+        localServices.addMarkRequest(premise, mark)
     }
 
     fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
@@ -80,7 +95,7 @@ class RunMethodAnalyzer(
     private fun emit(delta: Facts) {
         ap.cancellation.checkpoint()
         if (config.run1) {
-            addInitial(ops.policy(delta))
+            checkNotNull(abstraction).emit(delta)
             return
         }
         if (delta is Reach) {
@@ -114,19 +129,26 @@ class RunMethodAnalyzer(
 
     internal fun collect(premise: PremiseKey, input: Facts, sink: ResultSink): ApOut = object : ApOut {
         override fun result(f: Facts): Unit = sink(premise, f)
-        override fun markRequest(mark: TaintMark): Unit = raise(premise, input, RequestKind.Mark(mark))
-        override fun positionRequest(position: PathNode): Unit = raise(premise, input, RequestKind.Position(position))
+        override fun markRequest(mark: TaintMark): Unit = raiseMark(premise, input, mark)
     }
 
-    internal fun raise(premise: PremiseKey, input: Facts, kind: RequestKind) {
+    internal fun raiseMark(premise: PremiseKey, input: Facts, mark: TaintMark) {
         check(config.run1) { "Requests exist only in run 1" }
         check(input is FlowTree && premise is InitialAp) { "A request needs a FLOW input premise" }
-        addRequest(premise, kind)
+        addMarkRequest(premise, mark)
     }
 
     internal fun cut(point: Cut, premise: PremiseKey, facts: Facts, sink: ResultSink) {
         runnerPort.onCut?.invoke(point, facts)
         ops.limit(facts, limit, collect(premise, facts, sink))
+    }
+
+    private val hasPendingAbstractionWork: Boolean get() =
+        abstraction?.hasPending == true || localServices.hasPendingRequests
+
+    private fun flushAbstractionWork(quantum: Int): Boolean {
+        if (!localServices.flushRequests(quantum)) return false
+        return abstraction?.flush(quantum) ?: true
     }
 
     override fun work(quantum: Int): Boolean {
@@ -141,7 +163,7 @@ class RunMethodAnalyzer(
                 // requests one bounded service opportunity when this method's fact queue stays busy.
                 if (worklist.hasZeroWork != zeroAtStart) return false
                 if (processed >= quantum) {
-                    if (!zeroAtStart) localServices.flushRequests(quantum)
+                    if (!zeroAtStart) flushAbstractionWork(quantum)
                     return false
                 }
                 processed++
@@ -151,12 +173,12 @@ class RunMethodAnalyzer(
             flushPublications()
             ap.cancellation.checkpoint()
             if (!worklist.isEmpty || pending.isNotEmpty()) continue
-            val requestsComplete = localServices.flushRequests(quantum)
+            val requestsComplete = flushAbstractionWork(quantum)
             ap.cancellation.checkpoint()
             // Answers and sends can synchronously create facts, publications or a new request
             // frontier. Retain the existing counted Work token until all of them are complete.
             if (!requestsComplete) return false
-            if (worklist.isEmpty && pending.isEmpty() && !localServices.hasPendingRequests) return true
+            if (worklist.isEmpty && pending.isEmpty() && !hasPendingAbstractionWork) return true
         }
     }
 
@@ -340,7 +362,7 @@ class RunMethodAnalyzer(
     internal fun countTriggerSeed() { triggerSeeds++ }
 
     override fun freeze() {
-        check(worklist.isEmpty && pending.isEmpty() && !localServices.hasPendingRequests) {
+        check(worklist.isEmpty && pending.isEmpty() && !hasPendingAbstractionWork) {
             "A method cannot freeze with unfinished work"
         }
         var failure: Throwable? = null
@@ -353,6 +375,7 @@ class RunMethodAnalyzer(
             }
         }
         try {
+            release { releaseAbstraction() }
             release { localServices.freeze() }
             release { callServices.freeze() }
         } finally {

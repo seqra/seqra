@@ -4,7 +4,7 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.interp.*
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.jvm.BasicTestUtils
 import org.opentaint.dataflow.jvm.bidi.fixtures.JIRFormsTestFixtures
 import org.opentaint.dataflow.jvm.bidi.interp.JIRStatementForms
@@ -173,7 +173,7 @@ class JIRStatementEffectTest : BasicTestUtils() {
         assertExpected(inst, abstract, setOf(abstract, c(target, tail = Tail.ANY, mark = mx)))
         val identity = setOf(Pattern(PathFact(stat, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty))
         assertExpected(inst, abstract, setOf(abstract), run1 = true, inputPremise = identity,
-            requests = listOf(RequestKind.Position(m.path(p(fixture.cls, field))!!)))
+            requests = listOf(RequestKind.Position(m.path(p(fixture.cls, field))!!)), runtimeRequests = emptyList())
         val concrete = must(stat, exclusion = ex(g), mark = mu)
         assertExpected(inst, concrete, setOf(concrete, must(target, mark = mu)))
         val exact = c(stat, p(fixture.cls, field, g))
@@ -410,7 +410,10 @@ class JIRStatementEffectTest : BasicTestUtils() {
                                run1: Boolean = false,
                                inputPremise: Set<Pattern> = setOf(Pattern(
                                    PathFact(AccessPathBase.Argument(7), emptyList(), Tail.EXACT, mt), ExclusionSet.Empty)),
-                               requests: List<RequestKind> = emptyList()) {
+                               requests: List<RequestKind> = emptyList(),
+                               runtimeRequests: List<RequestKind> = requests.onEach {
+                                   require(it is RequestKind.Mark) { "Specify the runtime effects of a scalar Position row" }
+                               }) {
         val summary = forms.build(inst)
         val mode = ApMode(run1, Direction.FORWARD, cut ?: Int.MAX_VALUE)
         val at = Place(inst, statementEdge = true, sources = true)
@@ -434,7 +437,6 @@ class JIRStatementEffectTest : BasicTestUtils() {
                     object : ApOut {
                         override fun result(f: Facts) = out(premise, f)
                         override fun markRequest(mark: TaintMark) { treeRequests += RequestKind.Mark(mark) }
-                        override fun positionRequest(position: PathNode) { treeRequests += RequestKind.Position(position) }
                     }, me.may)
             }
             override fun conjunction(cj: ConjunctiveEdge, premise: Set<Pattern>, c: Facts, node: CommonInst,
@@ -448,10 +450,9 @@ class JIRStatementEffectTest : BasicTestUtils() {
                 if (cut == null) output += result else ops.limit(result, cut, object : ApOut {
                     override fun result(f: Facts) { output += f }
                     override fun markRequest(mark: TaintMark) = error("A field cut cannot request a mark")
-                    override fun positionRequest(position: PathNode) = error("A field cut cannot request a position")
                 })
             }, untouched = { _, result -> output += result })
         assertEquals(expected, output.flatMap(oracle::conclusions).toSet(), "tree instruction=$inst input=$input")
-        assertEquals(requests, treeRequests, "tree requests for $inst")
+        assertEquals(runtimeRequests, treeRequests, "tree requests for $inst")
     }
 }

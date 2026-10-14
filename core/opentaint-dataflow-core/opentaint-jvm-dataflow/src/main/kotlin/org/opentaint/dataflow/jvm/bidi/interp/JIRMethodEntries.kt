@@ -17,6 +17,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.util.SoftReferenceManager
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.jvm.graph.JApplicationGraph
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
@@ -33,6 +34,7 @@ class JIRMethodEntries(
     internal val formReferences: SoftReferenceManager? = null,
     internal val formStatistics: org.opentaint.dataflow.bidi.interp.FormCacheStatistics? =
         org.opentaint.dataflow.bidi.interp.FormCacheStatistics.ifEnabled(),
+    run1Adjacency: Map<CommonMethod, Set<CommonMethod>>? = null,
 ) {
     val formOwner = org.opentaint.dataflow.bidi.interp.FormOwner()
     init {
@@ -61,6 +63,17 @@ class JIRMethodEntries(
                 put(caller, Int2ObjectMaps.unmodifiable(DetachedEntriesMap(copied)))
             }
         })
+
+    @Volatile private var run1Adjacency = run1Adjacency
+
+    internal fun requireRun1CatalogTarget(caller: CommonMethod, callee: CommonMethod) {
+        val graph = run1Adjacency ?: return
+        check(callee in graph[caller].orEmpty()) {
+            "Resolved target is absent from the completed prescan static catalog: $caller -> $callee"
+        }
+    }
+
+    fun releaseRun1CatalogCoverage() { run1Adjacency = null }
 
     private val byMethod = ConcurrentHashMap<JIRMethod, JIRMethodEntry>()
     private val byKey = ConcurrentHashMap<MethodKey, JIRMethodForms>()

@@ -26,11 +26,15 @@ class MethodLocalServicesTest {
         return actor to service
     }
 
-    @Test fun `only run one allocates requests and only forward allocates one conjunction store`(): Unit {
+    @Test fun `only run one owns core abstraction and only forward local services own conjunction state`(): Unit {
         for (index in 1..4) MethodAnalysisFixtures().use { f ->
-            val (_, service) = core(f, index)
-            assertEquals(index == 1, fieldOfType(service, RequestStore::class.java) != null, "run $index")
-            assertEquals(index == 1, fieldNamed(service, "requestJoin") != null, "run $index")
+            val (actor, service) = core(f, index)
+            assertEquals(index == 1, actor.abstraction != null, "run $index")
+            assertSame(actor.abstraction, fieldOfType(actor, Run1Abstraction::class.java))
+            assertNoIndexedRequestOwner(actor)
+            assertNoIndexedRequestOwner(service)
+            assertTrue(service.javaClass.declaredFields.none { it.type == Run1Abstraction::class.java },
+                "Local services borrow the core abstraction rather than owning another one")
             if (index % 2 == 1) {
                 val conjunctions = assertNotNull(service.conjunctions)
                 assertSame(conjunctions, service.conjunctions)
@@ -61,11 +65,11 @@ class MethodLocalServicesTest {
         }
     }
 
-    @Test fun `cancellation precedes standing request link literal and sink mutations`(): Unit {
+    @Test fun `cancellation precedes abstraction interest link literal and sink mutations and does not poison late answers`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val (actor, service) = core(f)
             val policy = f.manager.initial(f.pattern(tail = Tail.STAR, mark = MarkSlot.STAR))
-            val request = RequestKind.Mark(f.mark("T"))
+            val request = f.mark("T")
             val premise = f.manager.initial(f.pattern())
             val input = f.fact()
             val ref = CallerRef(f.store.key("caller"), policy, Layer.NORMAL, f.inst(1))
@@ -73,15 +77,16 @@ class MethodLocalServicesTest {
             val conjunction = ConjunctiveEdge(listOf(f.pattern(argument), f.pattern(result)),
                 f.pattern(AccessPathBase.This).fact)
             f.cancellation.cancel()
-            assertFailsWith<Cancellation.Cancelled> { service.addRequest(policy, request) }
+            assertFailsWith<Cancellation.Cancelled> { service.addMarkRequest(policy, request) }
             assertFailsWith<Cancellation.Cancelled> { service.onAddedLink(ref, Layer.NORMAL, input) }
             assertFailsWith<Cancellation.Cancelled> {
                 service.conjunction(conjunction, premise, input, f.inst(1)) { _, _ -> fail("Cancelled join") }
             }
             assertFailsWith<Cancellation.Cancelled> { service.checkSinks(premise, f.inst(1), input, listOf(sink)) }
             f.cancellation.activate()
-            val requests = fieldOfType(service, RequestStore::class.java) as RequestStore
-            assertTrue(requests.overlapping(f.pattern()).none())
+            val abstraction = assertNotNull(actor.abstraction)
+            assertFalse(abstraction.hasPending)
+            assertTrue(mapFields(abstraction).all { it.isEmpty() }, "A cancelled demand did not install interest")
             assertTrue(actor.initials.all().none())
             assertTrue(f.vulnerabilities.witnessesOf(1).none())
             val other = f.fact(result)
@@ -89,6 +94,25 @@ class MethodLocalServicesTest {
             service.conjunction(conjunction, otherPremise, other, f.inst(1)) { _, _ ->
                 fail("The cancelled first literal cannot remain in the store")
             }
+
+            actor.addLink(ref, Layer.NORMAL, input)
+            f.drain(actor, quantum = 1)
+            assertEquals(setOf(policy), actor.initials.all().toSet(),
+                "The later supplier must not answer an interest from the cancelled call")
+            service.addMarkRequest(policy, request)
+            f.drain(actor, quantum = 1)
+            assertEquals(setOf(policy, premise), actor.initials.all().toSet(),
+                "A later real interest must still replay the already admitted supplier")
+            var joins = 0
+            service.conjunction(conjunction, premise, input, f.inst(1)) { joined, facts ->
+                joins++
+                assertEquals(f.manager.union(premise, otherPremise), joined)
+                assertEquals(Layer.NORMAL, facts.layer)
+            }
+            assertEquals(1, joins, "The cancelled input must not block the later complete literal join")
+            assertEquals(listOf(sink to Layer.NORMAL), service.checkSinks(premise, f.inst(1), input, listOf(sink)).fired)
+            assertEquals(1, f.vulnerabilities.witnessesOf(1).count(),
+                "A cancelled sink check must not poison the later actual witness")
         }
     }
 
@@ -116,20 +140,29 @@ class MethodLocalServicesTest {
         }
     }
 
-    @Test fun `service freeze drops request join conjunction and trigger state`(): Unit {
+    @Test fun `local freeze releases predicate literal and trigger state while core still owns pending abstraction`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val (actor, service) = core(f)
             populateState(f, actor, service)
-            assertNotNull(fieldOfType(service, RequestStore::class.java))
-            val requestJoin = service.javaClass.getDeclaredField("requestJoin").also { it.isAccessible = true }
-            assertNotNull(requestJoin.get(service))
+            val abstraction = assertNotNull(actor.abstraction)
+            assertTrue(abstraction.hasPending)
+            assertTrue(mapFields(abstraction).any { it.isNotEmpty() })
             assertNotNull(service.conjunctions)
+            assertNotNull(fieldNamed(service, "predicateStore"))
             assertTrue(collectionFields(service).any { it.isNotEmpty() })
             service.freeze()
-            assertNull(fieldOfType(service, RequestStore::class.java))
-            assertNull(requestJoin.get(service))
-            assertNull(service.conjunctions)
-            assertTrue(collectionFields(service).all { it.isEmpty() })
+            assertLocalReleased(service)
+            assertSame(abstraction, actor.abstraction, "Local freeze cannot release the core-owned interest policy")
+            assertTrue(abstraction.hasPending)
+            assertFailsWith<IllegalStateException> { actor.freeze() }
+            assertFailsWith<IllegalStateException> {
+                service.addMarkRequest(f.manager.initial(f.pattern(tail = Tail.STAR, mark = MarkSlot.STAR)),
+                    f.mark("T"))
+            }
+            actor.releaseAbstraction()
+            assertNull(actor.abstraction)
+            assertAbstractionReleased(abstraction)
+            actor.freeze()
             assertEquals(1L, actor.triggerSeeds)
         }
     }
@@ -139,19 +172,21 @@ class MethodLocalServicesTest {
             val (actor, service) = core(f)
             populateState(f, actor, service)
             assertSame(service, actor.localServices)
+            val abstraction = assertNotNull(actor.abstraction)
             assertTrue(service.hasPendingRequests)
             assertFalse(actor.work(1), "One quantum starts the detached request phase and cannot complete it")
             assertFails { actor.freeze() }
+            assertSame(abstraction, actor.abstraction, "A rejected freeze keeps pending policy work")
+            assertSame(service, actor.localServices)
             f.drain(actor, quantum = 1)
             assertFalse(service.hasPendingRequests)
             actor.freeze()
             assertFails { actor.localServices }
             assertFails { actor.runnerPort }
             assertFails { actor.context }
-            assertNull(fieldOfType(service, RequestStore::class.java))
-            assertNull(fieldNamed(service, "requestJoin"))
-            assertNull(service.conjunctions)
-            assertTrue(collectionFields(service).all { it.isEmpty() })
+            assertNull(actor.abstraction)
+            assertAbstractionReleased(abstraction)
+            assertLocalReleased(service)
             assertEquals(1L, actor.triggerSeeds)
         }
     }
@@ -206,14 +241,14 @@ class MethodLocalServicesTest {
                 }
                 assertEquals(expected, methodEntries(f.ops, actor.summaries.all()), "boundary=$boundary, $seedKind")
                 assertNull(actor.sourceHits)
-                assertTrue(f.events.none { it is RunEvent.RequestIn || it is RunEvent.MarkRequestsIn })
+                assertTrue(f.events.none { it is RunEvent.MarkRequestsIn || it is RunEvent.MarkRequestsIn })
             }
         }
     }
 
     private fun populateState(f: MethodAnalysisFixtures, actor: RunMethodAnalyzer, service: RunMethodLocalServices) {
         val policy = f.manager.initial(f.pattern(tail = Tail.STAR, mark = MarkSlot.STAR))
-        service.addRequest(policy, RequestKind.Mark(f.mark("T")))
+        service.addMarkRequest(policy, f.mark("T"))
         val premise = f.manager.initial(f.pattern())
         val conjunction = ConjunctiveEdge(listOf(f.pattern(argument), f.pattern(result)), f.pattern(AccessPathBase.This).fact)
         service.conjunction(conjunction, premise, f.fact(), f.inst(1)) { _, _ -> fail("Only one literal is present") }
@@ -222,6 +257,35 @@ class MethodLocalServicesTest {
         }
         assertEquals(1L, actor.triggerSeeds)
     }
+
+    private fun assertNoIndexedRequestOwner(owner: Any) {
+        assertTrue(owner.javaClass.declaredFields.none {
+            RequestStore::class.java.isAssignableFrom(it.type) || it.name == "requestJoin"
+        }, "The production owner must not retain the old request index or standing join")
+    }
+
+    private fun assertLocalReleased(service: RunMethodLocalServices) {
+        assertNoIndexedRequestOwner(service)
+        for (name in listOf("owner", "conjunctionStore", "predicateStore", "triggered"))
+            assertNull(fieldNamed(service, name), "Released local field $name")
+        assertNull(service.conjunctions)
+        assertTrue(collectionFields(service).all { it.isEmpty() })
+    }
+
+    private fun assertAbstractionReleased(abstraction: Run1Abstraction) {
+        assertFalse(abstraction.hasPending)
+        assertEquals(true, fieldNamed(abstraction, "released"))
+        assertNull(fieldNamed(abstraction, "phase"))
+        assertTrue(mapFields(abstraction).all { it.isEmpty() }, "No dynamic policy, phase or incoming update remains")
+        for (name in listOf("policyCount", "policyMembers", "pendingMembers", "pendingCapacity"))
+            assertEquals(0L, fieldNamed(abstraction, name), "Released abstraction field $name")
+    }
+
+    private fun mapFields(owner: Any): List<Map<*, *>> = owner.javaClass.declaredFields
+        .filter { Map::class.java.isAssignableFrom(it.type) }.map { field ->
+            field.isAccessible = true
+            field.get(owner) as? Map<*, *> ?: emptyMap<Any, Any>()
+        }
 
     private fun collectionFields(owner: Any): List<Collection<*>> = owner.javaClass.declaredFields
         .filter { Collection::class.java.isAssignableFrom(it.type) }.map { field ->

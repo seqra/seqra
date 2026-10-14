@@ -1101,9 +1101,21 @@ conjunction. Such a rule can meet a fact with the mark `*`, or `*∖X` with
 method `m`. A rule that drops the fact without a request loses the flow. A rule that applies to such a fact lets
 every mark through.
 
+The selected run-1 abstraction policy has one exception for an ORDINARY STATIC CHECK. Apply the normal geometry
+and mark-exclusion tests first. If the original initial is on `S`, and every eligible abstract input leaf is exactly
+its started fact, the check gives no dynamic mark request and no concrete result. Its installed static interest
+must already observe current and future suppliers. Equality includes the full base and path, the STAR tail, NORMAL
+layer, field exclusion and mark exclusion. It is not overlap, coverage, equality of a field slot, or equality with
+the literal or source action target. `S.C.g -> S.C.f` and `S.C.g -> local x` still request the mark on the original
+`S.C.g` initial. For a packed FLOW group, one eligible changed leaf keeps the request; an off-literal leaf does not.
+This exception applies only when the catalog covers the consumer. A scalar reference or interpreter without that
+coverage retains the ordinary request rule above. Suppression never means that a source/sink predicate holds.
+
 A selected-mark cleaner uses the same request mechanism but its F75 gate is different (§4.7): every same-base
 abstract fact gives the request T in run 1, also on a disjoint path or when T is already excluded. The fact continues
 with T excluded. The request refers to the incoming edge's premise, not to its new excluded conclusion.
+F75 bypasses the ordinary unchanged-static exception. A shared installed cleaner policy may deduplicate delivery,
+but it must retain this base-wide interest and its current/future supplier processing.
 
 A request is always on a premise with an abstract mark (`Coverage.req_initial_star`). In run 1 the policy (§6.2) and
 the position answers (§4.10 item 2) make such premises. So a request premise of run 1 is a policy fact
@@ -1646,6 +1658,41 @@ test `Statics.genFireB` reads "at most one accessor"; for these programs it give
 
 Every other operation on `S` is the ordinary one: the call bindings `S.* → S.*` (S12 (c)), the summary application
 (§4.3), the cleaner (§4.7; its request uses item 4), and the conjunction literal (§4.6).
+
+CATALOG-ENABLED RUN-1 EMISSION. The selected implementation policy replaces position-request transport with the
+static needs copied from the joined prescan and its complete resolved call graph. Keep one shared transitive
+profile per call-graph component, across method contexts; it is potential metadata, not facts or support. Copy
+neutral static/mark descriptors and existing resolved edges before prescan release. Every actual callee must be
+covered. A missing target is a catalog contract failure, not a successful analysis with an incomplete profile.
+
+For every incoming static fact, retain the ordinary `(S, [], STAR, Empty, STAR)` initial and its keep/kill/exclusion
+analysis, even with an empty profile. Also emit `(S, q, STAR, Empty, STAR)` for catalog structural slots at or above
+the actual raw leaf. A raw root or proper ancestor never answers a deeper slot. Class/field slots have at most two
+accessors; callers' transitive profiles provide the same refinement upstream. The parent branch of the identity
+static exception in item 1 still gives no fact. The production operation gives no position-request event and has no Position output API. The
+ordinary wide DEMAND fallback remains disabled there. The scalar rules above remain the independent
+migration reference, using `ReferenceRequestKind` and `ReferenceRequestAction` only.
+
+Declared static mark interests retain their full literal paths/tails and operation roles. F75 interests are
+base-wide and separate. Install both independently of structural-initial activation; a static root check can need
+a field's mark before that field initial exists. Catalogs do not create a position-by-mark Cartesian product.
+Keep every eligible abstract initial. Precomputed or dynamic interest adds separate concrete answers supplied by
+actual raw links. At/below a STATIC mark-request chain, use the actual full raw path and its tail: EXACT starts in
+NORMAL; ANY starts in DEMAND; ANY_TAINT becomes ANY/Empty and starts in DEMAND because run 1 has no must initial.
+For an admitted proper ancestor, retain the original chain answer from §4.5. Keep the raw supplier's E, independent
+layers and full caller reference for matching and joint support. Catalog interest alone never creates a mark,
+a zero-premise source, or a source/sink proof. An accessed field without mark interest does not imply a concrete
+mark. Marked answers never replace the original abstract initial.
+
+Dynamic demands update the original initial abstraction, including copies from `C.g` to `C.f` or a local base.
+It joins current and future raw links. Suppress outgoing transport only if that exact caller abstraction, mark
+and activation are already covered by its installed policy. A static fact derived from an argument can still
+need a demand at the caller's argument. Completion closes a captured processing frontier, not the interest's
+lifetime. Preserve NNF occurrence/support scopes, F75, D23, cleaner order and positive field cuts. Restricted-run
+emission and handoffs retain their existing rules. This policy and its required comparison gates are specified in
+[the redesign](../docs/design/bidirectional-run1-abstraction-demands-20261014.md) and
+[its implementation plan](../docs/design/bidirectional-run1-abstraction-demands-plan-20261014.md); the old scalar
+theorems alone do not prove catalog policy or the extra emitted roots.
 
 AFTER RUN 1 NO STATIC RULE IS NEEDED. A restricted run has no position request, no mark request and no other static
 rule: the demand alone handles the statics. For the forward restricted runs this is proved under two hypotheses:

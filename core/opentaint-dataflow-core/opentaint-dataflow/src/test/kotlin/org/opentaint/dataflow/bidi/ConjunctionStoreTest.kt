@@ -243,7 +243,7 @@ class ConjunctionStoreTest {
                 e = if (effective == Layer.NORMAL) ex(h) else ExclusionSet.Empty, layer = effective)
             assertEquals(setOf(expected), out.results.flatMap { decoded(it) }.toSet())
             assertSame(callerPremises[1], combo.map { it.premise }.reduce(m::union))
-            assertTrue(out.markRequests.isEmpty() && out.positionRequests.isEmpty())
+            assertTrue(out.markRequests.isEmpty())
         }
     }
 

@@ -43,7 +43,6 @@ class FrontierSeedIndexTest {
             f.ops.applyEdge(Reach.NORMAL, f.manager.zero, forward, true, f.config.mode, object : ApOut {
                 override fun result(facts: Facts) = Unit
                 override fun markRequest(mark: TaintMark) = error("An unconditional source does not request a mark")
-                override fun positionRequest(position: PathNode) = error("An unconditional source does not request a position")
             })
             assertNotNull(forward.compiled)
             assertNull(equal.compiled)

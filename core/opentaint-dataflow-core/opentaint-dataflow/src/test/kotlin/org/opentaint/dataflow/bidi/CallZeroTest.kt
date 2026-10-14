@@ -124,7 +124,7 @@ class CallZeroTest {
             assertEquals(if (zero) 1 else 0, f.subscriptions.size)
             assertTrue(actor.sourceHits!!.entries().none())
             assertEquals(0L, actor.recordCrossings)
-            assertTrue(f.events.none { it is RunEvent.RequestIn })
+            assertTrue(f.events.none { it is RunEvent.MarkRequestsIn })
         }
     }
 
@@ -151,7 +151,7 @@ class CallZeroTest {
             assertEquals(expected, methodEntries(f.ops, actor.summaries.all()), admission)
             assertEquals(if (admission == "matching") 1 else 0, f.cuts.count { it.first == Cut.CALL }, admission)
             assertTrue(f.publications.isEmpty(), "Restricted publication still requires demand")
-            assertTrue(f.events.none { it is RunEvent.RequestIn })
+            assertTrue(f.events.none { it is RunEvent.MarkRequestsIn })
         }
     }
 }

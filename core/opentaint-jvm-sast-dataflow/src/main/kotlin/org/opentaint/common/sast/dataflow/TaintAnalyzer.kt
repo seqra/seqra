@@ -140,7 +140,7 @@ abstract class TaintAnalyzer<Method: CommonMethod, Statement: CommonInst>(
         if (bidi != null) {
             val report = runCatching {
                 ifdsEngine.requirePrescanJoined()
-                bidi.gather(analysisManager, startMethods)
+                bidi.gather(analysisManager, startMethods, ifdsEngine.prescanResolvedGraph())
                 analysisManager.releasePrescan()
                 ifdsEngine.releasePrescan()
                 bidi.run(options.ifdsTimeout - analysisStart.elapsedNow())

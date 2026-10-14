@@ -485,6 +485,16 @@ class TaintAnalysisUnitRunner(
         }
     }
 
+    internal fun copyResolvedGraph(methods: MutableSet<CommonMethod>, calls: MutableSet<ResolvedPrescanCall>,
+                                   cancellation: org.opentaint.dataflow.util.Cancellation) {
+        for (storage in analyzers) storage.forEachAnalyzer {
+            cancellation.checkpoint()
+            methods.add(it.methodEntryPoint.method)
+        }
+        internalMethodSummarySubscriptions.copyResolvedCalls(cancellation) { calls.add(it) }
+        externalMethodSummarySubscriptions.copyResolvedCalls(cancellation) { calls.add(it) }
+    }
+
     fun methodTraceResolver(methodEntryPoint: MethodEntryPoint): MethodTraceResolver {
         val methodRunners = methodAnalyzers(methodEntryPoint)
         val runner = methodRunners.getAnalyzer(methodEntryPoint)

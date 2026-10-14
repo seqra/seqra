@@ -8,7 +8,7 @@ import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.ap.TaintMark
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.interp.CallPoint.*
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.configuration.CommonCondition
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.TaintCleanReach
@@ -655,7 +655,7 @@ class JIRCallTransferTest : BasicTestUtils() {
         assertEquals(sourceHits, hits)
         assertEquals(triggers, firedTriggers)
         assertTrue(raw.none { (_, i) -> i.c.fact.base is AccessPathBase.CleanerTemporary })
-        compareTree(plan, place, inputs, raw, methodResult, from, pending, mode, marks, positions, sourceHits, triggerSeeds, triggers)
+        compareTree(plan, place, inputs, raw, methodResult, from, pending, mode, marks, sourceHits, triggerSeeds, triggers)
         return result
     }
 
@@ -665,7 +665,7 @@ class JIRCallTransferTest : BasicTestUtils() {
     private fun compareTree(
         plan: CallPlan, place: Place, inputs: List<PlanItem>, expectedWalk: List<Pair<CallPoint, PlanItem>>,
         methodResult: (MethodKey, PlanItem) -> List<PlanItem>, from: CallPoint, pending: Boolean,
-        mode: ApMode, marks: List<TaintMark>, positions: List<PathNode>, sourceHits: Int,
+        mode: ApMode, marks: List<TaintMark>, sourceHits: Int,
         triggerSeeds: (SinkRule) -> List<PlanItem>, triggers: Set<SinkRule>,
     ) {
         val decoder = FormsReference(ops)
@@ -674,13 +674,11 @@ class JIRCallTransferTest : BasicTestUtils() {
         fun raw(i: TreeItem) = decoder.conclusions(i.facts).map { PlanItem(i.premise, it, i.candidate) }
         fun key(pr: Set<Pattern>) = m.premiseOf(pr.map(m::initial))
         val requests = arrayListOf<TaintMark>()
-        val positionRequests = arrayListOf<PathNode>()
         val firedTriggers = linkedSetOf<SinkRule>()
         var hits = 0
         fun apOut(sink: (Facts) -> Unit) = object : ApOut {
             override fun result(f: Facts) = sink(f)
             override fun markRequest(mark: TaintMark) { requests += mark }
-            override fun positionRequest(position: PathNode) { positionRequests += position }
         }
         val applier = FormApplier(object : FactAlgebra<Set<Pattern>, Facts> {
             override fun base(c: Facts) = c.base
@@ -780,7 +778,6 @@ class JIRCallTransferTest : BasicTestUtils() {
         val got = seen.flatMap { (point, i) -> raw(i).map { point to it } }.toSet()
         assertEquals(expectedWalk.toSet(), got, "tree/reference complete call graph")
         assertEquals(marks, requests)
-        assertEquals(positions, positionRequests)
         assertEquals(sourceHits, hits)
         assertEquals(triggers, firedTriggers)
     }

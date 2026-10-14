@@ -12,7 +12,7 @@ import org.opentaint.dataflow.bidi.fixtures.*
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.interp.CallPoint.*
 import org.opentaint.dataflow.bidi.interp.StageKind.*
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import java.util.Random
 import kotlin.test.*
 

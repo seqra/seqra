@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.jvm.bidi
 
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.CombinedMethodContext
@@ -252,7 +254,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
     }
 
     @Test
-    fun `conditional static exit source requests its position on the original run one identity`(): Unit {
+    fun `conditional static exit source keeps the scalar position obligation and runtime parent identity`(): Unit {
         val m = method("copy")
         val cls = manager.accessors.index(ClassStaticAccessor(owner))
         val staticField = manager.accessors.index(FieldAccessor(owner, "sField", "java.lang.Object"))
@@ -267,7 +269,10 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
 
         fun check(summary: StatementSummary, node: CommonInst, mode: ApMode,
                   original: Pattern, input: Conclusion, expected: Set<Conclusion>,
-                  expectedRequests: List<RequestKind> = emptyList()) {
+                  expectedRequests: List<RequestKind> = emptyList(),
+                  runtimeRequests: List<RequestKind> = expectedRequests.onEach {
+                      require(it is RequestKind.Mark) { "Specify the runtime effects of a scalar Position row" }
+                  }) {
             val premise = setOf(original)
             val rawRequests = arrayListOf<Pair<Set<Pattern>, RequestKind>>()
             val raw = linkedSetOf<Conclusion>()
@@ -295,9 +300,6 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
                         override fun markRequest(mark: org.opentaint.dataflow.bidi.ap.TaintMark) {
                             treeRequests += premise to RequestKind.Mark(mark)
                         }
-                        override fun positionRequest(position: PathNode) {
-                            treeRequests += premise to RequestKind.Position(position)
-                        }
                     }, me.may)
                 }
                 override fun conjunction(cj: ConjunctiveEdge, premise: PremiseKey, c: Facts, node: CommonInst,
@@ -320,12 +322,11 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
                 ops.limit(result, mode.fieldLimit, object : ApOut {
                     override fun result(f: Facts) { output += f }
                     override fun markRequest(mark: org.opentaint.dataflow.bidi.ap.TaintMark) = error("A cut cannot request a mark")
-                    override fun positionRequest(position: PathNode) = error("A cut cannot request a position")
                 })
             })
             assertEquals(expected, output.flatMap(reference::conclusions).toSet(),
                 "tree mode=${mode.direction}/${mode.run1}, input=$input")
-            assertEquals(expectedRequests, treeRequests.map { it.second }, "tree requests")
+            assertEquals(runtimeRequests, treeRequests.map { it.second }, "runtime requests")
             treeRequests.forEach { assertSame(treePremise, it.first) }
         }
 
@@ -347,7 +348,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
             for (path in listOf(emptyList(), listOf(cls))) {
                 val original = Pattern(PathFact(STATIC, path, Tail.STAR, MarkSlot.STAR), empty)
                 val input = conclusion(original.fact, exclusion = ExclusionSet.of(g))
-                check(forward, node, run1, original, input, setOf(input), listOf(requested))
+                check(forward, node, run1, original, input, setOf(input), listOf(requested), runtimeRequests = emptyList())
                 check(forward, node, restricted, original, input, setOf(input))
                 check(reversed, node, backward, original, input, setOf(input))
 
@@ -564,9 +565,9 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
             }, MethodLocalServicesFactory { actor ->
                 val actual = RunMethodLocalServices(actor)
                 object : MethodLocalServices by actual {
-                    override fun addRequest(premise: InitialAp, kind: RequestKind) {
-                        requests += premise to kind
-                        actual.addRequest(premise, kind)
+                    override fun addMarkRequest(premise: InitialAp, mark: org.opentaint.dataflow.bidi.ap.TaintMark) {
+                        requests += premise to RequestKind.Mark(mark)
+                        actual.addMarkRequest(premise, mark)
                     }
                 }
             }, MethodCallServicesFactory(::RunMethodCallServices))

@@ -3,6 +3,7 @@ package org.opentaint.dataflow.bidi
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.bidi.driver.Seed
 import org.opentaint.dataflow.bidi.engine.RunConfig
 import org.opentaint.dataflow.bidi.fixtures.*
@@ -10,7 +11,6 @@ import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.interp.CallPoint.*
 import org.opentaint.dataflow.bidi.interp.StageKind.*
 import org.opentaint.dataflow.bidi.store.Record
-import org.opentaint.dataflow.bidi.store.RequestKind
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSink
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import kotlin.test.*
@@ -35,7 +35,8 @@ class NaiveClosureTest {
         ), emptyList(), BEFORE, AFTER)
 
     private fun check(f: FiniteProgramFixtures, config: RunConfig, fields: List<Int>, marks: List<TaintMark>,
-                      sameUnit: Boolean = false, policy: SchedulePolicy = SchedulePolicy.FIFO): RunObservation {
+                      sameUnit: Boolean = false, policy: SchedulePolicy = SchedulePolicy.FIFO,
+                      catalogRefinement: Boolean = false): RunObservation {
         val expected = NaiveClosure(f, config).run()
         val schedule = ProductionSchedule(f, config, sameUnit = sameUnit, policy = policy, quantum = 1)
         val actual = schedule.run()
@@ -59,7 +60,10 @@ class NaiveClosureTest {
             (observed.map { it.fact.base } + listOf(AccessPathBase.Zero, x, y, returned, AccessPathBase.ClassStatic, AccessPathBase.Argument(7))).distinct(),
             (fields + observed.flatMap { it.fact.path + (it.exclusion as? ExclusionSet.Concrete)?.ids?.toList().orEmpty() } + positionPaths.flatten() + f.field("fresh accessor")).distinct(),
             (marks + observed.mapNotNull { (it.fact.mark as? MarkSlot.Concrete)?.mark } + f.mark("fresh mark") + TaintMark.ZERO).distinct(), 2)
-        try { actual.assertEquivalent(expected, universe) }
+        try {
+            if (catalogRefinement) expected.assertCatalogRefinement(actual, universe, config.roots)
+            else actual.assertEquivalent(expected, universe)
+        }
         catch (failure: AssertionError) { throw AssertionError("index=${config.index} sameUnit=$sameUnit policy=$policy program=${f.describe()} trace=${schedule.trace}", failure) }
         return actual
     }
@@ -297,7 +301,7 @@ class NaiveClosureTest {
     }
 
     @Test
-    fun `static position and mark requests climb through a real caller chain and concrete links answer them`(): Unit {
+    fun `scalar static climb remains the oracle while catalog closure preserves supplied caller effects`(): Unit {
         for (policy in listOf(SchedulePolicy.REPLAY_FIRST, SchedulePolicy.NOTIFY_FIRST))
             for (sameUnit in listOf(false, true)) FiniteProgramFixtures().use { f ->
                 val main = f.method("staticCaller", listOf(listOf(1), listOf(2), emptyList()), 2)
@@ -327,15 +331,19 @@ class NaiveClosureTest {
                 f.call(middle, 1, staticCall(callee, returned))
                 f.statement(callee, 0, summary(PathEdge(PathFact(static, path, Tail.EXACT, t),
                     PathFact(returned, emptyList(), Tail.EXACT, u), ExclusionSet.Empty)))
-                val actual = check(f, f.config(roots = listOf(caller)), path, listOf(t.mark, u.mark), sameUnit, policy)
+                val config = f.config(roots = listOf(caller))
+                val scalar = NaiveClosure(f, config).run()
+                val actual = check(f, config, path, listOf(t.mark, u.mark), sameUnit, policy, catalogRefinement = true)
                 val policyInitial = f.pattern(static, tail = Tail.STAR, mark = MarkSlot.STAR)
                 val positionInitial = f.pattern(static, path, Tail.STAR, MarkSlot.STAR)
                 val position = RequestKind.Position(f.ap.path(path)!!)
                 for (key in listOf(middle, callee)) {
-                    assertContains(actual.requests, ObservedRequest(key, policyInitial, position))
-                    assertContains(actual.requests, ObservedRequest(key, positionInitial, RequestKind.Mark(t.mark)))
+                    // Preserve the old protocol assertions on the independent scalar algorithm.
+                    assertContains(scalar.requests, ObservedRequest(key, policyInitial, position))
+                    assertContains(scalar.requests, ObservedRequest(key, positionInitial, RequestKind.Mark(t.mark)))
                     assertContains(actual.initials, ObservedInitial(key, f.pattern(static, path, Tail.EXACT, t)))
                 }
+                assertTrue(actual.requests.none { it.kind is RequestKind.Position })
                 assertContains(actual.rawSummaries, ObservedEdge(caller, zero,
                     Conclusion(PathFact(y, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false)))
                 assertTrue(actual.sourceHits.isEmpty())

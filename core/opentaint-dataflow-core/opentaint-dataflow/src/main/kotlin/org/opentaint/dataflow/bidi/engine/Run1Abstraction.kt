@@ -1,16 +1,23 @@
 package org.opentaint.dataflow.bidi.engine
 
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentHashMapOf
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.store.*
 
-/** One actor owns pending changes and at most one detached request-join phase. */
-internal class RequestFrontier(
+/** Run-1 initial emission owns mark interests and bounded, completed deliveries.
+ * Immutable policies share captured phases; no request rows or membership directories exist.
+ */
+internal class Run1Abstraction(
     private val ops: ApOps,
-    private val requests: RequestStore,
     private val links: AddedFactStore,
+    private val profile: Run1StaticProfile?,
     private val answer: (InitialAp) -> Unit,
     private val send: (MethodKey, InitialAp, RequestMarkSet) -> Boolean,
+    private val covered: (MethodKey, InitialAp, TaintMark) -> Boolean,
     private val statistics: RequestBatchStatistics?,
+    private val policyStatistics: Run1AbstractionStatistics?,
 ) {
     private class PendingMarks(val initial: InitialAp, val marks: RequestMarkSetBuilder = RequestMarkSetBuilder())
     private data class PendingLink(val ref: CallerRef, val group: GroupKey, val facts: Facts)
@@ -20,39 +27,72 @@ internal class RequestFrontier(
     private var pendingMembers = 0L
     private var pendingCapacity = 0L
     private var firstPendingAt = 0L
-    private var detachedHorizon = 0
+    private var policies: PersistentMap<AccessPathBase, PersistentMap<InitialAp, RequestMarkSet>> = persistentHashMapOf()
+    private var committed: PersistentMap<AccessPathBase, PersistentMap<InitialAp, RequestMarkSet>> = persistentHashMapOf()
     private var phase: Phase? = null
     private var released = false
     private var flushing = false
+    private var policyCount = 0L
+    private var policyMembers = 0L
 
     val hasPending: Boolean get() = phase != null || freshRequests.isNotEmpty() || freshLinks.isNotEmpty()
 
-    fun add(initial: InitialAp, fresh: TaintMark) {
-        check(!released)
-        markPendingTime()
-        val row = freshRequests.getOrPut(initial) { PendingMarks(initial) }
-        val oldCapacity = row.marks.primitiveCapacity
-        check(row.marks.add(fresh)) { "The standing store must supply only fresh request memberships" }
-        pendingMembers++
-        pendingCapacity += row.marks.primitiveCapacity - oldCapacity
-        observePending()
+    /** The canonical abstract root is always active; bounded supplier work adds refinements. */
+    fun emit(delta: Facts) {
+        ops.manager.cancellation.checkpoint()
+        answer(ops.policy(delta))
     }
 
-    fun add(initial: InitialAp, fresh: RequestMarkSet) {
+    fun requireMark(initial: InitialAp, mark: TaintMark) {
+        validateInitial(initial)
+        if (policies[initial.base]?.get(initial)?.contains(mark) == true || profile?.covers(initial, mark) == true) {
+            policyStatistics?.admission(newPolicy = false, fresh = 0, duplicates = 1)
+            return
+        }
+        requireMarks(initial, RequestMarkSet.of(mark))
+    }
+
+    private fun validateInitial(initial: InitialAp) {
         check(!released)
-        if (fresh.isEmpty) return
+        ops.manager.cancellation.checkpoint()
+        check(initial.tail == Tail.STAR && initial.exclusion == ExclusionSet.Empty && initial.mark == MarkSlot.STAR) {
+            "A run-1 mark interest needs an abstract initial with an empty exclusion"
+        }
+    }
+
+    /** Interest stays active for late suppliers, while each fresh delivery is released after joining. */
+    fun requireMarks(initial: InitialAp, marks: RequestMarkSet) {
+        validateInitial(initial)
+        val basePolicies = policies[initial.base] ?: persistentHashMapOf()
+        val old = basePolicies[initial] ?: RequestMarkSet.EMPTY
+        var fresh: RequestMarkSetBuilder? = null
+        marks.forEachMark { mark ->
+            ops.manager.cancellation.checkpoint()
+            if (mark !in old && !(profile?.covers(initial, mark) == true)) (fresh ?: RequestMarkSetBuilder().also { fresh = it }).add(mark)
+        }
+        val delta = fresh?.takeSnapshot() ?: RequestMarkSet.EMPTY
+        policyStatistics?.admission(old.isEmpty && !delta.isEmpty, delta.size, marks.size - delta.size)
+        if (delta.isEmpty) return
+        if (old.isEmpty) policyCount++
+        policyMembers += delta.size
+        val merged = if (old.isEmpty) delta else RequestMarkSetBuilder().apply {
+            addAll(old); addAll(delta)
+        }.takeSnapshot()
+        policies = policies.put(initial.base, basePolicies.put(initial, merged))
         markPendingTime()
         val row = freshRequests.getOrPut(initial) { PendingMarks(initial) }
         val oldCapacity = row.marks.primitiveCapacity
-        row.marks.addAll(fresh)
-        pendingMembers += fresh.size
+        row.marks.addAll(delta)
+        pendingMembers += delta.size
         pendingCapacity += row.marks.primitiveCapacity - oldCapacity
         observePending()
     }
 
     fun add(update: AddedFactStore.Update) {
         check(!released)
-        if (update.delta is Reach) return
+        if (update.delta is Reach || (policies[update.delta.base].isNullOrEmpty() &&
+            (update.delta.base != STATIC || profile == null ||
+                (profile.abstractions.isEmpty() && profile.markInterests.isEmpty() && profile.cleanerMarkCount == 0)))) return
         markPendingTime()
         val old = freshLinks[update.handle]
         freshLinks[update.handle] = PendingLink(update.ref, update.group,
@@ -73,8 +113,7 @@ internal class RequestFrontier(
                 ops.manager.cancellation.checkpoint()
                 var at = phase
                 if (at == null) {
-                    val horizon = requests.membershipHorizon
-                    at = Phase(freshRequests, freshLinks, detachedHorizon,
+                    at = Phase(freshRequests, freshLinks, committed,
                         links.beginSnapshot(), pendingMembers, pendingCapacity, firstPendingAt)
                     phase = at
                     freshRequests = LinkedHashMap()
@@ -82,7 +121,7 @@ internal class RequestFrontier(
                     pendingMembers = 0L
                     pendingCapacity = 0L
                     firstPendingAt = 0L
-                    detachedHorizon = horizon
+                    committed = policies
                     if (counts != null) counts.phases++
                     remaining--
                     observePending()
@@ -122,7 +161,7 @@ internal class RequestFrontier(
     private inner class Phase(
         private val requestChanges: LinkedHashMap<InitialAp, PendingMarks>,
         private val linkChanges: LinkedHashMap<Int, PendingLink>,
-        private val oldRequestHorizon: Int,
+        private val oldPolicies: PersistentMap<AccessPathBase, PersistentMap<InitialAp, RequestMarkSet>>,
         private val view: AddedFactStore.View,
         var members: Long,
         var capacity: Long,
@@ -137,7 +176,10 @@ internal class RequestFrontier(
         private var preparingCapacity = 0
         private var groups: AddedFactStore.GroupCursor? = null
         private var currentLink: PendingLink? = null
-        private var rows: RequestStore.RowCursor? = null
+        private var structure: StaticSupplierCursor? = null
+        private var catalog: StaticSupplierCursor? = null
+        private var catalogCleaner = false
+        private var rows: Iterator<Map.Entry<InitialAp, RequestMarkSet>>? = null
         private var joining: RequestGroupCursor? = null
         private val outgoing = LinkedHashMap<Target, RequestMarkSetBuilder>()
         private var outgoingIterator: MutableIterator<MutableMap.MutableEntry<Target, RequestMarkSetBuilder>>? = null
@@ -162,10 +204,14 @@ internal class RequestFrontier(
                         onAnswer = {
                             if (counts != null) counts.answers++
                             answer(it)
-                        }, onClimb = { mark ->
+                        }, onClimb = climb@ { mark ->
                             if (counts != null) counts.climbs++
                             val caller = checkNotNull(joinCaller)
                             val target = Target(caller.caller, caller.premise as InitialAp)
+                            if (covered(target.method, target.initial, mark)) {
+                                policyStatistics?.covered()
+                                return@climb
+                            }
                             val marks = outgoing.getOrPut(target) { RequestMarkSetBuilder() }
                             val oldCapacity = marks.primitiveCapacity
                             if (marks.add(mark)) members++
@@ -238,31 +284,63 @@ internal class RequestFrontier(
                         }
                     }
                     1 -> {
+                        val structural = structure
                         val cursor = rows
-                        if (cursor != null) {
-                            if (cursor.isComplete) {
-                                rows = null
-                                currentLink = null
-                                remaining--
-                                continue
-                            }
-                            val link = checkNotNull(currentLink)
-                            val used = cursor.step(1) { row, rowInitial ->
-                                joinCaller = link.ref
-                                if (counts != null) counts.groupGeometryTests++
-                                joining = ops.requestGroup(rowInitial, requests.markMembers(row, oldRequestHorizon),
-                                    link.facts, link.ref)
-                            }
+                        if (structural != null) {
+                            val used = structural.step(remaining, position = { slot ->
+                                policyStatistics?.structural()
+                                answer(ops.manager.initial(STATIC, ops.manager.path(slot), Tail.STAR,
+                                    ExclusionSet.Empty, MarkSlot.STAR))
+                            }, interest = { error("A structural cursor cannot emit a mark interest") })
                             remaining -= used
-                            if (cursor.isComplete && joining == null) { rows = null; currentLink = null }
-                            else if (used == 0 && joining == null) error("A request row directory did not progress")
-                        } else if (linkIterator.hasNext() && oldRequestHorizon > 0) {
+                            if (counts != null) counts.groupGeometrySteps += used
+                            if (structural.isComplete) structure = null
+                            else if (used == 0) error("A structural cursor did not progress")
+                        } else if (cursor != null && cursor.hasNext()) {
+                            val row = cursor.next()
+                            val link = checkNotNull(currentLink)
+                            joinCaller = link.ref
+                            if (counts != null) counts.groupGeometryTests++
+                            joining = ops.requestGroup(row.key, row.value, link.facts, link.ref)
+                            remaining--
+                        } else if (catalog != null) {
+                            val cursor = checkNotNull(catalog)
+                            val used = cursor.step(1, position = { error("A mark cursor cannot emit a structural slot") },
+                                interest = { interest ->
+                                    val link = checkNotNull(currentLink)
+                                    val initial = ops.manager.initial(STATIC, ops.manager.path(interest.slot),
+                                        Tail.STAR, ExclusionSet.Empty, MarkSlot.STAR)
+                                    joinCaller = link.ref
+                                    joining = RequestGroupCursor(ops.manager, initial, interest.marks,
+                                        link.facts, link.ref, interest.pattern)
+                                    if (counts != null) counts.groupGeometryTests++
+                                })
+                            remaining -= used
+                            if (counts != null) counts.groupGeometrySteps += used
+                            if (cursor.isComplete) catalog = null
+                            else if (used == 0) error("A catalog cursor did not progress")
+                        } else if (catalogCleaner) {
+                            catalogCleaner = false
+                            val link = checkNotNull(currentLink)
+                            joinCaller = link.ref
+                            joining = ops.requestGroup(ops.manager.initial(STATIC, null, Tail.STAR,
+                                ExclusionSet.Empty, MarkSlot.STAR), checkNotNull(profile).cleanerMarks, link.facts, link.ref)
+                            if (counts != null) counts.groupGeometryTests++
+                            remaining--
+                        } else if (linkIterator.hasNext()) {
                             currentLink = linkIterator.next().value
                             linkIterator.remove()
-                            rows = requests.markRowsNear(checkNotNull(currentLink).facts, oldRequestHorizon)
+                            val facts = checkNotNull(currentLink).facts
+                            rows = oldPolicies[facts.base]?.entries?.iterator()
+                            structure = if (facts.base == STATIC && profile != null && profile.abstractions.isNotEmpty())
+                                StaticSupplierCursor(facts, profile, ops.manager, positions = true) else null
+                            catalog = if (facts.base == STATIC && profile != null && profile.markInterests.isNotEmpty())
+                                StaticSupplierCursor(facts, profile, ops.manager, positions = false) else null
+                            catalogCleaner = facts.base == STATIC && (profile?.cleanerMarkCount ?: 0) > 0
                             remaining--
                         } else {
-                            linkChanges.clear()
+                            rows = null
+                            currentLink = null
                             stage = 2
                             outgoingIterator = outgoing.entries.iterator()
                             remaining--
@@ -322,6 +400,9 @@ internal class RequestFrontier(
             emitting = null
             joining = null
             rows = null
+            structure = null
+            catalog = null
+            catalogCleaner = false
             groups = null
             currentLink = null
             selected = null
@@ -337,10 +418,15 @@ internal class RequestFrontier(
     fun release() {
         if (released) return
         released = true
+        policyStatistics?.release(policyCount, policyMembers)
+        policyCount = 0L
+        policyMembers = 0L
         phase?.close()
         phase = null
         freshRequests.clear()
         freshLinks.clear()
+        policies = persistentHashMapOf()
+        committed = persistentHashMapOf()
         pendingMembers = 0L
         pendingCapacity = 0L
     }

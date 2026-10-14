@@ -58,9 +58,16 @@ class JIRBidiRealEntryTest : BidiJIRTestUtils() {
             f.engine.requirePrescanJoined()
             val copiedIds = setOf("real-entry-source", "real-entry-sink-id")
             assertEquals(copiedIds, f.manager.prescanRuleIds())
-            val entry = JIRBidiAnalysis(cp, graph, f.units, rules, f.params, FixedLimits(listOf(1, 2, 3)), f.refManager)
-            entry.gather(f.manager, listOf(MethodWithContext(root, EmptyMethodContext)))
-            assertTrue(selected.isEmpty(), "Gather copies the prescan; the new driver selects its copy")
+            var runtimeShared: org.opentaint.dataflow.bidi.engine.SharedObjects? = null
+            val entry = JIRBidiAnalysis(cp, graph, f.units, rules, f.params, FixedLimits(listOf(1, 2, 3)), f.refManager,
+                driverFactory = { policy, shared, remaining ->
+                    runtimeShared = shared
+                    assertTrue(assertNotNull(shared.run1StaticProfiles).contains(root),
+                        "The remapped catalog must remain available to the actual engine after prescan release")
+                    org.opentaint.dataflow.bidi.driver.IterationDriver(policy, shared, remaining)
+                })
+            entry.gather(f.manager, listOf(MethodWithContext(root, EmptyMethodContext)), f.engine.prescanResolvedGraph())
+            assertEquals(listOf(copiedIds), selected, "Gather selects once before collecting effective metadata")
             f.manager.releasePrescan()
             f.engine.releasePrescan()
             assertTrue(f.contexts().isEmpty())
@@ -69,6 +76,8 @@ class JIRBidiRealEntryTest : BidiJIRTestUtils() {
             assertFailsWith<IllegalStateException> { f.engine.apManager }
 
             val report = entry.run(10.seconds)
+            assertNull(assertNotNull(runtimeShared).run1StaticProfiles,
+                "The actual joined run and analysis close must release the catalog, while the report remains usable")
             assertEquals(listOf(copiedIds), selected)
             assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.STOP_RULE), report.end)
             val item = report.entries.single()

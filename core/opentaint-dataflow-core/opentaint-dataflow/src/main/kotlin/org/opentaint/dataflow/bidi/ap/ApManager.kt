@@ -65,8 +65,6 @@ class ApManager(val cancellation: Cancellation, refManager: RefManager = RefMana
         return node
     }
 
-    fun position(path: IntArray): PathNode = checkNotNull(path(path.copyOf(minOf(2, path.size))))
-
     fun initial(base: AccessPathBase, path: PathNode?, tail: Tail, exclusion: ExclusionSet, mark: MarkSlot): InitialAp {
         check(base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot be a premise" }
         check(path == null || path.manager === this) { "An initial path must use this AP manager" }

@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.EngineShellFixtures
@@ -49,11 +50,12 @@ class RunMethodHandlersTest {
             handler = RunMethodHandlers(MethodLocalServicesFactory { core ->
                 localCreated++
                 object : MethodLocalServices by RunMethodLocalServices(core) {
-                    override fun addRequest(premise: InitialAp, kind: RequestKind) {
+                    override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
+                            val kind = RequestKind.Mark(mark)
                         requests += premise to kind
                     }
                     override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
-                        marks.forEachMark { addRequest(premise, RequestKind.Mark(it)) }
+                        marks.forEachMark { addMarkRequest(premise, it) }
                     }
                     override fun onAddedLink(update: AddedFactStore.Update) {
                         onAddedLink(update.ref, update.group.layer, update.delta)
@@ -109,7 +111,7 @@ class RunMethodHandlersTest {
             h.handler.handle(RunEvent.LinkIn(f.a, ref, Layer.NORMAL, added))
             h.handler.handle(RunEvent.LinkIn(f.a, ref, Layer.NORMAL, added))
             val kind = RequestKind.Mark(f.manager.marks.mark("request"))
-            h.handler.handle(RunEvent.RequestIn(f.a, initial, kind))
+            h.handler.handle(RunEvent.MarkRequestsIn(f.a, initial, RequestMarkSet.of(kind.mark)))
             assertEquals(listOf(Triple(ref, Layer.NORMAL, added)), h.links)
             assertEquals(listOf<Pair<InitialAp, RequestKind>>(initial to kind), h.requests)
             assertEquals(1, h.localCreated)

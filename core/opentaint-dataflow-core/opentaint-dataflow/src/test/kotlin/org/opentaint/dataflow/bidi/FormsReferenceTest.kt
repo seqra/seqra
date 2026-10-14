@@ -8,7 +8,7 @@ import org.opentaint.dataflow.bidi.fixtures.StoreFixtures
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.interp.CallPoint.*
 import org.opentaint.dataflow.bidi.interp.StageKind.*
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.ir.api.common.cfg.CommonInst
 import kotlin.test.*
 
@@ -65,7 +65,6 @@ class FormsReferenceTest {
                         object : ApOut {
                             override fun result(f: Facts) = out(premise, f)
                             override fun markRequest(mark: TaintMark) { coreRequests += RequestKind.Mark(mark) }
-                            override fun positionRequest(position: PathNode) { coreRequests += RequestKind.Position(position) }
                         }, me.may)
                 }
                 override fun conjunction(cj: ConjunctiveEdge, premise: Set<Pattern>, c: Facts, node: CommonInst,

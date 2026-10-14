@@ -122,7 +122,6 @@ class SummaryKindsTest {
             assertEquals(expected, out.results.flatMap { decode(it) }.toSet())
         } else assertNull(selected)
         assertTrue(out.markRequests.isEmpty())
-        assertTrue(out.positionRequests.isEmpty())
         return out
     }
 
@@ -232,7 +231,6 @@ class SummaryKindsTest {
         assertEquals(1, out.results.size)
         assertSame(target.root, (out.results.single() as TaintTree).root)
         assertTrue(out.markRequests.isEmpty())
-        assertTrue(out.positionRequests.isEmpty())
     }
 
     @Test

@@ -9,130 +9,46 @@ import org.opentaint.dataflow.bidi.interp.RulePredicate
 import org.opentaint.dataflow.bidi.store.*
 import org.opentaint.ir.api.common.cfg.CommonInst
 
-/** One method owns its standing requests, forward literal joins and seed triggers. */
+/** Rule joins use the method abstraction for completed mark-demand deliveries. */
 class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
     private var owner: RunMethodAnalyzer? = core
-    private val requestStatistics = core.context.shared.n1Statistics
-    private var requests: RequestStore? = if (core.config.run1) RequestStore(core.ap.cancellation, requestStatistics) else null
     private var conjunctionStore: ConjunctionStore? = if (core.forward) ConjunctionStore(core.ap, core.context.shared.n2Statistics) else null
     private var predicateStore: RulePredicateStore? =
         if (core.forward) RulePredicateStore(core.ap, core.context.shared.formStatistics) else null
     override val conjunctions: ConjunctionStore? get() = conjunctionStore
     private var triggered: HashSet<Pair<CommonInst, Any>>? = HashSet()
-    private var requestJoin: PositionJoin? = if (core.config.run1) PositionJoin() else null
-    private var hasMarkRequests = false
-    private var hasPositionRequests = false
-    private var requestFrontier: RequestFrontier? = if (core.config.run1) RequestFrontier(
-        core.ops, checkNotNull(requests), core.links,
-        answer = { activeCore().addInitial(it) },
-        send = { method, initial, marks ->
-            activeCore().runnerPort.send(RunEvent.MarkRequestsIn(method, initial, marks))
-        }, statistics = core.context.shared.requestBatchStatistics) else null
-    override val hasPendingRequests: Boolean get() = requestFrontier?.hasPending == true
-
-    /** Position requests retain their prompt scalar answer/climb path. */
-    private inner class PositionJoin {
-        fun newA(initial: InitialAp, kind: RequestKind.Position) {
-            val core = activeCore()
-            val query = checkNotNull(requests).query(initial, kind)
-            val links = core.links.overlapping(STATIC, kind.path)
-            val counts = if (requestStatistics == null) null else N1Statistics.Actions()
-            try {
-                for (link in links) {
-                    core.ap.cancellation.checkpoint()
-                    if (counts != null) counts.existingLinks++
-                    if (!overlap(link.addedFact, query)) continue
-                    if (counts != null) counts.selectedLinks++
-                    act(initial, kind, link.addedFact, link.caller, counts)
-                }
-            } finally {
-                if (counts != null) requestStatistics?.actions(counts)
-            }
-        }
-        fun newB(link: Link) {
-            activeCore()
-            val counts = if (requestStatistics == null) null else N1Statistics.Actions()
-            try {
-                checkNotNull(requests).visitPositionCandidates(link.addedFact) { initial, kind ->
-                    act(initial, kind, link.addedFact, link.caller, counts)
-                }
-            } finally {
-                if (counts != null) requestStatistics?.actions(counts)
-            }
-        }
-    }
+    override val hasPendingRequests: Boolean get() = owner?.abstraction?.hasPending == true
 
     private fun activeCore(): RunMethodAnalyzer =
         checkNotNull(owner) { "The local services were frozen" }.also { it.ap.cancellation.checkpoint() }
 
-    override fun addRequest(premise: InitialAp, kind: RequestKind) {
+    override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
         val core = activeCore()
         check(core.config.run1) { "Requests exist only in run 1" }
-        if (checkNotNull(requests).add(premise, kind)) {
-            core.ap.cancellation.checkpoint()
-            when (kind) {
-                is RequestKind.Mark -> {
-                    hasMarkRequests = true
-                    checkNotNull(requestFrontier).add(premise, kind.mark)
-                    core.requestWork()
-                }
-                is RequestKind.Position -> {
-                    hasPositionRequests = true
-                    checkNotNull(requestJoin).newA(premise, kind)
-                }
-            }
-        }
+        checkNotNull(core.abstraction).requireMark(premise, mark)
+        if (hasPendingRequests) core.requestWork()
     }
 
     override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
         val core = activeCore()
         check(core.config.run1) { "Requests exist only in run 1" }
-        val fresh = checkNotNull(requests).addMarks(premise, marks).fresh
-        if (fresh.isEmpty) return
-        hasMarkRequests = true
-        checkNotNull(requestFrontier).add(premise, fresh)
-        core.requestWork()
+        checkNotNull(core.abstraction).requireMarks(premise, marks)
+        if (hasPendingRequests) core.requestWork()
     }
 
     override fun flushRequests(quantum: Int): Boolean {
-        activeCore()
+        val core = activeCore()
         require(quantum > 0) { "The request-work quantum must be positive" }
-        return requestFrontier?.flush(quantum) ?: true
+        return core.abstraction?.flush(quantum) ?: true
     }
 
     override fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts) {
         activeCore()
-        error("Deferred request joins need the raw link's admitted group metadata")
+        error("Abstraction needs the raw link's admitted group metadata")
     }
 
     override fun onAddedLink(update: AddedFactStore.Update) {
-        val core = activeCore()
-        val join = requestJoin ?: return
-        if (hasPositionRequests) for (leaf in core.ops.leaves(update.delta)) {
-            core.ap.cancellation.checkpoint()
-            join.newB(Link(leaf, update.group.layer, update.ref))
-        }
-        // With no standing mark row, a later fresh request sees the whole current link store.
-        if (hasMarkRequests && update.delta !is Reach) {
-            checkNotNull(requestFrontier).add(update)
-            core.requestWork()
-        }
-    }
-
-    private fun act(initial: InitialAp, kind: RequestKind, added: Pattern, caller: CallerRef,
-                    counts: N1Statistics.Actions?) {
-        val core = activeCore()
-        when (val action = core.ops.requestAction(initial, kind, added, caller)) {
-            RequestAction.None -> if (counts != null) counts.none++
-            is RequestAction.Answer -> {
-                if (counts != null) counts.answers++
-                core.addInitial(action.initial)
-            }
-            is RequestAction.Climb -> {
-                if (counts != null) counts.climbs++
-                core.runnerPort.send(RunEvent.RequestIn(caller.caller, action.premise, action.request))
-            }
-        }
+        activeCore() // The core's initial-emission owner already admitted this supplier update.
     }
 
     override fun conjunction(edge: ConjunctiveEdge, premise: PremiseKey, facts: Facts, node: CommonInst,
@@ -142,9 +58,9 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
         for ((index, literal) in edge.literals.withIndex()) {
             core.ap.cancellation.checkpoint()
             if (literal.fact.base != facts.base) continue
-            when (val checked = core.ops.checkMark(facts, literal, core.mode)) {
+            when (val checked = core.ops.checkMark(facts, literal, core.mode, core.unchangedStaticInitial(premise))) {
                 MarkCheck.None -> Unit
-                is MarkCheck.Request -> core.raise(premise, facts, RequestKind.Mark(checked.mark))
+                is MarkCheck.Request -> core.raiseMark(premise, facts, checked.mark)
                 is MarkCheck.Holds -> {
                     val combinations = store.add(edge, node, edge.literals.size, index,
                         ConjunctionStore.Input(premise, checked.facts.layer))
@@ -169,7 +85,8 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
                 val edge = source.transfer(predicate.leaves[leaf], action, multi)
                 if (edge.edge.from.base != facts.base) continue
                 core.ops.applyEdge(facts, premise, edge.edge, statementEdge, core.mode,
-                    core.collect(premise, facts, sink), may = edge.may)
+                    core.collect(premise, facts, sink), may = edge.may,
+                    unchangedStaticInitial = core.unchangedStaticInitial(premise))
             }
         }
         if (source.backward) {
@@ -186,9 +103,9 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
             core.ap.cancellation.checkpoint()
             // Unary transfer needs the original Facts for suffix, exclusion and POSITION behavior.
             if (predicate.isUnary(leaf)) transfer(leaf, multi = false)
-            if (predicate.isMulti(leaf)) when (val checked = core.ops.checkMark(facts, pattern, core.mode)) {
+            if (predicate.isMulti(leaf)) when (val checked = core.ops.checkMark(facts, pattern, core.mode, core.unchangedStaticInitial(premise))) {
                 MarkCheck.None -> Unit
-                is MarkCheck.Request -> core.raise(premise, facts, RequestKind.Mark(checked.mark))
+                is MarkCheck.Request -> core.raiseMark(premise, facts, checked.mark)
                 is MarkCheck.Holds -> checkNotNull(predicateStore).add(source.id, node, predicate, leaf,
                     ConjunctionStore.Input(premise, checked.facts.layer)) { combination ->
                     if (combination.leaves.size >= 2) for (action in source.actions) {
@@ -211,9 +128,9 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
             if (predicate != null && !predicate.isTrue) {
                 matchingLeaves(core, predicate, facts) { index, literal ->
                     core.ap.cancellation.checkpoint()
-                    when (val checked = core.ops.checkMark(facts, literal, core.mode)) {
+                    when (val checked = core.ops.checkMark(facts, literal, core.mode, core.unchangedStaticInitial(premise))) {
                         MarkCheck.None -> Unit
-                        is MarkCheck.Request -> core.raise(premise, facts, RequestKind.Mark(checked.mark))
+                        is MarkCheck.Request -> core.raiseMark(premise, facts, checked.mark)
                         is MarkCheck.Holds -> {
                             parts += checked.facts
                             checkNotNull(predicateStore).add(checkNotNull(sink.occurrenceId), node, predicate, index,
@@ -231,9 +148,9 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
             }
             for ((index, literal) in sink.patterns.withIndex()) {
                 core.ap.cancellation.checkpoint()
-                when (val checked = core.ops.checkMark(facts, literal, core.mode)) {
+                when (val checked = core.ops.checkMark(facts, literal, core.mode, core.unchangedStaticInitial(premise))) {
                     MarkCheck.None -> Unit
-                    is MarkCheck.Request -> core.raise(premise, facts, RequestKind.Mark(checked.mark))
+                    is MarkCheck.Request -> core.raiseMark(premise, facts, checked.mark)
                     is MarkCheck.Holds -> {
                         parts += checked.facts
                         if (!sink.conjunctive) {
@@ -320,11 +237,6 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
     }
 
     override fun freeze() {
-        requestFrontier?.release()
-        requestFrontier = null
-        requestJoin = null
-        requests?.release()
-        requests = null
         conjunctionStore = null
         predicateStore = null
         triggered = null

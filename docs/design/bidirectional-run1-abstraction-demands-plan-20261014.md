@@ -1,6 +1,6 @@
 # Implementation plan: run-1 abstraction owns demands
 
-Date: 14 October 2026. Status: planned; implementation has not started.
+Date: 14 October 2026. Status: steps 1–6 implemented and validated; fixed-project retesting is pending.
 Use the [redesign](bidirectional-run1-abstraction-demands-20261014.md) as the behavior contract.
 This replaces the earlier request-management candidates for the next iteration.
 
@@ -9,6 +9,46 @@ OWASP run-3/forward/limit 3; Conductor run-2/backward/limit 2, OOM; ThingsBoard
 run-1/forward/limit 1, OOM; Stirling-PDF run-4/backward/limit 4, timeout. Last completed and
 accepted: run-3 for OWASP/PDF, run-1 for Conductor, none for ThingsBoard. These are not results
 for this plan. The target is complete run-1 engine time at most 60 seconds on each fixed project.
+
+## Implementation notes
+
+The implementation follows the seven steps below. The old indexed request store and position
+join now belong to the test-only scalar reference. Production abstraction keeps compact mark
+policies and bounded supplier scans. Root emission is immediate; precise structural and concrete
+emissions use the method barrier and its bounded quantum. The supplier cursor checks only the
+root, class and field levels and does not expand concrete marks to collect positions. Static
+mark interests with the same full path, tail, exclusion and role share one persistent mark set
+and one supplier scan. Query geometry uses the abstract mark placeholder; the set stores the
+actual declared concrete marks. Actual source/sink NNF literals keep their concrete marks.
+
+The metadata collector reuses effective forward rule forms and copies neutral descriptors. It
+does not resolve calls again. If prescan has not computed a local alias result, collection treats
+alias-dependent atoms as potential in either polarity after the existing contradiction fold.
+Known false predicates and `P AND NOT P` remain false. This approximation affects potential
+catalog needs only; runtime rule binding and predicate proofs keep their existing behavior.
+Call metadata also includes potential default-pass branches when the exported graph does not
+record an unresolved branch. Both costs must be visible in setup counters and later measurements.
+
+Rule selection occurs once, before metadata collection. The caller charges gathering against
+the total budget; `run` deducts remapping and closure from its remaining budget. The catalog and
+runtime coverage graph are released only after run-1 workers join. No current fixed-project
+performance result is available for this implementation. The reached/completed/accepted run-N
+values above are historical comparison evidence, not a claim about the current worktree.
+
+## Implementation validation
+
+The final common-core and JVM suites pass: 1,406 and 391 tests, with no failures, errors or skips.
+Go, JVM SAST and root test sources compile; `:classes` passes. The catalog closure controls include
+chain, diamond, recursion, additive mark emission, source/sink NNF, complete witness support and
+run-1/run-2/run-3 handoffs. Restricted run-2/run-3 summaries use strict comparison. Run-1 eager
+static refinement uses explicit supplier checks and an independent scalar reference.
+
+The Lean build and audit pass: 19,472 declarations, no unexpected axioms. These existing proofs
+cover the scalar/local contracts, not the new full catalog closure. The benchmark tools pass
+36 tests. The preparation frame exits before engine execution, including duplicate lambda and
+rule-ID snapshots. IR storage and reference-manager internals are unchanged.
+
+Fresh fixed-project measurements and strict main comparisons remain required by step 7.
 
 ## Step 1. Specify the new emission policy and oracle
 

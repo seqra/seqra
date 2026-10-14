@@ -17,6 +17,7 @@ import org.opentaint.dataflow.bidi.interp.SinkRule
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRArgumentTypeMethodContext
 import org.opentaint.dataflow.jvm.ap.ifds.JIRInstanceTypeMethodContext
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionRewriter
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
@@ -37,10 +38,12 @@ internal object JIRBoundaryForms {
     }
 
     /** Zero is kept. A context-filtered initial base has its identity; source targets are gen only. */
-    fun entryRules(interp: JIRInterpreter, entry: JIRMethodEntry, key: MethodKey): RuleStatement {
+    fun entryRules(interp: JIRInterpreter, entry: JIRMethodEntry, key: MethodKey,
+                   aliasAnalysis: JIRLocalAliasAnalysis? = entry.aliasAnalysis,
+                   potentialUnknownAliases: Boolean = false): RuleStatement {
         val method = key.method as JIRMethod
         val node = key.statement as JIRInst
-        val rewriter = calleeRewriter(interp, entry, method, node)
+        val rewriter = calleeRewriter(interp, aliasAnalysis, method, node, potentialUnknownAliases)
         val builder = MicroEdgeBuilder().apply { keepZero() }
         val form = FormKey(interp.entries.formOwner, method, key, node)
         val bases = listOf<AccessPathBase>(AccessPathBase.This) + method.parameters.indices.map { AccessPathBase.Argument(it) }
@@ -71,7 +74,9 @@ internal object JIRBoundaryForms {
 
     /** Both exits evaluate rule sources and sinks. Only the normal exit carries removal metadata. */
     fun exitRules(interp: JIRInterpreter, entry: JIRMethodEntry, key: MethodKey,
-                  exit: CommonInst, entryRules: RuleStatement): ExitRules {
+                  exit: CommonInst, entryRules: RuleStatement,
+                  aliasAnalysis: JIRLocalAliasAnalysis? = entry.aliasAnalysis,
+                  potentialUnknownAliases: Boolean = false): ExitRules {
         val normal = when (exit) {
             is JMethodExitNormalInst -> true
             is JMethodExitExceptionalInst -> false
@@ -79,7 +84,7 @@ internal object JIRBoundaryForms {
         }
         val forms = if (normal) interp.ruleForms else interp.ruleFormsAtThrow
         val method = key.method as JIRMethod
-        val rewriter = calleeRewriter(interp, entry, method, exit)
+        val rewriter = calleeRewriter(interp, aliasAnalysis, method, exit, potentialUnknownAliases)
         val builder = MicroEdgeBuilder().apply { keepZero() }
         val form = FormKey(interp.entries.formOwner, method, null, exit)
         for ((ordinal, rule) in interp.rules.exitSourceRulesForMethod(method, exit, fact = null).withIndex()) {
@@ -98,8 +103,9 @@ internal object JIRBoundaryForms {
             entryMarks = if (normal) entryMarks(entryRules) else emptySet())
     }
 
-    private fun calleeRewriter(interp: JIRInterpreter, entry: JIRMethodEntry, method: JIRMethod, node: CommonInst) =
-        JIRMarkAwareConditionRewriter(CalleePositionToJIRValueResolver(method), interp.checker, entry.aliasAnalysis, node)
+    private fun calleeRewriter(interp: JIRInterpreter, aliasAnalysis: JIRLocalAliasAnalysis?, method: JIRMethod, node: CommonInst,
+                               potentialUnknownAliases: Boolean) =
+        JIRMarkAwareConditionRewriter(CalleePositionToJIRValueResolver(method), interp.checker, aliasAnalysis, node, potentialUnknownAliases)
 
     private fun genSummary(sinks: List<SinkRule>) = MicroEdgeBuilder().apply {
         sinks.forEach { sink -> sink.endFacts.forEach { edge(it.edge) } }

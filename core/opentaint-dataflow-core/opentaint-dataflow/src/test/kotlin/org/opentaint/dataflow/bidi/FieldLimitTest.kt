@@ -416,6 +416,5 @@ class FieldLimitTest {
 
     private fun assertEmptyRequests(out: CollectingOut) {
         assertTrue(out.markRequests.isEmpty())
-        assertTrue(out.positionRequests.isEmpty())
     }
 }

@@ -3,6 +3,7 @@ package org.opentaint.dataflow.bidi.fixtures
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.bidi.ap.*
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.bidi.driver.Seed
 import org.opentaint.dataflow.bidi.driver.SeedIndex
 import org.opentaint.dataflow.bidi.engine.*
@@ -26,6 +27,7 @@ class MethodAnalysisFixtures(
     successors: List<List<Int>> = listOf(listOf(1), listOf(2), emptyList()),
     val normalExit: Int = 2,
     val exceptionalExit: Int? = null,
+    staticProfiles: ((MethodAnalysisFixtures) -> Run1StaticProfiles)? = null,
 ) : AutoCloseable {
     val cancellation = Cancellation()
     val refManager = RefManager()
@@ -125,7 +127,8 @@ class MethodAnalysisFixtures(
         override fun graph(key: MethodKey, direction: Direction): MethodInstGraph = graph(direction)
     })
     val shared = SharedObjects(manager, ops, interpreter, language, contexts, records, vulnerabilities,
-        UnitResolver { UnknownUnit }, refManager, cancellation, threads = 1)
+        UnitResolver { UnknownUnit }, refManager, cancellation, threads = 1,
+        run1StaticProfiles = staticProfiles?.invoke(this))
 
     val processed = ArrayList<EdgeDelta>()
     val cuts = ArrayList<Pair<Cut, Facts>>()
@@ -135,6 +138,7 @@ class MethodAnalysisFixtures(
     val publications: List<List<Publication>> get() = published
     val enqueued = ArrayList<RunMethodAnalyzer>()
     val events = ArrayList<RunEvent>()
+    internal val positionDeliveries = ArrayList<ReferenceRequestDelivery>()
     val subscriptions = ArrayList<Subscription>()
     val sentLinks = ArrayList<RunEvent.LinkIn>()
     var onSubscribe: ((Subscription) -> Unit)? = null
@@ -217,7 +221,7 @@ class MethodAnalysisFixtures(
         override val conjunctions: ConjunctionStore? get() =
             error("Standing conjunction storage requires an explicit test service")
         private val triggered = HashSet<Pair<CommonInst, SinkRule>>()
-        override fun addRequest(premise: InitialAp, kind: RequestKind) { requests += premise to kind }
+        override fun addMarkRequest(premise: InitialAp, mark: TaintMark) { requests += premise to RequestKind.Mark(mark) }
         override fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts) {
             addedLinks += Triple(ref, linkLayer, delta)
         }

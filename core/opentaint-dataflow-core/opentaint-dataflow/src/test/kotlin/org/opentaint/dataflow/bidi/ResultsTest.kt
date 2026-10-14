@@ -68,10 +68,9 @@ class ResultsTest {
     fun `collecting output retains each request and full result`() {
         val out = CollectingOut()
         val position = checkNotNull(m.path(intArrayOf(f)))
-        repeat(2) { out.result(Reach.NORMAL); out.markRequest(t); out.positionRequest(position) }
+        repeat(2) { out.result(Reach.NORMAL); out.markRequest(t) }
         assertEquals(listOf<Facts>(Reach.NORMAL, Reach.NORMAL), out.results)
         assertEquals(listOf(t, t), out.markRequests)
-        assertEquals(listOf(position, position), out.positionRequests)
     }
 
     @Test
@@ -105,7 +104,7 @@ class ResultsTest {
             assertEquals(keys.map { (exclusion, marks) -> m.flowTree(base, Layer.NORMAL, exclusion, marks, union) }.toSet(),
                 merged.results.toSet())
             assertEquals(keys.size, merged.results.size)
-            assertTrue(merged.markRequests.isEmpty() && merged.positionRequests.isEmpty())
+            assertTrue(merged.markRequests.isEmpty())
         }
     }
 
@@ -133,7 +132,7 @@ class ResultsTest {
             results.flush(merged)
             assertEquals(exclusions.map { m.taintTree(base, Layer.NORMAL, union, it) }.toSet(), merged.results.toSet())
             assertEquals(exclusions.size, merged.results.size)
-            assertTrue(merged.markRequests.isEmpty() && merged.positionRequests.isEmpty())
+            assertTrue(merged.markRequests.isEmpty())
         }
     }
 
@@ -149,7 +148,6 @@ class ResultsTest {
                 m.cancellation.cancel()
             }
             override fun markRequest(mark: TaintMark) = error("No mark request is expected")
-            override fun positionRequest(position: PathNode) = error("No position request is expected")
         }
         try {
             assertFailsWith<Cancellation.Cancelled> { results.flush(out) }

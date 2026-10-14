@@ -37,6 +37,19 @@ class SummaryEdgeSubscriptionManager(
         methodSummarySubscriptions.values.forEach { it.cleanup() }
     }
 
+    /** Called only after the owning runners have joined. Cleanup keeps the caller keys. */
+    fun copyResolvedCalls(cancellation: org.opentaint.dataflow.util.Cancellation, visit: (ResolvedPrescanCall) -> Unit) {
+        for ((callee, subscriptions) in methodSummarySubscriptions) {
+            cancellation.checkpoint()
+            val callers = LinkedHashSet<MethodEntryPointCaller>()
+            subscriptions.collectCallers(collectZeroCallsOnly = false, callers)
+            for (caller in callers) {
+                cancellation.checkpoint()
+                visit(ResolvedPrescanCall(caller.callerEp.method, caller.statement, callee.method))
+            }
+        }
+    }
+
     data class MethodEntryPointCaller(val callerEp: MethodEntryPoint, val statement: CommonInst)
 
     fun methodEntryPointCallers(

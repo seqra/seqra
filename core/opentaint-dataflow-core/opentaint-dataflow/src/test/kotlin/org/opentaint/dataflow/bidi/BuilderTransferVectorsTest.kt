@@ -6,7 +6,7 @@ import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.ELE
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.fixtures.StoreFixtures
 import org.opentaint.dataflow.bidi.interp.*
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.ir.api.common.cfg.CommonInst
 import kotlin.test.*
 
@@ -211,7 +211,7 @@ class BuilderTransferVectorsTest {
         val input = flow(AccessPathBase.ClassStatic, exclusion = ex(g), mark = mx)
         assertExpected(strong, input, setOf(flow(AccessPathBase.ClassStatic, exclusion = ex(cls, g), mark = mx)),
             run1 = true, inputPremise = setOf(initial),
-            requests = listOf(RequestKind.Position(m.path(p(cls))!!)))
+            requests = listOf(RequestKind.Position(m.path(p(cls))!!)), runtimeRequests = emptyList())
         val excluded = flow(AccessPathBase.ClassStatic, exclusion = ex(cls), mark = mx)
         assertExpected(strong, excluded, setOf(excluded), run1 = true, inputPremise = setOf(initial))
         assertExpected(strong, input, setOf(flow(AccessPathBase.ClassStatic, exclusion = ex(cls, g), mark = mx),
@@ -304,7 +304,10 @@ class BuilderTransferVectorsTest {
     private fun assertExpected(summary: StatementSummary, input: Conclusion, expected: Set<Conclusion>,
                                run1: Boolean = false, fieldLimit: Int = Int.MAX_VALUE,
                                inputPremise: Set<Pattern> = premise,
-                               requests: List<RequestKind> = emptyList()) {
+                               requests: List<RequestKind> = emptyList(),
+                               runtimeRequests: List<RequestKind> = requests.onEach {
+                                   require(it is RequestKind.Mark) { "Specify the runtime effects of a scalar Position row" }
+                               }) {
         val rawRequests = ArrayList<RequestKind>()
         val oracle = reference(run1, fieldLimit, rawRequests)
         assertEquals(expected, oracle.apply(FormsReference.Mode.STATEMENT, summary, inputPremise, input, at).toSet(),
@@ -322,7 +325,6 @@ class BuilderTransferVectorsTest {
                     object : ApOut {
                         override fun result(f: Facts) = out(premise, f)
                         override fun markRequest(mark: TaintMark) { treeRequests += RequestKind.Mark(mark) }
-                        override fun positionRequest(position: PathNode) { treeRequests += RequestKind.Position(position) }
                     }, me.may)
             }
             override fun conjunction(cj: ConjunctiveEdge, premise: Set<Pattern>, c: Facts, node: CommonInst,
@@ -333,6 +335,6 @@ class BuilderTransferVectorsTest {
         val facts = m.factsOf(input.fact, input.exclusion, if (input.demand) Layer.DEMAND else Layer.NORMAL)
         adapter.statement(summary, inputPremise, facts, at, { _, c -> output += c })
         assertEquals(expected, output.flatMap(oracle::conclusions).toSet(), "tree input=$input")
-        assertEquals(requests, treeRequests, "tree requests for $input")
+        assertEquals(runtimeRequests, treeRequests, "tree requests for $input")
     }
 }

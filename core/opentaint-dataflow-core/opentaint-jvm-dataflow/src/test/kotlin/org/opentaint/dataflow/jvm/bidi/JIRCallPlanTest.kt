@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.jvm.bidi
 
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
@@ -386,7 +388,7 @@ class JIRCallPlanTest : BasicTestUtils() {
                 passes = listOf(pass(listOf(CopyAllMarks(Argument(0), Result))))
             }
             val plan = v.builder(inst, rules).build()
-            val requests = ArrayList<org.opentaint.dataflow.bidi.store.RequestKind>()
+            val requests = ArrayList<org.opentaint.dataflow.bidi.ap.ReferenceRequestKind>()
             var hits = 0
             val cleaned = ArrayList<Conclusion>()
             val reference = FormsReference(v.ops, ReferenceAlgebra(ApMode(true, Direction.FORWARD, 1),

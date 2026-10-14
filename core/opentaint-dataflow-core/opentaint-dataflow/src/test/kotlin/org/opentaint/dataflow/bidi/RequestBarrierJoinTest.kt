@@ -6,7 +6,8 @@ import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
 import org.opentaint.dataflow.bidi.store.CallerRef
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
+import org.opentaint.dataflow.bidi.fixtures.ScalarPositionLocalServices
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import kotlin.test.*
 
@@ -16,11 +17,11 @@ class RequestBarrierJoinTest {
     private fun policy(f: MethodAnalysisFixtures, base: AccessPathBase = x, path: List<Int> = emptyList()) =
         f.manager.initial(base, f.manager.path(path), Tail.STAR, ExclusionSet.Empty, MarkSlot.STAR)
     private fun core(f: MethodAnalysisFixtures): RunMethodAnalyzer =
-        f.core(localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
+        f.core(localFactory = MethodLocalServicesFactory { ScalarPositionLocalServices(it, f.positionDeliveries::add) })
     private fun caller(f: MethodAnalysisFixtures, context: String = "caller", flow: Boolean = false,
                        layer: Layer = Layer.NORMAL, call: Int = 1) =
         CallerRef(f.store.key(context), if (flow) policy(f) else f.manager.zero, layer, f.inst(call))
-    private fun local(actor: RunMethodAnalyzer) = assertIs<RunMethodLocalServices>(actor.localServices)
+    private fun local(actor: RunMethodAnalyzer) = actor.localServices
     private fun flush(actor: RunMethodAnalyzer, quantum: Int = 1): Int {
         var calls = 0
         do {
@@ -32,8 +33,6 @@ class RequestBarrierJoinTest {
     }
     private fun climbs(f: MethodAnalysisFixtures): Set<Triple<MethodKey, InitialAp, TaintMark>> = buildSet {
         for (event in f.events) when (event) {
-            is RunEvent.RequestIn -> if (event.request is RequestKind.Mark)
-                add(Triple(event.method, event.premise, event.request.mark))
             is RunEvent.MarkRequestsIn -> for (i in 0 until event.marks.size)
                 add(Triple(event.method, event.premise, event.marks.markAt(i)))
             else -> Unit
@@ -106,7 +105,7 @@ class RequestBarrierJoinTest {
             val actor = core(f)
             val i = policy(f)
             val t = f.mark("T")
-            actor.addRequest(i, RequestKind.Mark(t))
+            actor.addMarkRequest(i, t)
             flush(actor)
             assertTrue(climbs(f).isEmpty())
             actor.addLink(caller(f), Layer.NORMAL, f.fact(mark = MarkSlot.Concrete(t)))
@@ -126,8 +125,8 @@ class RequestBarrierJoinTest {
             val cls = f.manager.accessors.index(ClassStaticAccessor("Box"))
             val root = policy(f)
             val stat = policy(f, STATIC)
-            actor.addRequest(root, RequestKind.Mark(t))
-            actor.addRequest(stat, RequestKind.Mark(t))
+            actor.addMarkRequest(root, t)
+            actor.addMarkRequest(stat, t)
             val ref = caller(f)
             for (path in listOf(emptyList(), listOf(field)))
                 actor.addLink(ref, Layer.NORMAL, f.fact(path = path, mark = MarkSlot.Concrete(t)))
@@ -156,18 +155,18 @@ class RequestBarrierJoinTest {
             val i = policy(f)
             val stat = policy(f, STATIC)
             val atClass = policy(f, STATIC, listOf(cls))
-            actor.addRequest(stat, RequestKind.Position(checkNotNull(f.manager.path(listOf(cls)))))
+            assertIs<ScalarPositionLocalServices>(actor.localServices).addPositionRequest(stat, RequestKind.Position(checkNotNull(f.manager.path(listOf(cls)))))
             actor.addLink(caller(f), Layer.NORMAL, f.fact(base = STATIC, path = listOf(cls, field), mark = MarkSlot.Concrete(t)))
             assertTrue(atClass in actor.initials.all(), "Position startup does not wait for the mark phase")
             var reentered = false
             f.onCut = { point, _ ->
                 if (point == Cut.ENTRY_RULES && !reentered) {
                     reentered = true
-                    actor.addRequest(i, RequestKind.Mark(u))
+                    actor.addMarkRequest(i, u)
                     actor.addLink(caller(f, "late"), Layer.NORMAL, f.fact(mark = MarkSlot.Concrete(u)))
                 }
             }
-            actor.addRequest(i, RequestKind.Mark(t))
+            actor.addMarkRequest(i, t)
             actor.addLink(caller(f), Layer.NORMAL, f.fact(mark = MarkSlot.Concrete(t)))
             flush(actor)
             assertTrue(reentered)
@@ -188,7 +187,7 @@ class RequestBarrierJoinTest {
             val e = ExclusionSet.of(g)
             val must = f.fact(tail = Tail.ANY_TAINT, mark = MarkSlot.Concrete(t), exclusion = e)
             actor.addLink(ref, Layer.NORMAL, must)
-            actor.addRequest(i, RequestKind.Mark(t))
+            actor.addMarkRequest(i, t)
             flush(actor)
             assertFalse(actor.initials.all().any { it.mark == MarkSlot.Concrete(t) })
             // Add a concrete exception at the excluded child under the original admitted E key.

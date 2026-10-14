@@ -360,14 +360,11 @@ class GroupMergeTest {
     @Test
     fun `CollectingOut retains repeated facts and requests without hidden grouping`() {
         val out = CollectingOut()
-        val position = requireNotNull(m.path(listOf(cls, f)))
         repeat(2) {
             out.result(Reach.NORMAL)
             out.markRequest(t)
-            out.positionRequest(position)
         }
         assertEquals(listOf<Facts>(Reach.NORMAL, Reach.NORMAL), out.results)
         assertEquals(listOf(t, t), out.markRequests)
-        assertEquals(listOf(position, position), out.positionRequests)
     }
 }

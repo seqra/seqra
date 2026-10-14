@@ -36,6 +36,10 @@ class SharedObjects(
     val cancellationTimeout: Duration = 30.seconds,
     val diagnostics: Boolean = false,
     val formStatistics: FormCacheStatistics? = null,
+    run1StaticProfiles: Run1StaticProfiles? = null,
+    releaseRun1CatalogCoverage: (() -> Unit)? = null,
+    val abstractionStatistics: Run1AbstractionStatistics? =
+        if (java.lang.Boolean.getBoolean("org.opentaint.bidi.optimizationStatistics")) Run1AbstractionStatistics() else null,
     val n1Statistics: N1Statistics? = if (java.lang.Boolean.getBoolean("org.opentaint.bidi.optimizationStatistics")) N1Statistics() else null,
     val n2Statistics: N2Statistics? = if (java.lang.Boolean.getBoolean("org.opentaint.bidi.optimizationStatistics")) N2Statistics() else null,
     val requestBatchStatistics: RequestBatchStatistics? =
@@ -44,7 +48,19 @@ class SharedObjects(
     @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
     val dispatcher: ExecutorCoroutineDispatcher = newFixedThreadPoolContext(threads, "bidi-worker")
 
+    var run1StaticProfiles: Run1StaticProfiles? = run1StaticProfiles
+        private set
+
+    /** Call only after run-1 workers have joined. Later runs keep their existing demand policy. */
+    private var releaseRun1Coverage: (() -> Unit)? = releaseRun1CatalogCoverage
+    fun releaseRun1StaticProfiles() {
+        run1StaticProfiles = null
+        val release = releaseRun1Coverage
+        releaseRun1Coverage = null
+        release?.invoke()
+    }
+
     val unresolvedObserver: UnresolvedCallObserver? get() = interpreter as? UnresolvedCallObserver
 
-    override fun close(): Unit = dispatcher.close()
+    override fun close() { releaseRun1StaticProfiles(); dispatcher.close() }
 }

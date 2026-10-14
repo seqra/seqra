@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestAction as RequestAction
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
@@ -8,7 +10,7 @@ import org.opentaint.dataflow.bidi.store.AddedFactStore
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.Link
 import org.opentaint.dataflow.bidi.store.N1Statistics
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.bidi.store.RequestStore
 import org.opentaint.dataflow.util.Cancellation
 import kotlin.test.Test
@@ -187,13 +189,13 @@ class RequestStoreTest {
         assertTrue(requestStore.add(requested, kind))
         val existing = addedStore.overlapping(x, requested.path).toList()
         assertEquals(listOf(Link(added, Layer.NORMAL, callerA)), existing)
-        val firstAction = assertIs<RequestAction.Climb>(ops.requestAction(requested, kind, existing.single().addedFact, existing.single().caller))
+        val firstAction = assertIs<RequestAction.Climb>(ops.referenceRequestAction(requested, kind, existing.single().addedFact, existing.single().caller))
         assertSame(initialA, firstAction.premise)
 
         // No new added content is necessary: a new caller edge is itself event E2.
         assertSame(facts, addedStore.add(callerB, Layer.NORMAL, facts))
         assertEquals(listOf(requested to kind), requestStore.overlapping(added).toList())
-        val secondAction = assertIs<RequestAction.Climb>(ops.requestAction(requested, kind, added, callerB))
+        val secondAction = assertIs<RequestAction.Climb>(ops.referenceRequestAction(requested, kind, added, callerB))
         assertSame(initialB, secondAction.premise)
         assertSame(kind, secondAction.request)
         assertEquals(setOf(Link(added, Layer.NORMAL, callerA), Link(added, Layer.NORMAL, callerB)), addedStore.links().toSet())
@@ -219,7 +221,7 @@ class RequestStoreTest {
             assertNotNull(added.add(ref, Layer.NORMAL, m.factsOf(leaf.fact, leaf.exclusion, Layer.NORMAL)))
             val matches = requests.overlapping(leaf).toList()
             assertEquals(listOf(initial to kind), matches)
-            assertIs<RequestAction.Answer>(ops.requestAction(initial, kind, leaf, ref))
+            assertIs<RequestAction.Answer>(ops.referenceRequestAction(initial, kind, leaf, ref))
             actions += ref to leaf
         }
         assertEquals(refs.flatMap { ref -> raw.map { ref to it } }.toSet(), actions)

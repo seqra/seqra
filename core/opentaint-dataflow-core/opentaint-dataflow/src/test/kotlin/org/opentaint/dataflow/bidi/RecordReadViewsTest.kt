@@ -290,7 +290,6 @@ class RecordReadViewsTest {
 
     private fun assertNoRequests(out: CollectingOut) {
         assertTrue(out.markRequests.isEmpty())
-        assertTrue(out.positionRequests.isEmpty())
     }
 
     private fun typed(c: Conclusion): Facts =

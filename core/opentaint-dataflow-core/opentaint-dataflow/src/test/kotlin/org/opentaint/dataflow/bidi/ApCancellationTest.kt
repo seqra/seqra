@@ -111,11 +111,11 @@ class ApCancellationTest {
         try {
             assertFailsWith<Cancellation.Cancelled> { apply(out) }
             assertTrue(out.results.isEmpty())
-            assertTrue(out.markRequests.isEmpty() && out.positionRequests.isEmpty())
+            assertTrue(out.markRequests.isEmpty())
         } finally { fixture.cancellation.activate() }
         apply(out)
         assertEquals(expected, out.results.flatMap { v.decoded(it) }.toSet())
-        assertTrue(out.markRequests.isEmpty() && out.positionRequests.isEmpty())
+        assertTrue(out.markRequests.isEmpty())
     }
 
     @Test

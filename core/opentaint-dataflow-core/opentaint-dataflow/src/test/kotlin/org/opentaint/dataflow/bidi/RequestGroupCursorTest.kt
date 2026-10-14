@@ -1,5 +1,8 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestAction as RequestAction
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
@@ -50,7 +53,7 @@ class RequestGroupCursorTest {
                     val expectedClimbs = LinkedHashSet<TaintMark>()
                     for (leaf in f.ops.leaves(facts)) if (overlap(initial.toPattern(), leaf)) {
                         marks.forEachMark { requested ->
-                            when (val action = f.ops.requestAction(initial, RequestKind.Mark(requested), leaf, ref)) {
+                            when (val action = f.ops.referenceRequestAction(initial, RequestKind.Mark(requested), leaf, ref)) {
                                 is RequestAction.Answer -> expectedAnswers += action.initial
                                 is RequestAction.Climb -> expectedClimbs += (action.request as RequestKind.Mark).mark
                                 RequestAction.None -> Unit

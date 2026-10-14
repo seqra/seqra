@@ -138,9 +138,7 @@ class EdgeTreeEquivalenceTest {
         ops.applyEdge(input.facts, premise, e, statement, mode, out, may)
         assertEquals(expected.facts, decoded(out.results), "$name facts")
         assertEquals(expected.marks, out.markRequests.toSet(), "$name mark requests")
-        assertEquals(expected.positions, out.positionRequests.map { it.toList() }.toSet(), "$name position requests")
         assertEquals(out.markRequests.toSet().size, out.markRequests.size, "$name duplicate mark requests")
-        assertEquals(out.positionRequests.map { it.toList() }.toSet().size, out.positionRequests.size, "$name duplicate position requests")
         return out
     }
 
@@ -211,7 +209,6 @@ class EdgeTreeEquivalenceTest {
             val out = check(flow(listOf(path), mx = marks(u.id)), e)
             assertTrue(out.results.isEmpty())
             assertTrue(out.markRequests.isEmpty())
-            assertTrue(out.positionRequests.isEmpty())
         }
         assertEquals(listOf(t), check(flow(listOf(p(f, k, g, h)), mx = marks(u.id)), e).markRequests)
     }
@@ -254,7 +251,7 @@ class EdgeTreeEquivalenceTest {
     }
 
     @Test
-    fun `static identity root and class requests precede cleaned marks on statement reads`() {
+    fun `static identity parent remains no-result while the scalar oracle records a position`(): Unit {
         val readPath = p(c, f, g, h)
         for (q in listOf(p(), p(c))) {
             val input = flow(listOf(q), mx = marks(t.id), base = static)
@@ -263,7 +260,7 @@ class EdgeTreeEquivalenceTest {
                 if (fromTail == Tail.EXACT && toTail == Tail.STAR) continue
                 val e = edge(fromTail, toTail, fromPath = readPath, fromBase = static)
                 val out = check(input, e, premise = initial)
-                assertEquals(listOf(p(c, f)), out.positionRequests.map { it.toList() })
+                assertEquals(setOf(p(c, f)), expected(input, initial, e, true, run1, false).positions)
                 assertTrue(out.results.isEmpty())
                 assertTrue(out.markRequests.isEmpty())
             }
@@ -273,11 +270,11 @@ class EdgeTreeEquivalenceTest {
         check(input, edge(Tail.STAR, Tail.EXACT, fromPath = p(c), fromBase = static), premise = root)
         val blocked = flow(listOf(p()), exclusion = ex(c), base = static)
         assertTrue(check(blocked, edge(Tail.STAR, Tail.EXACT, fromPath = readPath, fromBase = static), premise = root)
-            .positionRequests.isEmpty())
+            .results.isEmpty())
         val classInput = flow(listOf(p(c)), exclusion = ex(f), base = static)
         val classInitial = manager.initial(static, manager.path(p(c)), Tail.STAR, ExclusionSet.Empty, star)
         assertTrue(check(classInput, edge(Tail.STAR, Tail.EXACT, fromPath = readPath, fromBase = static),
-            premise = classInitial).positionRequests.isEmpty())
+            premise = classInitial).results.isEmpty())
     }
 
     @Test
@@ -288,7 +285,6 @@ class EdgeTreeEquivalenceTest {
             val initial = manager.initial(static, manager.path(path), Tail.STAR, ExclusionSet.Empty, mt)
             val out = check(input, read, premise = initial)
             assertEquals(listOf(t), out.markRequests)
-            assertTrue(out.positionRequests.isEmpty())
             assertTrue(out.results.isEmpty())
         }
     }
@@ -310,7 +306,7 @@ class EdgeTreeEquivalenceTest {
         val multiple = flow(listOf(p(), p(c, f), p(k)), base = static)
         val out = check(multiple, read, premise = rootInitial)
         assertEquals(listOf(t), out.markRequests)
-        assertEquals(listOf(p(c, f)), out.positionRequests.map { it.toList() })
+        assertEquals(setOf(p(c, f)), expected(multiple, rootInitial, read, true, run1, false).positions)
     }
 
     @Test
@@ -391,7 +387,7 @@ class EdgeTreeEquivalenceTest {
                     ops.applyEdge(inputs[index].facts, initial[index], e, true, run1, out)
                     assertEquals(expected[index].facts, decoded(out.results))
                     assertEquals(expected[index].marks, out.markRequests.toSet())
-                    assertEquals(expected[index].positions, out.positionRequests.map { it.toList() }.toSet())
+                    assertTrue(expected[index].positions.isEmpty()) // These reference inputs are nonstatic.
                 }
                 true
             } }
@@ -476,9 +472,11 @@ class EdgeTreeEquivalenceTest {
         assertEquals(listOf(t), check(root, edge(Tail.STAR, Tail.EXACT, fromPath = path)).markRequests)
         val staticRoot = flow(listOf(p()), base = static)
         val initial = manager.initial(static, null, Tail.STAR, ExclusionSet.Empty, star)
-        assertEquals(listOf(p(c, f)), check(staticRoot,
-            edge(Tail.STAR, Tail.EXACT, fromPath = p(c) + path, fromBase = static), premise = initial)
-            .positionRequests.map { it.toList() })
+        val staticRead = edge(Tail.STAR, Tail.EXACT, fromPath = p(c) + path, fromBase = static)
+        assertEquals(setOf(p(c, f)), expected(staticRoot, initial, staticRead, true, run1, false).positions)
+        val parent = check(staticRoot, staticRead, premise = initial)
+        assertTrue(parent.results.isEmpty())
+        assertTrue(parent.markRequests.isEmpty())
     }
 
     @Test
@@ -494,7 +492,6 @@ class EdgeTreeEquivalenceTest {
                 requests++
                 manager.cancellation.cancel()
             }
-            override fun positionRequest(position: PathNode) = Unit
         }
         try {
             assertFailsWith<Cancellation.Cancelled> { ops.applyEdge(input.facts, premise(input), e, true, run1, out) }

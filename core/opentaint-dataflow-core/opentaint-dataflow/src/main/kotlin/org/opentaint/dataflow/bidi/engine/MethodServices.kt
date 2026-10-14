@@ -5,7 +5,6 @@ import org.opentaint.dataflow.bidi.interp.SinkRule
 import org.opentaint.dataflow.bidi.interp.SourceRuleOccurrence
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.ConjunctionStore
-import org.opentaint.dataflow.bidi.store.RequestKind
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import org.opentaint.dataflow.bidi.store.AddedFactStore
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -31,9 +30,9 @@ class Triggers(fired: List<Pair<SinkRule, Layer>>, parts: List<Facts>) {
 /** Required local operations bind to the one actor's stores and run inputs. */
 interface MethodLocalServices {
     val conjunctions: ConjunctionStore?
-    fun addRequest(premise: InitialAp, kind: RequestKind)
+    fun addMarkRequest(premise: InitialAp, mark: TaintMark)
     fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
-        marks.forEachId { addRequest(premise, RequestKind.Mark(TaintMark(it))) }
+        marks.forEachMark { addMarkRequest(premise, it) }
     }
     fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts)
     fun onAddedLink(update: AddedFactStore.Update) = onAddedLink(update.ref, update.group.layer, update.delta)

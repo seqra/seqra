@@ -16,7 +16,8 @@ internal class EngineAlgebra(private val core: RunMethodAnalyzer) : FactAlgebra<
     override fun filter(c: Facts, filter: TypeFilter): Facts? = core.ops.filter(c, filter)
     override fun applyEdge(me: MicroEdge, c: Facts, premise: PremiseKey, statementEdge: Boolean,
                            out: ResultSink): Unit =
-        core.ops.applyEdge(c, premise, me.edge, statementEdge, core.mode, core.collect(premise, c, out), may = me.may)
+        core.ops.applyEdge(c, premise, me.edge, statementEdge, core.mode, core.collect(premise, c, out), may = me.may,
+            unchangedStaticInitial = core.unchangedStaticInitial(premise))
 
     override fun conjunction(cj: ConjunctiveEdge, premise: PremiseKey, c: Facts, node: CommonInst,
                              out: ResultSink): Unit =

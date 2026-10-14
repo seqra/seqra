@@ -1,7 +1,5 @@
 package org.opentaint.dataflow.bidi.ap
 
-import org.opentaint.dataflow.bidi.store.CallerRef
-import org.opentaint.dataflow.bidi.store.RequestKind
 
 /** The caller enforces the run's must-premise mode before starting an initial. */
 internal fun initialFacts(m: ApManager, i: InitialAp): Facts {
@@ -86,26 +84,4 @@ internal fun selectDemand(m: ApManager, premise: PremiseKey, g: Facts, direction
     val j = premise as? InitialAp ?: return g
     if (direction == Direction.BACKWARD && j.isZero) return g
     return null
-}
-
-/** One standing request and an overlapping added leaf, supplied by the caller's join. */
-internal fun actOnRequest(m: ApManager, i: InitialAp, kind: RequestKind, a: Pattern, caller: CallerRef): RequestAction {
-    m.cancellation.checkpoint()
-    check(i.tail == Tail.STAR && i.exclusion == ExclusionSet.Empty && i.mark == MarkSlot.STAR) {
-        "A request needs a policy initial or position answer"
-    }
-    return when (kind) {
-        is RequestKind.Mark -> when (val mark = a.fact.mark) {
-            is MarkSlot.Concrete -> if (mark.mark == kind.mark)
-                RequestAction.Answer(m.initial(answer(i.toPattern(), a, kind.mark))) else RequestAction.None
-            is MarkSlot.Star -> if (kind.mark in mark.excluded) RequestAction.None
-                else RequestAction.Climb(caller.premise as InitialAp, kind)
-        }
-        is RequestKind.Position -> when {
-            a.fact.path.startsWith(kind.path.toList()) ->
-                RequestAction.Answer(m.initial(STATIC, kind.path, Tail.STAR, ExclusionSet.Empty, MarkSlot.STAR))
-            (caller.premise as? InitialAp)?.base == STATIC -> RequestAction.Climb(caller.premise as InitialAp, kind)
-            else -> RequestAction.None
-        }
-    }
 }

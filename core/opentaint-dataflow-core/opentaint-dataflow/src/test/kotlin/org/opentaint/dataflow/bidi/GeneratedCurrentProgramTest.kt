@@ -40,7 +40,8 @@ class GeneratedCurrentProgramTest {
     }
 
     private fun compare(f: FiniteProgramFixtures, config: RunConfig, seed: Long,
-                        fields: List<Int>, marks: List<TaintMark>): RunObservation {
+                        fields: List<Int>, marks: List<TaintMark>, catalogRefinement: Boolean = false): RunObservation {
+        check(!catalogRefinement || config.run1) { "Only run-1 static transport is replaced by the catalog" }
         val expected = NaiveClosure(f, config).run()
         fun facts(o: RunObservation): List<PathFact> = buildList {
             for (e in o.processed + o.rawSummaries + o.publications + o.selectedDemand) {
@@ -64,7 +65,10 @@ class GeneratedCurrentProgramTest {
                 (fields + all.flatMap { it.path } + f.field("fresh accessor")).distinct(),
                 (marks + all.mapNotNull { (it.mark as? MarkSlot.Concrete)?.mark } + f.mark("fresh mark") + TaintMark.ZERO).distinct(),
                 2)
-            try { actual.assertEquivalent(expected, universe) }
+            try {
+                if (catalogRefinement) expected.assertCatalogRefinement(actual, universe, config.roots)
+                else actual.assertEquivalent(expected, universe)
+            }
             catch (failure: AssertionError) {
                 throw AssertionError("generated seed=$seed run=${config.index} sameUnit=$sameUnit " +
                     "program=${f.describe()} inputs=${f.inputs(config)} trace=${schedule.trace}", failure)
@@ -154,7 +158,10 @@ class GeneratedCurrentProgramTest {
             val config = f.config(index, L = path.size, roots = listOf(caller),
                 demand = if (index == 1) emptyList() else listOf(callee to d),
                 seeds = listOf(Seed.Source(caller, root.inst(0), source)))
-            val actual = compare(f, config, seed + 100L, listOf(cls) + fields, listOf(t.mark, u.mark))
+            // Keep the scalar Position closure intact; compare replaced static registration through
+            // supplier-backed admissions and complete supported effects, with strict restricted runs.
+            val actual = compare(f, config, seed + 100L, listOf(cls) + fields, listOf(t.mark, u.mark),
+                catalogRefinement = index == 1)
             if (index == 1 || !abstract) assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(ZERO_PATTERN),
                 Conclusion(PathFact(ret, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false)),
                 "seed=$seed index=$index full static path=$path")

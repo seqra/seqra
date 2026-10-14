@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.*
@@ -40,9 +41,10 @@ class AnyTaintIterationTest {
             val local = MethodLocalServicesFactory { core ->
                 val actual = RunMethodLocalServices(core)
                 object : MethodLocalServices by actual {
-                    override fun addRequest(premise: InitialAp, kind: RequestKind) {
+                    override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
+                    val kind = RequestKind.Mark(mark)
                         requests += config.index to ObservedRequest(core.key, premise.toPattern(), kind)
-                        actual.addRequest(premise, kind)
+                        actual.addMarkRequest(premise, mark)
                     }
                     override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
                         marks.forEachMark { requests += config.index to ObservedRequest(core.key, premise.toPattern(), RequestKind.Mark(it)) }

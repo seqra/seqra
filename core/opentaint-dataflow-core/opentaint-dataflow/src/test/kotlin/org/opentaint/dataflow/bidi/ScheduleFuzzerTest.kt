@@ -3,6 +3,7 @@ package org.opentaint.dataflow.bidi
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.bidi.driver.Seed
 import org.opentaint.dataflow.bidi.engine.RunConfig
 import org.opentaint.dataflow.bidi.fixtures.*
@@ -10,7 +11,6 @@ import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.interp.CallPoint.*
 import org.opentaint.dataflow.bidi.interp.StageKind.*
 import org.opentaint.dataflow.bidi.store.Record
-import org.opentaint.dataflow.bidi.store.RequestKind
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSink
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import kotlin.test.*
@@ -41,7 +41,7 @@ class ScheduleFuzzerTest {
     }
 
     private fun compareSeed(f: FiniteProgramFixtures, config: RunConfig, fields: List<Int>, marks: List<TaintMark>,
-                            seed: Long, verify: (RunObservation) -> Unit) {
+                            seed: Long, catalogRefinement: Boolean = false, verify: (RunObservation) -> Unit) {
         val expected = try { NaiveClosure(f, config).run() }
         catch (failure: Throwable) { throw AssertionError("oracle seed=$seed index=${config.index} program=${f.describe()} trace=[]", failure) }
         fun patterns(o: RunObservation): List<Pattern> = buildList {
@@ -74,7 +74,8 @@ class ScheduleFuzzerTest {
                     (fields + values.flatMap { it.fact.path + (it.exclusion as? ExclusionSet.Concrete)?.ids?.toList().orEmpty() } +
                         positionPaths.flatten() + f.field("fresh accessor")).distinct(),
                     (marks + values.mapNotNull { (it.fact.mark as? MarkSlot.Concrete)?.mark } + f.mark("fresh mark") + TaintMark.ZERO).distinct(), 2)
-                actual.assertEquivalent(expected, universe)
+                if (catalogRefinement) expected.assertCatalogRefinement(actual, universe, config.roots)
+                else actual.assertEquivalent(expected, universe)
                 verify(actual)
                 if (seed < 2) {
                     val repeat = ProductionSchedule(f, config, sameUnit = sameUnit, policy = SchedulePolicy.SEEDED,
@@ -163,7 +164,7 @@ class ScheduleFuzzerTest {
     }
 
     @Test
-    fun `seeded static request schedules answer and climb complete caller references`(): Unit {
+    fun `seeded catalog schedules refine scalar static climb and preserve complete supplied references`(): Unit {
         for (seed in 0L until 32L) FiniteProgramFixtures().use { f ->
             val main = f.method("seededStaticCaller", listOf(listOf(1), listOf(2), emptyList()), 2)
             val middleMethod = f.method("seededStaticWrapper", listOf(listOf(1), listOf(2), emptyList()), 2)
@@ -192,14 +193,17 @@ class ScheduleFuzzerTest {
             f.call(middle, 1, staticCall(callee, returned))
             f.statement(callee, 0, summary(PathEdge(PathFact(static, path, Tail.EXACT, t),
                 PathFact(returned, emptyList(), Tail.EXACT, u), ExclusionSet.Empty)))
-            compareSeed(f, f.config(roots = listOf(caller)), path, listOf(t.mark, u.mark), seed) { actual ->
+            val config = f.config(roots = listOf(caller))
+            val scalar = NaiveClosure(f, config).run()
+            compareSeed(f, config, path, listOf(t.mark, u.mark), seed, catalogRefinement = true) { actual ->
                 val policy = f.pattern(static, tail = Tail.STAR, mark = MarkSlot.STAR)
                 val positioned = f.pattern(static, path, Tail.STAR, MarkSlot.STAR)
                 for (key in listOf(middle, callee)) {
-                    assertContains(actual.requests, ObservedRequest(key, policy, RequestKind.Position(f.ap.path(path)!!)))
-                    assertContains(actual.requests, ObservedRequest(key, positioned, RequestKind.Mark(t.mark)))
+                    assertContains(scalar.requests, ObservedRequest(key, policy, RequestKind.Position(f.ap.path(path)!!)))
+                    assertContains(scalar.requests, ObservedRequest(key, positioned, RequestKind.Mark(t.mark)))
                     assertContains(actual.initials, ObservedInitial(key, f.pattern(static, path, Tail.EXACT, t)))
                 }
+                assertTrue(actual.requests.none { it.kind is RequestKind.Position })
                 assertContains(actual.rawSummaries, ObservedEdge(caller, zero,
                     Conclusion(PathFact(y, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false)))
                 assertTrue(actual.sourceHits.isEmpty())

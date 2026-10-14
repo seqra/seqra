@@ -43,7 +43,8 @@ class JIRMethodForms internal constructor(
             JIRCallPlanBuilder(interp.manager, interp.ruleForms, interp.checker, interp.typeFilters,
                 key, s as JIRInst, call as JIRCallExpr, interp.callResolver::resolve, interp.epResolver,
                 entry.lambdas, aliasAnalysis = entry.aliasAnalysis,
-                defaultGetModel = interp.defaultGetModel, formOwner = entry.shared.formOwner).build()
+                defaultGetModel = interp.defaultGetModel, formOwner = entry.shared.formOwner,
+                requireCatalogTarget = entry.shared::requireRun1CatalogTarget).build()
         }, use)
 
     override fun entryRules(direction: Direction) = withEntryRules(direction) { it }

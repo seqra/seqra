@@ -1,15 +1,20 @@
 package org.opentaint.dataflow.bidi.ap
 
 import org.opentaint.dataflow.bidi.store.CallerRef
-import org.opentaint.dataflow.bidi.store.RequestKind
 import org.opentaint.dataflow.bidi.store.RequestMarkSelection
 
 /** Shared facade. All walk state is local to the call. */
 class ApOps(val manager: ApManager) {
     fun applyEdge(c: Facts, premise: PremiseKey, e: PathEdge, statementEdge: Boolean,
-                  mode: ApMode, out: ApOut, may: Boolean = false) {
+                  mode: ApMode, out: ApOut, may: Boolean = false,
+                  unchangedStaticInitial: InitialAp? = null) {
+        check(unchangedStaticInitial == null ||
+            (unchangedStaticInitial === premise && unchangedStaticInitial.manager === manager)) {
+            "The ordinary static gate needs this edge's original initial"
+        }
         val ce = compiled(e)
-        applyCompiledEdge(c, ce, may, staticIdentityDepth(c, premise, ce, statementEdge, mode), mode, out)
+        applyCompiledEdge(c, ce, may, staticIdentityDepth(c, premise, ce, statementEdge, mode), mode, out,
+            unchangedStaticInitial)
     }
 
     internal fun compiled(e: PathEdge): CompiledEdge {
@@ -19,10 +24,11 @@ class ApOps(val manager: ApManager) {
     }
 
     internal fun applyCompiledEdge(c: Facts, ce: CompiledEdge, edgeDemand: Boolean,
-                                   staticAt: Int, mode: ApMode, out: ApOut) {
+                                   staticAt: Int, mode: ApMode, out: ApOut,
+                                   unchangedStaticInitial: InitialAp? = null) {
         manager.cancellation.checkpoint()
         if (c.base != ce.fromBase) return
-        val app = EdgeApplication(manager, ce, edgeDemand, mode, out)
+        val app = EdgeApplication(manager, ce, edgeDemand, mode, out, unchangedStaticInitial)
         when (c) {
             is Reach -> app.reach(c)
             is FlowTree -> app.flow(c, staticAt)
@@ -60,7 +66,10 @@ class ApOps(val manager: ApManager) {
 
     fun filter(c: Facts, f: TypeFilter): Facts? = filterFacts(manager, c, f)
     fun limit(c: Facts, fieldLimit: Int, out: ApOut) = limitFacts(manager, c, fieldLimit, out)
-    fun checkMark(c: Facts, p: Pattern, mode: ApMode): MarkCheck = markCheckFacts(manager, c, p, mode)
+    /** Pass the original initial only when the run-1 static catalog covers this check. */
+    fun checkMark(c: Facts, p: Pattern, mode: ApMode,
+                  unchangedStaticInitial: InitialAp? = null): MarkCheck =
+        markCheckFacts(manager, c, p, mode, unchangedStaticInitial)
     fun withoutMarks(c: Facts, marks: MarkSet): Facts? = withoutMarksPart(manager, c, marks)
 
     fun targetTree(target: PathFact, layer: Layer): Facts {
@@ -76,8 +85,6 @@ class ApOps(val manager: ApManager) {
     fun restrict(j: InitialAp, g: Facts, d: DemandPattern): List<Facts> = restrictFacts(this, j, g, d)
     fun demandPart(premise: PremiseKey, g: Facts, direction: Direction): Facts? =
         selectDemand(manager, premise, g, direction)
-    fun requestAction(i: InitialAp, kind: RequestKind, a: Pattern, caller: CallerRef): RequestAction =
-        actOnRequest(manager, i, kind, a, caller)
     fun requestGroup(i: InitialAp, marks: RequestMarkSelection, facts: Facts, caller: CallerRef): RequestGroupCursor =
         RequestGroupCursor(manager, i, marks, facts, caller)
 }

@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.bidi.fixtures
 
 import org.opentaint.dataflow.bidi.ap.*
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.store.*
 import java.util.Collections
@@ -18,6 +19,7 @@ class ProductionSchedule(
     private val seed: Long = 0L,
     private val quantum: Int = 1,
     private val duplicateDeliveries: Boolean = false,
+    private val useStaticCatalog: Boolean = true,
 ) {
     init { require(quantum > 0) }
 
@@ -36,7 +38,8 @@ class ProductionSchedule(
     private val shared = fixture.shared.let { source ->
         SharedObjects(source.ap, source.ops, source.interpreter, source.language, source.contexts,
             source.records, vulnerabilities, source.unitResolver, source.refManager,
-            source.cancellation, threads = 1)
+            source.cancellation, threads = 1,
+            run1StaticProfiles = if (useStaticCatalog) fixture.staticProfiles() else null)
     }
     private val units = LinkedHashMap<Any, UnitPort>()
     private val storages = LinkedHashMap<MethodKey, SummaryStorage>()
@@ -47,9 +50,9 @@ class ProductionSchedule(
     private val factories = RunMethodHandlers(MethodLocalServicesFactory { actor ->
         val actual = RunMethodLocalServices(actor)
         object : MethodLocalServices by actual {
-            override fun addRequest(premise: InitialAp, kind: RequestKind) {
-                requests += ObservedRequest(actor.key, premise.toPattern(), kind)
-                actual.addRequest(premise, kind)
+            override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
+                requests += ObservedRequest(actor.key, premise.toPattern(), RequestKind.Mark(mark))
+                actual.addMarkRequest(premise, mark)
             }
             override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
                 marks.forEachMark { requests += ObservedRequest(actor.key, premise.toPattern(), RequestKind.Mark(it)) }
@@ -67,17 +70,11 @@ class ProductionSchedule(
             "premise=${observedPremise(event.ref.premise)},callerLayer=${event.ref.callerLayer}," +
             "call=${event.ref.call},linkLayer=${event.linkLayer},added=${shared.ops.leaves(event.added).toList()})"
         is RunEvent.ZeroIn -> "Zero(${event.callee})"
-        is RunEvent.RequestIn -> "Request(${event.method},${event.premise.toPattern()},${requestDescription(event.request)})"
         is RunEvent.MarkRequestsIn -> "MarkRequests(${event.method},${event.premise.toPattern()},${event.marks})"
         is RunEvent.Delivery -> "Delivery(${event.callee},${event.publications.flatMap {
             observedEdges(shared.ops, event.callee, it.premise, it.conclusion)
         }})"
         is RunEvent.Work -> "Work(${event.analyzer.key})"
-    }
-
-    private fun requestDescription(request: RequestKind): String = when (request) {
-        is RequestKind.Mark -> "Mark(${request.mark})"
-        is RequestKind.Position -> "Position(${request.path.toList()})"
     }
 
     private inner class UnitPort : RunnerPort<RunMethodAnalyzer> {

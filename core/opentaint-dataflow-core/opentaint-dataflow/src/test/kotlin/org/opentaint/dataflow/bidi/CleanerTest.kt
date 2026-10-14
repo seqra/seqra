@@ -101,7 +101,6 @@ class CleanerTest {
         assertEquals(expected.facts, decoded(out.results), "$name facts")
         assertEquals(expected.requests, out.markRequests.toSet(), "$name mark requests")
         assertEquals(out.markRequests.toSet().size, out.markRequests.size, "$name duplicate requests")
-        assertTrue(out.positionRequests.isEmpty(), "$name position requests")
         return out
     }
 
@@ -257,7 +256,6 @@ class CleanerTest {
             assertEquals(facts.exclusion, result.exclusion)
             assertEquals(marks(t.id, u.id), result.markExclusion)
             assertEquals(if (mode.run1) listOf(t) else emptyList(), out.markRequests)
-            assertTrue(out.positionRequests.isEmpty())
         }
     }
 

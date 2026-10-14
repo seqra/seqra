@@ -1,12 +1,14 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestAction as RequestAction
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.MethodContext
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.store.CallerRef
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.CommonMethodParameter
@@ -81,7 +83,7 @@ class RequestActionTest {
             assertTrue(overlap(row.request.toPattern(), row.added))
             // The A02 raw answer is checked against explicit expected rows, rather than used to construct them.
             assertEquals(row.expected, answer(row.request.toPattern(), row.added, t))
-            val result = assertIs<RequestAction.Answer>(ops.requestAction(row.request, kind, row.added, caller()))
+            val result = assertIs<RequestAction.Answer>(ops.referenceRequestAction(row.request, kind, row.added, caller()))
             assertEquals(row.expected, result.initial.toPattern())
             assertSame(manager.initial(row.expected), result.initial)
         }
@@ -95,7 +97,7 @@ class RequestActionTest {
             val added = pattern(p(f), tail, MarkSlot.Star(excluded), if (tail == Tail.STAR) ex(h) else ExclusionSet.Empty)
             for (layer in Layer.entries) {
                 val origin = caller(layer = layer)
-                val result = assertIs<RequestAction.Climb>(ops.requestAction(request, kind, added, origin))
+                val result = assertIs<RequestAction.Climb>(ops.referenceRequestAction(request, kind, added, origin))
                 assertSame(callerInitial, result.premise)
                 assertSame(kind, result.request)
                 assertSame(method, origin.caller)
@@ -116,7 +118,7 @@ class RequestActionTest {
             pattern(p(f), Tail.ANY, MarkSlot.Star(marks(t.id))))
         for (fact in added) {
             assertTrue(overlap(request.toPattern(), fact))
-            assertSame(RequestAction.None, ops.requestAction(request, kind, fact, caller()))
+            assertSame(RequestAction.None, ops.referenceRequestAction(request, kind, fact, caller()))
         }
     }
 
@@ -141,7 +143,7 @@ class RequestActionTest {
         for (row in rows) {
             assertTrue(overlap(row.request.toPattern(), row.added))
             assertEquals(row.expected, answer(row.request.toPattern(), row.added, t))
-            val result = assertIs<RequestAction.Answer>(ops.requestAction(row.request, RequestKind.Mark(t), row.added, caller()))
+            val result = assertIs<RequestAction.Answer>(ops.referenceRequestAction(row.request, RequestKind.Mark(t), row.added, caller()))
             assertSame(manager.initial(row.expected), result.initial)
             assertEquals(row.expected, result.initial.toPattern())
             assertEquals(ExclusionSet.Empty, result.initial.exclusion)
@@ -164,7 +166,7 @@ class RequestActionTest {
         val expected = policy(requestedPath, STATIC)
         for (fact in added) for (layer in Layer.entries) {
             assertTrue(overlap(Pattern(PathFact(STATIC, requestedPath, Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty), fact))
-            val result = assertIs<RequestAction.Answer>(ops.requestAction(request, kind, fact, caller(layer = layer)))
+            val result = assertIs<RequestAction.Answer>(ops.referenceRequestAction(request, kind, fact, caller(layer = layer)))
             assertSame(expected, result.initial)
             assertEquals(Tail.STAR, result.initial.tail)
             assertEquals(MarkSlot.STAR, result.initial.mark)
@@ -190,12 +192,12 @@ class RequestActionTest {
         for (fact in added) {
             assertTrue(overlap(Pattern(PathFact(STATIC, requestedPath, Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty), fact))
             for (initial in staticCallers) {
-                val result = assertIs<RequestAction.Climb>(ops.requestAction(request, kind, fact, caller(initial)))
+                val result = assertIs<RequestAction.Climb>(ops.referenceRequestAction(request, kind, fact, caller(initial)))
                 assertSame(initial, result.premise)
                 assertSame(kind, result.request)
             }
             for (initial in listOf(callerInitial, concrete, several)) {
-                assertSame(RequestAction.None, ops.requestAction(request, kind, fact, caller(initial)))
+                assertSame(RequestAction.None, ops.referenceRequestAction(request, kind, fact, caller(initial)))
             }
         }
     }
@@ -215,7 +217,7 @@ class RequestActionTest {
         for (request in invalid) for (kind in kinds) {
             val added = if (request.isZero) manager.zero.toPattern()
                 else pattern(p(), Tail.EXACT, base = request.base)
-            assertFails { ops.requestAction(request, kind, added, caller()) }
+            assertFails { ops.referenceRequestAction(request, kind, added, caller()) }
         }
     }
 
@@ -233,7 +235,7 @@ class RequestActionTest {
         assertNotEquals(first.caller, distinctEntry)
         for (origin in origins) {
             val before = origin.copy()
-            val result = assertIs<RequestAction.Climb>(ops.requestAction(policy(), kind,
+            val result = assertIs<RequestAction.Climb>(ops.referenceRequestAction(policy(), kind,
                 pattern(p(f), Tail.STAR, MarkSlot.STAR), origin))
             assertSame(origin.premise, result.premise)
             assertSame(kind, result.request)
@@ -257,7 +259,7 @@ class RequestActionTest {
                 pattern(p(f, g), Tail.EXACT)),
         )
         for (row in rows) {
-            val action = assertIs<RequestAction.Answer>(ops.requestAction(request, RequestKind.Mark(mark), row.added, caller()))
+            val action = assertIs<RequestAction.Answer>(ops.referenceRequestAction(request, RequestKind.Mark(mark), row.added, caller()))
             val started = ops.startFact(action.initial)
             assertEquals(row.expected, singleLeaf(started))
             val triggered = assertIs<MarkCheck.Holds>(ops.checkMark(started, row.sink, run1))
@@ -265,7 +267,7 @@ class RequestActionTest {
             assertEquals(row.expected, singleLeaf(triggered.facts))
         }
         val staticMust = pattern(p(cls, f), Tail.ANY_TAINT, mt, ex(g), STATIC)
-        val staticAnswer = assertIs<RequestAction.Answer>(ops.requestAction(policy(base = STATIC),
+        val staticAnswer = assertIs<RequestAction.Answer>(ops.referenceRequestAction(policy(base = STATIC),
             RequestKind.Mark(t), staticMust, caller()))
         assertEquals(Conclusion(PathFact(STATIC, p(cls, f), Tail.ANY, mt), ExclusionSet.Empty, true),
             singleLeaf(ops.startFact(staticAnswer.initial)))
@@ -280,7 +282,7 @@ class RequestActionTest {
         assertFalse(satisfies(literal.toPattern(), addedPattern, restricted = false))
         assertNull(ops.satisfying(added, literal, run1))
         val kind = RequestKind.Mark(t)
-        val result = assertIs<RequestAction.Climb>(ops.requestAction(request, kind, addedPattern, caller()))
+        val result = assertIs<RequestAction.Climb>(ops.referenceRequestAction(request, kind, addedPattern, caller()))
         assertSame(callerInitial, result.premise)
         assertSame(kind, result.request)
     }

@@ -43,7 +43,6 @@ class RunMethodHandlers(
                 is RunEvent.Start -> port.analyzer(event.root).addRootZero()
                 is RunEvent.LinkIn -> port.analyzer(event.callee).addLink(event.ref, event.linkLayer, event.added)
                 is RunEvent.ZeroIn -> port.analyzer(event.callee).addZeroEntry()
-                is RunEvent.RequestIn -> port.analyzer(event.method).addRequest(event.premise, event.request)
                 is RunEvent.MarkRequestsIn -> port.analyzer(event.method).addMarkRequests(event.premise, event.marks)
                 is RunEvent.Delivery -> checkNotNull(subscriptions).onDelivery(event.callee, event.publications)
                 is RunEvent.Work -> error("Work is handled by its owning unit runner")

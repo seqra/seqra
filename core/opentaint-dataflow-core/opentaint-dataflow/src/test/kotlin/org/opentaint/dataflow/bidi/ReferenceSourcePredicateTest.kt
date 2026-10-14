@@ -6,7 +6,7 @@ import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
 import org.opentaint.dataflow.bidi.interp.*
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.ir.api.common.cfg.CommonInst
 import kotlin.test.*
 
@@ -34,7 +34,8 @@ class ReferenceSourcePredicateTest {
         Result(pr, Conclusion(p.fact, p.exclusion, demand))
 
     /** Each harness owns one real actor and one reference algebra, as a method/run does. */
-    private class Agreement(val f: MethodAnalysisFixtures, index: Int = 1) {
+    private class Agreement(val f: MethodAnalysisFixtures, index: Int = 1,
+                            val referencePositions: List<Pair<Set<Pattern>, RequestKind>> = emptyList()) {
         val raw = ArrayList<Result>()
         val tree = ArrayList<Result>()
         val rawRequests = ArrayList<Pair<Set<Pattern>, RequestKind>>()
@@ -42,9 +43,10 @@ class ReferenceSourcePredicateTest {
         val core = f.core(index = index, localFactory = MethodLocalServicesFactory { actor ->
             val actual = RunMethodLocalServices(actor)
             object : MethodLocalServices by actual {
-                override fun addRequest(premise: InitialAp, kind: RequestKind) {
+                override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
+                            val kind = RequestKind.Mark(mark)
                     treeRequests += setOf(premise.toPattern()) to kind
-                    actual.addRequest(premise, kind)
+                    actual.addMarkRequest(premise, mark)
                 }
                 override fun addMarkRequests(premise: InitialAp, marks: org.opentaint.dataflow.bidi.store.RequestMarkSet) {
                     marks.forEachMark { treeRequests += setOf(premise.toPattern()) to RequestKind.Mark(it) }
@@ -65,7 +67,8 @@ class ReferenceSourcePredicateTest {
                 decoder.conclusions(out).forEach { tree += Result(rawPremise, it) }
             }
             assertEquals(raw.toSet(), tree.toSet(), "reference/tree outputs after $input")
-            assertEquals(rawRequests.toSet(), treeRequests.toSet(), "reference/tree requests after $input")
+            assertEquals(rawRequests.toSet(), (treeRequests + referencePositions).toSet(),
+                "reference requests equal runtime marks plus the explicit removed Position control after $input")
         }
     }
 
@@ -156,7 +159,7 @@ class ReferenceSourcePredicateTest {
     }
 
     @Test
-    fun `unary static source retains statement position requests and the original FLOW premise`(): Unit {
+    fun `scalar static source position traffic is replaced by catalog refinement with no false source`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val cls = f.manager.accessors.index(ClassStaticAccessor("Box"))
             val field = f.field("f")
@@ -164,7 +167,8 @@ class ReferenceSourcePredicateTest {
             val source = source(f, listOf(f.pattern(STATIC, listOf(cls, field), Tail.ANY))) { _, leaves -> leaves.single() }
             val initial = f.pattern(STATIC, tail = Tail.STAR, mark = MarkSlot.STAR)
             val input = Conclusion(initial.fact, ExclusionSet.of(other), false)
-            val agreement = Agreement(f)
+            val removedPosition = setOf(initial) to RequestKind.Position(f.manager.path(listOf(cls, field))!!)
+            val agreement = Agreement(f, referencePositions = listOf(removedPosition))
             agreement.give(source, setOf(initial), input, statementEdge = true)
             assertEquals(listOf<Pair<Set<Pattern>, RequestKind>>(setOf(initial) to RequestKind.Position(f.manager.path(listOf(cls, field))!!)),
                 agreement.rawRequests)

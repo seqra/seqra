@@ -5,7 +5,7 @@ import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.EngineShellFixtures
 import org.opentaint.dataflow.bidi.store.CallerRef
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.ir.api.common.CommonMethod
@@ -34,9 +34,10 @@ class RequestBatchCycleTest {
                 val actual = RunMethodHandlers(MethodLocalServicesFactory { actor ->
                     val local = RunMethodLocalServices(actor)
                     object : MethodLocalServices by local {
-                        override fun addRequest(premise: InitialAp, kind: RequestKind) {
+                        override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
+                            val kind = RequestKind.Mark(mark)
                             if (kind is RequestKind.Mark) offered += Member(actor.key, premise, kind.mark)
-                            local.addRequest(premise, kind)
+                            local.addMarkRequest(premise, mark)
                         }
                         override fun addMarkRequests(premise: InitialAp, members: RequestMarkSet) {
                             for (i in 0 until members.size) offered += Member(actor.key, premise, members.markAt(i))
