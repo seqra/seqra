@@ -376,6 +376,21 @@ unions can overlap and must not be added or treated as independent potential sav
 The complete physical queue census finds 562 queues with 2,564 entries. This snapshot shows
 large standing state and indexes, with much smaller pending request frontiers and physical
 queues. Actor-local delta worklists and their fact payloads now have separate attribution below.
+
+The N1 union includes processed requests, membership directories and query indexes. Its captured
+census has 17,573,638 mark memberships in 188,247 mark rows, and 2,401,903 position memberships in
+the same number of position rows. Static positions account for 92.73% of rows; marks account for
+87.98% of memberships. Request initials already have an empty field exclusion, so resetting that
+field cannot reduce this population. The follow-up
+[request-management investigation](../design/bidirectional-run1-request-management-20261014.md)
+examines routing projection and demand sharing before accepting the current materialization as
+necessary. This evidence is from ThingsBoard run-1/forward/limit 1, with no complete iteration
+or accepted report.
+The selected [subsequent redesign](../design/bidirectional-run1-abstraction-demands-20261014.md)
+uses prescan's resolved call graph and collected static accesses to move demand handling into
+abstraction. It has no runtime measurements yet; the timings and progress in this report remain
+the measured baseline.
+
 Physical queue bytes alone do not bound all unprocessed actor state; the separate census below
 measures that state. The snapshot does not
 support making broad queue storage changes a priority for the next iteration.

@@ -8,6 +8,11 @@ implementation `a23ad7fcd99553190c82557cff6076503959aec6`. Later commits change 
 
 No new optimization is implemented by this proposal. The current report is
 [the fixed-project performance report](../reports/bidirectional-request-set-barriers-performance-20261014.md).
+The selected N1 direction is now the
+[abstraction-owned demand redesign](bidirectional-run1-abstraction-demands-20261014.md), with its
+[implementation plan](bidirectional-run1-abstraction-demands-plan-20261014.md). It removes static
+position requests and moves remaining mark interest into initial emission. The N1 container
+candidates below are earlier alternatives, not the selected implementation path.
 Evidence root:
 
 ```text
@@ -62,7 +67,7 @@ retained-set queries find these owners:
 | Owner selection | Retained-set bytes | Meaning |
 | --- | ---: | --- |
 | Actors, runners and subscription managers | 5,688,245,352 | Combined owner union |
-| Standing N1 request stores | 2,267,943,216 | Exact requests retained for later joins |
+| Standing N1 request stores | 2,267,943,216 | Request memberships, rows, origins and query indexes; includes processed requests |
 | N2 subscription and publication state | 1,088,543,928 | Cumulative interprocedural state |
 | Raw actor added-fact stores | 988,439,488 | Incoming links and unresolved observations together |
 | Raw added-fact geometry indexes | 644,160,480 | Part of the preceding store union |
@@ -98,14 +103,21 @@ is in `heap-review/primary-comparison-1`.
 
 ## Algorithm changes or better storage
 
-The run-1 snapshot does not support describing all large collections as unprocessed work. Most
-of the measured request state is the standing relation needed by future links. Its full origins
-and members have semantic uses. Removing answered rows or merging different contexts needs a
-coverage proof that the current measurements do not provide.
+The run-1 snapshot does not support describing all large collections as unprocessed work. N1
+includes requests that have already been processed, plus their indexes and membership directories.
+Future links must still receive the required answers and climbs. This requirement does not prove
+that the current per-actor materialization is necessary. The follow-up
+[request-management investigation](bidirectional-run1-request-management-20261014.md) separates
+logical demand, repeated routing and storage overhead. It identifies an exact FLOW routing
+projection and a further hypothesis for sharing demand across equivalent request dependencies.
+The subsequent selected redesign uses the resolved prescan call graph and transitive static
+profiles to remove position requests, instead of retaining and tuning that runtime relation.
+Removing answered rows alone would lose late-link coverage.
 
 There is a source-proven opportunity to avoid an index that a particular consumer never queries.
-This is an algorithm change with a small interface scope. For N1, compact storage is the direct
-option when the same standing relation must remain. Admission cohorts could also avoid redundant
+This is an algorithm change with a small interface scope. For N1, compact storage is a fallback
+when the same standing relation must remain; first assess the request-management alternatives.
+Admission cohorts could also avoid redundant
 per-mark directory columns, but their lookup cost needs evaluation. These choices do not require
 changing the fixed-point algorithm or the meaning of a request.
 
