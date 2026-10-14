@@ -1,6 +1,8 @@
 # N1–N3: stored relations, retained history and pending work
 
-Status: N1/N2 analysis for the next iteration; N3 deferred. Not an implementation result. Date: 13 October 2026.
+Status: historical analysis used for the implemented N1/N2 iteration; N3 deferred. Date: 13 October 2026.
+Use the [fresh implementation report](../reports/bidirectional-n1-n2-performance-20261014.md) and
+[new proposal](bidirectional-core-optimization-20261014.md) for current measurements and priorities.
 Scope: N1, N2 and N3 from the [memory proposal](bidirectional-core-optimization-20261013.md).
 Selection: N1 and N2 only. Preserve N3's evidence for possible future reconsideration if its pattern persists.
 Use the [detailed implementation proposal](bidirectional-n1-n3-implementation-proposal.md) for the changes.
@@ -17,7 +19,7 @@ N1 is processed request history that remains active. N2 includes processed delta
 Deleting processed items can lose a later answer or publication. A collection is redundant only if another
 representation still supplies every future effect.
 
-## Latest measurements
+## Pre-iteration measurements
 
 Runtime commit: `38a400c0d`. Scan manifest revision: `bd6810823`. The subsequent `23f25e8a8` commit changes
 documentation only. Source inspection for this analysis uses that unchanged runtime.

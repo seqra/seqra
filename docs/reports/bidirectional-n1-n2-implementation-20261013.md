@@ -1,6 +1,6 @@
 # N1/N2 implementation and validation
 
-Status: implementation and code checks complete. Fresh fixed-project comparisons are pending.
+Status: implementation, code checks and fresh fixed-project scans complete. Three project resource gates fail.
 Date: 13 October 2026. Runtime implementation ends at `314349718`.
 
 N1 groups standing requests by full origin or position and uses primitive memberships and encounter lanes.
@@ -35,12 +35,14 @@ explicit obligations in [proof-status](../../spec/proof-status.md).
 Code-check evidence is in
 `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012/n1-n2/20261013T223640Z/gates`.
 The checks ran on the exact final implementation before the reviewable commits; committing changed no
-runtime or test bytes. Fresh project manifests will name the complete committed revision used for each run.
+runtime or test bytes. Fresh project manifests name `61fd97acd` as the committed scan revision.
 
-No project has yet run on this implementation. For attribution, the prior batch's latest reached iterations
-are listed below as historical context. They do not prove current performance or output parity.
+All eight fresh main/current scans are terminal. The
+[performance report](bidirectional-n1-n2-performance-20261014.md) records the new timings, strict finding
+differences, counter scope and capture evidence. The table below gives the latest reached iterations
+of the current implementation. Main uses the legacy analyzer and has no bidi iteration.
 
-| Project | Prior latest reached | Prior last complete engine | Prior last accepted forward report |
+| Project | Latest reached | Last complete engine | Last accepted forward report |
 | --- | --- | --- | --- |
 | OWASP | run-3, forward, limit 3, COMPLETE | run-3 | run-3 |
 | Conductor | run-2, backward, limit 2, OOM | run-1 | run-1 |
@@ -53,7 +55,9 @@ main is `f945f92c5`; its opt-in guard-capture patch is recorded separately. Use 
 last complete engine, last accepted forward report, and each capture's own iteration. Compare strict rule ID,
 sink fingerprint and full method signature identities, and inspect physical/logical occurrence spans.
 
-The optional census retains numeric values and fixed histograms. Live counts retire at owner release.
+The optional census retains numeric values and fixed histograms. N1 live counters retire through actor
+freeze. Failed actors are not frozen, so their END live values are unretired cohort accounting, not a
+post-teardown reachability census. N2 directory counts retire on joined runner release.
 Cumulative created-group/posting and final-row totals remain available after join. Pending replay counts
 include callbacks that are executing. Array-cell counts exclude object headers, hash child tables and
 transient scratch; they are not byte measurements. Mark-ID density is unavailable, and no dense bitmap
@@ -63,5 +67,7 @@ Before the new batch, cleanup removed 60 previous owned raw heap/profile files (
 The cleanup manifest records exact paths and sizes. Reports, CSVs, logs, archives and manifests remain.
 Manifest: `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012/cleanup/pre-n1-n2-20261013T223111Z.json`.
 
-The performance report and next-iteration proposal remain pending until the fresh batch is terminal and
-its profiles/heaps and output differences are reviewed. No measured saving or no-FN claim is made here.
+Use the [fresh performance report](bidirectional-n1-n2-performance-20261014.md) and
+[next proposal](../design/bidirectional-core-optimization-20261014.md) for the post-implementation evidence.
+The project completion/no-FN gate does not pass: ThingsBoard misses 14 main identities and PDF misses three.
+No isolated optimization saving or complete no-FN claim is made here. N3 remains deferred.

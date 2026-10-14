@@ -1,6 +1,9 @@
 # Analyzer core: next memory optimizations
 
-Status: N1 and N2 selected for the next iteration; not implemented. N3 deferred. Other candidates remain unselected.
+Status: historical pre-iteration proposal. N1/N2 are now implemented. N3 remains deferred.
+The [14 October proposal](bidirectional-core-optimization-20261014.md) replaces these priorities using
+the [fresh N1/N2 report](../reports/bidirectional-n1-n2-performance-20261014.md).
+All runtime, owner and selection statements below refer to the earlier revision; they are not current measurements.
 Date: 13 October 2026.
 This proposal replaces the priorities in the [old proposal](bidirectional-core-optimization.md).
 It uses the latest reviewed project heaps and profiles. IR objects, IR storage, IR tables and IR providers

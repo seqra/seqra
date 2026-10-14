@@ -1,8 +1,10 @@
 # N1 and N2: implementation and validation plan
 
-Status: N1 and N2 implemented; common/JVM checks passed; fresh project checks pending. N3 deferred.
+Status: N1 and N2 implemented; code checks pass; fresh project scans complete with three resource failures. N3 deferred.
 Date: 13 October 2026. Runtime implementation ends at `314349718`.
-This proposal refines N1 and N2 in the [current memory proposal](bidirectional-core-optimization-20261013.md).
+This approved design refines N1 and N2 in the [historical memory proposal](bidirectional-core-optimization-20261013.md).
+The [fresh report](../reports/bidirectional-n1-n2-performance-20261014.md) and
+[new proposal](bidirectional-core-optimization-20261014.md) supply post-implementation evidence and priorities.
 The [N3 design](bidirectional-n3-deferred-proposal.md) is retained for future reconsideration if the queue pattern persists.
 The [analysis](bidirectional-n1-n3-analysis.md) explains why storage packing alone is insufficient.
 The older O1/O2/O3 proposal is historical and does not set these priorities.
@@ -16,7 +18,7 @@ They remove redundant subscription history, request storage objects and unsucces
 They do not merge caller contexts or cap valid state.
 This document records the approved design. Its descriptions of the old/current layout refer to the
 pre-iteration runtime below. The [implementation report](../reports/bidirectional-n1-n2-implementation-20261013.md)
-records the implementation commits, verified checks and pending project measurements.
+records the implementation commits and verified checks. The fresh report gives current project measurements.
 
 ## Behavior changes at a glance
 
@@ -38,7 +40,8 @@ implementation can be accepted; no measured saving or unchanged incomplete repor
 The pre-iteration measurement runtime is `38a400c0d`; the scan manifest revision is `bd6810823`. Commit `23f25e8a8` changes
 documentation only. The [rollback report](../reports/bidirectional-core-rollback-20261013.md) gives the
 reviewed historical evidence and the fixed project settings. These prior results are not the fresh release
-gate. The table gives the latest reached iterations of that prior batch; the new batch is pending.
+gate. Both prior and current batches reach the iterations below. Use the fresh report for the current
+`61fd97acd` timings and owners; the owner estimates in this design remain pre-iteration evidence.
 
 | Project | Latest reached iteration | Last complete engine | Last accepted forward report |
 | --- | --- | --- | --- |
@@ -47,7 +50,7 @@ gate. The table gives the latest reached iterations of that prior batch; the new
 | ThingsBoard | run-1, forward, limit 1, OOM | None | None |
 | Stirling-PDF | run-4, backward, limit 4, TIMEOUT | run-3 | run-3 |
 
-The fresh Conductor heap captures **run-2, backward, limit 2** before cancellation. The fresh ThingsBoard
+The pre-iteration Conductor heap captures **run-2, backward, limit 2** before cancellation. The pre-iteration ThingsBoard
 heap captures **run-1, forward, limit 1** before cancellation. PDF's older checkpoint heaps capture run-3;
 they do not measure its latest run-4. Run-1 starts at limit 1. There is no limit-0 case.
 
@@ -300,8 +303,9 @@ last accepted forward report. Give heap/profile capture iterations separately, i
 
 ## 6. Implementation sequence and release gates
 
-The next iteration contains N1 and N2, in that memory-priority order. The integration order below follows
-their dependencies. Use separate reviewable commits; no stage changes scheduling or imports N3–N12.
+The implemented iteration contains N1 and N2, in that memory-priority order. The integration order below
+records their dependencies and reviewable commits. No stage changes scheduling or imports N3–N12.
+Code checks and all eight fixed scans are complete. The fresh report records the remaining project failures.
 
 The main source changes are in the existing bidi packages:
 
