@@ -46,6 +46,10 @@ class ReferenceSourcePredicateTest {
                     treeRequests += setOf(premise.toPattern()) to kind
                     actual.addRequest(premise, kind)
                 }
+                override fun addMarkRequests(premise: InitialAp, marks: org.opentaint.dataflow.bidi.store.RequestMarkSet) {
+                    marks.forEachMark { treeRequests += setOf(premise.toPattern()) to RequestKind.Mark(it) }
+                    actual.addMarkRequests(premise, marks)
+                }
             }
         })
         val algebra = ReferenceAlgebra(core.mode, request = { pr, kind -> rawRequests += pr to kind }, manager = f.manager)

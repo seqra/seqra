@@ -267,6 +267,7 @@ only the forms that the analyzer reads: the forward forms of the interpreter, or
 | predicate state | `RulePredicateStore` (`ap.md` §8.9) | forward only: scoped observed source/sink proofs, canonical binding headers and matched sink-fact versions, including evaluated exit `S` parts; no compiled topology |
 | `worklist` | `DeltaWorklist` (§4.3, §10) | the edge deltas to process: the `unchanged` queue with its set, and the `normal` queue |
 | `pendingPublications` | | the publications that the analyzer has not yet given to its `SummaryStorage` (§4.6) |
+| pending request phase | actor-owned frontiers | Run 1 only: fresh mark memberships, one fresh delta per raw link group, a partial join and owned outgoing mark sets. One counted Work token covers these owners. |
 | `queued` | | true while the analyzer has a `Work` event in its runner (§6.2) |
 | `context` | `MethodContextCache` entry and run part | the method graph, the alias analysis, the lambda resolutions, the rule context of the run (§4.8) |
 
@@ -607,6 +608,36 @@ sides are local to one method analyzer. Each pair gives an ANSWER, CLIMB to the
 caller premise, or nothing, as AP defines. Requests use the pre-operation incoming
 premise, including cleaner requests (AP §4.7).
 
+The implementation admits standing mark requests and raw links promptly. It defers
+their mark joins until the method's fact work and publications drain. One target
+`(full MethodKey, canonical requesting InitialAp)` can carry an immutable set of
+independent marks. Each answer still creates its own concrete-mark initial.
+Position requests remain separate and use the scalar join. Answered requests stay
+standing, so a later raw link or caller can still join them.
+
+A request phase captures both admission horizons before callbacks. It computes
+`(fresh requests × captured current links) ∪ (old requests × fresh links)` with the
+ordinary overlap/action relation. Crossed fresh arrivals are in the first arm.
+Retain each raw link's full caller reference, independent link layer and admitted
+group header. An exact-only TAINT delta can have empty E without changing that
+header. Keep one pending delta per group and release a consumed frontier. Partial
+phases retain their captured views; reentrant arrivals belong to the next phase.
+No historical delta list or lifetime sent-pair cache is required.
+
+For one FLOW group, all overlapping leaves have the same climb target and mark
+exclusion. Test geometry once and climb with `requested marks minus mx`. A STAR
+request admits descendants. An excluded ancestor cannot hide explicit admitted
+descendants. TAINT groups can give several exact, chain or static answer shapes;
+retain all distinct full initials. Combine climb targets only after checking each
+raw binding. Source and sink proof scopes and support links remain distinct.
+
+The request cursor uses a positive quantum and checks cancellation. Bound group
+visits and mark scans, with a continuation for an unfinished group. A selected
+nonzero Work quantum also services one bounded request chunk while facts remain.
+This is a method barrier with a local progress opportunity. It does not wait for
+unit emptiness or global quiescence. It preserves completed logical closure, not
+the event trace, duplicate witness count or an incomplete prefix.
+
 A restricted analyzer has no request store or request events. An operation needing
 a concrete mark gives no concrete branch for an abstract input. The F75 cleaner
 still propagates the same-base abstract residual with the selected mark excluded.
@@ -914,6 +945,7 @@ Each runner has one channel and one local priority queue, as today. The events:
 | `LinkIn(callee, link)` | the runner of `callee` | `addLink` | E1, E2 | `ExternalInputFact.InputFact` |
 | `ZeroIn(callee)` | the runner of `callee` (backward) | `addZeroEntry` | §9.2 `zin` | `ExternalInputFact.InputZero` |
 | `RequestIn(method, premise, request)` | the runner of `method` (the caller; run 1) | `addRequest` | E5, E7 | replaces the side-effect channels |
+| `MarkRequestsIn(method, premise, marks)` | the runner of `method` (the caller; run 1) | `addMarkRequests` | Set expansion of E5, E7 | one physical event for independent mark requests |
 | `Delivery(callee, publications)` | the SUBSCRIBED runner; the publisher's thread sends it | `SubscriptionManager.onDelivery` | E4 | `NewSummaryEdgeEvent` |
 | `Work(analyzer)` | the runner of the analyzer (its local queue) | `step` | | the `MethodAnalyzer` event |
 
@@ -1205,13 +1237,14 @@ The counter protocol of today stays, with one counter object per run:
 
 Local work is inside an event:
 
-* W1. An action that adds a worklist item or a pending publication to an analyzer with `queued = false` sets `queued`
+* W1. An action that adds a worklist item, a pending publication or deferred request work to an analyzer with `queued = false` sets `queued`
   and sends `Work` (counted by Q1). This includes the direct `addLink`, the replay's `applySummary` and a request
-  answer.
+  answer. A request-only arrival reserves Work before its parent event releases its reservation.
 * W2. When the quantum ends and work is left, the runner puts the analyzer back into its local queue. The `Work`
   event stays counted.
-* W3. The `Work` event ends (Q2) only when the worklist is empty and the pending publications are in the storage. Then
-  `queued = false`.
+* W3. The `Work` event ends (Q2) only when the worklist is empty, pending publications are in the storage,
+  and request frontiers, continuations and outgoing batches are empty. Recheck after callbacks: an answer can
+  add facts while the same Work token is active. Then `queued = false`.
 
 THEOREM (`Pipeline.Quiesce.creach_inv`, `cnt_zero_iff`, `done_iff`, `done_final`). With Q1 to Q3, the counter equals
 the number of events in the channels and the local queues plus the number of running handlers. So it is zero exactly

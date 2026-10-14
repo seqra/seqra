@@ -139,7 +139,11 @@ class MethodLocalServicesTest {
             val (actor, service) = core(f)
             populateState(f, actor, service)
             assertSame(service, actor.localServices)
-            assertTrue(actor.work(1))
+            assertTrue(service.hasPendingRequests)
+            assertFalse(actor.work(1), "One quantum starts the detached request phase and cannot complete it")
+            assertFails { actor.freeze() }
+            f.drain(actor, quantum = 1)
+            assertFalse(service.hasPendingRequests)
             actor.freeze()
             assertFails { actor.localServices }
             assertFails { actor.runnerPort }
@@ -202,7 +206,7 @@ class MethodLocalServicesTest {
                 }
                 assertEquals(expected, methodEntries(f.ops, actor.summaries.all()), "boundary=$boundary, $seedKind")
                 assertNull(actor.sourceHits)
-                assertTrue(f.events.none { it is RunEvent.RequestIn })
+                assertTrue(f.events.none { it is RunEvent.RequestIn || it is RunEvent.MarkRequestsIn })
             }
         }
     }

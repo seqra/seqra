@@ -6,6 +6,8 @@ import org.opentaint.dataflow.bidi.interp.SourceRuleOccurrence
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.ConjunctionStore
 import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.store.RequestMarkSet
+import org.opentaint.dataflow.bidi.store.AddedFactStore
 import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.Collections
 
@@ -30,7 +32,14 @@ class Triggers(fired: List<Pair<SinkRule, Layer>>, parts: List<Facts>) {
 interface MethodLocalServices {
     val conjunctions: ConjunctionStore?
     fun addRequest(premise: InitialAp, kind: RequestKind)
+    fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
+        marks.forEachId { addRequest(premise, RequestKind.Mark(TaintMark(it))) }
+    }
     fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts)
+    fun onAddedLink(update: AddedFactStore.Update) = onAddedLink(update.ref, update.group.layer, update.delta)
+    val hasPendingRequests: Boolean get() = false
+    /** A positive, bounded service opportunity; callbacks can admit another frontier. */
+    fun flushRequests(quantum: Int): Boolean = true
     fun conjunction(edge: ConjunctiveEdge, premise: PremiseKey, facts: Facts, node: CommonInst,
                     sink: (PremiseKey, Facts) -> Unit)
     fun sourcePredicate(source: SourceRuleOccurrence, premise: PremiseKey, facts: Facts, node: CommonInst,

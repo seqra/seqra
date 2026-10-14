@@ -48,6 +48,14 @@ class CurrentModeFixtures : AutoCloseable {
                     requestRows += CurrentRequest(run, key, premise.toPattern(), kind)
                     delegate.addRequest(premise, kind)
                 }
+                override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
+                    marks.forEachMark { requestRows += CurrentRequest(run, key, premise.toPattern(), RequestKind.Mark(it)) }
+                    delegate.addMarkRequests(premise, marks)
+                }
+                override fun onAddedLink(update: AddedFactStore.Update) {
+                    for (leaf in ops.leaves(update.delta)) linkRows += CurrentLink(run, key, update.ref, update.group.layer, leaf)
+                    delegate.onAddedLink(update)
+                }
                 override fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts) {
                     for (leaf in ops.leaves(delta)) linkRows += CurrentLink(run, key, ref, linkLayer, leaf)
                     delegate.onAddedLink(ref, linkLayer, delta)

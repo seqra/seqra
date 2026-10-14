@@ -52,6 +52,12 @@ class RunMethodHandlersTest {
                     override fun addRequest(premise: InitialAp, kind: RequestKind) {
                         requests += premise to kind
                     }
+                    override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
+                        marks.forEachMark { addRequest(premise, RequestKind.Mark(it)) }
+                    }
+                    override fun onAddedLink(update: AddedFactStore.Update) {
+                        onAddedLink(update.ref, update.group.layer, update.delta)
+                    }
                     override fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts) {
                         links += Triple(ref, linkLayer, delta)
                     }

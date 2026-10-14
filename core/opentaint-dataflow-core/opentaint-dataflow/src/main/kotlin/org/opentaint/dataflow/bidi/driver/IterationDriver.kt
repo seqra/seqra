@@ -99,6 +99,9 @@ class IterationDriver internal constructor(
         shared.n2Statistics?.let { statistics ->
             logger.info { "BIDI_N2_STATISTICS run=${config.index} direction=${config.direction} limit=${config.fieldLimit} phase=$phase totals=${statistics.snapshot()}" }
         }
+        shared.requestBatchStatistics?.let { statistics ->
+            logger.info { "BIDI_REQUEST_BATCH_STATISTICS run=${config.index} direction=${config.direction} limit=${config.fieldLimit} phase=$phase totals=${statistics.snapshot()}" }
+        }
     }
 
     private fun barrier(config: RunConfig, result: RunResult<RunMethodAnalyzer>, report: ReportBuilder): Next {

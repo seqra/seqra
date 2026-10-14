@@ -51,6 +51,10 @@ class ProductionSchedule(
                 requests += ObservedRequest(actor.key, premise.toPattern(), kind)
                 actual.addRequest(premise, kind)
             }
+            override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
+                marks.forEachMark { requests += ObservedRequest(actor.key, premise.toPattern(), RequestKind.Mark(it)) }
+                actual.addMarkRequests(premise, marks)
+            }
         }
     }, MethodCallServicesFactory(::RunMethodCallServices))
 
@@ -64,6 +68,7 @@ class ProductionSchedule(
             "call=${event.ref.call},linkLayer=${event.linkLayer},added=${shared.ops.leaves(event.added).toList()})"
         is RunEvent.ZeroIn -> "Zero(${event.callee})"
         is RunEvent.RequestIn -> "Request(${event.method},${event.premise.toPattern()},${requestDescription(event.request)})"
+        is RunEvent.MarkRequestsIn -> "MarkRequests(${event.method},${event.premise.toPattern()},${event.marks})"
         is RunEvent.Delivery -> "Delivery(${event.callee},${event.publications.flatMap {
             observedEdges(shared.ops, event.callee, it.premise, it.conclusion)
         }})"

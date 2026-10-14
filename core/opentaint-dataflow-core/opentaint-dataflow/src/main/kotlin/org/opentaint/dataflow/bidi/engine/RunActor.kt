@@ -10,7 +10,7 @@ interface RunActor {
     val demandLayerEdges: Long
     val recordCrossings: Long
 
-    /** True only after all local work and pending publications are complete. */
+    /** True only after fact work, publications and deferred request owners are complete. */
     fun work(quantum: Int): Boolean
 
     /** Called at a complete barrier, after every runner has joined. */

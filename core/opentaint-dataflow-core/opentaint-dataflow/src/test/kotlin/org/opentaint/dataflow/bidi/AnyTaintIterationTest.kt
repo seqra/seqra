@@ -44,6 +44,10 @@ class AnyTaintIterationTest {
                         requests += config.index to ObservedRequest(core.key, premise.toPattern(), kind)
                         actual.addRequest(premise, kind)
                     }
+                    override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
+                        marks.forEachMark { requests += config.index to ObservedRequest(core.key, premise.toPattern(), RequestKind.Mark(it)) }
+                        actual.addMarkRequests(premise, marks)
+                    }
                 }
             }
             val calls = MethodCallServicesFactory(::RunMethodCallServices)

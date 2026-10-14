@@ -3597,6 +3597,19 @@ uses this visitor for new links and the selective existing-link scan for new req
 (§7.10) states the equivalent two-arrival-order rule; it is not a requirement to allocate request Pairs
 for the N1 hot path. Both stores remain actor-owned (`analyzer-impl.md` §4.8).
 
+The request-set implementation uses batched mark-row visitors and a separate position-only visitor.
+`RequestMarkSet` owns immutable primitive IDs; its builder is actor-owned. Temporary request sets do
+not enter the strong AP canonical table. A receiver admits each exact membership at once and keeps
+only fresh memberships in its pending frontier. The scalar interfaces remain the reference relation.
+Admission ordinals distinguish old and fresh request members without a second lifetime relation.
+
+`AddedFactStore.addUpdate` returns the stable raw group handle, complete caller reference, admitted
+header, cumulative Facts and fresh delta. Group visitors read one captured phase view. If an active
+phase spans a later update, it retains that group's previous immutable Facts until the phase ends;
+new groups beyond its horizon are not visible. This bounded phase ownership is not historical storage.
+Accumulate pending roots under the admitted group header, including when an exact-only delta clears E.
+The method barrier and two-sided join law are specified in `analyzer-core.md` §4.6.
+
 ### 7.10 `KaryJoin`, `StandingJoin`, `ConjunctionStore`, `NdSummaryJoin` (`ap.md` §8.8, §8.9, `analyzer-core.md` §5.4)
 
 THE STANDING JOINS. Two utilities for the rule "the input that arrives last completes the combination". `KaryJoin` has

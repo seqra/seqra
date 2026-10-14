@@ -3,6 +3,11 @@ package org.opentaint.dataflow.bidi.store
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.InitialAp
+import org.opentaint.dataflow.bidi.ap.Facts
+import org.opentaint.dataflow.bidi.ap.FlowTree
+import org.opentaint.dataflow.bidi.ap.TaintTree
+import org.opentaint.dataflow.bidi.ap.TaintMark
+import org.opentaint.dataflow.bidi.ap.TrieNode
 import org.opentaint.dataflow.util.Cancellation
 
 /** Append-only primitive lane. Handles are insertion ordinals, so a horizon needs no copied member list. */
@@ -109,6 +114,7 @@ internal class RequestMembers(private val census: N1Statistics.Census?, private 
         private set
     private var firstKey = 0
     private var firstHandle = -1
+    val firstOrdinal: Int get() = firstHandle
     private var keys = REQUEST_EMPTY_INTS
     private var handles = REQUEST_EMPTY_INTS
     private var hashed = false
@@ -146,6 +152,51 @@ internal class RequestMembers(private val census: N1Statistics.Census?, private 
         } else { keys[size] = key; handles[size] = handle }
         size = Math.addExact(size, 1)
     }
+    /** Captured table references remain valid through later growth; ordinal bounds reject later insertions. */
+    fun before(horizon: Int): RequestMarkSelection {
+        val capturedSize = size
+        val capturedKey = firstKey
+        val capturedHandle = firstHandle
+        val capturedKeys = keys
+        val capturedHandles = handles
+        val capturedHashed = hashed
+        val bound = if (capturedHashed) capturedHandles.size else capturedSize
+        return object : RequestMarkSelection {
+            override fun containsId(id: Int): Boolean {
+                cancellation?.checkpoint()
+                if (capturedSize == 0) return false
+                if (capturedSize == 1) return id == capturedKey && capturedHandle < horizon
+                if (!capturedHashed) {
+                    for (index in 0 until bound) if (capturedKeys[index] == id)
+                        return capturedHandles[index] < horizon
+                    return false
+                }
+                var slot = requestMix(id) and (capturedKeys.size - 1)
+                while (capturedHandles[slot] >= 0) {
+                    if (capturedKeys[slot] == id) return capturedHandles[slot] < horizon
+                    slot = (slot + 1) and (capturedKeys.size - 1)
+                }
+                return false
+            }
+            override fun cursor(): RequestMarkCursor = object : RequestMarkCursor {
+                private var offset = 0
+                override val isComplete: Boolean get() = offset == bound
+                override fun step(budget: Int, visit: (TaintMark) -> Unit): Int {
+                    require(budget > 0)
+                    var used = 0
+                    while (used < budget && offset < bound) {
+                        cancellation?.checkpoint()
+                        val index = offset++
+                        val handle = if (capturedSize == 1) capturedHandle else capturedHandles[index]
+                        if (handle >= 0 && handle < horizon)
+                            visit(TaintMark(if (capturedSize == 1) capturedKey else capturedKeys[index]))
+                        used++
+                    }
+                    return used
+                }
+            }
+        }
+    }
     private fun allocate(capacity: Int, hashed: Boolean) {
         val nextKeys = IntArray(capacity)
         val nextHandles = IntArray(capacity) { -1 }
@@ -172,8 +223,9 @@ internal class RequestBucket(census: N1Statistics.Census?) {
 
 /** The same prefix/extension traversal as PathTrie, with buckets only at populated positions. */
 internal class RequestPathIndex(private val cancellation: Cancellation?, private val census: N1Statistics.Census?) {
-    private class Node {
+    class Node {
         var children: Int2ObjectOpenHashMap<Node>? = null
+        val childOrder = ArrayList<Node>()
         var bucket: RequestBucket? = null
         fun child(accessor: Int): Node? = children?.get(accessor)
     }
@@ -184,7 +236,7 @@ internal class RequestPathIndex(private val cancellation: Cancellation?, private
         for (accessor in path) {
             cancellation?.checkpoint()
             val children = node.children ?: Int2ObjectOpenHashMap<Node>().also { node.children = it }
-            node = children.getOrPut(accessor) { Node().also { census?.node() } }
+            node = children.getOrPut(accessor) { Node().also { node.childOrder.add(it); census?.node() } }
         }
         cancellation?.checkpoint()
         return node.bucket ?: RequestBucket(census).also { node.bucket = it; census?.bucket() }
@@ -208,6 +260,58 @@ internal class RequestPathIndex(private val cancellation: Cancellation?, private
             child.children?.values?.let(stack::addAll)
         }
         return out
+    }
+    /** Positional prefix/extension union without enumerating every fact leaf or copying a wide subtree. */
+    fun around(facts: Facts): BucketCursor {
+        val root = roots[facts.base]
+        val factRoot: TrieNode<*>? = when (facts) {
+            is FlowTree -> facts.root
+            is TaintTree -> facts.root
+            else -> null
+        }
+        return BucketCursor(root, factRoot, cancellation)
+    }
+
+    internal class BucketCursor(
+        root: Node?, facts: TrieNode<*>?, private val cancellation: Cancellation?,
+    ) {
+        private class Frame(val node: Node, val facts: TrieNode<*>?) {
+            var entered = false
+            var offset = 0
+            val childBound = node.childOrder.size
+        }
+        private val stack = ArrayDeque<Frame>().apply {
+            if (root != null && facts != null) addLast(Frame(root, facts))
+        }
+        val isComplete: Boolean get() = stack.isEmpty()
+        fun step(budget: Int, visit: (RequestBucket) -> Unit): Int {
+            require(budget > 0)
+            var used = 0
+            while (used < budget && stack.isNotEmpty()) {
+                cancellation?.checkpoint()
+                val frame = stack.last()
+                if (!frame.entered) {
+                    frame.entered = true
+                    frame.node.bucket?.let(visit)
+                    used++
+                } else if (frame.facts == null || !frame.facts.leaf.isEmpty) {
+                    if (frame.offset < frame.childBound) {
+                        stack.addLast(Frame(frame.node.childOrder[frame.offset++], null))
+                        used++
+                    } else { stack.removeLast(); used++ }
+                } else {
+                    val children = frame.facts.childData
+                    if (children != null && frame.offset < children.size) {
+                        val offset = frame.offset++
+                        frame.node.child(frame.facts.accessorData!![offset])?.let {
+                            stack.addLast(Frame(it, children[offset]))
+                        }
+                        used++
+                    } else { stack.removeLast(); used++ }
+                }
+            }
+            return used
+        }
     }
     fun clear() { roots.clear() }
 }

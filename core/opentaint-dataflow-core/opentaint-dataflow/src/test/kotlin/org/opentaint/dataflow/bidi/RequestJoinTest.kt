@@ -29,8 +29,26 @@ class RequestJoinTest {
         if (firstRequest) core.addRequest(premise, kind)
         core.addLink(ref, added.layer, added)
         if (!firstRequest) core.addRequest(premise, kind)
+        if (kind is RequestKind.Mark) {
+            assertTrue(core.initials.all().none { !it.isZero && it.mark is MarkSlot.Concrete },
+                "Mark answers wait for the explicit method barrier")
+            barrier(core)
+        }
     }
-    private fun climbs(f: MethodAnalysisFixtures): List<RunEvent.RequestIn> = f.events.filterIsInstance<RunEvent.RequestIn>()
+    private fun barrier(actor: RunMethodAnalyzer) {
+        val local = assertIs<RunMethodLocalServices>(actor.localServices)
+        var chunks = 0
+        while (!local.flushRequests(3)) check(++chunks < 100_000)
+        assertFalse(local.hasPendingRequests)
+    }
+    private fun climbs(f: MethodAnalysisFixtures): List<RunEvent.RequestIn> = buildList {
+        for (event in f.events) when (event) {
+            is RunEvent.RequestIn -> add(event)
+            is RunEvent.MarkRequestsIn -> for (i in 0 until event.marks.size)
+                add(RunEvent.RequestIn(event.method, event.premise, RequestKind.Mark(event.marks.markAt(i))))
+            else -> Unit
+        }
+    }
 
     @Test
     fun `a callback request for a later bucket joins once through its own new-request path`(): Unit {
@@ -57,14 +75,17 @@ class RequestJoinTest {
             val added = f.fact(base = static, path = listOf(cls, field), tail = Tail.STAR, mark = MarkSlot.STAR)
             actor.addLink(a, Layer.NORMAL, added)
             assertTrue(inserted)
+            assertTrue(climbs(f).isEmpty(), "The position callback is prompt; its mark requests are deferred")
+            barrier(actor)
             assertEquals(listOf(RunEvent.RequestIn(a.caller, a.premise as InitialAp, RequestKind.Mark(t)),
                 RunEvent.RequestIn(a.caller, a.premise as InitialAp, RequestKind.Mark(u))), climbs(f))
             assertTrue(atClass in actor.initials.all().toSet())
             f.onCut = null
             val b = caller(f, "B", static, flow = true)
             actor.addLink(b, Layer.NORMAL, added)
-            assertEquals(listOf(RunEvent.RequestIn(b.caller, b.premise as InitialAp, RequestKind.Mark(u)),
-                RunEvent.RequestIn(b.caller, b.premise as InitialAp, RequestKind.Mark(t))), climbs(f).takeLast(2))
+            barrier(actor)
+            assertEquals(setOf(RunEvent.RequestIn(b.caller, b.premise as InitialAp, RequestKind.Mark(u)),
+                RunEvent.RequestIn(b.caller, b.premise as InitialAp, RequestKind.Mark(t))), climbs(f).takeLast(2).toSet())
         }
     }
 
@@ -96,6 +117,8 @@ class RequestJoinTest {
             assertEquals(setOf(i), actor.initials.all().toSet())
             assertTrue(climbs(f).isEmpty())
             actor.addLink(caller(f, "concrete"), Layer.NORMAL, f.fact(mark = MarkSlot.Concrete(t)))
+            assertEquals(setOf(i), actor.initials.all().toSet(), "The late mark answer is deferred")
+            barrier(actor)
             assertEquals(setOf(i, initial(f, x, emptyList(), Tail.EXACT, t)), actor.initials.all().toSet())
             assertTrue(climbs(f).isEmpty())
         }
@@ -141,12 +164,14 @@ class RequestJoinTest {
                 assertSame(a.premise, b.premise)
                 arrive(actor, firstRequest, i, request, a, added)
                 actor.addLink(b, Layer.NORMAL, added)
+                barrier(actor)
                 assertEquals(listOf(RunEvent.RequestIn(a.caller, a.premise as InitialAp, request),
                     RunEvent.RequestIn(b.caller, b.premise as InitialAp, request)), climbs(f))
                 val enqueues = f.enqueued.size
                 actor.addRequest(i, request)
                 actor.addLink(a, Layer.NORMAL, added)
                 actor.addLink(b, Layer.NORMAL, added)
+                barrier(actor)
                 assertEquals(2, climbs(f).size)
                 assertEquals(enqueues, f.enqueued.size)
                 assertEquals(setOf(i), actor.initials.all().toSet())
@@ -167,6 +192,7 @@ class RequestJoinTest {
             val actor = core(f)
             arrive(actor, firstRequest, i, request, normalCaller, added)
             actor.addLink(demandCaller, Layer.DEMAND, added)
+            barrier(actor)
             val expected = RunEvent.RequestIn(normalCaller.caller, normalCaller.premise as InitialAp, request)
             assertEquals(listOf(expected, expected), climbs(f), "Each complete caller reference has its own standing join")
             assertTrue(climbs(f).all { it.premise === normalCaller.premise })
@@ -224,6 +250,8 @@ class RequestJoinTest {
                 "linkT" -> actor.addLink(ref, Layer.NORMAL, f.fact(mark = MarkSlot.Concrete(t)))
                 else -> actor.addLink(ref, Layer.NORMAL, f.fact(mark = MarkSlot.Concrete(u)))
             }
+            assertEquals(setOf(i), actor.initials.all().toSet(), "No answer precedes the crossed-arrival barrier")
+            barrier(actor)
             val at = initial(f, x, emptyList(), Tail.EXACT, t)
             val au = initial(f, x, emptyList(), Tail.EXACT, u)
             assertEquals(setOf(i, at, au), actor.initials.all().toSet(), order.toString())
@@ -244,6 +272,7 @@ class RequestJoinTest {
             actor.addRequest(i, request)
             actor.addLink(caller(f, node = 0), Layer.NORMAL, f.fact(mark = MarkSlot.Concrete(t)))
             actor.addLink(caller(f, node = 1), Layer.NORMAL, f.fact(path = listOf(a), mark = MarkSlot.Concrete(t)))
+            barrier(actor)
             val exact = initial(f, x, emptyList(), Tail.EXACT, t)
             val chain = initial(f, x, emptyList(), Tail.STAR, t)
             assertEquals(setOf(i, exact, chain), actor.initials.all().toSet())
@@ -252,10 +281,12 @@ class RequestJoinTest {
             val second = caller(f, "up", node = 1, flow = true)
             actor.addLink(first, Layer.NORMAL, abstract)
             actor.addLink(second, Layer.NORMAL, abstract)
-            assertEquals(listOf(RunEvent.RequestIn(first.caller, first.premise as InitialAp, request),
-                RunEvent.RequestIn(second.caller, second.premise as InitialAp, request)), climbs(f))
+            barrier(actor)
+            assertEquals(listOf(RunEvent.RequestIn(first.caller, first.premise as InitialAp, request)), climbs(f),
+                "Two raw call sites project to one exact target request in this phase")
+            assertEquals(setOf(first, second), actor.links.links().map { it.caller }.filter { it.caller == first.caller }.toSet())
             actor.addLink(second, Layer.NORMAL, abstract)
-            assertEquals(2, climbs(f).size)
+            assertEquals(1, climbs(f).size)
         }
     }
 
@@ -414,9 +445,11 @@ class RequestJoinTest {
             assertTrue(a.initials.all().isEmpty())
             assertEquals(setOf(i), b.initials.all().toSet())
             a.addLink(ref, Layer.NORMAL, added)
+            barrier(a)
             val climb = RunEvent.RequestIn(ref.caller, ref.premise as InitialAp, kind)
             assertEquals(listOf(climb), climbs(f))
             b.addRequest(i, kind)
+            barrier(b)
             assertEquals(listOf(climb, climb), climbs(f), "Both distinct actor stores run their own first join")
             a.addRequest(i, kind)
             b.addRequest(i, kind)
@@ -441,6 +474,8 @@ class RequestJoinTest {
             assertEquals(setOf(i), actor.initials.all().toSet())
             f.cancellation.activate()
             actor.addRequest(i, RequestKind.Mark(t))
+            assertEquals(setOf(i), actor.initials.all().toSet(), "Reactivate admits the request before answering")
+            barrier(actor)
             assertEquals(setOf(i, answer), actor.initials.all().toSet(), "No cancelled insertion may suppress the legitimate first request")
             f.drain(actor)
             assertTrue(f.processed.any { it.premise === answer })

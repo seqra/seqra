@@ -60,15 +60,21 @@ class RunMethodAnalyzer(
     }
 
     fun addLink(ref: CallerRef, linkLayer: Layer, added: Facts) {
-        val delta = links.add(ref, linkLayer, added) ?: return
+        val update = links.addUpdate(ref, linkLayer, added) ?: return
+        val delta = update.delta
         if (delta.layer == Layer.DEMAND) demandLayerEdges++
         emit(delta)
-        localServices.onAddedLink(ref, linkLayer, delta)
+        localServices.onAddedLink(update)
     }
 
     fun addRequest(premise: InitialAp, kind: RequestKind) {
         check(config.run1) { "Requests exist only in run 1" }
         localServices.addRequest(premise, kind)
+    }
+
+    fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
+        check(config.run1) { "Requests exist only in run 1" }
+        localServices.addMarkRequests(premise, marks)
     }
 
     private fun emit(delta: Facts) {
@@ -131,14 +137,26 @@ class RunMethodAnalyzer(
         while (true) {
             ap.cancellation.checkpoint()
             while (!worklist.isEmpty) {
-                if (processed >= quantum || worklist.hasZeroWork != zeroAtStart) return false
+                // Keep the zero phase separate. A selected nonzero quantum also gives deferred
+                // requests one bounded service opportunity when this method's fact queue stays busy.
+                if (worklist.hasZeroWork != zeroAtStart) return false
+                if (processed >= quantum) {
+                    if (!zeroAtStart) localServices.flushRequests(quantum)
+                    return false
+                }
                 processed++
                 process(worklist.removeNext())
                 worklist.afterProcess()
             }
             flushPublications()
             ap.cancellation.checkpoint()
-            if (worklist.isEmpty && pending.isEmpty()) return true
+            if (!worklist.isEmpty || pending.isNotEmpty()) continue
+            val requestsComplete = localServices.flushRequests(quantum)
+            ap.cancellation.checkpoint()
+            // Answers and sends can synchronously create facts, publications or a new request
+            // frontier. Retain the existing counted Work token until all of them are complete.
+            if (!requestsComplete) return false
+            if (worklist.isEmpty && pending.isEmpty() && !localServices.hasPendingRequests) return true
         }
     }
 
@@ -193,7 +211,7 @@ class RunMethodAnalyzer(
         check(premise !is PremiseSet || facts is TaintTree) { "A multi-premise edge must be TAINT" }
     }
 
-    private fun requestWork() { runnerPort.enqueue(this) }
+    internal fun requestWork() { runnerPort.enqueue(this) }
 
     private inner class RuleWorklist(
         private val rules: RuleStatement,
@@ -322,7 +340,9 @@ class RunMethodAnalyzer(
     internal fun countTriggerSeed() { triggerSeeds++ }
 
     override fun freeze() {
-        check(worklist.isEmpty && pending.isEmpty()) { "A method cannot freeze with unfinished work" }
+        check(worklist.isEmpty && pending.isEmpty() && !localServices.hasPendingRequests) {
+            "A method cannot freeze with unfinished work"
+        }
         var failure: Throwable? = null
         fun release(action: () -> Unit) {
             try { action() }

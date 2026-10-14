@@ -6,6 +6,7 @@ import org.opentaint.dataflow.bidi.ap.Layer
 import org.opentaint.dataflow.bidi.ap.MethodKey
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import java.util.Collections
 
 sealed interface RunEvent {
@@ -13,6 +14,9 @@ sealed interface RunEvent {
     data class LinkIn(val callee: MethodKey, val ref: CallerRef, val linkLayer: Layer, val added: Facts) : RunEvent
     data class ZeroIn(val callee: MethodKey) : RunEvent
     data class RequestIn(val method: MethodKey, val premise: InitialAp, val request: RequestKind) : RunEvent
+
+    /** Independent mark requests for one exact target origin; the set owns immutable storage. */
+    data class MarkRequestsIn(val method: MethodKey, val premise: InitialAp, val marks: RequestMarkSet) : RunEvent
 
     /** The publisher can clear its pending list as soon as this event is sent. */
     class Delivery(val callee: MethodKey, publications: List<Publication>) : RunEvent {
@@ -27,5 +31,6 @@ fun RunEvent.target(): MethodKey = when (this) {
     is RunEvent.LinkIn -> callee
     is RunEvent.ZeroIn -> callee
     is RunEvent.RequestIn -> method
+    is RunEvent.MarkRequestsIn -> method
     is RunEvent.Delivery, is RunEvent.Work -> error("Delivery and Work require their owning runner")
 }

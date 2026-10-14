@@ -7,6 +7,7 @@ import org.opentaint.dataflow.bidi.fixtures.*
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import kotlin.test.*
 
 /** Independent accepted-leaf history versus cumulative P6 delivery. No new storage/index is an oracle. */
@@ -144,6 +145,10 @@ class CumulativeSubscriptionEquivalenceTest {
                         override fun addRequest(premise: InitialAp, kind: RequestKind) {
                             f.requests += premise to kind
                             delegate.addRequest(premise, kind)
+                        }
+                        override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
+                            marks.forEachMark { f.requests += premise to RequestKind.Mark(it) }
+                            delegate.addMarkRequests(premise, marks)
                         }
                     }
                 },

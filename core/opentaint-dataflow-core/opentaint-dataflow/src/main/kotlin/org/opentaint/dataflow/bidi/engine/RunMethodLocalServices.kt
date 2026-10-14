@@ -19,25 +19,28 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
         if (core.forward) RulePredicateStore(core.ap, core.context.shared.formStatistics) else null
     override val conjunctions: ConjunctionStore? get() = conjunctionStore
     private var triggered: HashSet<Pair<CommonInst, Any>>? = HashSet()
-    private var requestJoin: RequestJoin? = if (core.config.run1) RequestJoin() else null
+    private var requestJoin: PositionJoin? = if (core.config.run1) PositionJoin() else null
+    private var hasMarkRequests = false
+    private var hasPositionRequests = false
+    private var requestFrontier: RequestFrontier? = if (core.config.run1) RequestFrontier(
+        core.ops, checkNotNull(requests), core.links,
+        answer = { activeCore().addInitial(it) },
+        send = { method, initial, marks ->
+            activeCore().runnerPort.send(RunEvent.MarkRequestsIn(method, initial, marks))
+        }, statistics = core.context.shared.requestBatchStatistics) else null
+    override val hasPendingRequests: Boolean get() = requestFrontier?.hasPending == true
 
-    private inner class RequestJoin {
-        fun newA(initial: InitialAp, kind: RequestKind) {
+    /** Position requests retain their prompt scalar answer/climb path. */
+    private inner class PositionJoin {
+        fun newA(initial: InitialAp, kind: RequestKind.Position) {
             val core = activeCore()
             val query = checkNotNull(requests).query(initial, kind)
-            val links = when (kind) {
-                is RequestKind.Mark -> core.links.overlapping(initial.base, initial.path)
-                is RequestKind.Position -> core.links.overlapping(STATIC, kind.path)
-            }
+            val links = core.links.overlapping(STATIC, kind.path)
             val counts = if (requestStatistics == null) null else N1Statistics.Actions()
             try {
                 for (link in links) {
                     core.ap.cancellation.checkpoint()
                     if (counts != null) counts.existingLinks++
-                    if (kind is RequestKind.Mark) when (val mark = link.addedFact.fact.mark) {
-                        is MarkSlot.Concrete -> if (mark.mark != kind.mark) continue
-                        is MarkSlot.Star -> if (kind.mark in mark.excluded) continue
-                    }
                     if (!overlap(link.addedFact, query)) continue
                     if (counts != null) counts.selectedLinks++
                     act(initial, kind, link.addedFact, link.caller, counts)
@@ -50,7 +53,7 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
             activeCore()
             val counts = if (requestStatistics == null) null else N1Statistics.Actions()
             try {
-                checkNotNull(requests).visitActionCandidates(link.addedFact) { initial, kind ->
+                checkNotNull(requests).visitPositionCandidates(link.addedFact) { initial, kind ->
                     act(initial, kind, link.addedFact, link.caller, counts)
                 }
             } finally {
@@ -67,16 +70,52 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
         check(core.config.run1) { "Requests exist only in run 1" }
         if (checkNotNull(requests).add(premise, kind)) {
             core.ap.cancellation.checkpoint()
-            checkNotNull(requestJoin).newA(premise, kind)
+            when (kind) {
+                is RequestKind.Mark -> {
+                    hasMarkRequests = true
+                    checkNotNull(requestFrontier).add(premise, kind.mark)
+                    core.requestWork()
+                }
+                is RequestKind.Position -> {
+                    hasPositionRequests = true
+                    checkNotNull(requestJoin).newA(premise, kind)
+                }
+            }
         }
     }
 
+    override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
+        val core = activeCore()
+        check(core.config.run1) { "Requests exist only in run 1" }
+        val fresh = checkNotNull(requests).addMarks(premise, marks).fresh
+        if (fresh.isEmpty) return
+        hasMarkRequests = true
+        checkNotNull(requestFrontier).add(premise, fresh)
+        core.requestWork()
+    }
+
+    override fun flushRequests(quantum: Int): Boolean {
+        activeCore()
+        require(quantum > 0) { "The request-work quantum must be positive" }
+        return requestFrontier?.flush(quantum) ?: true
+    }
+
     override fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts) {
+        activeCore()
+        error("Deferred request joins need the raw link's admitted group metadata")
+    }
+
+    override fun onAddedLink(update: AddedFactStore.Update) {
         val core = activeCore()
         val join = requestJoin ?: return
-        for (leaf in core.ops.leaves(delta)) {
+        if (hasPositionRequests) for (leaf in core.ops.leaves(update.delta)) {
             core.ap.cancellation.checkpoint()
-            join.newB(Link(leaf, linkLayer, ref))
+            join.newB(Link(leaf, update.group.layer, update.ref))
+        }
+        // With no standing mark row, a later fresh request sees the whole current link store.
+        if (hasMarkRequests && update.delta !is Reach) {
+            checkNotNull(requestFrontier).add(update)
+            core.requestWork()
         }
     }
 
@@ -281,6 +320,8 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
     }
 
     override fun freeze() {
+        requestFrontier?.release()
+        requestFrontier = null
         requestJoin = null
         requests?.release()
         requests = null

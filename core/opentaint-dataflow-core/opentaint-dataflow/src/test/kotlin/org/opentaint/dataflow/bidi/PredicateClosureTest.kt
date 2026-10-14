@@ -24,22 +24,24 @@ class PredicateClosureTest {
                                val sources: List<Pair<org.opentaint.ir.api.common.cfg.CommonInst, PathEdge>>,
                                val fields: List<Int>, val marks: List<TaintMark>, val output: PathFact, val end: PathFact)
 
-    private fun program(f: DriverFixtures): Program {
+    private fun program(f: DriverFixtures, width: Int = 1): Program {
         val p = f.program
         val rootMethod = p.method("predicate caller", listOf(listOf(1, 2), listOf(3), listOf(4), listOf(5), listOf(3), emptyList()), 5)
         val calleeMethod = p.method("predicate callee", listOf(listOf(1), emptyList()), 1)
         val root = rootMethod.key("caller context")
         val callee = calleeMethod.key("callee context")
-        val t = MarkSlot.Concrete(p.mark("T"))
+        val xMarks = List(width) { p.mark(if (it == 0) "T" else "T$it") }
+        val t = MarkSlot.Concrete(xMarks.first())
         val u = MarkSlot.Concrete(p.mark("U"))
         val v = MarkSlot.Concrete(p.mark("V"))
         val out = MarkSlot.Concrete(p.mark("Out"))
         val end = MarkSlot.Concrete(p.mark("End"))
         val fields = listOf(p.field("a"), p.field("b"))
         val sourceX = PathEdge(ZERO_FACT, p.pattern(x, mark = t).fact, ExclusionSet.Empty)
+        val xSources = xMarks.map { PathEdge(ZERO_FACT, p.pattern(x, mark = MarkSlot.Concrete(it)).fact, ExclusionSet.Empty) }
         val sourceY = PathEdge(ZERO_FACT, p.pattern(y, fields, mark = u).fact, ExclusionSet.Empty)
         val sourceZ = PathEdge(ZERO_FACT, p.pattern(z, mark = v).fact, ExclusionSet.Empty)
-        p.entry(root, RuleStatement(f.summary(ZERO_KEEP, sourceX), StatementSummary.EMPTY, emptyList()))
+        p.entry(root, RuleStatement(f.summary(*(listOf(ZERO_KEEP) + xSources).toTypedArray()), StatementSummary.EMPTY, emptyList()))
         p.statement(root, 1, f.summary(ZERO_KEEP, sourceZ))
         p.statement(root, 4, f.summary(ZERO_KEEP, sourceY))
         val call = CallPlan(setOf(x, y, z, resultBase, finalEnd), listOf(
@@ -59,7 +61,7 @@ class PredicateClosureTest {
         val form = FormKey(FormOwner(), callee.method, callee, calleeMethod.inst(1))
         val sourceId = RuleOccurrenceId(form, RuleKind.EXIT_SOURCE, 0)
         val builder = RulePredicate.Builder(p.cancellation)
-        val px = builder.leaf(p.pattern(x, mark = t))
+        val px = builder.or(xMarks.map { builder.leaf(p.pattern(x, mark = MarkSlot.Concrete(it))) })
         val py = builder.leaf(p.pattern(y, tail = Tail.ANY, mark = u))
         val pz = builder.leaf(p.pattern(z, mark = v))
         // The y branch arrives later; either x or z can provide the other independent input.
@@ -82,7 +84,7 @@ class PredicateClosureTest {
             StatementSummary(emptySet(), listOf(endEdge), emptyList(), emptyMap()), listOf(sink)), true, emptySet()))
         return Program(root, callee, sink, listOf(rootMethod.inst(0) to sourceX,
             rootMethod.inst(4) to sourceY, rootMethod.inst(1) to sourceZ), fields,
-            listOf(t.mark, u.mark, v.mark, out.mark, end.mark), output, endFact)
+            xMarks + listOf(u.mark, v.mark, out.mark, end.mark), output, endFact)
     }
 
     private fun universe(f: DriverFixtures, p: Program) = BoundedDenotation(
@@ -121,6 +123,29 @@ class PredicateClosureTest {
 
     private fun retained(observation: RunObservation) = RunObservation(rawSummaries = observation.rawSummaries,
         selectedDemand = observation.selectedDemand, sourceHits = observation.sourceHits, witnesses = observation.witnesses)
+
+    @Test
+    fun `wide source and sink NNF requests preserve full scalar closure across batch schedules`(): Unit {
+        for (limit in listOf(1, 2)) DriverFixtures().use { f ->
+            val p = program(f, width = 8)
+            val config = f.program.config(L = limit, roots = listOf(p.root))
+            val expected = NaiveClosure(f.program, config).run()
+            val raw = RawCurrentClosure(f.program, config, f.program.inputs(config)).run()
+            expected.assertEquivalent(raw, universe(f, p))
+            assertTrue(expected.requests.mapNotNull { (it.kind as? RequestKind.Mark)?.mark }
+                .toSet().containsAll(p.marks.take(8)))
+            for (sameUnit in listOf(false, true)) for (quantum in listOf(1, 7)) for (seed in listOf(19L, 73L)) {
+                val scheduler = ProductionSchedule(f.program, config, sameUnit, SchedulePolicy.SEEDED,
+                    seed = seed, quantum = quantum, duplicateDeliveries = true)
+                try { expected.assertEquivalent(scheduler.run(), universe(f, p)) }
+                catch (e: AssertionError) { throw AssertionError("wide requests L=$limit seed=$seed " +
+                    "sameUnit=$sameUnit quantum=$quantum trace=${scheduler.trace}", e) }
+            }
+            val result = f.run(config)
+            assertEquals(RunStatus.COMPLETE, result.status)
+            retained(expected).assertEquivalent(retained(result, f.ops), universe(f, p))
+        }
+    }
 
     @Test
     fun `delayed AND OR sources and NNF sink END agree through complete real forward runs at positive limits`(): Unit {
@@ -171,9 +196,9 @@ class PredicateClosureTest {
             assertEquals(p.sink.occurrenceId, physical.occurrence)
             assertEquals(p.callee, physical.method)
             assertSame(node, physical.statement)
-            // Normalize the stored summary UNION before handoff, inside its full method,
-            // premise and layer scope. The demanded Y root ANY/U covers its [a] projection.
-            // DemandStore.Builder itself only exact-deduplicates these resulting patterns.
+            // The scalar reference gives a minimal logical inventory. T5 is disabled: a late
+            // root ANY does not remove an earlier stored child. HandOff expands retained leaves
+            // and exact-deduplicates them; it does not require this minimal representation.
             val canonical = expected.selectedDemand.filter { edge -> expected.selectedDemand.none { other ->
                 other != edge && other.method == edge.method && other.premise == edge.premise &&
                     other.conclusion.demand && edge.conclusion.demand &&
@@ -186,7 +211,6 @@ class PredicateClosureTest {
             // Caller: Y, result and END. Callee: Y's answer, three return-premise chains
             // (X, Y, Z), and END. Repeated Y chains exact-deduplicate after expansion.
             assertEquals(mapOf(p.root to 3, p.callee to 5), demand.groupingBy { it.first }.eachCount())
-            assertEquals(mapOf(p.root to 3, p.callee to 5), handoff.demandEdges)
             for ((method, pattern) in demand) assertContains(handoff.demand.near(method, pattern.entry.fact.base,
                 f.manager.path(pattern.entry.fact.path)), pattern)
             val bounded = universe(f, p)
@@ -201,10 +225,17 @@ class PredicateClosureTest {
             val observedDemand = listOf(p.root, p.callee).flatMap { method -> bounded.positions.flatMap { position ->
                 handoff.demand.covering(method, position.base, f.manager.path(position.path)).map { method to it }
             } }.distinct()
-            assertEquals(demand.toSet(), observedDemand.toSet())
+            val earlierChild = p.root to DemandPattern(f.program.pattern(y, p.fields.take(1), Tail.ANY,
+                MarkSlot.Concrete(p.marks[1])), ZERO_PATTERN)
+            assertContains(rawDemand, earlierChild, "The independent scalar history contains the cut Y child")
+            val rawHandoff = (demand + earlierChild).toSet()
+            assertEquals(rawHandoff, observedDemand.toSet(), "Pin every full method/exit/path/tail/mark/E of this schedule")
+            assertEquals(mapOf(p.root to 4, p.callee to 5), handoff.demandEdges)
             assertEquals(demandCells(rawDemand), demandCells(observedDemand))
             val seed = Seed.PredicateSink(checkNotNull(p.sink.occurrenceId), p.callee, node)
-            val backward = f.program.config(index = 2, L = 1, roots = listOf(p.root), demand = demand, seeds = listOf(seed))
+            // Use the actual physical handoff. A covered child can still emit a narrower initial,
+            // so F1 denotation alone does not prove this next-run closure.
+            val backward = f.program.config(index = 2, L = 1, roots = listOf(p.root), demand = observedDemand, seeds = listOf(seed))
             val rawRequirements = rawSinkSeedRequirements(f.program, f.program.inputs(backward), p.callee, node)
             assertEquals(p.sink.predicate!!.leaves, rawRequirements)
             assertEquals(1, backward.seeds.size)
@@ -216,6 +247,45 @@ class PredicateClosureTest {
             val joined = f.run(backward)
             assertEquals(RunStatus.COMPLETE, joined.status)
             retained(expectedBackward).assertEquivalent(retained(joined, f.ops), universe(f, p))
+        }
+    }
+
+    @Test
+    fun `batched NNF iteration preserves scalar records support and final report through run three`(): Unit {
+        DriverFixtures().use { f ->
+            val p = program(f)
+            val limits = listOf(1, 1, 2)
+            val reference = RawPredicateIteration(f.program, listOf(p.root), limits).run()
+            val report = f.driver(FixedLimits(limits)).analyze(listOf(p.root))
+            assertEquals(RunStatus.COMPLETE, report.end.status)
+            assertEquals(3, report.end.run)
+            assertEquals(Direction.FORWARD, report.end.direction)
+            assertEquals(EndReason.STOP_RULE, report.end.reason)
+            val states = report.entries.associate { HistoricalFinding(it.key.rule, it.key.statement) to
+                if (it.state == ReportState.CONFIRMED) HistoricalState.CONFIRMED else HistoricalState.DEMAND }
+            assertEquals(reference.findings, states)
+            assertEquals(reference.runs.map { it.index }, f.results.map { it.runIndex })
+            assertEquals(listOf(1, 2, 3), f.results.map { it.runIndex })
+            for ((expected, actual) in reference.runs.zip(f.results)) {
+                assertEquals(RunStatus.COMPLETE, actual.status)
+                val want = expected.observation
+                val observed = retained(actual, f.ops)
+                RunObservation(rawSummaries = want.rawSummaries, selectedDemand = want.selectedDemand,
+                    sourceHits = want.sourceHits, witnesses = want.witnesses).assertEquivalent(
+                    RunObservation(rawSummaries = observed.rawSummaries, selectedDemand = observed.selectedDemand,
+                        sourceHits = observed.sourceHits, witnesses = observed.witnesses), universe(f, p))
+            }
+            val expectedRecords = reference.runs.last().handOff.records
+            val observedRecords = listOf(p.root, p.callee).flatMap { method -> universe(f, p).positions.flatMap { position ->
+                f.records.byEntry(method, f.program.pattern(position.base, position.path, Tail.STAR, MarkSlot.STAR)).toList()
+            } }.distinct().flatMap { record -> f.ops.leaves(record.conclusion).map {
+                RawRecord(record.method, record.direction, record.premise.toPattern(), Conclusion(it.fact, it.exclusion, false))
+            }.toList() }
+            for (direction in Direction.entries) {
+                fun rows(records: List<RawRecord>) = RunObservation(rawSummaries = records.filter { it.direction == direction }
+                    .map { ObservedEdge(it.method, setOf(it.premise), it.conclusion) }.toSet())
+                rows(expectedRecords).assertEquivalent(rows(observedRecords), universe(f, p))
+            }
         }
     }
 

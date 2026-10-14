@@ -152,6 +152,7 @@ class RunShellTest {
                     }
                     is RunEvent.ZeroIn -> { port.analyzer(event.callee).add(1); port.enqueue(port.analyzer(event.callee)) }
                     is RunEvent.RequestIn -> { port.analyzer(event.method).add(1); port.enqueue(port.analyzer(event.method)) }
+                    is RunEvent.MarkRequestsIn -> { port.analyzer(event.method).add(event.marks.size); port.enqueue(port.analyzer(event.method)) }
                     is RunEvent.Delivery -> {
                         assertEquals(f.b, event.callee)
                         assertSame(publication.conclusion, event.publications.single().conclusion)

@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.bidi.store
 
 import org.opentaint.dataflow.bidi.ap.ExclusionSet
+import org.opentaint.dataflow.bidi.ap.Facts
 import org.opentaint.dataflow.bidi.ap.InitialAp
 import org.opentaint.dataflow.bidi.ap.MarkSlot
 import org.opentaint.dataflow.bidi.ap.PathFact
@@ -30,6 +31,74 @@ class RequestStore(
     private val memberKeys = RequestIntLane(census)
     private val index = RequestPathIndex(cancellation, census)
     private var released = false
+    val membershipHorizon: Int get() { active(); return memberRows.size }
+
+    data class MarkAdmission(val row: Int, val fresh: RequestMarkSet, val horizon: Int)
+
+    /** Batch admission remains prompt and exact. Only fresh members enter the next mark frontier. */
+    fun addMarks(premise: InitialAp, marks: RequestMarkSet): MarkAdmission {
+        active()
+        check(premise.tail == Tail.STAR && premise.exclusion == ExclusionSet.Empty && premise.mark == MarkSlot.STAR) {
+            "A request needs a policy initial or position answer"
+        }
+        val fresh = RequestMarkSetBuilder()
+        marks.forEachMark { if (add(premise, RequestKind.Mark(it))) fresh.add(it) }
+        return MarkAdmission(markRow(premise), fresh.build(), memberRows.size)
+    }
+
+    fun markRow(premise: InitialAp): Int {
+        active()
+        val origin = origins.find(premise)
+        return if (origin < 0) -1 else origins.markRow(origin)
+    }
+
+    /** A read view of the admitted prefix. Concrete TAINT marks probe it without scanning the row. */
+    fun markMembers(row: Int, before: Int = membershipHorizon): RequestMarkSelection {
+        active()
+        require(before in 0..memberRows.size)
+        val value = rows[row]
+        check(value.position == null) { "A position row does not hold mark requests" }
+        return value.members.before(before)
+    }
+
+    fun markRowsNear(facts: Facts, before: Int = membershipHorizon): RowCursor {
+        active()
+        require(before in 0..memberRows.size)
+        return RowCursor(index.around(facts), rows.size, before)
+    }
+
+    inner class RowCursor internal constructor(
+        private val buckets: RequestPathIndex.BucketCursor,
+        private val rowHorizon: Int,
+        private val memberHorizon: Int,
+    ) {
+        private var bucket: RequestBucket? = null
+        private var offset = 0
+        private var bound = 0
+        val isComplete: Boolean get() = bucket == null && buckets.isComplete
+        fun step(budget: Int, visit: (Int, InitialAp) -> Unit): Int {
+            require(budget > 0)
+            var used = 0
+            while (used < budget && !isComplete) {
+                active()
+                val current = bucket
+                if (current == null) {
+                    used += buckets.step(1) { next ->
+                        bucket = next; offset = 0; bound = next.rows.countBefore(rowHorizon)
+                    }
+                } else if (offset < bound) {
+                    val handle = current.rows[offset++]
+                    val row = rows[handle]
+                    // The first mark membership is the first member of this row. All later members
+                    // have larger ordinals. An empty old horizon needs no row hash scan.
+                    if (row.position == null && row.members.firstOrdinal < memberHorizon)
+                        visit(handle, origins[row.origin])
+                    used++
+                } else bucket = null
+            }
+            return used
+        }
+    }
 
     private class Row(
         val origin: Int,
@@ -178,6 +247,22 @@ class RequestStore(
             }
         } finally {
             if (counts != null) statistics?.candidates(counts)
+        }
+    }
+
+    /** Position joins stay prompt, without scanning or expanding unrelated mark requests. */
+    fun visitPositionCandidates(a: Pattern, visit: (InitialAp, RequestKind.Position) -> Unit) {
+        active()
+        val horizon = memberRows.size
+        val buckets = index.around(a.fact.base, a.fact.path)
+        for (bucket in buckets) {
+            val bound = bucket.positions.countBefore(horizon)
+            for (offset in 0 until bound) {
+                active()
+                val member = bucket.positions[offset]
+                val row = rows[memberRows[member]]
+                if (overlap(a, row.query)) visit(initial(row, member), checkNotNull(row.position))
+            }
         }
     }
 

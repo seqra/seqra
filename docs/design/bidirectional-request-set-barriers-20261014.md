@@ -1,6 +1,6 @@
 # Run-1 request sets and processing barriers
 
-Date: 14 October 2026. Status: proposal for review; no implementation.
+Date: 14 October 2026. Status: implemented; core validation complete; fresh fixed-project testing pending.
 
 Use the two optimizations together: retain requests as mark sets and normally delay their expensive
 joins until a method drain point. Add a bounded flush opportunity at a nonzero Work quantum boundary
@@ -9,11 +9,22 @@ several requests and link updates time to form one batch. A unit-empty barrier i
 policy, but it must not be the only way to release requests while other methods keep that unit busy.
 
 This proposal follows the [run-1 investigation](../reports/bidirectional-run1-mark-propagation-20261014.md).
-The user has reopened request batching and barriers for design. This does not select the older N3
+The user has selected request batching and the method barrier for implementation. This does not select the older N3
 fairness, queue-layout or general mailbox proposal. N1/N2 are already implemented. IR and concrete
 origin-vector propagation remain outside this change.
 
-## Current evidence
+## Implementation validation
+
+The implementation passes 1,370 common-core tests and 377 JVM tests. The Go, JVM SAST and root
+test sources compile. The Lean build and full audit pass, with no unexpected axioms. The new local
+proofs cover the request frontier and Work completion laws; they do not prove the whole engine.
+
+The complete iteration fixture reaches and completes **run-3, forward, limit 2**, after limits
+`[1, 1, 2]`. It compares full witnesses, support annotations, summaries, source hits, native records
+and the final report with an independent scalar reference. Fresh fixed-project measurements for
+the committed implementation remain pending. The table below describes the preoptimization runtime.
+
+## Evidence used to select this change
 
 The latest measurements use runtime `61fd97acd792f2200b2e4a5746185d740d87712b`. The documentation HEAD
 at the start of this proposal is `38b076ae5e30d3f38f3860ed18943102fbf074ee`.
