@@ -1,8 +1,9 @@
 # Request sets and method barriers: fixed-project performance
 
-Date: 14 October 2026. Status at 13:28:34 UTC: measurements in progress. This draft contains
-completed main and control evidence, the completed optimized OWASP result and implementation
-checks. The other optimized results, profile and heap reviews, and final conclusions are pending.
+Date: 14 October 2026. Status: all twelve scans are terminal. This draft contains fresh main,
+control and optimized measurements, strict finding comparisons and implementation checks.
+Whole-run profile attribution and heap-owner reviews are in progress. The next proposal and
+final conclusions remain pending.
 
 The tested optimization is request mark sets plus a method processing barrier. The implementation
 commit is `a23ad7fcd99553190c82557cff6076503959aec6`. It preserves independent source and sink
@@ -47,8 +48,10 @@ proof scope. The reporting tools pass 36 tests.
 
 Before the batch, cleanup removed 75 approved old capture, export and MAT sidecar files,
 totaling 101,012,364,052 bytes. Compact historical evidence remains. The fresh input audits pass:
-1,841 model-selected dependency files and 77 checks over 41 captured datasets. The final audit
-will also compare all terminal run manifests and actual JVM arguments.
+1,841 model-selected dependency files and 77 checks over 41 captured datasets. The final input audits pass, including full content and dependency membership. Evidence is in
+`input-audit/result-20261014T140340.134117Z` and
+`input-audit/dependencies-20261014T140720.150861Z`. Terminal manifests and actual JVM arguments
+are also bound in `combinedmatrix-terminal.json`.
 
 Evidence root:
 
@@ -81,7 +84,7 @@ comparing timeout timing.
 
 ## Iteration progress and strict findings
 
-All four fresh controls and optimized OWASP are terminal. Optimized Conductor is active.
+All four fresh controls and all four optimized runs are terminal.
 Run-1 starts at limit 1. Completion and report acceptance have separate evidence.
 
 | Runtime / project | Latest reached | Last complete engine | Last accepted forward report | Status |
@@ -91,8 +94,9 @@ Run-1 starts at limit 1. Completion and report acceptance have separate evidence
 | Control / ThingsBoard | run-1, forward, limit 1 | None | None | OOM |
 | Control / Stirling-PDF | run-4, backward, limit 4 | run-3, forward, limit 3 | run-3, forward, limit 3 | Timeout |
 | Optimized / OWASP | run-3, forward, limit 3 | run-3, forward, limit 3 | run-3, forward, limit 3 | Complete |
-| Optimized / Conductor | run-2, backward, limit 2 | run-1, forward, limit 1 | run-1, forward, limit 1 | Engine active |
-| Optimized / ThingsBoard, Stirling-PDF | Not started | None | None | Pending |
+| Optimized / Conductor | run-2, backward, limit 2 | run-1, forward, limit 1 | run-1, forward, limit 1 | OOM |
+| Optimized / ThingsBoard | run-1, forward, limit 1 | None | None | OOM |
+| Optimized / Stirling-PDF | run-4, backward, limit 4 | run-3, forward, limit 3 | run-3, forward, limit 3 | Timeout |
 
 OWASP control preserves all 4,112 main strict identities and their location sets. It exports
 9,179 occurrences, with 5,067 extra occurrences at existing identities. Multiplicity changes
@@ -107,7 +111,8 @@ Optimized OWASP completes and accepts **run-3, forward, limit 3**. It preserves 
 strict identities and their location sets. Its 9,179 occurrences also match the fresh control,
 with zero identity, location or multiplicity changes between control and optimized output.
 The paired input checks report no differences. Its overall wall time is 637.508 seconds and
-IFDS takes 560.651 seconds. The bidi engines and report barriers take 494.651 seconds together.
+IFDS takes 560.651 seconds. The logged interval from the first run START to the final report barrier is 494.651 seconds.
+The explicit sum of engine and report-barrier times is 494.647 seconds.
 
 | OWASP iteration | Control engine | Optimized engine | Control report barrier | Optimized report barrier |
 | --- | ---: | ---: | ---: | ---: |
@@ -138,9 +143,19 @@ Its overall wall time is 531.970 seconds; IFDS takes 428.195 seconds. Run-1, for
 307.476 seconds, including a 45.741-second pre-cancel heap capture. The serialized guard heap is
 11,763,718,066 bytes. Its root-owner review is pending; file size is not retained heap size.
 
-Optimized Conductor has completed and accepted run-1, forward, limit 1. Its engine takes
-75.939 seconds. It has reached run-2, backward, limit 2, which is active at this draft's
-status time. Its terminal output and strict finding comparison are pending.
+Optimized Conductor stops with OOM in **run-2, backward, limit 2**. Its last complete engine
+and accepted report are **run-1, forward, limit 1**. It preserves all seven main identities
+and their locations. It exports 300 identities, with no identity, location or occurrence
+changes against the fresh control. The paired input checks report no differences.
+
+Its overall wall time is 603.117 seconds. Run-1 takes 75.939 seconds in the engine and
+2.585 seconds at the report barrier. Run-2 takes 342.415 seconds in the engine, including
+a 29.958-second pre-cancel heap capture. The serialized guard heap is 11,547,010,744 bytes.
+Both optimized engines are slower than their control engines, and both runtimes stop in
+run-2. Different progress at OOM and capture overhead limit a direct timing comparison.
+The guard's file size does not measure live owner memory. Its root-owner review is pending.
+Evidence is in `optimized-review/conductor-main-comparison.json`,
+`optimized-review/conductor-control-comparison.json` and `projects/conductor/bidi`.
 
 ThingsBoard control stops with OOM in run-1, forward, limit 1. It never accepts a forward report
 and exports a valid empty SARIF file. All 13 identities in the incomplete main output are absent.
@@ -155,6 +170,23 @@ admission attempts, 417,004,260 climb callbacks and 459,547 answer callbacks. Th
 include both request kinds. They establish a large request workload, without assigning its share
 of CPU time. Different incomplete progress and counter scopes must be retained in the comparison.
 
+Optimized ThingsBoard also stops with OOM in **run-1, forward, limit 1**, before any complete
+engine or accepted report. It exports no findings. All 13 sites from the incomplete main report
+remain absent. This is a first-report failure, as in the control. Its overall wall time is
+632.027 seconds. The engine takes 226.938 seconds, including a 56.141-second pre-cancel capture.
+The serialized guard heap is 17,828,607,064 bytes. The guard starts 170.673 seconds after the
+run-1 engine starts. The control engine takes 619.485 seconds, including its 31.904-second capture.
+The optimized run still fails to complete run-1. Different workload progress prevents a
+same-work speed or memory-saving claim.
+
+Optimized N1 records 17,577,042 mark memberships in 188,260 mark rows and 2,401,904 position
+memberships. It records 56,560,503 duplicate admission attempts and 147,975,115 live primitive
+cells at failed engine END. N2 records 2,992,723 accepted deltas. The batch counters record
+141,590,548 member scans, 113,166,651 climb callbacks and 3,586,966 partial continuations.
+These differ from the control census. Failed END accounting is not a post-teardown reachable
+heap census. The owner review must check standing stores, unprocessed state and new frontier
+snapshots before assigning the memory cause.
+
 Stirling-PDF control times out in run-4, backward, limit 4 and retains its accepted run-3 report.
 It exports 56 unique identities and 128 occurrences, versus 17 identities and occurrences on
 main. Fourteen main identities remain; three are missing and 42 are added. The losses are the
@@ -164,16 +196,31 @@ The two XSS methods have same-rule findings at other returns. These remain stric
 
 Current source inspection shows that synthetic method-exit witnesses use Simple export, which
 falls back to the last physical return without trace return locations. It explains the displayed
-XSS location changes, without proving equal originating flows. The command site's current source
-return rewriter clears an exact receiver mark in bound callee coordinates at a later benign
-`List.add`. The full main trace and current local source analysis identify a loss mechanism under
-the existing source-override policy. They do not establish the earliest loss along the whole
-current caller chain. Fresh source hashes and evidence limits are in `finding-source-review`.
+XSS location changes, without proving equal originating flows. The command site has a source-override loss mechanism: the RETURNED rewriter removes an eligible
+same-mark EXACT root tuple from bound `This` at a later benign `List.add`. Current source proves
+this local removal for that tuple, including both layers. The main source path crosses the literal
+adds, but the fresh full-run evidence does not identify the actual selected rule, returned shape
+or source siblings at each call. The earliest actual loss remains unproved. Fresh source hashes,
+the proved conditions and limits are in `finding-source-review/control-tightening`.
 
 The PDF control's overall wall is 1,119.652 seconds; IFDS is 1,080.052 seconds. Run-1 through run-4
 engines take 38.894, 26.706, 65.714 and 912.064 seconds. The completed barriers take 0.356, 0.138
 and 10.640 seconds. Both normal and near-limit 30-second CPU captures complete. No memory guard
-snapshot is triggered. The optimized comparison and profile review remain pending.
+snapshot is triggered. The optimized comparison is complete; whole-run profile review remains
+in progress.
+
+Optimized Stirling-PDF times out in **run-4, backward, limit 4**. It retains the complete engine
+and accepted report from **run-3, forward, limit 3**. Its first three engines take 47.389, 38.814
+and 82.403 seconds. Their report barriers take 0.494, 0.130 and 11.173 seconds. Run-4 takes
+868.784 seconds and exhausts its smaller remaining budget; that shorter failed run is not an
+improvement. Overall wall is 1,139.302 seconds; IFDS is 1,080.077 seconds. Both 30-second CPU
+captures complete, and no guard heap is triggered. Its 56 identities and 128 occurrences match
+the fresh control exactly. The same three main identities remain absent, and 42 are added.
+
+Across all four projects, control and optimized output match in strict identities, occurrence
+counts and physical locations. Main still has 16 absent identities: 13 from ThingsBoard and
+three from Stirling-PDF. The no-loss target against main is not met. The complete comparison and
+all engine/report-barrier times are in `comparison-20261014T140556.870021Z`.
 
 Strict comparison uses rule ID, sink fingerprint and full method signature. Physical and logical
 locations and occurrence counts are checked separately. Missing identities remain missing even
@@ -182,18 +229,92 @@ need refinement and review before they can be called false positives.
 
 ## Profiles and memory
 
-Control and optimized profile and heap reviews are pending. Optimized OWASP's normal 30-second
+All twelve first JFR exports complete with matching event totals. Their print command used the
+default five-frame stack depth. Sampled totals and GC windows remain valid, but inclusive caller
+rankings cover only those printed frames. A new export with explicit depth is required before
+full caller attribution. The first export remains preserved in `profile-analysis/export-1`.
+
+All four guard heaps match their completed capture records and precede failed engine END. The
+first actual MAT job completes for optimized ThingsBoard, captured in **run-1, forward,
+limit 1**, before cancellation. This run has no complete engine or accepted report. The analysis
+tool uses 16 GiB with an 18 GiB RAM floor; analyzer settings are unchanged. Parsing finds
+310,407,138 raw objects and removes 30,044 unreachable objects. The complete reachable histogram
+contains **310,377,094 objects and 11,392,920,992 shallow bytes**. The complete root dominator
+partition matches this byte total. All 46 requested queries export; three have empty selections.
+
+The following rows are separate retained-set union queries. GB means decimal gigabytes. These
+unions can overlap and must not be added or treated as independent potential savings.
+
+| Selected owners | Retained-set bytes | Share of reachable heap |
+| --- | ---: | ---: |
+| Actors, unit runners and subscription managers | 5.688 GB | 49.93% |
+| Standing N1 request stores | 2.268 GB | 19.91% |
+| Cumulative N2 subscription and publication state | 1.089 GB | 9.55% |
+| Raw actor added-link stores | 0.988 GB | 8.68% |
+| Forms, method contexts and caches together | 0.684 GB | 6.00% |
+| Request frontiers and active copy-on-write views | 0.080 GB | 0.70% |
+| Temporary batching state | 0.045 GB | 0.40% |
+| Event queues and buffered channels | 0.003 GB | 0.03% |
+
+The complete physical queue census finds 562 queues with 2,564 entries. This snapshot shows
+large standing state and indexes, with much smaller pending request frontiers and physical
+queues. It does not support making broad queue storage changes a priority for the next iteration.
+It also contains a 1.324 GB Spring rule-provider retained set. This set includes its delegated
+base provider and Spring context; it does not isolate the cost of Spring rule expansion. Its
+fields and analyzer-core scope need review before selecting a change. IR storage retains
+1.622 GB and remains outside the optimization scope. The forms/context total does not isolate
+soft-cache payloads.
+
+This is one failed run-1 snapshot. It does not establish memory savings against the control at
+equal progress. Strong root paths, component attribution and the other three guard heaps still
+need review. The actual query results and complete censuses are in
+`heap-review/optimized/thingsboard/job-20261014T141629.704526Z-15e20a898a/review/evidence.json`.
+The new JFR export uses an explicit print depth of 256 and is in progress in
+`profile-analysis/export-2`. Recorded stack truncation still limits caller attribution.
+
+Whole-run profile and heap-owner reviews are in progress. Optimized OWASP's normal 30-second
 CPU capture completes, and it has no memory guard snapshot. Continuous JFR recordings and normal
 and near-limit CPU windows are captured during each eligible run. Each window will state its
 actual iteration, coverage and overlap with snapshot or output work.
 
-The main OWASP normal window contains only the last part of analysis and then output. Main
+The main OWASP normal capture is truncated: its profiler reports that the process exited.
+Only about two seconds overlap the full scan, during trace generation, followed by output.
+It does not provide a complete 30-second normal analysis window. Main
 Conductor and PDF finish before their eligible normal windows. Main ThingsBoard's normal CPU
 capture has 3,064 samples. `Arrays.copyOf` accounts for 70.79% of self samples and the accessor
 interner's `ConcurrentReadSafeObject2IntMap.getInt` for 26.24%. The captured stacks run through
 side-effect requirements and initial-fact registration. Its planned IFDS-plus-1,020-second CPU
 window occurs after its actual main timeout. The continuous JFR can supply an actual pre-timeout
 window. These limits are saved in `main-evidence-review`.
+
+The light OWASP review places both control and optimized normal CPU windows wholly inside
+**run-1, forward, limit 1**, with no logged guard overlap. Their terminal reached, complete and
+accepted iterations are **run-3, forward, limit 3**. Control has 3,705 samples and optimized has
+3,635. Call-form build and normalization frames occur in 65.43% and 67.32% of samples; native
+GC-related frames occur in 20.19% and 18.95%. These are inclusive sample shares, not elapsed-time
+shares, and frame groups can overlap. Neither window has a matching request-frontier, radix
+snapshot or group-cursor sample. That does not prove these operations have zero cost. The windows
+do not explain the slower complete optimized engines. See
+`optimized-live-review/owasp-normal-cpu-1/REVIEW.md` for the actual windows and matched frames.
+
+Optimized OWASP admits the same 299,471 mark memberships and 6,063 mark rows as the control.
+It sends 3,341 accepted outgoing batches with 66,285 member occurrences, mean width 19.840 and
+maximum width 32. The control records 90,535 scalar climb callbacks. Each constructs one event
+and attempts one send, but the control does not count successful sends. These are different
+counter scopes; their ratio is not a measured reduction in accepted queue entries.
+
+The ThingsBoard normal CPU windows also lie wholly inside **run-1, forward, limit 1**, before
+their guards. Both terminal runs reached run-1 and have no complete engine or accepted report.
+Control has 27,312 samples and optimized has 25,400. The optimized sample shares are 38.56% for
+native GC-related frames, 23.34% for form building, 10.51% for handler dispatch and 1.48% for
+queue comparison. Control shares are 30.42%, 6.48%, 29.85% and 12.12%. Control scalar request
+join service occurs in 26.06% of samples; optimized request-frontier frames occur in 3.43%.
+The scopes overlap and the runs have different progress. These shares do not measure equal-work
+savings. New per-actor maxima include 180,360 pending members, 458,496 request int cells,
+16,213 pending delta roots and 77 captured old roots. The later guard snapshot measures
+80,281,160 bytes for the combined request-frontier and active-view retained set; the counter
+maxima do not identify the contribution of each member or root.
+See `optimized-live-review/thingsboard-normal-cpu-1` for exact frames and scope limits.
 
 For optimized counters, N1 action totals cover the prompt position-request path. Mark joins use
 `RequestBatchStatistics`. Compare N1 admission and capacity data separately from action counts.
@@ -202,9 +323,25 @@ peaks are maxima in one actor, not simultaneous global totals or retained heap b
 age counter includes time spent inside the active phase. A guard heap must establish actual live
 owners. Retained owner unions can overlap and must not be added as independent savings.
 
+## Prescan and total timing
+
+Prescan occurs before the bidi run-1 engine. It also changes overall wall time in this fresh pair.
+
+| Project | Control prescan | Optimized prescan |
+| --- | ---: | ---: |
+| OWASP | 79.694 s | 64.304 s |
+| Conductor | 47.203 s | 73.285 s |
+| ThingsBoard | 249.029 s | 324.708 s |
+| Stirling-PDF | 25.358 s | 30.612 s |
+
+These timings come from the actual prescan log markers. They are outside the reported bidi engine
+intervals. The shared host and a single sequential pair limit causal attribution. Current optimized
+reached iterations are run-3/forward/limit 3, run-2/backward/limit 2, run-1/forward/limit 1 and
+run-4/backward/limit 4 respectively; the complete and accepted states are in the progress table.
+
 ## Optimization outcome and next iteration
 
-Conclusions are pending the remaining optimized results, strict loss review, per-run
+Conclusions are pending the strict loss review, per-run
 profiles and OOM owner analysis. The next proposal will rank changes from those measurements,
 with current behavior, proposed behavior and the reason for improvement for each candidate.
 Analyzer-core work remains the scope; IR storage and implementation remain outside it.
