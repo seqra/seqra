@@ -12,7 +12,7 @@ for this plan. The target is complete run-1 engine time at most 60 seconds on ea
 
 ## Step 1. Specify the new emission policy and oracle
 
-Extend the implementation specification with catalog-selected position emission, eager marked
+Extend the implementation specification with catalog-selected position emission, mark-interest
 static emission and abstraction-owned dynamic mark interests. Keep the current scalar position
 algorithm as a reference. Its proofs establish the old contract; they do not prove this redesign.
 
@@ -25,6 +25,11 @@ Add small program controls for:
 
 - A caller/callee chain whose only field access is in the deepest callee; diamonds and recursion.
 - `C.g -> local -> C.f -> static check` and `C.g -> local -> local sink` with an actual marked input.
+- The same programs with an abstract `C.g` initial: both must request `T` on that original initial.
+- An unchanged static check suppresses the ordinary request without supplying a concrete fact or
+  a predicate proof; a later matching supplier still emits through catalog interest.
+- Static root covering a changed field, different headers, and packed groups with eligible
+  unchanged/changed facts: overlap alone never suppresses a required request.
 - An argument/receiver origin written to a static field before a callee's static mark check.
 - A callee with empty static profiles still emits `(S, [], STAR, Empty, STAR)` for an incoming static
   fact and preserves it for a caller's later read. Also check root summaries under static writes
@@ -67,7 +72,8 @@ rule-only positions, boundary predicates and false-rule footprints.
 
 ## Step 3. Build shared transitive profiles
 
-Compute SCCs and propagate local access, abstraction-position and static-mark sets from callees
+Compute SCCs and propagate local access, abstraction-position, declared static-mark pairs and
+base-wide cleaner interests from callees
 to callers. Use one shared profile per component, with immutable sparse sets and shared unchanged
 parts. No per-context flattening and no position-by-mark expansion are allowed.
 
@@ -100,22 +106,39 @@ parent branch. Runtime position-event counts must become zero.
 
 **Gate:** common/JVM static closure controls, scheduling tests and F1/B2/F3 support/handoff pass.
 
-## Step 5. Enable eager marked statics and precomputed static marks
+## Step 5. Install static marks and gate unchanged static checks
 
-Admit actual incoming marked static suppliers for accessed/rule positions. Reuse the static
-answer/start kernel: retain full paths and exact/any distinction; demote must to ANY/Empty in
-run-1. Check wide ancestors by actual geometry. No catalog-generated mark or zero-premise fact.
+Collect position-scoped static mark interests from source/sink leaves and ordinary input-mark
+gates; keep base-wide F75 cleaner interests separate. Preserve full literal headers and roles
+alongside class/field slots. Install interests independently of structural initial activation,
+and process existing and future raw links. Reuse the static answer/start kernel for interested
+marked suppliers: retain full paths and exact/any distinction; demote must to ANY/Empty in run-1.
+Access collection alone emits an abstract slot and does not assume its required mark is known.
 
-Install shared static mark policies from the profile. Include source/sink leaves, mark gates and
-required cleaner interests. Do not narrow F75 to the cleaner's path. A check on `C.f` must not
-filter out an accessed incoming `C.g T` supplier.
+Add an ordinary check helper receiving the original initial and the eligible checked input facts.
+After the normal geometry/mx gate, suppress the dynamic request only if the initial is STATIC
+and every contributing abstract fact equals its started shape (full base/path/tail/E/mx/layer).
+Otherwise register `T` on the original initial, even if the current check has a static base or
+another catalog entry contains `T`. Do not compare with a literal or source action target.
+
+Thread matched input scope through `MarkCheck`/predicate checks and the ordinary
+`EdgeApplication` mark gates used by unary sources and pass rules. A filter in `raise`/`collect`
+lacks that scope and would also affect cleaner interest. F75 bypasses the ordinary suppression
+helper and retains its unconditional same-base registration, including disjoint/excluded inputs.
+Shared preinstalled interest can deduplicate its delivery without dropping the obligation.
 
 Process existing and future raw links under installed interests. Suppress demand delivery only
 when the exact original caller abstraction is already covered. Keep delivery to argument/receiver
 origins and uncovered chains. Test the argument-to-static case and deduplication after a policy
 was preinstalled but before any supplier existed.
 
-**Gate:** required findings/support remain; quantify extra initials and body work caused by eagerness.
+Test unchanged `C.g -> C.g`, changed `C.g -> C.f`, `C.g -> local x`, and `Arg0 -> C.f`. Check mixed
+eligible groups and unrelated off-literal branches. A suppressed abstract check must never
+return `Holds`. Verify that `C.g -> C.f` obtains a late concrete `C.g T` supplier and then satisfies
+the original check through ordinary transfer, with the original support and NNF occurrence.
+
+**Gate:** the unchanged/changed request split and required findings/support pass; quantify earlier
+initials and body work caused by precomputed interests.
 
 ## Step 6. Move remaining mark ownership and remove N1 request indexing
 

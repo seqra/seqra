@@ -24,8 +24,8 @@ not a separately indexed standing request awaiting a future answer.
 | Area | Current | New | Expected benefit |
 | --- | --- | --- | --- |
 | Static positions | Discover, store and climb position requests during run-1 | Use shared transitive prescan profiles in initial emission | Remove runtime position traffic, request rows and their path index |
-| Marked static inputs | Initially emit the static root; request concrete marks later | Keep the static root and add actual marked suppliers for accessed/rule static positions | Avoid request round trips before an available static fact can be analysed |
-| Static rule marks | Discover interest when a FLOW fact reaches a check | Install precomputed static mark interest in abstraction | Share the interest and suppress delivery to already covered static abstractions |
+| Marked static inputs | Initially emit the static root; request concrete marks later | Keep the root and abstract static slots; emit concrete suppliers under precomputed or dynamic mark interest | Serve unchanged static checks directly and retain requests for transformed facts |
+| Static rule marks | Discover interest when a FLOW fact reaches a check | Precompute declared static-position interests; request changed facts on their original initial | Avoid redundant unchanged-fact requests without losing copies between positions |
 | Other mark demands | Keep exact memberships in N1 and join them with raw links | Update the original abstraction's compact mark policy | Complete transport work; keep future emission coverage with one policy per simple chain |
 
 The measured runtime is `a23ad7fcd99553190c82557cff6076503959aec6`. Its ThingsBoard capture is from
@@ -89,12 +89,13 @@ do not expand cubes. Keep normal rule selection and `allRelevant` return-rewrite
 separate inputs with their current eligibility. A false normalized rule contributes no executable
 rule effect; `P AND NOT P` can fold to false. Ordinary program accesses remain present.
 
-The local profile has three logical parts:
+The local profile has four logical parts:
 
 ```text
 StaticAccesses(m): static positions read/written by code or used by effective rules
 StaticAbstractions(m): positions needing a STAR initial, including class keep positions
-StaticMarks(m): marks requested by static rule checks/gates or applicable static cleaners
+StaticMarks(m): declared (static position, mark) interests from rule checks/gates
+StaticCleanerMarks(m): base-wide interests of primitive selected-mark STATIC cleaners
 ```
 
 The collector keeps access and structural roles distinct. A class-only keep operation must not
@@ -103,10 +104,15 @@ rule positions, when actually present, retain their wider meaning. Position slot
 two accessors; full rule literal paths remain in the rule evaluator.
 
 For `StaticMarks`, include active static `ContainsMark` and `ContainsMarkOnAnyField` leaves of
-both sources and sinks, concrete input-mark gates, and selected cleaner marks. Include the
-required static read positions and mark effects of lowered field actions. F75 interest from a
-primitive STATIC cleaner is base-wide: it cannot be limited to the cleaner's spatial position
-or filtered by its mark exclusion. All-marks cleaners have no selected-mark request to add.
+both sources and sinks and concrete input-mark gates. Keep the declared position with its mark;
+a check on `C.f` does not by itself establish a concrete-mark interest at `C.g`. Store only actual
+declared pairs, with shared mark sets, rather than a positions-by-marks Cartesian product.
+Keep the full literal path, tail and role distinct from its class/field abstraction slot. A
+deep literal must still be evaluated at its full position; slot collection does not rewrite it.
+Include the required static read positions and mark effects of lowered field actions. F75
+interest from a primitive STATIC cleaner belongs to `StaticCleanerMarks` and is base-wide: it
+cannot be limited to the cleaner's spatial position or filtered by its mark exclusion.
+All-marks cleaners have no selected-mark request to add.
 
 Marks remain interest, not proof. The catalog does not satisfy an AND or OR condition, trigger
 a source or sink, or replace occurrence-specific bindings and support.
@@ -183,11 +189,12 @@ Retain its no-result behavior on that parent FLOW branch; allowing the ordinary 
 fallback there would introduce the forbidden wide static DEMAND result. The required precise
 initial comes from abstraction, not from the parent branch.
 
-### Concrete static emission
+### Concrete static emission under mark interest
 
-For an incoming marked static leaf that overlaps an accessed/rule static position, admit the
-actual leaf as a concrete initial using the existing static answer/start rules. This is eager
-concretization of an actual supplier. Do not replace it by a fact at the check's position.
+Collecting an accessed static position causes abstract position emission; it does not by itself
+request every concrete mark there. Emit an actual marked supplier when precomputed or dynamic
+mark interest requires it, using the existing static answer/start rules. Do not replace the
+supplier by a fact at a different check position.
 
 For example:
 
@@ -197,9 +204,17 @@ C.f = x
 check ContainsMark(C.f, T)
 ```
 
-`C.g` and `C.f` are collected accesses. An incoming `C.g.$(T)` is admitted at `C.g`, then ordinary
-read and write transfer moves its mark to `C.f`. No backward field-dependency analysis is needed.
-The same emission supplies `x = C.g; sink(x, T)`, whose check has a local base.
+`C.g` and `C.f` are collected accesses, so abstraction can emit their abstract slot facts from
+matching suppliers. The initial for the copied value is `(S, C.g, STAR, Empty, STAR)`. At the
+check its final fact is on `C.f` with an abstract mark. These facts differ, so the check must
+request `T` on the original `C.g` abstraction. That policy processes existing and future
+suppliers, emits an actual `C.g` supplier with `T` when available, and the read/write transfer
+then carries the concrete mark to `C.f`.
+
+If a concrete `C.g T` initial has already been emitted under an installed interest, its transfer
+uses the ordinary concrete check. The abstract case must work without that assumption. For
+`x = C.g; sink(x, T)`, the local final base also differs from the static initial, so the dynamic
+request remains necessary. No prescan backward field-dependency analysis is needed.
 
 An EXACT concrete leaf keeps its full path and starts in NORMAL. An ANY leaf keeps its full path
 and starts in DEMAND. An incoming ANY_TAINT/must leaf becomes ANY with an empty initial exclusion,
@@ -210,16 +225,50 @@ For a wide concrete ancestor that genuinely overlaps an access, retain its actua
 the existing answer kernel for any active chain-specific answer. Do not invent a deeper EXACT
 fact. Root/class EXACT facts do not supply their descendant fields.
 
-Eager emission can create more initials and body work than the old lazy mark requests. Measure
-that tradeoff. Initials still carry their original nonzero premises; ordinary support decides
+Precomputed interest can create earlier initials and body work than the old lazy mark requests.
+Measure that tradeoff. Initials still carry their original nonzero premises; ordinary support decides
 whether a witness is supplied. Do not turn catalog interest into a zero-premise source fact.
 
 ## 5. Install static mark policies; deliver remaining marks to their origin
 
-Install `StaticMarks(m)` as a shared static abstraction policy, including the static root and
-active emitted static position chains. Reuse one immutable mark set; do not expand it into N1
-memberships for every static position. For its concrete suppliers, apply the same answer rules.
-F75 base-wide interest can require marked suppliers outside the cleaner's spatial position.
+Install the declared `StaticMarks(m)` interests in abstraction independently of whether a
+corresponding abstract initial has already been emitted. They must process existing and future
+raw suppliers and routes. Share each declared position's mark set; do not install every mark
+at every accessed position or expand interests into per-actor N1 membership columns. Use
+`StaticCleanerMarks(m)` separately for F75 base-wide interest, which can require marked suppliers
+outside the cleaner's spatial position. Apply the same concrete answer rules.
+
+### Ordinary mark-request rule: compare the initial and checked final fact
+
+First apply the existing ordinary mark gate: concrete facts check normally, and a disjoint or
+mark-excluded FLOW input gives no ordinary request. For an eligible abstract input in run-1:
+
+```text
+if the original initial is STATIC and matches the checked final fact:
+    emit no dynamic mark request; abstraction's precomputed static interest handles it
+else:
+    request the required mark on the original initial abstraction
+```
+
+"Matches" means the unchanged started abstract fact: same STATIC base, full path, STAR tail,
+NORMAL layer, empty field exclusion and no excluded marks. Compare the contributing fact with
+the initial's start shape, not with the sink/source literal or an action's output. Mere overlap,
+coverage by the static root, or equality after cutting to a field slot is insufficient.
+
+For a packed FLOW group, apply this rule to the facts eligible for this particular check or
+transfer. Suppress the request only if all contributing facts match. Any eligible changed fact
+requires the request; unrelated branches do not. A changed field, local base, tail, exclusion,
+layer or mark-exclusion header does not pass the unchanged-fact test.
+
+This gate is specific to ordinary predicate/pass/source mark checks. Do not put a blanket filter
+in `RunMethodAnalyzer.raise` or `collect`: those paths also carry F75 cleaner interest. F75 must
+still register its selected mark on the original premise for every same-base FLOW input,
+including unchanged, disjoint and already-excluded inputs. An installed cleaner policy can
+deduplicate transport; it cannot remove that logical interest.
+
+The unchanged case means no request and no concrete result from that abstract check. It is not
+`Holds`, source/sink satisfaction or evidence that `T` is present. Actual concrete emission and
+the original NNF/support evaluation remain required.
 
 For a matching abstract link, retain the original geometry and mark-exclusion test. Its mark
 demand belongs to the raw caller's original abstraction. There are two cases:
@@ -233,7 +282,8 @@ demand belongs to the raw caller's original abstraction. There are two cases:
 Do not infer coverage just from the caller method or the literal's static base. The target
 initial, mark set and activation must be covered. A more specific chain may need a proper-ancestor
 answer that a root-only policy does not provide. Keep its dynamic demand until that policy is
-explicitly covered.
+explicitly covered. This delivery deduplication happens after a required changed-fact demand
+has been registered on its correct original abstraction; it does not replace the rule above.
 
 Local-base checks, static-derived local checks, and any demand outside the precomputed policy
 use the same dynamic delivery protocol:
@@ -273,8 +323,9 @@ from comparisons, but retain required answer/fact coverage, source and sink witn
 native records and run-1/backward-run-2/forward-run-3 handoffs. Additional eager initials require
 an explicit support and refinement check; do not silently loosen equality tests.
 
-First remove position requests. Then enable eager concrete static emission and precomputed static
-marks. Then migrate remaining mark ownership. This order isolates failures and measures each
+First remove position requests. Then enable precomputed static mark interests and the unchanged
+static check gate, with dynamic requests retained for changed facts. Then migrate remaining mark
+ownership. This order isolates failures and measures each
 effect. The plan names tests for late suppliers, argument-to-static origins, excluded fields,
 deep/must answers, NNF sources and sinks, cleaners, generated methods and context separation.
 
