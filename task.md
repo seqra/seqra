@@ -6,7 +6,7 @@ Our current goal: implement optimization and repeat major testing on real projec
 Always cleanup memory snapshot/profiles from the previous runs.
 
 # Optimization:
-Implement optimization wrt the [bidirectional-n1-n3-implementation-proposal.md](docs/design/bidirectional-n1-n3-implementation-proposal.md)
+Implement optimization wrt the [bidirectional-request-set-barriers-20261014.md](docs/design/bidirectional-request-set-barriers-20261014.md)
 Commit after implementation.  
 Avoid changes in the analyzer core, that were not proposed and designed.
 If you have an optimization idea, write a proposal. Then we will include it into the next iteration.
@@ -36,7 +36,7 @@ Our goal: for each selected project we should understand:
 # Propose optimizations for the next iteration
 Create an optimization proposal wrt the measurements
 1) Rank proposals by the expected impact
-2) Prefer algorithmic optimizations (path analyzer to avoid huge workload) over the technical ones (optimize representation to better handle huge workload) 
+2) Prefer algorithmic optimizations (patch analyzer to avoid huge workload) over the technical ones (optimize representation to better handle huge workload) 
 3) Describe in short, how the proposal changes the behavior (current vs new) and why it should improve something
 
 Use subagents.
