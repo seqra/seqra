@@ -1,10 +1,10 @@
 # Request sets and method barriers: fixed-project performance
 
-Date: 14 October 2026. Status: all twelve scans are terminal. This draft contains fresh main,
+Date: 14 October 2026. Status: all twelve scans are terminal. This report contains fresh main,
 control and optimized measurements, strict finding comparisons and implementation checks.
-The deeper profile review, all four primary heap-owner reviews and the command-path diagnostic
-replay are complete. Heap component and root-path queries remain in progress. The next proposal
-is a draft; final conclusions remain pending.
+The deeper profile review, all four primary heap-owner reviews, run-1 component/root-path analysis
+and the command-path diagnostic replay are complete. The next proposal now gives a memory ranking
+and run-1 work-avoidance designs. The earliest upstream command-flow loss remains unresolved.
 
 The tested optimization is request mark sets plus a method processing barrier. The implementation
 commit is `a23ad7fcd99553190c82557cff6076503959aec6`. It preserves independent source and sink
@@ -88,6 +88,23 @@ comparing timeout timing.
 All four fresh controls and all four optimized runs are terminal.
 Run-1 starts at limit 1. Completion and report acceptance have separate evidence.
 
+The next iteration's primary target is to complete **run-1, forward, limit 1, within 60 seconds
+of engine time** on each project. The user confirmed that this target excludes prescan and the
+report barrier. The current optimized measurements meet this target only on Stirling-PDF:
+
+| Project | Run-1 engine outcome | Engine time | 60-second target |
+| --- | --- | ---: | --- |
+| OWASP | Complete | 336.977 s | Not met |
+| Conductor | Complete | 75.939 s | Not met |
+| ThingsBoard | OOM before completion | 226.938 s, including capture | Not met |
+| Stirling-PDF | Complete | 47.389 s | Met in this measurement |
+
+ThingsBoard's guard starts 170.673 seconds into run-1, already beyond the target. Removing the
+capture time would not make that failed run a pass. OWASP needs at least an 82.19% engine-time
+reduction, and Conductor needs at least 20.99%, to reach 60 seconds from these completed runs.
+The failed ThingsBoard prefix cannot give the required reduction for a complete run. These
+single measurements do not establish that any runtime can meet the target on every project.
+
 | Runtime / project | Latest reached | Last complete engine | Last accepted forward report | Status |
 | --- | --- | --- | --- | --- |
 | Control / OWASP | run-3, forward, limit 3 | run-3, forward, limit 3 | run-3, forward, limit 3 | Complete |
@@ -142,7 +159,7 @@ the backward engine stops with OOM.
 Its overall wall time is 531.970 seconds; IFDS takes 428.195 seconds. Run-1, forward, limit 1 takes
 70.805 seconds in the engine and 1.838 seconds at the barrier. Run-2, backward, limit 2 takes
 307.476 seconds, including a 45.741-second pre-cancel heap capture. The serialized guard heap is
-11,763,718,066 bytes. Its root-owner review is pending; file size is not retained heap size.
+11,763,718,066 bytes. Its primary retained-owner census is complete below; file size is not retained heap size.
 
 Optimized Conductor stops with OOM in **run-2, backward, limit 2**. Its last complete engine
 and accepted report are **run-1, forward, limit 1**. It preserves all seven main identities
@@ -154,7 +171,7 @@ Its overall wall time is 603.117 seconds. Run-1 takes 75.939 seconds in the engi
 a 29.958-second pre-cancel heap capture. The serialized guard heap is 11,547,010,744 bytes.
 Both optimized engines are slower than their control engines, and both runtimes stop in
 run-2. Different progress at OOM and capture overhead limit a direct timing comparison.
-The guard's file size does not measure live owner memory. Its root-owner review is pending.
+The guard's file size does not measure live owner memory. Its primary retained-owner census is complete below.
 Evidence is in `optimized-review/conductor-main-comparison.json`,
 `optimized-review/conductor-control-comparison.json` and `projects/conductor/bidi`.
 
@@ -164,7 +181,7 @@ The first-report failure explains this output loss; it does not identify 13 sepa
 defects. Its IFDS time is 872.502 seconds, including 249.029 seconds of prescan. The run-1 engine
 takes 619.485 seconds, including a 31.904-second guard capture. Overall wall is 958.679 seconds.
 The complete serialized guard heap is 17,462,279,076 bytes; its retained-owner census is complete
-below. Root paths and component attribution remain pending.
+below. Optimized run-1 component and bounded strong-root attribution are also complete.
 
 The fresh control's N1 counters record 39,413,262 mark memberships in 106,679 mark rows: a mean
 of 369.457 marks per row. They also record 1,746,438 position memberships, 367,339,865 duplicate
@@ -186,8 +203,8 @@ memberships. It records 56,560,503 duplicate admission attempts and 147,975,115 
 cells at failed engine END. N2 records 2,992,723 accepted deltas. The batch counters record
 141,590,548 member scans, 113,166,651 climb callbacks and 3,586,966 partial continuations.
 These differ from the control census. Failed END accounting is not a post-teardown reachable
-heap census. The owner review must check standing stores, unprocessed state and new frontier
-snapshots before assigning the memory cause.
+heap census. The owner review below separates standing stores, unprocessed state and request frontier
+snapshots. Failed END counters and pre-cancel heap measurements remain different observations.
 
 Stirling-PDF control times out in run-4, backward, limit 4 and retains its accepted run-3 report.
 It exports 56 unique identities and 128 occurrences, versus 17 identities and occurrences on
@@ -227,8 +244,12 @@ after run-1. Neither remains after run-3 or in the terminal output. Two complete
 controller instruction 56 prove local removal of command marks 729 and 730: root membership
 changes from one to zero, with no output. Both pairs have caller layer DEMAND and a zero premise.
 They do not prove the earliest loss of the main NORMAL flow. Some ordinary run-3 event lanes
-reach their caps; protected report, plan and cleaner records have no drops. The whole command-site
-cause remains unresolved. The evidence and strict output comparison are in
+reach their caps; protected report, plan and cleaner records have no drops. The complete run-3 constructor census has only three NORMAL REACH and four NORMAL FLOW
+inputs, with no TAINT input. Restricted concrete sink checks cannot create a witness from those
+FLOW facts. Support review rejects the run-1 nonzero NORMAL witness; report replacement then
+removes the target keys. This identifies the failing refinement boundary, but the earliest
+upstream loss of the main NORMAL flow remains unresolved. The evidence and strict output
+comparison are in
 `analysis-preparation/command-loss-diagnostic/jobs/replay-/20261014T160643.886578Z-0356d5e9/terminal-review-final`.
 
 Across all four projects, control and optimized output match in strict identities, occurrence
@@ -318,12 +339,12 @@ unions can overlap and must not be added or treated as independent potential sav
 
 The complete physical queue census finds 562 queues with 2,564 entries. This snapshot shows
 large standing state and indexes, with much smaller pending request frontiers and physical
-queues. Actor-local delta worklists and their fact payloads still need separate attribution.
-Physical queue bytes alone do not bound all unprocessed actor state. The snapshot does not
+queues. Actor-local delta worklists and their fact payloads now have separate attribution below.
+Physical queue bytes alone do not bound all unprocessed actor state; the separate census below
+measures that state. The snapshot does not
 support making broad queue storage changes a priority for the next iteration.
 It also contains a 1.324 GB Spring rule-provider retained set. This set includes its delegated
-base provider and Spring context; it does not isolate the cost of Spring rule expansion. Its
-fields and analyzer-core scope need review before selecting a change. IR storage retains
+base provider and Spring context; it does not isolate the cost of Spring rule expansion. The separate fields below identify base-provider rule caching as a large target. IR storage retains
 1.622 GB and remains outside the optimization scope. The forms/context total does not isolate
 soft-cache payloads.
 
@@ -345,7 +366,7 @@ runs reach different workload states before their guards; neither completes run-
 snapshot comparisons, not equal-work savings or a measured reduction for a particular event
 kind. The selected unions overlap within each snapshot.
 
-Strong root paths and component attribution still need review. All four primary guard heaps
+Optimized run-1 strong root paths and component attribution are complete below. All four primary guard heaps
 have complete reachable histograms and root partitions.
 The actual query results and complete censuses are in
 `heap-review/optimized/thingsboard/job-20261014T141629.704526Z-15e20a898a/review/evidence.json`.
@@ -368,8 +389,8 @@ because their receiver classes have no instances. Their original query errors re
 those field queries on nonempty receivers. The other owner results and complete histogram are
 in `heap-review/optimized/conductor/job-20261014T153946.114325Z-3ae40a0461/review/evidence.json`.
 An N1-only optimization cannot directly remove this run-2 state. Its IR-storage retained set is
-2,264,869,592 bytes and remains outside the optimization scope. Actor-local worklists, N2
-components and strong roots still need attribution.
+2,264,869,592 bytes and remains outside the optimization scope. Additional run-2 component/path
+queries are prepared and deferred while run-1 is the priority.
 
 Conductor control's **run-2, backward, limit 2** guard also has a complete histogram and root
 partition: 222,769,775 objects and 7,654,410,576 shallow bytes. Its last complete engine and
@@ -381,10 +402,66 @@ live receiver; its original failure and separate empty-class proof are retained.
 audit and overlapping-owner comparison are in `heap-review/primary-comparison-1`. None of these
 different-progress snapshots proves net memory savings.
 
-The remaining heap-owner reviews are in progress. Optimized OWASP's normal 30-second
+## Run-1 component and root-path attribution
+
+Optimized ThingsBoard's captured state is still **run-1, forward, limit 1**, with no complete
+engine or accepted report. Its separate component queries give these target sizes:
+
+| Selected component | Bytes | Meaning |
+| --- | ---: | --- |
+| N2 subscription positional index | 474,552,952 | Required standing postings; representation can change |
+| Incoming raw-link positional indexes | 637,038,864 | Required incoming geometry indexes |
+| Unused observation positional indexes | 7,121,616 | Small index with no geometry reader |
+| Observation exact accumulators | 39,763,512 | Required deduplication when observation is active |
+| Ordinary resolved method-exit rule cache | 544,729,744 | Strong raw rule lists, not form payloads |
+| `allRelevant` method-exit rule cache | 48 | Empty map for this family only |
+| Alias-analysis retained selection | 582,083,568 | Unnecessary-use fraction is not measured |
+| Actor-local worklists | 43,556,384 | Includes queue containers, payloads and burst history |
+| Pending publication lists | 4,660,064 | Buffered summary state |
+| Cumulative method-edge stores | 1,035,713,648 | Admitted edge state; overlaps pending delta payloads |
+
+These retained selections can overlap and must not be added. The full actor census covers all
+76,943 actors. It finds 679 unchanged and 50,159 other queued deltas, no queued zero deltas,
+5,708 burst-seen entries and 15,568 pending publications. Burst history can contain processed
+items. Cumulative edge stores include both processed and queued admissions. The queue census
+therefore does not support describing the main memory cost as huge
+unprocessed collections in this optimized snapshot. Large standing relations, indexes and raw
+rule/alias data remain.
+
+The base-provider selection retains 1,324,319,360 bytes, compared with 2,012,152 bytes in the
+Spring-context selection. The source and component scopes support examining resolved rule caches;
+they do not support blaming Spring expansion for the whole provider union. Existing managed soft
+FormsCache support remains in place. A separate soft cache for raw resolved lists would trade
+memory for rebuild time and must use the original manager.
+
+The sparse N1 census finds 2,419,536 leaf nodes, 885,668 single-child nodes and 317,646 wider
+nodes. Leaf nodes already have no child map. Single-child maps and key/value/child-order arrays
+occupy 375,523,232 bytes. After including removable list shells and modeled owner growth, the
+next proposal estimates 425.87 MB for child layout and 107.44 MB for specialized bucket lanes.
+These global shallow-layout models are not measured retained-memory savings. Empty cumulative
+kind-map and layer-list shells provide a separate 216.06 MB gross target.
+
+The first supplemental MAT job was stopped after its own heap filled and repeated allocation-
+failure GC prevented useful export progress. Its 57 completed tables were preserved and verified;
+the partial actor table was excluded. The smaller replacement completes all 17 requested tables
+and the complete actor census. Its whole histogram and 986-row disjoint root partition match the
+primary snapshot. This is a report-tool limitation, not another analyzer OOM or a changed scan.
+
+The first path CSVs show only their selected root row, so they do not prove paths. A separate
+successful HTML export shows bounded strong paths for method entries, the provider, a unit runner
+and a standing request store. The expanded branches reach Java-local roots on the main thread,
+with runtime controller/actor references. Default weak-reference exclusions retain these paths.
+Five paths are requested per query; only the shown expanded branches are claimed. The generic
+reader's HTML-unavailable status remains preserved, with a separate manual HTML audit.
+
+The combined audit is `heap-review/supplemental-components-review-1`. Original job failures,
+complete replacement and HTML results, source bindings, file identities and layout assumptions
+are recorded separately there. Conductor's primary run-2 heap remains audited; its additional
+component queries are deferred to keep the next iteration focused on run-1.
+
+All primary heap-owner reviews and the optimized run-1 component audit are complete. Optimized OWASP's normal 30-second
 CPU capture completes, and it has no memory guard snapshot. Continuous JFR recordings and normal
-and near-limit CPU windows are captured during each eligible run. Each window will state its
-actual iteration, coverage and overlap with snapshot or output work.
+and near-limit CPU windows are captured during each eligible run. The deeper profile tables state each window's actual iteration, coverage and overlap with snapshot or output work.
 
 The main OWASP normal capture is truncated: its profiler reports that the process exited.
 Only about two seconds overlap the full scan, during trace generation, followed by output.
@@ -455,8 +532,8 @@ meet the no-loss target against main. Optimized OWASP, the completed comparison,
 other projects still stop with OOM or timeout, and their different incomplete progress limits
 speed and memory comparisons.
 
-Final memory conclusions and ranking need the component and root-path queries. The
-[next-proposal draft](../design/bidirectional-core-optimization-after-request-sets-20261014.md)
-compares avoiding unused indexes with compact standing-request storage. It gives current
+Run-1 component and root-path queries are complete. The
+[next optimization proposal](../design/bidirectional-core-optimization-after-request-sets-20261014.md)
+ranks measured memory targets and proposes ways to avoid repeated run-1 work. It gives current
 behavior, proposed behavior and the reason for improvement for each candidate. Analyzer-core
 work remains the scope; IR storage and implementation remain outside it.

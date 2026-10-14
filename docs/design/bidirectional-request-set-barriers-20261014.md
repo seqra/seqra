@@ -1,6 +1,7 @@
 # Run-1 request sets and processing barriers
 
-Date: 14 October 2026. Status: implemented; core validation complete; fresh fixed-project testing pending.
+Date: 14 October 2026. Status: implemented; core validation and fresh fixed-project testing complete.
+Implementation: `a23ad7fcd99553190c82557cff6076503959aec6`.
 
 Use the two optimizations together: retain requests as mark sets and normally delay their expensive
 joins until a method drain point. Add a bounded flush opportunity at a nonzero Work quantum boundary
@@ -21,8 +22,12 @@ proofs cover the request frontier and Work completion laws; they do not prove th
 
 The complete iteration fixture reaches and completes **run-3, forward, limit 2**, after limits
 `[1, 1, 2]`. It compares full witnesses, support annotations, summaries, source hits, native records
-and the final report with an independent scalar reference. Fresh fixed-project measurements for
-the committed implementation remain pending. The table below describes the preoptimization runtime.
+and the final report with an independent scalar reference. The fresh main/control/optimized batch
+is complete; see the [current performance report](../reports/bidirectional-request-set-barriers-performance-20261014.md).
+The optimization preserves control output but does not improve completion. The next target is
+run-1 engine completion within 60 seconds; only Stirling-PDF meets it in this batch. Latest reached
+runs are OWASP run-3/forward/limit 3, Conductor run-2/backward/limit 2, ThingsBoard run-1/forward/
+limit 1 and Stirling-PDF run-4/backward/limit 4. The table below remains historical selection evidence.
 
 ## Evidence used to select this change
 
