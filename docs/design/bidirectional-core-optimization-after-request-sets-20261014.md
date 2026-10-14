@@ -44,13 +44,16 @@ required time reductions. The next proposal must include algorithms that avoid r
 Run-1 starts at limit 1. Main has legacy phases and no bidi run-N. Control and optimized output
 match at all four projects. The main comparison still has 16 absent strict sink identities. The
 optimization has not improved completion. A next memory optimization must preserve the existing
-strict comparison and must not hide the unresolved command-site loss.
+strict comparison and must not hide the command-site loss.
 
-The isolated PDF diagnostic reaches run-4/backward/limit 4 and times out after accepting
-run-3/forward/limit 3. Its terminal output matches the primary optimized output exactly. Complete
-report records place the target command-constructor DEMAND keys in run-1 and their removal by
-run-3. Two observed DEMAND cleaner pairs prove local root-mark removal, but the earliest loss of
-the main NORMAL flow remains unresolved. Ordinary run-3 event caps limit further attribution.
+Both isolated PDF diagnostics reach run-4/backward/limit 4 and time out after accepting
+run-3/forward/limit 3. Their terminal outputs match the primary optimized output exactly. The first
+shows local DEMAND root-mark removal and missing run-3 TAINT input. The second names the NORMAL
+supplier at the one-argument executor's call 0: its fact matches, but its caller premise is
+unsupported. It also identifies the controller's missing command source seed at the completed
+run-2 hand-off. Protected support and hand-off coverage is complete. The report retains the
+limits: no whole-chain NORMAL erasure or global first-loss proof, and conditional source
+predicates remain enabled. These diagnostic times do not replace the primary measurements.
 
 The completed optimized ThingsBoard guard analysis is from **run-1, forward, limit 1**, before
 cancellation. It has 310,377,094 reachable objects and 11,392,920,992 shallow bytes. Separate
