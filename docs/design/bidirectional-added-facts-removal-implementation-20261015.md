@@ -1,5 +1,11 @@
 # Added-fact removal: implementation proposal
 
+The run-1 request implementation target is now [F78](../../spec/run1-requests.md)
+and its [implementation proposal](bidirectional-run1-mark-request-implementation-20261015.md).
+They supersede this document's full-query/role, request-exclusion, duplicate
+cumulative-map and deferred-answer-memo instructions. The measured implementation
+still follows the earlier policy; this pointer changes no analyzer code.
+
 Date: 15 October 2026. Status: implemented as selected; core protocol checks pass, with eight strict application precision failures.
 See the [implementation evidence](../reports/bidirectional-added-facts-removal-validation-20261015.md).
 The [current project report](../reports/bidirectional-added-facts-removal-performance-20261015.md)

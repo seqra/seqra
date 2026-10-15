@@ -1,5 +1,9 @@
 # Implementation background
 
+For current run-1 request changes use [F78](run1-requests.md) and its
+[implementation proposal](../docs/design/bidirectional-run1-mark-request-implementation-20261015.md).
+The older request/memo designs below are migration history.
+
 The selected [added-fact removal redesign](../docs/design/bidirectional-added-facts-removal-20261015.md)
 removes the callee input store and its post-freeze Support consumer. Descriptions of those
 components below are migration history. Caller-owned N2 remains. Use the

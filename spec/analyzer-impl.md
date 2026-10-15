@@ -1,5 +1,14 @@
 # Analyzer core — implementation proposal
 
+F78 is the current target for run-1 requests. Use [run1-requests.md](run1-requests.md),
+its [proof dossier](run1-request-proofs.md) and the
+[new implementation proposal](../docs/design/bidirectional-run1-mark-request-implementation-20261015.md).
+They replace the full-query/role, duplicate cumulative-map, request-exclusion and
+deferred-answer-memo guidance below. The root summary also requires F78's component
+ownership/frame guard. These are proposed changes; the measured runtime is unchanged.
+
+Historical added-fact-removal target:
+
 The selected [added-fact removal proposal](../docs/design/bidirectional-added-facts-removal-20261015.md)
 and its [implementation proposal](../docs/design/bidirectional-added-facts-removal-implementation-20261015.md)
 replace the callee input-store, supplier-snapshot and post-freeze raw-link Support designs here.

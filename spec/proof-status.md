@@ -1,14 +1,56 @@
 # Current proof status
 
-The normative rules are [ap.md](ap.md), [interpreter.md](interpreter.md), and
-[analyzer-core.md](analyzer-core.md): F72 demand sharing, F74 field-cleaner lowering,
-F75 base-dependent cleaner splitting, F76 must-summary read views, and F77
-structural summary demand selection. This file
-states proof scope and evidence.
-It adds no analysis rule. The selected emitter contract removes the callee added-fact store, retains caller N2,
-and permits unverified pooled ND candidates. Its proof and implementation limits are stated below.
+The normative rules are [ap.md](ap.md), [interpreter.md](interpreter.md),
+[analyzer-core.md](analyzer-core.md) and [F78 run-1 requests](run1-requests.md).
+F78 replaces full-query/role requests, request exclusion tests and the callee
+deferred-answer memo. It retains the exact caller input relation for summary
+application and late requests. This file states proof scope and evidence; it adds
+no analysis rule and makes no claim that the measured runtime implements F78.
 [proof-history.md](proof-history.md) retains earlier
 theorem catalogs; F70/F71 concrete-run results do not prove current restricted runs.
+
+## F78: merged run-1 requests
+
+Validation on 15 October 2026: `lake build` passed (123 jobs), and
+`lake env lean audit.lean` passed for 21,118 declarations with zero unexpected
+axioms. F78 executable controls passed. The
+[proof dossier receipt](run1-request-proofs.md#12-executable-witness-matrix-and-formal-scope)
+binds the sources and logs. No analyzer run or runtime change was made.
+
+The [proof dossier](run1-request-proofs.md) gives the constructive arguments for
+all nine original obligations and the storage, arrival and completion laws.
+Its finite semantic domain includes the two normal abstract initial forms, the
+explicit impossible exact static-root assumption, a complete prescan field/form
+domain, broad suppliers and separate legal class points. The theorem statements
+do not assume a predicate that already asserts request coverage.
+
+| Result | Checked evidence | Scope |
+| --- | --- | --- |
+| Exact two-slot projector, exclusion-insensitive request matching and separate class points | [Run1Requests.lean](lean/ApSpec/Run1Requests.lean): `project_exists_iff`, `projector_ignores_field_E`, `direct_class_preserved` | Finite scalar leaves; actual concrete marks are required for answers. Broad suppliers do not prove an exact NORMAL class point. |
+| Effective producers, least finite graph closure and wide-scope activation | `effective_leaf_collected`, `closure_seed`, `closure_call`, `closure_least`, `recursive_call_coverage`, `wide_activation_complete` | Explicit effective-form vocabulary and complete canonical field domain. The finite oracle computes the least closure; SCC code must refine it. |
+| Static/dynamic coverage and original-slot routing | `unchanged_static_plan`, `effective_static_dispatch`, `static_dynamic_cover`, `changed_slot_retains_dynamic` | Installed membership discharges a need; all other normal-origin needs retain their dynamic route. |
+| Concrete initials and the special root generate no upstream requests | `concrete_never_requests`, `special_root_never_requests` | Actual premise, not the enclosing method analysis; concrete-answer handling stays separate. |
+| Owned field partition and untouched identity frame | [Run1RequestsSafety.lean](lean/ApSpec/Run1RequestsSafety.lean): `finite_partition_exact`, `partition_disjoint`, `primitive_frame`, `frame_identity`, `root_field_composition` | Explicit finite component primitives/return semantics. This corrects unrestricted root-summary composition; it is not a proof of today's packed summary reader. |
+| Cleaner/root counterexamples and native/opposite relation preservation | `Counterexamples.raw_root_cleaner_leak`, `Counterexamples.raw_root_write_loses_sibling`, `Counterexamples.constructive_frame_repairs_both`, `native_and_opposite_read_preserved` | Concrete counterexamples and component relation equality. Full F76/driver integration retains its separate scope. |
+| One admitted relation plus temporary writes, exact fresh delta and commit/replacement | [Run1RequestProtocol.lean](lean/ApSpec/Run1RequestProtocol.lean): `commit_membership`, `commit_temporary_empty`, `fresh_nodup`, `every_prefix_retains`, `completed_admits_all` | Finite logical `(MethodKey,slot,mark)` cells, not a selected physical map representation. No callee supplier/memo field. |
+| Batching, stale admitted reads and excluded-mark duplicates preserve the final union | `two_batches_one_barrier`, `barrier_placement_same_union`, `filter_destination_safe`, `excluded_has_emitted_need`, `derived_flow_exclusion_erasure` | Creator/transfer/call/join induction constructs the same-origin need; duplicates and pending requests are permitted. Event timing and timeout prefixes can differ. |
+| Both input/request orders, registration race and local completion ownership | `answer_witness`, `both_arrival_orders`, `registration_race`, `completion_empty_owners` | A<E and Q<V, retained caller inputs, reliable counted queued effects. This is not a termination or 60-second theorem. |
+
+Proof review required two explicit semantic clarifications: component-owned
+summary reads plus an untouched identity frame, and same-origin request emission
+for generic excluded-mark targets as well as cleaners. Both belong to F78 and the
+[implementation proposal](../docs/design/bidirectional-run1-mark-request-implementation-20261015.md).
+No Kotlin, IR storage or measured runtime change is included in this revision.
+
+The remaining F78 implementation obligations are concrete refinements: complete
+effective-form extraction; canonical AP-tree/component codecs preserving E and
+uncertainty; ordinary/native/reversed reader guards; the existing caller index;
+and actual lock, queue, cancellation and Work accounting. Finite semantic proofs
+do not certify future code, pooled ND confirmation or the whole alternating driver.
+Historical memo proofs below are retained evidence for their old policy, not a
+reason to keep a second request map, full query or deferred answer cache.
+
+## Existing AP and driver proofs
 
 The current general closure model has three tails: exact, star with field exclusion,
 and may-any. It is single-premise and alias-free. It does not combine the full
@@ -72,7 +114,11 @@ they are not an integrated current closure/iteration theorem.
 | Cumulative subscription storage preserves logical P5 and the checked E6 binding quotient | [CumulativeSubscriptions.lean](lean/ApSpec/CumulativeSubscriptions.lean): `grow_encodes`, `growth_trace_encodes`, `accepted_persists`, `fresh_delta_union`, `index_refines`, `effects_refine`, `projected_choices`, `combination_root_insensitive`, `combination_effects_quotient`, `normal_result` | Constructive exact accepted-leaf encoding per full admitted key, finite growth and position/effect lifting; proof history is ghost data, not a retained runtime list. Ordered E6 member projection preserves full references/link layers and every result descriptor after matching. Target denotes the pre-factory conclusion root; equal joined layers give equal canonical factory results. Does not prove the full current AP matcher/transfer distribution, protocol implementation simulation or whole-engine closure. |
 | Historical raw-link request phase includes crossed arrivals; a uniform FLOW group needs one geometric match | [RequestSets.lean](lean/ApSpec/RequestSets.lean): `frontier_pairs`, `frontier_arms_disjoint`, `flow_group_effects`, `work_complete_iff` | Exact-delta logical set laws and the extended Work completion predicate. Request and link types stand for full admitted keys. FLOW collapse requires a uniform target and mx in one raw group. The emitter now uses N2 query replay; this theorem does not certify that replacement or require a runtime raw store. These results do not prove the Kotlin path cursor, captured-view ownership, runner simulation, full NNF support or whole-engine closure. Independent scalar and schedule tests must cover those implementation obligations. |
 
-## Added-fact-store removal: proof scope
+## Historical added-fact-store removal: proof scope
+
+F78 supersedes the request identity, full exclusion predicate and deferred memo
+in this section. These statements describe the earlier measured emitter policy.
+Their checked theorems remain historical results with their original hypotheses.
 
 The current design is [initial emission without an added-fact store](../docs/design/bidirectional-added-facts-removal-20261015.md).
 Caller N2 remains the input relation used for summary application and late mark queries. No theorem about an
@@ -131,7 +177,7 @@ uses fixed run inputs; a full iteration comparison must use the same candidate/c
 Replacing raw Support with unverified DEMAND can add seeds and change later run configurations, so unchanged old
 support-enabled frontiers are not a consequence of this local theorem. The strict project/main finding gate remains.
 
-## Preserved N2 and local-operation evidence
+## Preserved caller input and local-operation evidence
 
 For N2, P5 means that accepted logical leaves remain under their full caller/group keys, even when transient
 replay delta objects are released. The admitted group is not reconstructed from a delta's normalized E.
@@ -190,10 +236,11 @@ The remaining current obligations are:
    historical concrete AP/driver instances do not supply the current instance.
 5. Tree shortcuts beyond the proved per-leaf rebuild and candidate index. The
    old `restrictS/U` tree theorem does not prove the current mark-aware tail meet.
-6. Connect emitter/memo refinement and two-sided N2 replay to the actual AP eligibility/answer kernel, full
-   query identity, pure snapshot visitors and counted work. Prove the required effects without restoring a
-   callee caller-separated input relation. Concrete verification of pooled ND and zero-GEN derived candidates
-   remains a separate deferred task, not an established runtime guarantee.
+6. Connect F78's checked slot, component and no-memo protocol semantics to the
+   actual AP-tree codecs, caller candidate visitor, native/reversed record reads
+   and counted work. Preserve full ordinary summary premises without restoring a
+   callee caller-separated input relation. Concrete verification of pooled ND and
+   zero-GEN derived candidates remains a separate deferred task.
 
 These obligations are explicit limits, not established invariants of every
 implementation run. The proposals use the checked demand reference and enforce

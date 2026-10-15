@@ -442,3 +442,35 @@ run_elab do
         [(qg, ⟨3, [5], .exact⟩)] != expected then
     throw (IO.userError "Executable immediate/additive abstract certificate failed.")
   IO.println "Executable added-fact-store elimination certificates passed."
+
+-- F78: commit-and-replace and the executable choice of the non-missing replay arm.
+#eval do
+  let s := ApSpec.Run1RequestProtocol.batchVector
+  if s.admitted != [3, 1, 2] || !s.temporary.isEmpty ||
+      ApSpec.Run1RequestProtocol.raceArm 5 3 != ApSpec.Run1RequestProtocol.Arm.inputRead ||
+      ApSpec.Run1RequestProtocol.raceArm 3 5 != ApSpec.Run1RequestProtocol.Arm.requestReplay then
+    throw (IO.userError "Executable F78 request protocol certificate failed.")
+  IO.println "Executable F78 request protocol certificates passed."
+
+-- F78 static coverage: recursive calls, broad answers, legal class points,
+-- and the two root-summary counterexamples repaired by the derived frame.
+#eval do
+  let broad : ApSpec.Run1Requests.Leaf := ⟨.root,.any,7,.empty,true⟩
+  if ApSpec.Run1Requests.project (.field 3 2) broad !=
+      some (ApSpec.Run1Requests.concrete (.field 3 2) (.star .empty) 7) ||
+      ApSpec.Run1Requests.classAnswer 3 broad !=
+      some (ApSpec.Run1Requests.concrete (.cls 3) (.star .empty) 7) then
+    throw (IO.userError "F78 broad field/class projection certificate failed.")
+  let classPoint : ApSpec.Run1Requests.Leaf := ⟨.cls 3,.exact,7,.empty,false⟩
+  if ApSpec.Run1Requests.directClass classPoint !=
+      some (ApSpec.Run1Requests.concrete (.cls 3) .exact 7) then
+    throw (IO.userError "F78 exact-class direct certificate failed.")
+  let f := ApSpec.Run1RequestsSafety.Counterexamples.f
+  let g := ApSpec.Run1RequestsSafety.Counterexamples.g
+  let target := ApSpec.Run1RequestsSafety.Counterexamples.target
+  let sibling := ApSpec.Run1RequestsSafety.Counterexamples.sibling
+  if ApSpec.Run1RequestsSafety.composed [f,g] [.clean f 7] target != [] ||
+      ApSpec.Run1RequestsSafety.composed [f,g] [.clean f 7] sibling != [sibling] ||
+      ApSpec.Run1RequestsSafety.returnedComposition false [f,g] [.identity] sibling != [] then
+    throw (IO.userError "F78 root-frame/normal-return certificate failed.")
+  IO.println "Executable F78 static request and derived-frame certificates passed."

@@ -1,6 +1,12 @@
 # Run-1 mark request redesign
 
 Date: 15 October 2026. Status: design proposal; no analyzer changes or new runs.
+The selected contract is now [F78](../../spec/run1-requests.md), with the
+[constructive proofs](../../spec/run1-request-proofs.md) and a separate
+[implementation proposal](bidirectional-run1-mark-request-implementation-20261015.md).
+F78 includes the static-root composition and exclusion-creator clarifications
+found during proof review. It takes precedence over the initial obligations here.
+
 This replaces the request protocol proposed in P5, P6 and P9 of the
 [previous proposal](bidirectional-next-iteration-27e22bb1e-20261015.md). It also
 replaces the full-query, role and field-exclusion assumptions in the earlier
@@ -45,9 +51,10 @@ Why: repeated contributions become one pending set, and repeated admitted reques
 need no transport or receiver work. The design retains the caller inputs required
 for summary application and for replay when a request arrives later.
 
-This is a proposal, not an implementation or a completed proof. The static/dynamic
-coverage proofs specified in section 4 are required before implementation. No unit
-barrier, new scheduler, buffer quota or overflow/rescan protocol is selected.
+This is a proposal, not an implementation. Section 4 records the original proof
+obligations; F78 and its proof dossier supply the semantic construction and checked
+finite-model results. Future code must refine that construction. No unit barrier,
+new scheduler, buffer quota or overflow/rescan protocol is selected.
 
 ## 2. Request grammar and matching
 
@@ -223,8 +230,11 @@ classification of otherwise equal memberships.
 
 ## 4. Required proofs for the static/dynamic split
 
-These proofs are implementation prerequisites. This proposal states the obligations;
-it does not claim that the measured implementation or existing tests prove them.
+This is the original obligation inventory. The
+[proof dossier](../../spec/run1-request-proofs.md) gives the constructive proofs
+and exact Lean scope. It does not certify the measured implementation or future
+Kotlin representation. F78 resolves the root-summary counterexamples below through
+explicit component ownership and an untouched identity frame.
 
 Use these assumptions explicitly:
 
@@ -294,6 +304,21 @@ Use an induction over request producers and call propagation to connect these
 obligations. Independently check that no accepted transfer introduces the forbidden
 exact tainted static base, or document it as the theorem's external assumption.
 Do not claim a proof by comparing only with today's full-query implementation.
+
+### Proof-driven clarifications in F78
+
+Skipping static-root rules alone is insufficient. A root identity can restore a
+cleaned field mark, and a coarse class exclusion from a root strong write can lose
+an untouched sibling. F78 assigns observed field components to normal field
+analyses and uses a proved identity frame for the untouched complement. The frame
+is gated by an actual normal-return derivation and also governs native, reversed
+and later persisted-record reads. It is a transient semantic view, not an IR
+storage change. Broad class-point suppliers retain conservative direct handling.
+
+Every exclusion creator must issue the corresponding same-origin request. This
+includes generic abstract targets with excluded marks, not just named cleaners.
+The measured generic MarkGate does not itself provide that new-contract side
+effect. The implementation proposal includes it; no analyzer change is made here.
 
 ## 5. Two instances of the same request-storage class
 

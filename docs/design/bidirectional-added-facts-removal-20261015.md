@@ -1,6 +1,12 @@
 # Initial emission without an added-fact store
 
 Date: 15 October 2026. Status: detailed redesign and implementation plan; no core changes.
+The run-1 request sections are superseded by [F78](../../spec/run1-requests.md),
+its [proofs](../../spec/run1-request-proofs.md) and the
+[merged-request implementation proposal](bidirectional-run1-mark-request-implementation-20261015.md).
+Full-query/role requests, exclusion-sensitive request joins and deferred answer
+memo statements below describe the earlier design, not the next implementation.
+
 Scope assumption: remove the callee/emitter `AddedFactStore`; retain the existing caller-side
 N2 summary join. Removing N2's input storage too is a separate, larger design.
 
@@ -283,4 +289,4 @@ Relevant consumers are
 [request joins](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/RequestGroupCursor.kt),
 [N2 subscriptions](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/CalleeSubscriptions.kt),
 [call execution](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunMethodCallServices.kt),
-and [Support](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/driver/Support.kt).
+and the former `driver/Support.kt` consumer (removed by that implementation).

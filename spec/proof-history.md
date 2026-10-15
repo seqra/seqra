@@ -4,6 +4,11 @@ This file is supporting evidence, not a normative spec. The current rules are in
 [ap.md](ap.md), [interpreter.md](interpreter.md), and [analyzer-core.md](analyzer-core.md).
 [proof-status.md](proof-status.md) gives the current proof scope and open work.
 
+F78's current request proofs are in [run1-request-proofs.md](run1-request-proofs.md)
+and the Run1Requests/Run1RequestsSafety/Run1RequestProtocol modules. Earlier
+full-query, request-exclusion and deferred-memo certificates below retain their
+historical policies; they do not define F78 or require those runtime owners.
+
 The catalogs below retain the proof history at commit `fb789d0ab`. The F70/F71
 closures use concrete restricted runs and the earlier cleaner. F72 permits FLOW
 premises; F75 changes the cleaner in every run. F76 adds transient must-summary
