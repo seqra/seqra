@@ -2,8 +2,9 @@
 
 Date: 15 October 2026. Status: implemented as selected; the core protocol
 checks pass, but the strict broader application gate has eight precision regressions.
-Project measurements for this implementation have not started. The fresh main scans are complete; main
-uses the legacy engine and has no run-N iteration.
+The fixed-project scans are complete. The [project measurement report](bidirectional-added-facts-removal-performance-20261015.md)
+records their failures and the heap/profile review status. Main uses the legacy engine
+and has no run-N iteration.
 
 ## Change
 
@@ -110,6 +111,14 @@ separate required evidence.
 Artifacts are under
 `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012/added-facts-removal/20261015T090757.961708Z`.
 The fresh main baseline has 4,112 OWASP, 7 Conductor, 14 ThingsBoard and 17 Stirling-PDF
-unique sink locations. The current optimized latest reached, completed and accepted
-forward iterations are all **not measured yet**. Previous optimization reports describe
-a different runtime and are historical evidence only.
+unique sink locations. The measured current runtime is
+`27e22bb1ed871651143538783473cb0d4fcbcf3e`.
+
+| Project | Latest reached | Last completed engine | Accepted forward report |
+| --- | --- | --- | --- |
+| OWASP | run-5, forward; TIMEOUT | run-4, backward | run-3 |
+| Conductor | run-2, backward; OOM | run-1, forward | run-1 |
+| ThingsBoard | run-1, forward; OOM | None | None |
+| Stirling-PDF | run-4, backward; OOM | run-3, forward | run-3 |
+
+Previous optimization reports describe a different runtime and are historical evidence only.

@@ -2,6 +2,8 @@
 
 Date: 15 October 2026. Status: implemented as selected; core protocol checks pass, with eight strict application precision failures.
 See the [implementation evidence](../reports/bidirectional-added-facts-removal-validation-20261015.md).
+The [current project report](../reports/bidirectional-added-facts-removal-performance-20261015.md)
+records the fixed scans and the heap/profile review status for `27e22bb1e`.
 The measurements below belong to the pre-change core and are historical only.
 
 This document implements the scope of the

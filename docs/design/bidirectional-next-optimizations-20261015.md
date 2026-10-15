@@ -1,5 +1,12 @@
 # Next analyzer-core optimizations
 
+Historical proposal for runtime `85a7c0e`. Its measurements and ranking are stale for
+the current runtime. Added-fact removal is implemented at `27e22bb1e`; use the
+[new project measurements](../reports/bidirectional-added-facts-removal-performance-20261015.md)
+and [next proposal for 27e22bb1e](bidirectional-next-iteration-27e22bb1e-20261015.md)
+for actual results and review status. The body below preserves the earlier
+design decisions. It is not a current optimization ranking.
+
 Date: 15 October 2026. Status: the added-fact-store removal redesign replaces the earlier
 callee-owned join design. Discarded normal-sink cache retirement remains selected.
 Implementation has not started. Use the
