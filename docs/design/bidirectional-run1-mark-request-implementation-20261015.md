@@ -28,7 +28,8 @@ speedup or time bound.
 The snippets below are Kotlin-like design code, not a patch. The
 [F78 spec](../../spec/run1-requests.md) and its
 [proofs](../../spec/run1-request-proofs.md) define their contracts. Keep existing
-normal AP/summary/ND semantics except for the explicit F78 root-reader correction.
+AP transfers and ordinary/ND matching follow the spec. The proposed initial and
+request policy differs from the current runtime; section 5.1 lists those changes.
 
 ```kotlin
 sealed interface Run1Slot {
@@ -51,6 +52,7 @@ data class RequestRowView(
     val precomputed: ImmutableMarkSet,
     val dynamic: ImmutableMarkSet,
 ) : MarkSelection { // precomputed and dynamic are disjoint
+    val isEmpty: Boolean get() = precomputed.isEmpty() && dynamic.isEmpty()
     override fun contains(mark: Mark) = mark in precomputed || mark in dynamic
     override fun forEach(visit: (Mark) -> Unit) {
         precomputed.forEach(visit)
@@ -81,6 +83,68 @@ class RequestStorage(
         dynamic = additions[slot].orEmpty(),
     )
 
+    // Called only while SummaryStorage holds its lock. checkpoint belongs to the
+    // active run; temporary storage still uses the parameterless constructor.
+    fun borrowMatchingRows(input: Facts, checkpoint: () -> Unit): List<RequestedRow> = buildList {
+        checkpoint()
+        val root: TrieNode<*> = when (input) {
+            is REACH -> return@buildList
+            is FLOW -> input.root
+            is TAINT -> input.root
+        }
+        if (root.isEmpty) return@buildList
+
+        fun addSlot(slot: Run1Slot) {
+            checkpoint()
+            val marks = borrow(slot) // two immutable segments, not a B union D copy
+            if (!marks.isEmpty) add(RequestedRow(slot, marks))
+        }
+
+        if (input.base != STATIC) {
+            // Accepted input is nonzero/non-temporary. Path and tails do not
+            // refine a non-static request: it always names this base-root slot.
+            addSlot(Run1Slot.Base(input.base as NonStaticBase))
+            return@buildList
+        }
+
+        if (root.hasBroadLeaf()) {
+            forEachStoredStaticSlot(checkpoint) { slot -> addSlot(slot) }
+            return@buildList
+        }
+
+        var hasBroadClass = false
+        root.forEachBorrowedChild(checkpoint) { cls, classNode ->
+            if (classNode.hasBroadLeaf()) {
+                hasBroadClass = true // scan stored slots once below, not once per class
+            } else {
+                classNode.forEachBorrowedChild(checkpoint) { field, fieldNode ->
+                    if (!fieldNode.isEmpty) addSlot(Run1Slot.StaticField(cls, field))
+                }
+                // An exact class leaf alone supplies no descendant field.
+            }
+        }
+        if (hasBroadClass) {
+            forEachStoredStaticSlot(checkpoint) { slot ->
+                if (root.child(slot.cls)?.hasBroadLeaf() == true) addSlot(slot)
+            }
+        }
+    }
+
+    private fun forEachStoredStaticSlot(
+        checkpoint: () -> Unit,
+        visit: (Run1Slot.StaticField) -> Unit,
+    ) {
+        for (slot in sharedBase.keys) {
+            checkpoint()
+            if (slot is Run1Slot.StaticField) visit(slot)
+        }
+        for (slot in additions.keys) {
+            checkpoint()
+            if (slot is Run1Slot.StaticField && !sharedBase.containsKey(slot)) visit(slot)
+            // A slot present in both maps was visited above with BOTH segments.
+        }
+    }
+
     fun addAll(slot: Run1Slot, offered: MarkSelection): ImmutableMarkSet {
         val fresh = offered.minus(borrow(slot))
         if (fresh.isEmpty()) return ImmutableMarkSet.EMPTY
@@ -99,6 +163,56 @@ class RequestStorage(
         return additions.isEmpty()
     }
 }
+
+private fun TrieNode<*>.hasBroadLeaf(): Boolean = when (val value = leaf) {
+    is FlowLeaf -> !value.isEmpty // correlated STAR or demand ANY; mx is ignored
+    is TaintLeaves -> !value.any.isEmpty // demand ANY or normal must; exact alone is not broad
+    else -> error("Unexpected run-1 leaf kind")
+}
+
+private inline fun TrieNode<*>.forEachBorrowedChild(
+    checkpoint: () -> Unit,
+    visit: (Accessor, TrieNode<*>) -> Unit,
+) {
+    val keys = accessorData ?: return
+    val nodes = childData!! // existing internal immutable backing, not copying public getters
+    for (offset in keys.indices) {
+        checkpoint()
+        visit(keys[offset], nodes[offset])
+    }
+}
+```
+
+The matcher assumes the accepted limit-1 input layout from section 5: class then
+static field on S; it does not cut or repair an invalid input. FLOW, TAINT and
+REACH denote the existing FlowTree, TaintTree and Reach types in these snippets.
+It ignores E and FLOW mark exclusions, and never enumerates a leaf's mark IDs.
+Actual requested/supplied mark intersection belongs to section 6.
+
+Each slot occurs once in the result. A broad root returns before child traversal.
+A broad class skips direct field lookup; its slots come only from the final scan.
+That scan visits B keys and D-only keys, borrowing B/D together where their keys
+overlap. Canonical packed child keys are unique. There is no persistent index,
+temporary set of all request keys, or materialized B∪D mark set.
+
+For ordinary bases this needs one slot lookup. Explicit static field branches
+need direct slot lookups. Only a broad root/class leaf triggers a scan of stored
+B/D keys, considering static slots only, at most once per input; class selection uses the existing packed
+trie's child lookup. The returned transient list holds row descriptors and shared
+immutable mark-set references, not copied marks. It is built completely under the
+SummaryStorage lock and discarded after the input join.
+
+```text
+B: C.f -> {T}, C.g -> {U}, D.h -> {V}
+D: C.f -> {W}, C.k -> {Z}, Base(b) -> {Q}
+
+Input                       Rows returned (geometry only)
+b.q.$(X)                    Base(b)
+C.f.$(X) or C.f.[any](X)    C.f; precomputed={T}, dynamic={W}, even when X differs
+C.$(X) alone               none; direct class-point handling is separate
+C.[any](X)                 C.f, C.g, C.k
+S.[any](X)                 C.f, C.g, C.k, D.h; never Base(b)
+C.[any](X) plus D.h.$(X)    C.f, C.g, C.k, D.h; each once
 ```
 
 ```text
@@ -181,7 +295,7 @@ class SummaryStorage(val method: MethodKey, plan: StaticPlan) {
     }
 
     fun borrowMatchingRequests(input: Facts): List<RequestedRow> = synchronized(lock) {
-        requests.borrowMatchingRows(input).toList()
+        requests.borrowMatchingRows(input, cancellation::checkpoint)
         // Transient row descriptors borrow immutable B/D mark sets. No iterator
         // over the mutable additions map escapes the lock; no merged R copy.
     }
@@ -221,9 +335,12 @@ fun submitCallInput(part: Subscription) {
         replayOrdinarySummaries(admission.fresh) // existing fresh-delta contract
         val current = admission.current // original header + current accumulated Facts
         if (current.added is FLOW) {
-            val effects = Effects()
-            collectFlowEffects(current, calleeStore.borrowMatchingRequests(current.added), effects)
-            effects.sendCountedAfterVisit()
+            validateExistingPremiseFactInvariant(current.ref.premise, current.added)
+            if (current.ref.premise.asNormalAbstractRun1SlotOrNull() != null) {
+                val effects = Effects()
+                collectFlowEffects(current, calleeStore.borrowMatchingRequests(current.added), effects)
+                effects.sendCountedAfterVisit()
+            } // special-root/concrete origins never start a request-row scan
         }
     }
     sendCountedToOwner(LinkIn(part)) // new TAINT reads R at the callee
@@ -442,6 +559,90 @@ Validate static layout as class→static-field→ordinary suffix, with one count
 accessor at run-1. Positivity alone does not prove the bound. Current generic
 factories, historical static ANY/abstract-class starts and custom first limits above 1 do
 not yet conform to this proposed boundary.
+
+### 5.1 Emitted initial facts: current runtime versus proposed F78
+
+Here **current** means the code at `27e22bb1e`; the relevant runtime files are
+unchanged at `fa86688b8`. **New** means this proposal, not an implemented or measured
+change. `C.f.*(*)` has an abstract mark; `C.f.*(T)` has concrete mark T. All
+emissions below have Empty E. A normal-slot concrete answer always requires an
+actual supplier carrying the requested mark. Direct class components are the
+separate exception already specified by F78; there is no class request slot.
+
+| Input/case | Current emitted InitialAp | New emitted InitialAp |
+| --- | --- | --- |
+| Root start or incoming REACH | Canonical Zero | Same |
+| Non-static input on b | Abstract `b.*(*)` | Same |
+| Requested non-static exact root carrying T | `b.$(T)` | Same shape |
+| Other requested matching non-static supplier carrying T | Base-root `b.*(T)` | Same shape |
+| Any static input | Abstract `S.*(*)` | Same summary seed; rule evaluation on its root component is now skipped |
+| A selected actual field node C.f | Abstract `C.f.*(*)`, regardless of a concrete request | Same; abstract field remains additive |
+| A selected class node C, for example the prefix of a static write | May emit abstract `C.*(*)` when the profile contains `[C]` | No abstract class initial; selected field analyses and the guarded frame replace that role |
+| A pure broad S/class supplier supplying selected C.f, with no explicit f child | Catalog requests can project concrete field answers, but the structural cursor does not expand this broad leaf into abstract field starts | Emit selected supplied abstract `C.f.*(*)` even without R(C.f,T); concrete field answers are separate |
+| Requested exact field leaf C.f carrying T | `C.f.$(T)` if the active full query matches | `C.f.$(T)` if the normal field slot matches and R requests T |
+| Requested ANY/must leaf at C.f carrying T | `C.f.[any](T)` | `C.f.*(T)`; never an ANY initial |
+| Requested broad root/class ancestor of C.f carrying T | `C.f.*(T)` when the active query matches | Same STAR shape, with the new slot-only request test |
+| Exact class-point input `C.$(T)` | Concrete `C.$(T)` needs an active matching question; otherwise it is not guaranteed | Direct concrete `C.$(T)`, independent of normal-slot requests; no abstract class analysis |
+| Nonexact class-point/broad class component carrying T | A matching class query can emit `C.[any](T)`; a broad root projected to C can give `C.*(T)` | Metadata-selected class component emits `C.*(T)`; never an ANY class initial |
+| Concrete empty-S-root answer | A matching legacy root question can emit one; broad root input can yield `S.[any](T)` | No concrete empty-S-root initial of any tail and no root request. Keep the abstract S seed and permitted field/class projections |
+
+The current paths above follow
+[Run1Abstraction.emit](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/Run1Abstraction.kt),
+[StaticSupplierCursor](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/StaticSupplierCursor.kt)
+and [RequestGroupCursor.emit](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/RequestGroupCursor.kt).
+[JIRStaticMetadata](../../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/bidi/interp/JIRStaticMetadata.kt)
+currently adds an abstract class position for a static write, so abstract-class
+removal is an actual constructor change. Current emission has no unconditional
+direct-class branch; F78's direct exact-class start is an added admission path.
+These are source-level differences, not counts observed in a new workload run.
+
+```text
+Selected C.f is supplied by C.f.[any](T); inspect only C.f initials here:
+    current, active matching request:  C.f.*(*) + C.f.[any](T)
+    new, R(C.f) lacks T:               C.f.*(*)
+    new, R(C.f) contains T:            C.f.*(*) + C.f.*(T)
+    (The S-root seed and any legacy abstract C row are covered by the table above.)
+
+Exact class input C.$(T), with no active matching question carrying T
+(including root/catalog questions):
+    current: abstract S root; possibly abstract C if selected by the profile
+    new:     abstract S root + direct concrete C.$(T); no abstract C
+```
+
+Eligibility and delivery also change even where the resulting shape is unchanged:
+
+| Decision | Current | New |
+| --- | --- | --- |
+| Which request enables a concrete field start? | Original initial plus full query pattern and role; the supplier must pass that query's geometry/exclusion tests | Full MethodKey + normal slot + mark; role/deep rule path are absent from the request |
+| A rule asks about C.f.g but incoming concrete T is at C.f | Full-query geometry can prevent an answer | An admitted C.f/T slot request can start `C.f.$(T)`; the rule still checks its full g path and may produce no result |
+| Input field E and FLOW mark exclusions | The old request join can reject on these values | Ignored only for request matching/forwarding; ordinary transfers and caller summary matching retain them |
+| Precomputed request visibility | Input-selected catalog rows call `requireSelection` and can activate local questions while emitting that input | Frozen B is visible before any input; it creates no startup notification wave |
+| T arrives before a dynamic request | The abstraction retains an unrequested answer shape/mark memo; later activation can consume it | No concrete initial yet and no callee memo. Later R admission replays retained caller inputs and queues the actual concrete answer |
+| T arrives after its request | The abstraction queues a concrete answer for its service point; caller fresh-input replay can also answer | The callee's new-TAINT/current-R path admits the concrete initial; caller fresh-input request replay handles FLOW only |
+| Dynamic publication while a method stays busy | A nonzero scheduling quantum can flush abstraction work | P stays pending until that method's fact queue is empty; quantum yield alone does not commit it |
+
+Slot-only eligibility can create starts that the old full-query test did not
+create. Removing class/root initials removes other starts. This is not an
+identity of old/new initial sets or a claim that their total count decreases.
+Actual T is never invented, and request membership alone never satisfies a rule.
+
+The current generic cursor can also retain a deeper supplier path in a static
+answer, and the generic driver permits a first limit above 1. The selected F78
+domain requires limit exactly 1 and bounded inputs before emission; it rejects a
+violated contract rather than adding an emitter cut. Likewise, exact concrete
+empty-S-root input is forbidden by the selected frontend assumption. Those generic
+API capabilities do not prove that such inputs occur in the selected JVM workloads.
+
+F78 does not add a `T != 0` restriction on nonzero bases. The current generic mark
+and initial APIs permit that ID, but the static catalog builder has an `id > 0`
+check. Its replacement must preserve every frontend-admitted mark, as the spec
+requires; it must not infer a Zero base from the mark ID alone.
+
+Concrete STAR and the former ANY initial start with the same DEMAND/ANY fact,
+but their stored keys and applicability differ: STAR can accept an exact caller
+fact that ANY rejected. Summary/record readers and handoff must follow the new
+premise policy. The checked local denotational results do not establish whole-run
+equivalence, equal timeout prefixes or measured finding/performance parity.
 
 ## 6. Request projection and exclusion creators
 
@@ -833,6 +1034,10 @@ checkNoAnyInitialIncludingStaticFieldAndClassAnswers()
 checkAnyOrMustSupplierKeepsAbstractAndAddsConcreteChainOnlyWhenRequested()
 checkNoConcreteStaticRootNoAbstractClassNoMustNoNonemptyE()
 checkSharedBaseHasNoPendingResidualOrInitialNotificationCopies()
+checkBorrowRowsDirectBaseAndFieldLookupsWithoutMarkEnumeration()
+checkBorrowRowsBroadRootAndClassScanOnceAndIgnoreEAndMx()
+checkBorrowRowsBAndDOverlapHasOneSlotWithTwoBorrowedSegments()
+checkBorrowRowsExactClassDoesNotMatchFieldAndMixedBranchesDoNotDuplicate()
 checkEveryNewTaintAndFlowInputReadsPrecomputedBase()
 checkUnchangedRowNoSendAndMixedChangedOriginStillSends()
 checkDeferredWideBeforeAfterCommitAndBothArrivalOrders()
@@ -852,7 +1057,8 @@ checkJoinedBarrierConsumesFrozenResultsBeforeBroadOwnerRelease()
 
 Measure precomputed base bytes/references, D/P memberships, suppressed unchanged
 rows, fresh slot batches, duplicate proposals, input visits, marks scanned, concrete
-answers/starts, fresh-FLOW current-value visits/rescanned geometry, temporary peak
+answers/starts, direct row lookups, broad-scan key visits, matched row counts,
+fresh-FLOW current-value visits/rescanned geometry, temporary peak
 size and submission delay. Count shared owners as a
 retained union; do not add overlapping base references as memory savings.
 
@@ -870,6 +1076,8 @@ checked Lean sources and analyzer runtime unchanged.
 
 | Spec contract | Review result and proposal correction |
 | --- | --- |
+| F78 §2: select request rows by the accepted slot geometry | Section 2 now implements `borrowMatchingRows`: direct base/field lookups, at most one stored-key scan for broad root/classes, exact-ancestor rejection and unique B/D row views. No mark IDs, request exclusions, persistent index or merged mark-set copy are needed. |
+| F78 §1–2 versus the current runtime | Section 5.1 now lists source-audited current/new initial shapes, added/removed admission paths, request eligibility and emission timing. It separates actual constructor differences from generic inputs/configurations not established in selected workloads. |
 | [F78 §6–7: commit, delivery and destination ownership](../../spec/run1-requests.md#6-the-two-requeststorage-instances) | The earlier notification omitted its callee key and hid the final sends. Sections 1, 4 and 7 now show full callee identity, explicit caller-runner notification, original caller-slot recovery, grouped method-owner requests and separate callee answers. |
 | [F78 §7: batch each relevant caller input once](../../spec/run1-requests.md#7-batched-propagation-and-late-inputs) | A single handle set spans all changed slots; matching FLOW rows union before one target-R difference/merge. TAINT traverses each concrete branch once for the mark batch. No persistent seen matrix is added. |
 | F78 §7: preserve admitted headers on growth | Section 3.3 now uses the admission result: ordinary summaries read fresh delta, FLOW requests read current accumulated input under its original header. Repeated current-value geometry is explicitly measured. |
