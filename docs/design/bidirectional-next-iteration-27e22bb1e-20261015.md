@@ -4,6 +4,11 @@ Date: 15 October 2026. Status: proposal only; current heap and recording reviews
 are complete. Expected impact is ranked below; net savings and eligible skip rates
 remain unmeasured. No change below is implemented by the added-fact-removal patch.
 
+The later [run-1 request redesign](bidirectional-run1-mark-request-redesign-20261015.md)
+replaces the request protocol in P5, P6 and P9. Use that design's two slot forms,
+single cumulative store and exclusion-independent field matching for request work.
+The remaining options below retain their separate scope and selection gates.
+
 The baseline for this proposal is runtime `27e22bb1ed871651143538783473cb0d4fcbcf3e`.
 Use the [current project report](../reports/bidirectional-added-facts-removal-performance-20261015.md).
 The older proposal for `85a7c0e` is historical. Its retained-byte estimates and ranking
