@@ -2,11 +2,12 @@ package org.opentaint.dataflow.bidi
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
-import org.opentaint.dataflow.bidi.driver.Support
+import org.opentaint.dataflow.bidi.fixtures.HistoricalSupport
 import org.opentaint.dataflow.bidi.fixtures.SupportFixtures
 import org.opentaint.dataflow.bidi.store.*
 import kotlin.test.*
 
+/** Historical support laws, not current automatic confirmation. */
 class AnyTaintSupportTest {
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Argument(1)
@@ -61,7 +62,7 @@ class AnyTaintSupportTest {
                 val mark = if (row.queryMark == "*") MarkSlot.STAR else MarkSlot.Concrete(f.mark(row.queryMark))
                 callee to f.initial(row.queryBase, row.queryPath, row.queryTail, mark, ExclusionSet.of(row.queryE.toIntArray()))
             }
-            val support = Support(f.result(), listOf(root), f.mode, f.shared)
+            val support = HistoricalSupport(f.result(), listOf(root), f.mode, f.shared)
             rows.zip(questions).forEach { (row, question) ->
                 assertEquals(index == 3 && row.restricted, support.isSupported(question.first, question.second.members),
                     "run=$index cell=${row.name}")
@@ -77,7 +78,7 @@ class AnyTaintSupportTest {
             val e = ExclusionSet.of(f.field("blocked"))
             val must = f.initial(tail = Tail.ANY_TAINT, exclusion = e)
             f.link(callee, root, f.manager.zero, f.fact(tail = Tail.ANY_TAINT, exclusion = e))
-            val support = Support(f.result(), listOf(root), f.mode, f.shared)
+            val support = HistoricalSupport(f.result(), listOf(root), f.mode, f.shared)
             assertFalse(support.isSupported(root, must.members))
             assertEquals(index == 3, support.isSupported(callee, must.members))
             assertTrue(support.isSupported(root, f.manager.zero.members))
@@ -91,7 +92,7 @@ class AnyTaintSupportTest {
             val e = ExclusionSet.of(f.field("blocked"))
             val normal = f.witness(root, facts = f.fact(tail = Tail.ANY_TAINT, exclusion = e))
             val demand = f.witness(root, layer = Layer.DEMAND, facts = f.fact(tail = Tail.ANY, layer = Layer.DEMAND), alternative = 1)
-            Support(f.result(), listOf(root), f.mode, f.shared).confirm()
+            HistoricalSupport(f.result(), listOf(root), f.mode, f.shared).confirm()
             assertTrue(normal.confirmed, "A normal sink part need not have an exact tail")
             assertFalse(demand.confirmed)
             assertEquals(e, (normal.edges.single().facts as TaintTree).exclusion)
@@ -112,7 +113,7 @@ class AnyTaintSupportTest {
             val admittedWitness = f.witness(callee, admitted, facts = f.fact(y, tail = Tail.ANY_TAINT,
                 exclusion = ExclusionSet.of(a)), alternative = 0)
             val excludedWitness = f.witness(callee, excluded, facts = f.fact(y, tail = Tail.ANY_TAINT), alternative = 1)
-            val support = Support(f.result(), listOf(root), f.mode, f.shared)
+            val support = HistoricalSupport(f.result(), listOf(root), f.mode, f.shared)
             support.confirm()
             assertTrue(admittedWitness.confirmed)
             assertFalse(excludedWitness.confirmed)
@@ -133,7 +134,7 @@ class AnyTaintSupportTest {
             val exact = f.initial(y)
             f.link(callee, caller, callerPremise, f.fact(y))
             val witness = f.witness(callee, exact, facts = f.fact(y))
-            val support = Support(f.result(), listOf(root), f.mode, f.shared)
+            val support = HistoricalSupport(f.result(), listOf(root), f.mode, f.shared)
             assertEquals(narrow, support.isSupported(caller, callerPremise.members))
             assertEquals(narrow, support.isSupported(callee, exact.members))
             support.confirm()

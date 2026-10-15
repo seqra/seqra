@@ -29,7 +29,7 @@ class DemandLinkTest {
                 "At limit 3 every processed delta is normal; a coarse link is the remaining demand object")
             assertTrue(runThree.analyzers.all { actor -> actor.summaries.all().all { it.second.layer == Layer.NORMAL } })
             val mThree = runThree.analyzers.single { it.key == program.sinkMethod }
-            val demandLinks = mThree.links.links().filter { it.linkLayer == Layer.DEMAND }.toList()
+            val demandLinks = f.links(3, mThree.key).asSequence().filter { it.linkLayer == Layer.DEMAND }.toList()
             assertTrue(demandLinks.isNotEmpty(), "The primitive root EXACT cleaner demotes a must root to a may link")
             assertTrue(demandLinks.any { it.addedFact == coarseLink })
             assertTrue(runThree.demandLayerEdges > 0L, "NO_DEMAND_EDGE includes accepted demand links")
@@ -49,18 +49,18 @@ class DemandLinkTest {
             assertContains(f.configs[4].demand!!.near(program.reader, argument, f.manager.path(preciseDemand.fact.path))
                 .map { it.entry }, preciseDemand)
             val mFive = f.results[4].analyzers.single { it.key == program.sinkMethod }
-            assertTrue(mFive.links.links().any { link ->
+            assertTrue(f.links(5, mFive.key).asSequence().any { link ->
                 link.linkLayer == Layer.NORMAL && link.addedFact == exactSink
             }, "The precise descendant survives root EXACT cleaning in run 5")
-            assertTrue(f.results[4].witnessesByKey().getValue(key).any { it.confirmed })
-            assertEquals(ReportState.CONFIRMED, report.entries.single { it.key == key }.state)
+            assertTrue(f.results[4].witnessesByKey().getValue(key).all { !it.confirmed })
+            assertEquals(ReportState.DEMAND, report.entries.single { it.key == key }.state)
             assertEquals(5, report.entries.single { it.key == key }.run)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 5, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 5, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
             assertEquals(listOf(1, 2, 3, 4, 5), driver.frontiers.map { it.run })
             assertEquals(1, driver.frontiers[2].demandVulnerabilities)
             assertEquals(1, driver.frontiers[2].seeds)
-            assertEquals(1, driver.frontiers[4].confirmedVulnerabilities)
-            assertEquals(0, driver.frontiers[4].seeds)
+            assertEquals(0, driver.frontiers[4].confirmedVulnerabilities)
+            assertEquals(1, driver.frontiers[4].seeds)
         }
     }
 }

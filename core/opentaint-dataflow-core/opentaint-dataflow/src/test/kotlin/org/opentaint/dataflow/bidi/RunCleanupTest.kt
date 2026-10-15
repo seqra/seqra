@@ -220,7 +220,7 @@ class RunCleanupTest {
             val initial = f.manager.initial(f.pattern())
             core.addInitial(initial)
             val ref = CallerRef(f.key, f.manager.zero, Layer.NORMAL, f.inst(1))
-            core.links.add(ref, Layer.NORMAL, f.fact())
+            f.admit(core, ref, Layer.NORMAL, f.fact())
             val source = PathEdge(ZERO_FACT, f.pattern().fact, ExclusionSet.Empty)
             if (index == 2) core.sourceHits!!.add(f.key, f.inst(1), source)
             f.drain(core)
@@ -248,12 +248,13 @@ class RunCleanupTest {
             assertEquals(demand, core.summaries.demandEdges().toList())
             assertEquals(stats, listOf(core.steps, core.edgeDeltas, core.demandLayerEdges, core.recordCrossings, core.triggerSeeds))
             assertTrue(core.nonZeroInitial)
+            assertTrue(core.javaClass.declaredFields.none { it.name == "linkStore" },
+                "Method actors never own an incoming supplier store, including before release")
             if (index == 1) {
-                assertEquals(ref, core.links.links().single().caller)
+                assertEquals(ref, f.links(core).single().caller)
                 assertNull(core.sourceHits)
             } else {
-                assertNull(field<Any?>(core, "linkStore"))
-                assertFailsWith<IllegalStateException> { core.links }
+                assertNull(core.abstraction)
                 val hit = core.sourceHits!!.entries().single()
                 assertEquals(f.key, hit.first)
                 assertSame(f.inst(1), hit.second)

@@ -16,6 +16,7 @@ interface RunnerPort<A : RunActor> {
     val steps: ProtocolSteps
     fun send(event: RunEvent): Boolean
     fun post(event: RunEvent.Delivery): Boolean
+    fun post(event: RunEvent.QuestionDelivery): Boolean = error("Question delivery needs its subscribed runner")
     fun enqueue(analyzer: A): Boolean
     fun analyzer(key: MethodKey): A
     fun summaryStorage(key: MethodKey): SummaryStorage

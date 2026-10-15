@@ -52,10 +52,10 @@ class DriverIntegrationTest {
             }, "The final completed barrier persists the native normal source summary")
             val key = VulnerabilityKey(program.rule, program.root.method, program.sink)
             assertEquals(listOf(key), report.entries.map { it.key })
-            assertEquals(ReportState.CONFIRMED, report.entries.single().state)
+            assertEquals(ReportState.DEMAND, report.entries.single().state)
             assertEquals(3, report.entries.single().run)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.STOP_RULE), report.end)
-            assertEquals(listOf(1, 1, 0), driver.frontiers.map { it.seeds })
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(listOf(1, 1, 1), driver.frontiers.map { it.seeds })
             assertTrue(driver.frontiers.last().demandEdges.isEmpty())
         }
     }
@@ -83,11 +83,11 @@ class DriverIntegrationTest {
             val program = f.confirmed()
             val driver = IterationDriver(FixedLimits(listOf(1)), f.shared, 5.seconds)
             val report = driver.analyze(listOf(program.root))
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.STOP_RULE), report.end)
-            assertEquals(ReportState.CONFIRMED, report.entries.single().state)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(ReportState.DEMAND, report.entries.single().state)
             assertEquals(1, driver.frontiers.single().run)
-            assertEquals(1, driver.frontiers.single().confirmedVulnerabilities)
-            assertEquals(0, driver.frontiers.single().seeds)
+            assertEquals(0, driver.frontiers.single().confirmedVulnerabilities)
+            assertEquals(1, driver.frontiers.single().seeds)
         }
     }
 }

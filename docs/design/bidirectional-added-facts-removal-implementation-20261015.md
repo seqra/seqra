@@ -1,6 +1,8 @@
 # Added-fact removal: implementation proposal
 
-Date: 15 October 2026. Status: proposed; no analyzer implementation changes.
+Date: 15 October 2026. Status: implemented as selected; core protocol checks pass, with eight strict application precision failures.
+See the [implementation evidence](../reports/bidirectional-added-facts-removal-validation-20261015.md).
+The measurements below belong to the pre-change core and are historical only.
 
 This document implements the scope of the
 [selected redesign](bidirectional-added-facts-removal-20261015.md). The revised
@@ -315,7 +317,7 @@ the removed memory owner. Report N2 ownership separately from callee memo owners
 
 ## 8. Implementation sequence and gates
 
-These are future implementation tasks. This document does not change Kotlin.
+These steps define the implementation sequence and its acceptance gates. The linked validation report records executed checks.
 
 | Step | Change | Required evidence before the next step |
 | --- | --- | --- |

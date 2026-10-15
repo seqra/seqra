@@ -8,7 +8,9 @@ import org.opentaint.dataflow.configuration.CommonTaintConfigurationSink
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.ir.api.common.cfg.CommonInst
 
-/** Support reads real frozen actors and AddedFactStore links; no method work is simulated here. */
+data class HistoricalSupportInput(val result: RunResult<RunMethodAnalyzer>, val links: Map<MethodKey, List<Link>>)
+
+/** Explicit ghost input history for historical support laws; never installed in a runtime actor. */
 class SupportFixtures(val index: Int = 1) : AutoCloseable {
     val program = FiniteProgramFixtures()
     val manager get() = program.manager
@@ -21,6 +23,7 @@ class SupportFixtures(val index: Int = 1) : AutoCloseable {
     private val methods = LinkedHashMap<String, ProgramMethod>()
     private val actors = LinkedHashMap<MethodKey, RunMethodAnalyzer>()
     private var frozen = false
+    private val inputs = LinkedHashMap<MethodKey, LinkedHashSet<Link>>()
 
     fun key(method: String, context: String = "context", entry: Int = 0): MethodKey =
         methods.getOrPut(method) {
@@ -69,19 +72,24 @@ class SupportFixtures(val index: Int = 1) : AutoCloseable {
     fun link(callee: MethodKey, caller: MethodKey, premise: PremiseKey, added: Facts,
              callerLayer: Layer = Layer.NORMAL, linkLayer: Layer = added.layer, call: Int = 1): Facts? {
         actor(caller)
-        return actor(callee).links.add(CallerRef(caller, premise, callerLayer, inst(caller, call)), linkLayer, added)
+        actor(callee)
+        val ref = CallerRef(caller, premise, callerLayer, inst(caller, call))
+        val rows = inputs.getOrPut(callee, ::LinkedHashSet)
+        var fresh = false
+        for (leaf in ops.leaves(added)) fresh = rows.add(Link(leaf, linkLayer, ref)) || fresh
+        return added.takeIf { fresh }
     }
 
     fun result(status: RunStatus = RunStatus.COMPLETE, direction: Direction = config.direction,
-               order: List<MethodKey>? = null): RunResult<RunMethodAnalyzer> {
-        if (status != RunStatus.COMPLETE) return RunResult(status, emptyList(), index, direction, vulnerabilities)
+               order: List<MethodKey>? = null): HistoricalSupportInput {
+        if (status != RunStatus.COMPLETE) return HistoricalSupportInput(RunResult(status, emptyList(), index, direction, vulnerabilities), emptyMap())
         if (!frozen) {
             actors.values.forEach { it.freeze() }
             frozen = true
         }
         val keys = order ?: actors.keys.toList()
         check(keys.toSet() == actors.keys) { "A result permutation must contain every actor key" }
-        return RunResult(status, keys.map(actors::getValue), index, direction, vulnerabilities)
+        return HistoricalSupportInput(RunResult(status, keys.map(actors::getValue), index, direction, vulnerabilities), inputs.mapValues { it.value.toList() })
     }
 
     fun rule(id: String = "sink"): RuleId = object : CommonTaintConfigurationSink {

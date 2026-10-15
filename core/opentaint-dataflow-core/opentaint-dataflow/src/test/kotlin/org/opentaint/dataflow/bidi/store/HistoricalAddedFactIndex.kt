@@ -6,7 +6,7 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.PathNode
 import org.opentaint.dataflow.util.Cancellation
 
-/** The raw-link positional directory. Append-only lanes make paused cursors safe through rehashes. */
+/** Test-only historical raw-link positional directory. Append-only lanes make paused cursors safe through rehashes. */
 internal class AddedFactIndex(private val cancellation: Cancellation) {
     class Node {
         val seen = IntOpenHashSet()

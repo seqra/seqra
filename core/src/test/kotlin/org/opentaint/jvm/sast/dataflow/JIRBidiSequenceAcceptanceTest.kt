@@ -10,6 +10,8 @@ import org.opentaint.dataflow.configuration.jvm.serialized.*
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase.Argument
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase.Result
 import org.opentaint.dataflow.jvm.ap.ifds.taint.PrimitiveTaintExt
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRStaticCallExpr
 import kotlin.test.*
 
 /** Actual JVM entry with independent current-spec vectors and joined-run observations. */
@@ -39,7 +41,8 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
     private fun run(config: SerializedTaintConfig, entry: String, limits: List<Int> = listOf(1, 2, 3)) =
         runBidiAcceptance(config, cls, entry, limits)
     private fun findings(r: BidiAcceptanceResult) = r.report.entries.associate { it.key.rule.id to it.state }
-    private fun assertFinding(r: BidiAcceptanceResult, expected: Map<String, ReportState>) {
+    private fun assertFinding(r: BidiAcceptanceResult, expected: Map<String, ReportState>,
+                              normalRules: Set<String> = expected.keys) {
         assertEquals(expected, findings(r))
         assertEquals(expected.keys, r.output.mapTo(linkedSetOf()) { it.vulnerability.ruleId })
         assertEquals(RunStatus.COMPLETE, r.report.end.status)
@@ -57,6 +60,12 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
             assertTrue(run.edgeDeltas > 0)
             run.outgoingSeeds?.let { assertEquals(it.size, frontier.seeds) }
         }
+        assertTrue(r.witnesses.all { !it.confirmed },
+            "The minimal policy retains observed witnesses as unproved candidates")
+        for (rule in normalRules) assertTrue(r.witnesses.any { witness ->
+            witness.rule.id == rule && witness.literals.isNotEmpty() &&
+                witness.literals.all { it.layer == Layer.NORMAL }
+        }, "Rule $rule must still have an observed NORMAL literal support; DEMAND is its proof status")
         for (entry in r.report.entries) assertTrue(r.witnesses.any { witness ->
             witness.rule == entry.key.rule && witness.statement == entry.key.statement &&
                 entry.witnesses.any { it.methodKey == witness.method && it.run == witness.run &&
@@ -72,7 +81,7 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
         val config = SerializedTaintConfig(entryPoint = listOf(entry("getterFlow")),
             sink = listOf(sink("sinkAnyT", "j03-getter", whole = true)))
         val r = run(config, "getterFlow")
-        assertFinding(r, mapOf("j03-getter" to ReportState.CONFIRMED))
+        assertFinding(r, mapOf("j03-getter" to ReportState.DEMAND))
         assertEquals(listOf(1, 2, 3), r.runs.map { it.index })
         val getter = r.method("getter")
         val argument = AccessPathBase.Argument(0)
@@ -88,15 +97,17 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
         assertEquals(setOf(zero), r.runs[2].initials.filter { it.method == getter }.mapTo(linkedSetOf()) { it.value })
         assertTrue(r.runs.all { it.requests.isEmpty() })
         assertTrue(r.frontiers[2].recordCrossings > 0)
-        assertEquals(EndReason.STOP_RULE, r.report.end.reason)
+        assertEquals(EndReason.NO_DEMAND_EDGE, r.report.end.reason)
+        assertEquals(0L, r.runs.last().demandLayerEdges,
+            "The NORMAL candidate remains unproved; absence of DEMAND work stops refinement")
     }
 
     @Test
-    fun `JVM callee sink confirms after same site normal demanded premises arrive`(): Unit {
+    fun `JVM callee sink retains a candidate after same site normal demanded premises arrive`(): Unit {
         val config = SerializedTaintConfig(entryPoint = listOf(entry("calleeSinkFlow")),
             sink = listOf(sink("sinkT", "j03-callee")))
         val r = run(config, "calleeSinkFlow")
-        assertFinding(r, mapOf("j03-callee" to ReportState.CONFIRMED))
+        assertFinding(r, mapOf("j03-callee" to ReportState.DEMAND))
         assertEquals(listOf(1, 2, 3), r.runs.map { it.index })
         val use = r.method("use")
         val root = r.method("calleeSinkFlow")
@@ -119,14 +130,16 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
         for (later in listOf(1, 2, 3)) {
             val r = run(SerializedTaintConfig(entryPoint = listOf(entry("identityFlow")),
                 sink = listOf(sink("sinkAnyT", "j03-identity", whole = true))), "identityFlow", listOf(1, later, later))
-            assertFinding(r, mapOf("j03-identity" to ReportState.CONFIRMED))
+            assertFinding(r, mapOf("j03-identity" to ReportState.DEMAND))
             assertEquals(listOf(1), r.runs.map { it.index })
             val identity = r.method("identity")
             assertContains(r.runs.single().records, JvmObservedRecord(identity, Direction.FORWARD,
                 JvmObservedPath(AccessPathBase.Argument(0), tail = Tail.STAR, mark = "*"),
                 normal(AccessPathBase.Return, tail = Tail.STAR, mark = "*")))
             assertTrue(r.runs.single().selected.isEmpty())
-            assertEquals(0, r.frontiers.single().seeds)
+            assertEquals(1, r.frontiers.single().seeds,
+                "The unproved sink has one compressed predicate seed even though the fixed stop ends F1")
+            assertEquals(EndReason.NO_DEMAND_EDGE, r.report.end.reason)
             assertNull(r.runs.single().outgoingSeeds)
             assertTrue(r.runs.single().requests.isEmpty())
         }
@@ -137,7 +150,7 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
         for (name in listOf("setterFlow", "deeperSetterFlow")) {
             val r = run(SerializedTaintConfig(entryPoint = listOf(entry(name)), sink = listOf(
                 sink("sinkT", "j03-setter-admitted"), sink("sinkBlockedT", "j03-setter-blocked"))), name)
-            assertFinding(r, mapOf("j03-setter-admitted" to ReportState.CONFIRMED))
+            assertFinding(r, mapOf("j03-setter-admitted" to ReportState.DEMAND))
             assertEquals(listOf(1), r.runs.map { it.index })
             assertContains(r.runs.single().records, JvmObservedRecord(r.method("setter"), Direction.FORWARD,
                 JvmObservedPath(AccessPathBase.Argument(0), tail = Tail.STAR, mark = "*"),
@@ -157,7 +170,7 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
     @Test
     fun `JVM zero premise factory emits separate native must exclusion and exact U record`(): Unit {
         val r = run(factoryConfig("factoryFlow"), "factoryFlow")
-        assertFinding(r, mapOf("j03-factory-T" to ReportState.CONFIRMED, "j03-factory-U" to ReportState.CONFIRMED))
+        assertFinding(r, mapOf("j03-factory-T" to ReportState.DEMAND, "j03-factory-U" to ReportState.DEMAND))
         val factory = r.method("factory")
         assertEquals(setOf(normal(AccessPathBase.Return, tail = Tail.ANY_TAINT, exclusion = setOf("name", "k")),
             normal(AccessPathBase.Return, listOf("k"), Tail.EXACT, u),
@@ -172,18 +185,59 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
     }
 
     @Test
-    fun `JVM factory native return replay crosses records without executing source rules again`(): Unit {
+    fun `JVM factory native return records coexist with newly seeded exact source replay`(): Unit {
         val r = run(factoryConfig("factoryReplayFlow", replay = true), "factoryReplayFlow")
-        assertFinding(r, mapOf("j03-factory-T" to ReportState.CONFIRMED, "j03-factory-U" to ReportState.CONFIRMED,
-            "j03-factory-may" to ReportState.DEMAND))
+        assertFinding(r, mapOf("j03-factory-T" to ReportState.DEMAND, "j03-factory-U" to ReportState.DEMAND,
+            "j03-factory-may" to ReportState.DEMAND), normalRules = setOf("j03-factory-T", "j03-factory-U"))
         assertEquals(listOf(1, 2, 3), r.runs.map { it.index })
         val factory = r.method("factory")
-        assertEquals(setOf(zero), r.runs[1].initials.filter { it.method == factory }.mapTo(linkedSetOf()) { it.value })
-        assertTrue(r.runs[1].sourceHits.none { it.method == factory })
-        assertTrue(r.runs[2].incomingSeeds.filterIsInstance<Seed.Source>().none { it.method == factory })
-        assertTrue(r.runs[2].rawSummaries.none { it.method == factory && it.conclusion.value.base == AccessPathBase.Return })
-        // B2 is only-zero for the already confirmed factory rules and need not read a native return.
+        assertEquals(setOf(zero,
+            JvmObservedPath(AccessPathBase.Return, listOf("k"), Tail.EXACT, u),
+            JvmObservedPath(AccessPathBase.Return, listOf("k", "[e]"), Tail.EXACT, u),
+            JvmObservedPath(AccessPathBase.Return, listOf("k", "[e]"), Tail.ANY, u)),
+            r.runs[1].initials.filter { it.method == factory }.mapTo(linkedSetOf()) { it.value },
+            "The unproved U sink seeds its value and array-element return requirements")
+        val hits = r.runs[1].sourceHits.filter { it.method == factory }.toSet()
+        val sourcePlace = hits.map { it.statement }.distinct().single()
+        assertEquals(factory.method, sourcePlace.location.method)
+        assertEquals("exactUSource", assertIs<JIRStaticCallExpr>(assertIs<JIRAssignInst>(sourcePlace).rhv).method.name)
+        assertEquals(setOf(
+            JvmObservedSourceHit(factory, sourcePlace, zero,
+                JvmObservedPath(AccessPathBase.Return, tail = Tail.EXACT, mark = u)),
+            JvmObservedSourceHit(factory, sourcePlace, zero,
+                JvmObservedPath(AccessPathBase.Return, listOf("[e]"), Tail.EXACT, u))), hits)
+        val seeds = r.runs[2].incomingSeeds.filterIsInstance<Seed.Source>().filter { it.method == factory }.toSet()
+        assertEquals(2, seeds.size)
+        assertTrue(seeds.all { it.statement == sourcePlace })
+        assertEquals(assertNotNull(r.runs[1].outgoingSeeds).filterIsInstance<Seed.Source>()
+            .filter { it.method == factory }.toSet(), seeds,
+            "F3 consumes the same full original source edges and call/context identities selected in B2")
+        assertEquals(setOf(
+            JvmObservedEdge(factory, setOf(zero), normal(AccessPathBase.Return, listOf("k"), Tail.EXACT, u)),
+            JvmObservedEdge(factory, setOf(zero), normal(AccessPathBase.Return, listOf("k", "[e]"), Tail.EXACT, u))),
+            r.runs[2].rawSummaries.filter { it.method == factory &&
+                it.conclusion.value.base == AccessPathBase.Return }.toSet())
+        assertContains(r.runs[2].records, JvmObservedRecord(factory, Direction.FORWARD, zero,
+            normal(AccessPathBase.Return, tail = Tail.ANY_TAINT, exclusion = setOf("name", "k"))))
+        // T keeps its native record; only the actual U source hits supply F3 source permission.
         assertTrue(r.frontiers[2].recordCrossings > 0)
+
+        // An independent may-only sink leaves the factory's T/U rules unseeded. This retains the
+        // native-record replay control without relying on automatic confirmation of those rules.
+        val control = run(factoryConfig("factoryReplayFlow", replay = true).copy(
+            sink = listOf(sink("sinkAnyT", "j03-factory-may", whole = true))), "factoryReplayFlow")
+        assertFinding(control, mapOf("j03-factory-may" to ReportState.DEMAND), normalRules = emptySet())
+        assertEquals(listOf(1, 2, 3), control.runs.map { it.index })
+        val controlFactory = control.method("factory")
+        assertEquals(setOf(zero), control.runs[1].initials.filter { it.method == controlFactory }
+            .mapTo(linkedSetOf()) { it.value })
+        assertTrue(control.runs[1].sourceHits.none { it.method == controlFactory })
+        assertTrue(control.runs[2].incomingSeeds.filterIsInstance<Seed.Source>().none { it.method == controlFactory })
+        assertTrue(control.runs[2].rawSummaries.none { it.method == controlFactory &&
+            it.conclusion.value.base == AccessPathBase.Return })
+        assertContains(control.runs[2].records, JvmObservedRecord(controlFactory, Direction.FORWARD, zero,
+            normal(AccessPathBase.Return, tail = Tail.ANY_TAINT, exclusion = setOf("name", "k"))))
+        assertTrue(control.frontiers[2].recordCrossings > 0)
     }
 
     @Test
@@ -191,7 +245,7 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
         val commonSink = sink("sinkAnyT", "j03-source-or-pass", whole = true)
         val pass = run(SerializedTaintConfig(entryPoint = listOf(entry("passFlow", whole = false)),
             passThrough = listOf(mayPass()), sink = listOf(commonSink)), "passFlow")
-        assertFinding(pass, mapOf("j03-source-or-pass" to ReportState.DEMAND))
+        assertFinding(pass, mapOf("j03-source-or-pass" to ReportState.DEMAND), normalRules = emptySet())
         assertEquals(listOf(1, 2, 3), pass.runs.map { it.index })
         assertEquals(EndReason.POLICY, pass.report.end.reason)
         val conditional = SerializedRule.Source(functionMatcher(cls, "conditionalSource"),
@@ -199,7 +253,7 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
             taint = listOf(SerializedTaintAssignAction(t, pos = any(Result))))
         val source = run(SerializedTaintConfig(entryPoint = listOf(entry("sourceFlow", whole = false)),
             source = listOf(conditional), sink = listOf(commonSink)), "sourceFlow")
-        assertFinding(source, mapOf("j03-source-or-pass" to ReportState.CONFIRMED))
+        assertFinding(source, mapOf("j03-source-or-pass" to ReportState.DEMAND))
         assertEquals(listOf(1), source.runs.map { it.index })
     }
 
@@ -210,12 +264,12 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
             SerializedTaintCleanAction(t, field(Argument(0), "name"), TaintCleanReach.ExactAndAnyField)))
         val cleaned = run(SerializedTaintConfig(entryPoint = listOf(entry("fieldCleanerFlow")),
             cleaner = listOf(cleaner), sink = sinks), "fieldCleanerFlow")
-        assertFinding(cleaned, mapOf("j03-cleaner-email" to ReportState.CONFIRMED))
+        assertFinding(cleaned, mapOf("j03-cleaner-email" to ReportState.DEMAND))
         assertTrue(cleaned.runs.single().processed.any { it.conclusion.layer == Layer.NORMAL &&
             it.conclusion.value.tail == Tail.ANY_TAINT && "name" in it.conclusion.value.exclusion })
         val control = run(SerializedTaintConfig(entryPoint = listOf(entry("fieldCleanerControl")), sink = sinks),
             "fieldCleanerControl")
-        assertFinding(control, mapOf("j03-cleaner-email" to ReportState.CONFIRMED, "j03-cleaner-name" to ReportState.CONFIRMED))
+        assertFinding(control, mapOf("j03-cleaner-email" to ReportState.DEMAND, "j03-cleaner-name" to ReportState.DEMAND))
     }
 
     @Test
@@ -225,7 +279,8 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
         val r = run(SerializedTaintConfig(entryPoint = listOf(entry("fieldCleanerFlow")), cleaner = listOf(cleaner),
             sink = listOf(sink("sinkT", "j03-cleaner-email"), sink("sinkBlockedT", "j03-cleaner-name"))),
             "fieldCleanerFlow")
-        assertFinding(r, mapOf("j03-cleaner-email" to ReportState.CONFIRMED, "j03-cleaner-name" to ReportState.DEMAND))
+        assertFinding(r, mapOf("j03-cleaner-email" to ReportState.DEMAND, "j03-cleaner-name" to ReportState.DEMAND),
+            normalRules = setOf("j03-cleaner-email"))
         assertTrue(r.runs[0].processed.any { it.conclusion.layer == Layer.DEMAND &&
             it.conclusion.value.path.lastOrNull() == "name" && it.conclusion.value.tail == Tail.ANY })
     }
@@ -240,8 +295,8 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
             entry(entryName, false, t, 0), entry(entryName, false, u, 1)), source = listOf(conditional),
             sink = listOf(sink("sinkJoint", "j03-joint", "J03-joint")))
         val joined = run(config("jointFlow"), "jointFlow")
-        assertFinding(joined, mapOf("j03-joint" to ReportState.CONFIRMED))
-        assertTrue(joined.report.entries.single().witnesses.any { it.confirmed })
+        assertFinding(joined, mapOf("j03-joint" to ReportState.DEMAND))
+        assertTrue(joined.report.entries.single().witnesses.all { !it.confirmed })
         val separated = run(config("jointSplitFlow"), "jointSplitFlow")
         assertFinding(separated, emptyMap())
     }
@@ -255,7 +310,7 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
                 taint = listOf(SerializedTaintAssignAction(t, pos = target)))
             val r = run(SerializedTaintConfig(entryPoint = listOf(source),
                 sink = listOf(sink("sinkT", "j03-entry-removal"))), "entryRemoval")
-            assertFinding(r, mapOf("j03-entry-removal" to ReportState.CONFIRMED))
+            assertFinding(r, mapOf("j03-entry-removal" to ReportState.DEMAND))
             val root = r.method("entryRemoval")
             assertTrue(r.runs[0].processed.any { it.method == root &&
                 it.conclusion == normal(AccessPathBase.Argument(0), path, Tail.ANY_TAINT) })
@@ -267,11 +322,11 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
     }
 
     @Test
-    fun `JVM primitive tracking AnyField byte array source confirms in run one`(): Unit {
+    fun `JVM primitive tracking AnyField byte array source has a normal candidate in run one`(): Unit {
         val primitive = "J03-byte" + PrimitiveTaintExt.PRIMITIVE_TRACKING_ENABLED_MODE
         val r = run(SerializedTaintConfig(entryPoint = listOf(entry("primitiveFlow", true, primitive)),
             sink = listOf(sink("sinkByte", "j03-primitive", primitive))), "primitiveFlow")
-        assertFinding(r, mapOf("j03-primitive" to ReportState.CONFIRMED))
+        assertFinding(r, mapOf("j03-primitive" to ReportState.DEMAND))
         assertEquals(listOf(1), r.runs.map { it.index })
         assertTrue(r.runs[0].processed.any { it.conclusion.value.tail == Tail.ANY_TAINT &&
             it.conclusion.value.mark == primitive && it.conclusion.layer == Layer.NORMAL })

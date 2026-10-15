@@ -25,9 +25,16 @@ class RunMethodHandlers(
             override val ops get() = active().ops
             override val steps get() = active().steps
             override val statistics get() = active().shared.n2Statistics
+            override val abstractionStatistics get() = active().shared.abstractionStatistics
+            override val requestBatchStatistics get() = active().shared.requestBatchStatistics
             override fun summaryStorage(key: MethodKey): SummaryStorage = active().summaryStorage(key)
             override fun applier(key: MethodKey): SummaryApplier = active().analyzer(key)
             override fun post(event: RunEvent.Delivery): Boolean = active().post(event)
+            override fun post(event: RunEvent.QuestionDelivery): Boolean = active().post(event)
+            override fun send(event: RunEvent): Boolean = active().send(event)
+            override fun covered(method: MethodKey, initial: org.opentaint.dataflow.bidi.ap.InitialAp,
+                                 mark: org.opentaint.dataflow.bidi.ap.TaintMark): Boolean =
+                active().shared.run1StaticProfiles?.get(method.method)?.covers(initial, mark) == true
         })
 
         override fun createActor(key: MethodKey): RunMethodAnalyzer {
@@ -44,7 +51,12 @@ class RunMethodHandlers(
                 is RunEvent.LinkIn -> port.analyzer(event.callee).addLink(event.ref, event.linkLayer, event.added)
                 is RunEvent.ZeroIn -> port.analyzer(event.callee).addZeroEntry()
                 is RunEvent.MarkRequestsIn -> port.analyzer(event.method).addMarkRequests(event.premise, event.marks)
+                is RunEvent.InitialAnswersIn -> for (initial in event.answers) {
+                    port.shared.cancellation.checkpoint()
+                    port.analyzer(event.method).addInitial(initial)
+                }
                 is RunEvent.Delivery -> checkNotNull(subscriptions).onDelivery(event.callee, event.publications)
+                is RunEvent.QuestionDelivery -> checkNotNull(subscriptions).onQuestions(event.callee, event.delta)
                 is RunEvent.Work -> error("Work is handled by its owning unit runner")
             }
         }

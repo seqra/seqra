@@ -78,9 +78,9 @@ class CurrentModeActionsTest {
                 it.added == atArgument })
             assertTrue(f.actual.results[0].witnessesByKey().getValue(key(c, 0)).all { !it.confirmed &&
                 it.edges.all { edge -> edge.layer == Layer.DEMAND } })
-            assertEquals(ReportState.CONFIRMED, report.entries.single { it.key == key(c, 0) }.state)
+            assertEquals(ReportState.DEMAND, report.entries.single { it.key == key(c, 0) }.state)
             assertEquals(3, report.entries.single { it.key == key(c, 0) }.run)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
         }
     }
 
@@ -144,8 +144,8 @@ class CurrentModeActionsTest {
             assertTrue(killed !in f.actual.results[2].witnessesByKey())
             assertTrue(report.entries.none { it.key == killed })
             assertEquals(setOf(key(c, 1), key(c, 2)), report.entries.map { it.key }.toSet())
-            assertTrue(report.entries.all { it.state == ReportState.CONFIRMED && it.run == 3 })
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertTrue(report.entries.all { it.state == ReportState.DEMAND && it.run == 3 })
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
         }
     }
 }

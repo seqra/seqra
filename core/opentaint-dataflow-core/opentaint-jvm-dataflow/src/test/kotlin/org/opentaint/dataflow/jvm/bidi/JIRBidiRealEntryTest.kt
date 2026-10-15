@@ -28,7 +28,7 @@ import kotlin.time.Duration.Companion.seconds
 /** A nonempty real prescan is copied, released, and consumed by the actual JVM driver. */
 class JIRBidiRealEntryTest : BidiJIRTestUtils() {
     @Test
-    fun `copied rules and root produce a confirmed exact exit sink after prescan owners are released`(): Unit {
+    fun `copied rules and root produce an unproved exact exit candidate after prescan owners are released`(): Unit {
         val root = method("normal", JIRPrescanFixtures.SAMPLE)
         val mark = TaintMark("real entry T")
         val source = TaintEntryPointSource(root, mkTrue(), listOf(AssignMark(mark, Argument(0))),
@@ -79,14 +79,14 @@ class JIRBidiRealEntryTest : BidiJIRTestUtils() {
             assertNull(assertNotNull(runtimeShared).run1StaticProfiles,
                 "The actual joined run and analysis close must release the catalog, while the report remains usable")
             assertEquals(listOf(copiedIds), selected)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
             val item = report.entries.single()
-            assertEquals(ReportState.CONFIRMED, item.state)
+            assertEquals(ReportState.DEMAND, item.state)
             assertEquals(1, item.run)
             assertSame(sink, item.key.rule)
             assertSame(root, item.key.method)
             assertSame(normalExit(root), item.key.statement)
-            assertTrue(item.witnesses.any { it.confirmed })
+            assertTrue(item.witnesses.all { !it.confirmed }, "Normal root facts alone are not a confirmation certificate")
             for (witness in item.witnesses) {
                 assertSame(root, witness.methodKey.method)
                 assertEquals(EmptyMethodContext, witness.methodKey.context)
@@ -107,7 +107,7 @@ class JIRBidiRealEntryTest : BidiJIRTestUtils() {
             assertSame(TracePathGenerationResult.Simple, output.trace)
             val node = assertIs<TaintSinkTracker.TaintVulnerabilityRuleNode.Unconditional>(
                 output.vulnerability.vulnerabilityRules.getValue(sink))
-            assertSame(item.witnesses.first { it.confirmed }.methodKey, node.methodEntryPoint)
+            assertSame(item.witnesses.first().methodKey, node.methodEntryPoint)
             assertEquals(TaintAnalysisUnitRunnerManager.Status.OK, entry.status(report))
         }
     }

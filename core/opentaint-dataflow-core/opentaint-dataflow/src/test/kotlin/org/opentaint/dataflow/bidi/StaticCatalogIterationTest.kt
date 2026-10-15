@@ -131,7 +131,7 @@ class StaticCatalogIterationTest {
                 val states = report.entries.associate { HistoricalFinding(it.key.rule, it.key.statement) to
                     if (it.state == ReportState.CONFIRMED) HistoricalState.CONFIRMED else HistoricalState.DEMAND }
                 assertEquals(reference.findings, states)
-                assertEquals(setOf(if (crossed) HistoricalState.DEMAND else HistoricalState.CONFIRMED), states.values.toSet())
+                assertEquals(setOf(HistoricalState.DEMAND), states.values.toSet())
                 for ((expected, result) in reference.runs.zip(f.results)) {
                     assertEquals(RunStatus.COMPLETE, result.status)
                     val actual = retained(result, f.ops)

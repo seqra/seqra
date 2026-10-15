@@ -1,4 +1,4 @@
-package org.opentaint.dataflow.bidi.driver
+package org.opentaint.dataflow.bidi.fixtures
 
 import org.opentaint.dataflow.bidi.ap.ApMode
 import org.opentaint.dataflow.bidi.ap.Direction
@@ -16,9 +16,10 @@ import org.opentaint.dataflow.bidi.store.confirmableMember
 import org.opentaint.dataflow.bidi.store.supplies
 import org.opentaint.ir.api.common.cfg.CommonInst
 
-/** Least joint support at one call, read after a complete forward run has joined. */
-class Support(private val result: RunResult<RunMethodAnalyzer>, roots: List<MethodKey>,
+/** Historical raw-history support oracle. The current driver deliberately does not confirm candidates this way. */
+class HistoricalSupport(input: HistoricalSupportInput, roots: List<MethodKey>,
               private val mode: ApMode, private val shared: SharedObjects) {
+    private val result = input.result
     private data class Site(val callee: MethodKey, val caller: MethodKey, val call: CommonInst)
     private val roots = roots.toHashSet()
     private val ap = shared.ap
@@ -34,7 +35,7 @@ class Support(private val result: RunResult<RunMethodAnalyzer>, roots: List<Meth
         shared.cancellation.checkpoint()
         for (callee in result.analyzers) {
             shared.cancellation.checkpoint()
-            for (link in callee.links.links()) {
+            for (link in input.links[callee.key].orEmpty()) {
                 shared.cancellation.checkpoint()
                 val ref = link.caller
                 if (link.linkLayer != Layer.NORMAL || ref.callerLayer != Layer.NORMAL) continue

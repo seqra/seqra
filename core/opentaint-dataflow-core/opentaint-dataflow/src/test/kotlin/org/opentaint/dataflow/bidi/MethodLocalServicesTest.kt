@@ -78,7 +78,7 @@ class MethodLocalServicesTest {
                 f.pattern(AccessPathBase.This).fact)
             f.cancellation.cancel()
             assertFailsWith<Cancellation.Cancelled> { service.addMarkRequest(policy, request) }
-            assertFailsWith<Cancellation.Cancelled> { service.onAddedLink(ref, Layer.NORMAL, input) }
+            assertFailsWith<Cancellation.Cancelled> { actor.addLink(ref, Layer.NORMAL, input) }
             assertFailsWith<Cancellation.Cancelled> {
                 service.conjunction(conjunction, premise, input, f.inst(1)) { _, _ -> fail("Cancelled join") }
             }
@@ -174,7 +174,11 @@ class MethodLocalServicesTest {
             assertSame(service, actor.localServices)
             val abstraction = assertNotNull(actor.abstraction)
             assertTrue(service.hasPendingRequests)
-            assertFalse(actor.work(1), "One quantum starts the detached request phase and cannot complete it")
+            val otherPolicy = f.manager.initial(AccessPathBase.Argument(1), null, Tail.STAR,
+                ExclusionSet.Empty, MarkSlot.STAR)
+            service.addMarkRequest(otherPolicy, f.mark("T"))
+            assertFalse(actor.work(1), "One quantum publishes only one of two independent questions")
+            assertTrue(service.hasPendingRequests)
             assertFails { actor.freeze() }
             assertSame(abstraction, actor.abstraction, "A rejected freeze keeps pending policy work")
             assertSame(service, actor.localServices)
@@ -275,9 +279,13 @@ class MethodLocalServicesTest {
     private fun assertAbstractionReleased(abstraction: Run1Abstraction) {
         assertFalse(abstraction.hasPending)
         assertEquals(true, fieldNamed(abstraction, "released"))
-        assertNull(fieldNamed(abstraction, "phase"))
-        assertTrue(mapFields(abstraction).all { it.isEmpty() }, "No dynamic policy, phase or incoming update remains")
-        for (name in listOf("policyCount", "policyMembers", "pendingMembers", "pendingCapacity"))
+        assertTrue(abstraction.javaClass.declaredFields.none {
+            Facts::class.java.isAssignableFrom(it.type) || it.type == CallerRef::class.java ||
+                it.name in setOf("phase", "linkStore", "freshLinks")
+        }, "The emitter has no supplier payload, origin or captured raw-input phase field")
+        assertTrue(mapFields(abstraction).all { it.isEmpty() }, "No question, answer memo or publication remains")
+        assertTrue(collectionFields(abstraction).all { it.isEmpty() }, "No queued initial answer remains")
+        for (name in listOf("policyCount", "policyMembers", "pendingShapes", "pendingMembers", "pendingCapacity"))
             assertEquals(0L, fieldNamed(abstraction, name), "Released abstraction field $name")
     }
 

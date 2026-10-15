@@ -25,7 +25,10 @@ class Report(entries: List<Entry>, val end: AnalysisEnd) {
 
 private fun <T> owned(values: Collection<T>): List<T> = Collections.unmodifiableList(ArrayList(values))
 
-/** One driver barrier owns these updates. Only complete forward runs replace the demand set. */
+/** One driver barrier owns these updates. Only complete forward runs replace the demand set.
+ * A NORMAL edge is not a confirmation certificate. Unproved witnesses stay DEMAND; an explicitly
+ * proved confirmation remains sticky across later complete and incomplete runs.
+ */
 class ReportBuilder {
     private class State(val confirmed: Map<VulnerabilityKey, Report.Entry>,
                         val demand: Map<VulnerabilityKey, Report.Entry>)

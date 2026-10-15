@@ -261,7 +261,7 @@ class PredicateClosureTest {
             assertEquals(RunStatus.COMPLETE, report.end.status)
             assertEquals(3, report.end.run)
             assertEquals(Direction.FORWARD, report.end.direction)
-            assertEquals(EndReason.STOP_RULE, report.end.reason)
+            assertEquals(EndReason.NO_DEMAND_EDGE, report.end.reason)
             val states = report.entries.associate { HistoricalFinding(it.key.rule, it.key.statement) to
                 if (it.state == ReportState.CONFIRMED) HistoricalState.CONFIRMED else HistoricalState.DEMAND }
             assertEquals(reference.findings, states)

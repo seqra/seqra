@@ -110,7 +110,6 @@ class IterationDriver internal constructor(
     private fun barrier(config: RunConfig, result: RunResult<RunMethodAnalyzer>, report: ReportBuilder): Next {
         val forward = config.direction == Direction.FORWARD
         if (forward) {
-            Support(result, config.roots, config.mode, shared).confirm()
             report.add(config, result)
         }
         shared.records.persist(config.direction, result.analyzers.asSequence().map { it.key to it.summaries })

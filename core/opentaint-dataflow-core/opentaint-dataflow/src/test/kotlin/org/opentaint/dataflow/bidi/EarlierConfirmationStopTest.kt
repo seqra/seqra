@@ -34,6 +34,9 @@ class EarlierConfirmationStopTest {
                 if (config.index == 1) {
                     assertEquals(setOf(confirmed.rule, pending.rule), actual.witnessesByKey().keys.map { it.rule }.toSet())
                     firstWitness = actual.witnessesByKey().entries.single { it.key.rule === confirmed.rule }.value.single()
+                    // This test supplies an independent certificate at the joined-result seam.
+                    // NORMAL alone is deliberately insufficient in the minimal driver.
+                    assertNotNull(firstWitness).confirmed = true
                 }
                 if (config.index != 3) actual else {
                     val actualRows = actual.witnessesByKey()
@@ -65,7 +68,7 @@ class EarlierConfirmationStopTest {
             assertEquals(1, entry.run)
             assertSame(firstWitness, entry.witnesses.single())
             assertTrue(entry.witnesses.single().confirmed)
-            assertFalse(assertNotNull(injected).confirmed, "Support may not confirm the injected latest DEMAND edge")
+            assertFalse(assertNotNull(injected).confirmed, "The minimal driver must not confirm the injected latest DEMAND edge")
             assertEquals(listOf(1, 2, 3), driver.frontiers.map { it.run })
             val final = driver.frontiers.last()
             assertEquals(1, final.confirmedVulnerabilities)

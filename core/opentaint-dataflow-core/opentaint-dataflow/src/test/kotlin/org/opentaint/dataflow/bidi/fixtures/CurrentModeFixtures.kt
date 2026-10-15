@@ -54,19 +54,16 @@ class CurrentModeFixtures : AutoCloseable {
                     marks.forEachMark { requestRows += CurrentRequest(run, key, premise.toPattern(), RequestKind.Mark(it)) }
                     delegate.addMarkRequests(premise, marks)
                 }
-                override fun onAddedLink(update: AddedFactStore.Update) {
-                    for (leaf in ops.leaves(update.delta)) linkRows += CurrentLink(run, key, update.ref, update.group.layer, leaf)
-                    delegate.onAddedLink(update)
-                }
-                override fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts) {
-                    for (leaf in ops.leaves(delta)) linkRows += CurrentLink(run, key, ref, linkLayer, leaf)
-                    delegate.onAddedLink(ref, linkLayer, delta)
-                }
+
             }
         }
         val handlers = RunMethodHandlers(local, MethodCallServicesFactory(::RunMethodCallServices))
         val factory = RunnerHandlerFactory<RunMethodAnalyzer> { port ->
             handlers.create(object : RunnerPort<RunMethodAnalyzer> by port {
+                override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
+                    for (leaf in ops.leaves(added)) linkRows += CurrentLink(config.index, callee, ref, linkLayer, leaf)
+                    port.link(callee, ref, linkLayer, added)
+                }
                 override val onProcess: (MethodKey, EdgeDelta) -> Unit = { key, delta ->
                     processRows += DriverProcessed(config.index, key, delta)
                     port.onProcess?.invoke(key, delta)

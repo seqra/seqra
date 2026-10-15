@@ -87,6 +87,8 @@ class RequestMarkSetBuilder {
     val primitiveCapacity: Int get() = values?.capacity ?: 0
     fun add(mark: TaintMark): Boolean = addId(mark.id)
     fun addId(id: Int): Boolean = (values ?: IdSet().also { values = it }).add(id)
+    operator fun contains(mark: TaintMark): Boolean = values?.contains(mark.id) == true
+    fun remove(mark: TaintMark): Boolean = values?.remove(mark.id) == true
     fun addAll(marks: RequestMarkSet) { marks.forEachId { addId(it) } }
     fun build(): RequestMarkSet = values?.let { RequestMarkSet.fromIds(it.toIntArray()) } ?: RequestMarkSet.EMPTY
     fun takeSnapshot(): RequestMarkSet = build().also { clear() }

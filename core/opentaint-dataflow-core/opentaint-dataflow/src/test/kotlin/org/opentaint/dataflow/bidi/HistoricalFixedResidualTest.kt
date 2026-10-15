@@ -70,8 +70,8 @@ class HistoricalFixedResidualTest {
         val report = f.driver(FixedLimits(limits)).analyze(listOf(root))
         val label = "F71 AP equations plus F67/F68 END interpreter rules; proof-history.md:1599 excludes END from Lean"
         assertEquals(expected, old.findings, label)
-        assertEquals(expected, direct.findings, label)
-        assertEquals(expected, states(report), label)
+        assertEquals(expected.mapValues { HistoricalState.DEMAND }, direct.findings, label)
+        assertEquals(expected.mapValues { HistoricalState.DEMAND }, states(report), label)
         assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.POLICY), report.end)
         assertEquals(listOf(1, 2, 3), old.runs.map { it.index }, label)
         assertEquals(setOf(Seed.Sink(later.rule, root, p.inst(root, 2), later.patterns.single())), old.runs[0].handOff.seeds.toSet(),
@@ -146,8 +146,8 @@ class HistoricalFixedResidualTest {
             HistoricalFinding(admittedU.rule, p.inst(root, 8)) to HistoricalState.CONFIRMED)
         val label = "F69 refined must/E plus F71 concrete hand-off, prior to F76 record views; ap-history.md F69 amendment R3"
         assertEquals(expected, old.findings, label)
-        assertEquals(expected, direct.findings, label)
-        assertEquals(expected, states(report), label)
+        assertEquals(expected.mapValues { HistoricalState.DEMAND }, direct.findings, label)
+        assertEquals(expected.mapValues { HistoricalState.DEMAND }, states(report), label)
         assertEquals(listOf(1, 2, 3), old.runs.map { it.index }, label)
         assertTrue(old.runs[1].observation.initials.any { it.method == factory && it.initial.fact.base != AccessPathBase.Zero },
             "A non-reversible must/E record forces old backward callee analysis")

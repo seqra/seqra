@@ -100,7 +100,7 @@ class HistoricalMustProgramTest {
                 demand.entry.fact.tail != Tail.ANY_TAINT && demand.exit?.fact?.tail != Tail.ANY_TAINT },
                 "Older hand-off forgets forward must flags on both entry and exit")
             val report = f.driver(FixedLimits(listOf(1, 2, 3))).analyze(listOf(root))
-            assertEquals(mapOf(rule to ReportState.CONFIRMED), report.entries.associate { it.key.rule to it.state }, reference)
+            assertEquals(mapOf(rule to ReportState.DEMAND), report.entries.associate { it.key.rule to it.state }, reference)
         }
     }
 }

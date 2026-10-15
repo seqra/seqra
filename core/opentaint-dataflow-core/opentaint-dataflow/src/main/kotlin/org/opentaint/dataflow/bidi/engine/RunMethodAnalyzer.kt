@@ -29,17 +29,14 @@ class RunMethodAnalyzer(
 
     private var edgeStore: MethodEdgeStore? = MethodEdgeStore(ap, key, port.shared.language, limit)
     private var initialStore: InitialFactStore? = InitialFactStore()
-    private var linkStore: AddedFactStore? = AddedFactStore(ap)
     val edges: MethodEdgeStore get() = checkNotNull(edgeStore) { "The method edges were released" }
     val initials: InitialFactStore get() = checkNotNull(initialStore) { "The initial facts were released" }
-    val links: AddedFactStore get() = checkNotNull(linkStore) { "The backward links were released" }
     val summaries = RunSummaryStore(ap)
     val sourceHits: SourceHitStore? = if (forward) null else SourceHitStore()
     internal var abstraction: Run1Abstraction? = if (config.run1) Run1Abstraction(
-        ops, links, context.shared.run1StaticProfiles?.get(key.method),
+        ops, context.shared.run1StaticProfiles?.get(key.method),
         answer = ::addInitial,
-        send = { method, initial, marks -> runnerPort.send(RunEvent.MarkRequestsIn(method, initial, marks)) },
-        covered = { method, initial, mark -> context.shared.run1StaticProfiles?.get(method.method)?.covers(initial, mark) == true },
+        publish = { delta -> runnerPort.summaryStorage(key).publishQuestions(delta) },
         statistics = context.shared.requestBatchStatistics,
         policyStatistics = context.shared.abstractionStatistics,
     ) else null
@@ -73,14 +70,17 @@ class RunMethodAnalyzer(
     }
 
     fun addLink(ref: CallerRef, linkLayer: Layer, added: Facts) {
-        val update = links.addUpdate(ref, linkLayer, added) ?: return
-        val delta = update.delta
-        if (delta.layer == Layer.DEMAND) demandLayerEdges++
-        emit(delta)
-        abstraction?.add(update)
+        ap.cancellation.checkpoint()
+        check(added.base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot enter an added link" }
+        check(linkLayer == added.layer) { "The link layer must be the added fact's layer" }
+        context.shared.abstractionStatistics?.arrival()
+        // This is input presence for NO_DEMAND_EDGE, not a distinct retained-group count.
+        if (added.layer == Layer.DEMAND && !sawDemandInput) { sawDemandInput = true; demandLayerEdges++ }
+        if (config.run1) checkNotNull(abstraction).emit(ref, added) else emit(added)
         if (abstraction?.hasPending == true) requestWork()
-        localServices.onAddedLink(update)
     }
+
+    private var sawDemandInput = false
 
     fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
         check(config.run1) { "Requests exist only in run 1" }
@@ -94,10 +94,6 @@ class RunMethodAnalyzer(
 
     private fun emit(delta: Facts) {
         ap.cancellation.checkpoint()
-        if (config.run1) {
-            checkNotNull(abstraction).emit(delta)
-            return
-        }
         if (delta is Reach) {
             addInitial(ap.zero)
             return
@@ -110,6 +106,7 @@ class RunMethodAnalyzer(
         }
         for (pattern in found) {
             ap.cancellation.checkpoint()
+            context.shared.abstractionStatistics?.intersection()
             for (initial in ops.emit(pattern, delta)) addInitial(initial)
         }
     }
@@ -118,7 +115,9 @@ class RunMethodAnalyzer(
         ap.cancellation.checkpoint()
         check(!config.run1 || initial.tail != Tail.ANY_TAINT) { "Run 1 has no must premise" }
         check(forward || initial.tail != Tail.ANY_TAINT) { "A backward run has no must premise" }
-        if (!initials.add(initial)) return
+        val fresh = initials.add(initial)
+        context.shared.abstractionStatistics?.initial(fresh)
+        if (!fresh) return
         if (!initial.isZero) nonZeroInitial = true
         val start = ops.startFact(initial)
         for (node in forms.startNodes(key, zero = initial.isZero)) {
@@ -388,7 +387,6 @@ class RunMethodAnalyzer(
             pending = ArrayList()
             edgeStore = null
             initialStore = null
-            if (!forward) linkStore = null
         }
         failure?.let { throw it }
     }

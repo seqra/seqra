@@ -15,20 +15,20 @@ internal class ScalarPositionLocalServices(
     private val delegate: RunMethodLocalServices = RunMethodLocalServices(core),
 ) : MethodLocalServices by delegate {
     private val positions = RequestStore(core.ap.cancellation)
+    private val inputs = ArrayList<Pair<CallerRef, Pattern>>()
 
     fun addPositionRequest(premise: InitialAp, kind: RequestKind.Position) {
         if (!positions.add(premise, kind)) return
         val query = positions.query(premise, kind)
-        for (link in core.links.overlapping(STATIC, kind.path)) {
-            if (overlap(link.addedFact, query)) act(premise, kind, link.addedFact, link.caller)
-        }
+        for ((ref, leaf) in inputs) if (overlap(leaf, query)) act(premise, kind, leaf, ref)
     }
 
-    override fun onAddedLink(update: AddedFactStore.Update) {
-        for (leaf in core.ops.leaves(update.delta)) {
-            positions.visitPositionCandidates(leaf) { initial, kind -> act(initial, kind, leaf, update.ref) }
+    fun onInput(ref: CallerRef, facts: Facts) {
+        for (leaf in core.ops.leaves(facts)) {
+            if (inputs.any { it.first == ref && it.second == leaf }) continue
+            inputs += ref to leaf
+            positions.visitPositionCandidates(leaf) { initial, kind -> act(initial, kind, leaf, ref) }
         }
-        delegate.onAddedLink(update)
     }
 
     private fun act(initial: InitialAp, kind: RequestKind.Position, added: Pattern, ref: CallerRef) {
@@ -39,5 +39,5 @@ internal class ScalarPositionLocalServices(
         }
     }
 
-    override fun freeze() { positions.release(); delegate.freeze() }
+    override fun freeze() { positions.release(); inputs.clear(); delegate.freeze() }
 }

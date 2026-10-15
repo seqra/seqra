@@ -79,15 +79,16 @@ class CurrentModeIterationTest {
                     it.added == f.p(arg, tail = Tail.ANY_TAINT, mark = MarkSlot.Concrete(mark)) })
             }
             assertEquals(2, driver.frontiers[0].demandVulnerabilities)
-            assertEquals(2, driver.frontiers[2].confirmedVulnerabilities)
+            assertEquals(0, driver.frontiers[2].confirmedVulnerabilities)
+            assertEquals(2, driver.frontiers[2].demandVulnerabilities)
             for (i in c.rules.indices) {
                 val key = reportKey(c, i)
                 assertTrue(f.actual.results[0].witnessesByKey().getValue(key).all { !it.confirmed &&
                     it.edges.all { edge -> edge.layer == Layer.DEMAND } })
-                assertEquals(ReportState.CONFIRMED, report.entries.single { it.key == key }.state)
+                assertEquals(ReportState.DEMAND, report.entries.single { it.key == key }.state)
                 assertEquals(3, report.entries.single { it.key == key }.run)
             }
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
         }
     }
 
@@ -117,8 +118,8 @@ class CurrentModeIterationTest {
             val blocked = reportKey(c, 0)
             assertTrue(f.actual.results.all { blocked !in it.witnessesByKey() })
             assertTrue(report.entries.none { it.key == blocked })
-            assertEquals(ReportState.CONFIRMED, report.entries.single { it.key == reportKey(c, 1) }.state)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertEquals(ReportState.DEMAND, report.entries.single { it.key == reportKey(c, 1) }.state)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
         }
     }
 }

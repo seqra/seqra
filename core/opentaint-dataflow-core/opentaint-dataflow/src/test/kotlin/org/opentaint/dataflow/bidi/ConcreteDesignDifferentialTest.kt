@@ -95,7 +95,8 @@ class ConcreteDesignDifferentialTest {
         for ((run, barrier) in expected.runs.zip(barriers)) compareHandOff(run.handOff, barrier, universe, diagnostic)
         for ((key, state) in old.findings) {
             assertNotNull(actual[key], "Historical finding lost: $diagnostic")
-            if (state == HistoricalState.CONFIRMED) assertEquals(state, actual[key], "Historical confirmation weakened: $diagnostic")
+            assertEquals(HistoricalState.DEMAND, actual[key],
+                "The current minimal policy retains this identity as an unproved candidate: $diagnostic")
         }
         return old
     }
@@ -444,8 +445,8 @@ class ConcreteDesignDifferentialTest {
             for ((key, state) in old.findings) {
                 val current = actualStates[key]
                 assertNotNull(current, "A labelled concrete-design finding was lost: $diagnostic")
-                if (state == HistoricalState.CONFIRMED)
-                    assertEquals(HistoricalState.CONFIRMED, current, "A labelled concrete confirmation was weakened: $diagnostic")
+                assertEquals(HistoricalState.DEMAND, current,
+                    "Current verification is deliberately unproved; the historical support policy remains labelled separately: $diagnostic")
             }
             historicalFindings += old.findings.size
             historicalConfirmed += old.findings.values.count { it == HistoricalState.CONFIRMED }

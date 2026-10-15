@@ -99,8 +99,8 @@ class CurrentSequenceTest {
             val driver = f.driver(FixedLimits(listOf(1, 2, 3, 4, 5)))
             val report = driver.analyze(listOf(root))
             assertEquals(listOf(1, 2, 3, 4, 5), f.configs.map { it.index })
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 5, Direction.FORWARD, EndReason.STOP_RULE), report.end)
-            assertEquals(ReportState.CONFIRMED, report.entries.single().state)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 5, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(ReportState.DEMAND, report.entries.single().state)
             assertEquals(5, report.entries.single().run)
             val from = p.pattern(argument, tail = Tail.STAR, mark = MarkSlot.STAR)
             val to = Conclusion(PathFact(returned, listOf(field), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty, false)
@@ -122,10 +122,10 @@ class CurrentSequenceTest {
             }
             assertTrue(f.configs[2].seeds.allowsSource(root, root.statement, source))
             assertTrue(f.configs[4].seeds.allowsSource(root, root.statement, source))
-            assertEquals(listOf(1, 0, 1, 0, 0), driver.frontiers.map { it.demandVulnerabilities })
+            assertEquals(listOf(1, 0, 1, 0, 1), driver.frontiers.map { it.demandVulnerabilities })
             assertTrue(f.results[0].witnessesByKey().values.flatten().all { !it.confirmed })
             assertTrue(f.results[2].witnessesByKey().values.flatten().all { !it.confirmed })
-            assertTrue(f.results[4].witnessesByKey().values.flatten().any { it.confirmed })
+            assertTrue(f.results[4].witnessesByKey().values.flatten().all { !it.confirmed })
             val records = f.records.byEntry(wrap, from).filter { it.direction == Direction.FORWARD }.toList()
             val record = records.single { f.ops.leaves(it.conclusion).any { it.fact.base == returned } }
             assertEquals(setOf(Pattern(to.fact, to.exclusion)), f.ops.leaves(record.conclusion).toSet())
@@ -155,12 +155,12 @@ class CurrentSequenceTest {
             ), listOf(finding), BEFORE, AFTER))
             val driver = f.driver(FixedLimits(listOf(1, 2, 3)))
             val report = driver.analyze(listOf(root))
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
             assertEquals(listOf(finding.rule), report.entries.map { it.key.rule })
-            assertEquals(ReportState.CONFIRMED, report.entries.single().state)
+            assertEquals(ReportState.DEMAND, report.entries.single().state)
             val actor = f.results.single().analyzers.single { it.key == worker }
             assertTrue(actor.summaries.all().none())
-            assertTrue(actor.links.links().any { it.caller.caller == root && it.linkLayer == Layer.NORMAL })
+            assertTrue(f.links(1, actor.key).asSequence().any { it.caller.caller == root && it.linkLayer == Layer.NORMAL })
             assertTrue(f.processed.any { it.method == worker && it.delta.node == p.inst(worker, 2) })
             assertTrue(f.processed.none { it.method == worker && it.delta.node == p.inst(worker, 3) })
             assertContains(driver.frontiers.single().analysed, worker)
@@ -168,7 +168,7 @@ class CurrentSequenceTest {
     }
 
     @Test
-    fun `an incomplete third run preserves both states of the first complete forward report`(): Unit {
+    fun `an incomplete third run preserves both candidates from the first complete forward report`(): Unit {
         for (status in listOf(RunStatus.TIMEOUT, RunStatus.OOM, RunStatus.FAILED)) DriverFixtures().use { f ->
             val confirmed = f.confirmed()
             val demand = f.persistentDemand()
@@ -184,7 +184,7 @@ class CurrentSequenceTest {
             val report = driver.analyze(listOf(confirmed.root, demand.root))
             assertEquals(listOf(1, 2, 3), visited)
             assertEquals(AnalysisEnd(status, 3, Direction.FORWARD, EndReason.ABNORMAL), report.end)
-            assertEquals(mapOf(confirmed.rule to ReportState.CONFIRMED, demand.rule to ReportState.DEMAND),
+            assertEquals(mapOf(confirmed.rule to ReportState.DEMAND, demand.rule to ReportState.DEMAND),
                 report.entries.associate { it.key.rule to it.state })
             assertTrue(report.entries.all { it.run == 1 && it.witnesses.all { it.run == 1 } })
             assertEquals(listOf(1, 2), driver.frontiers.map { it.run })
@@ -193,7 +193,7 @@ class CurrentSequenceTest {
     }
 
     @Test
-    fun `END recovers the already confirmed trigger seed inside M and retains its later may finding`(): Unit {
+    fun `END retains both candidates and recovers the trigger seed inside M`(): Unit {
         DriverFixtures().use { f ->
             val p = f.program
             val root = p.method("END root", straight(3), 2).key()
@@ -231,11 +231,12 @@ class CurrentSequenceTest {
             val laterKey = VulnerabilityKey(later.rule, root.method, p.inst(root, 2))
             assertEquals(listOf(1, 2, 3), f.configs.map { it.index })
             assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.POLICY), report.end)
-            assertEquals(mapOf(earlyKey to ReportState.CONFIRMED, laterKey to ReportState.DEMAND),
+            assertEquals(mapOf(earlyKey to ReportState.DEMAND, laterKey to ReportState.DEMAND),
                 report.entries.associate { it.key to it.state })
-            assertEquals(1, report.entries.single { it.key == earlyKey }.run)
+            assertEquals(3, report.entries.single { it.key == earlyKey }.run)
             assertEquals(3, report.entries.single { it.key == laterKey }.run)
-            assertTrue(f.configs[1].seeds.at(m, p.inst(m, 1)).isEmpty())
+            assertEquals(listOf(Seed.Sink(early.rule, m, p.inst(m, 1), early.patterns.single())),
+                f.configs[1].seeds.at(m, p.inst(m, 1)))
             assertEquals(listOf(Seed.Sink(later.rule, root, p.inst(root, 2), later.patterns.single())),
                 f.configs[1].seeds.at(root, p.inst(root, 2)))
             val backward = f.results[1].analyzers.single { it.key == m }
@@ -246,16 +247,16 @@ class CurrentSequenceTest {
             assertContains(f.configs[2].demand!!.near(m, argument, null), DemandPattern(p.pattern(argument, mark = t), null))
             val endOutput = Conclusion(PathFact(returned, emptyList(), Tail.ANY, u), ExclusionSet.Empty, true)
             assertContains(selected(f, f.results[2], m), setOf(ZERO_PATTERN) to endOutput)
-            assertTrue(f.results[2].witnessesByKey().getValue(earlyKey).any { it.confirmed })
+            assertTrue(f.results[2].witnessesByKey().getValue(earlyKey).all { !it.confirmed })
             assertTrue(f.results[2].witnessesByKey().getValue(laterKey).all { !it.confirmed })
             assertTrue(f.results[1].witnessesByKey().isEmpty())
-            assertEquals(listOf(1, 1, 1), driver.frontiers.map { it.seeds })
-            assertEquals(listOf(1, 0, 1), driver.frontiers.map { it.confirmedVulnerabilities })
+            assertEquals(listOf(2, 1, 2), driver.frontiers.map { it.seeds })
+            assertEquals(listOf(0, 0, 0), driver.frontiers.map { it.confirmedVulnerabilities })
         }
     }
 
     @Test
-    fun `CONJ backward literal branches stay demand and only the call with both inputs confirms after refinement`(): Unit {
+    fun `CONJ backward literal branches stay demand and only the call with both inputs produces a candidate`(): Unit {
         for (normalReversal in listOf(false, true)) DriverFixtures().use { f ->
             val p = f.program
             val root = p.method("CONJ root", straight(7), 6).key()
@@ -294,10 +295,10 @@ class CurrentSequenceTest {
             })
             val report = try { driver.analyze(listOf(root)) } finally { control?.close() }
             assertEquals(listOf(1, 2, 3), f.configs.map { it.index })
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
             assertEquals(if (normalReversal) setOf(goodSink.rule, badSink.rule) else setOf(goodSink.rule),
                 report.entries.map { it.key.rule }.toSet())
-            assertTrue(report.entries.all { it.state == ReportState.CONFIRMED && it.run == 3 })
+            assertTrue(report.entries.all { it.state == ReportState.DEMAND && it.run == 3 })
             assertTrue(f.results.filter { it.direction == Direction.FORWARD }.all { result ->
                 normalReversal && result.runIndex == 3 || result.witnessesByKey().keys.none { it.rule === badSink.rule }
             })
@@ -316,11 +317,11 @@ class CurrentSequenceTest {
             assertEquals(!normalReversal, f.configs[2].demand!!.near(m, arg1, null).any { it.entry == required.last() })
             assertTrue(f.configs[2].seeds.allowsSource(root, root.statement, sa))
             assertTrue(f.configs[2].seeds.allowsSource(root, root.statement, sb))
-            assertTrue(f.results[2].witnessesByKey().values.flatten().any { it.confirmed })
-            assertTrue(f.results[2].analyzers.single { it.key == m }.links.links().any { link ->
+            assertTrue(f.results[2].witnessesByKey().values.flatten().all { !it.confirmed })
+            assertTrue(f.links(3, m).asSequence().any { link ->
                 link.caller.call == p.inst(root, 5) && link.addedFact == required.first() && link.linkLayer == Layer.NORMAL
             }, "The second call really supplies T1 even when the independent record bypasses callee emission")
-            assertEquals(listOf(1, 0, 0), driver.frontiers.map { it.demandVulnerabilities })
+            assertEquals(listOf(1, 0, if (normalReversal) 2 else 1), driver.frontiers.map { it.demandVulnerabilities })
         }
     }
 }

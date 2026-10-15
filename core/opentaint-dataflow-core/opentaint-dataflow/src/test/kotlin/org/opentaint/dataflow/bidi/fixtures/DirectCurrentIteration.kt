@@ -13,11 +13,11 @@ import org.opentaint.dataflow.bidi.store.RuleId
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 /**
- * Current finite iteration, with direct raw barriers and least support. No current HandOff,
- * ReportBuilder, Support, DemandStore lookup, record index or summary selector computes the answer.
+ * Current finite iteration, with direct raw barriers and unverified candidate reports. No current HandOff,
+ * ReportBuilder, historical Support, DemandStore lookup, record index or summary selector computes the answer.
  * A RunConfig is only an ApMode carrier; raw excluded-mark demands remain separate from its empty
  * typed store. The generated domain and explicitly enabled END/must extensions are checked by
- * HistoricalF71 to match the historical comparison scope. The current raw selector and Support are coded here.
+ * HistoricalF71 to match the historical comparison scope. The current raw selector and unverified report policy are coded here.
  */
 class DirectCurrentIteration(private val program: FiniteProgramFixtures, private val roots: List<MethodKey>,
                                   private val limits: List<Int>,
@@ -45,7 +45,6 @@ class DirectCurrentIteration(private val program: FiniteProgramFixtures, private
             HistoricalF71.validate(program, inputs, allowEndFacts, allowMustSources)
             var observation = RawCurrentClosure(program, config, inputs).run()
             if (config.direction == Direction.FORWARD) {
-                observation = confirm(observation, roots, config.restricted)
                 currentDemand = LinkedHashMap()
                 for (witness in observation.witnesses) {
                     val key = HistoricalFinding(witness.rule, witness.statement)
@@ -108,48 +107,5 @@ class DirectCurrentIteration(private val program: FiniteProgramFixtures, private
         return result.toList()
     }
 
-    /** Direct least joint support at one site. No production Support or supplies helper is consulted. */
-    private fun confirm(observation: RunObservation, roots: List<MethodKey>, restricted: Boolean): RunObservation {
-        data class Question(val method: MethodKey, val premise: Set<Pattern>)
-        data class Site(val callee: MethodKey, val caller: MethodKey, val call: CommonInst)
-        val sites = observation.links.filter { it.linkLayer == Layer.NORMAL && it.callerLayer == Layer.NORMAL }
-            .groupBy { Site(it.callee, it.caller, it.call) }
-        val questions = LinkedHashSet<Question>()
-        for (link in observation.links) questions += Question(link.caller, link.premise)
-        for (w in observation.witnesses) questions += Question(w.methodKey, union(w.edges.map { it.premise }))
-        val supported = roots.mapTo(LinkedHashSet()) { Question(it, setOf(ZERO_PATTERN)) }
-        fun suppliedAt(site: Site, rows: List<ObservedLink>, members: Set<Pattern>): Boolean = members.all { member ->
-            val confirmable = member.fact.base == AccessPathBase.Zero || (member.fact.mark is MarkSlot.Concrete &&
-                (member.fact.tail == Tail.EXACT || (restricted && member.fact.tail == Tail.ANY_TAINT)))
-            confirmable && rows.any { link ->
-                val a = link.added
-                (member == a || (restricted && a.fact.tail == Tail.ANY_TAINT && member.fact.mark == a.fact.mark &&
-                    (member.fact.tail == Tail.EXACT || member.fact.tail == Tail.ANY_TAINT) && inside(member, a))) &&
-                    Question(site.caller, link.premise) in supported
-            }
-        }
-        var changed: Boolean
-        do {
-            changed = false
-            for (question in questions) {
-                program.cancellation.checkpoint()
-                if (question in supported) continue
-                if (sites.any { (site, rows) -> site.callee == question.method && suppliedAt(site, rows, question.premise) }) {
-                    supported += question; changed = true
-                }
-            }
-        } while (changed)
-        fun supports(method: MethodKey, premise: Set<Pattern>): Boolean =
-            (method in roots && isZero(premise)) ||
-                sites.any { (site, rows) -> site.callee == method && suppliedAt(site, rows, premise) }
-        return observation.copy(witnesses = observation.witnesses.mapTo(LinkedHashSet()) { w ->
-            w.copy(confirmed = w.edges.all { it.layer == Layer.NORMAL } && supports(w.methodKey, union(w.edges.map { it.premise })))
-        })
-    }
-
-    private fun union(values: List<Set<Pattern>>): Set<Pattern> {
-        val members = values.flatten().filterTo(LinkedHashSet()) { it.fact.base != AccessPathBase.Zero }
-        return if (members.isEmpty()) setOf(ZERO_PATTERN) else members
-    }
     private fun isZero(values: Set<Pattern>): Boolean = values.size == 1 && values.single().fact.base == AccessPathBase.Zero
 }

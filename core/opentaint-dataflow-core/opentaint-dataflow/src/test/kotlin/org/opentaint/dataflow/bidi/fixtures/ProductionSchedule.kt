@@ -33,6 +33,7 @@ class ProductionSchedule(
     val subscriptions: List<Subscription> get() = registered.toList()
     private var invoked = false
     private val processed = LinkedHashSet<ObservedEdge>()
+    private val inputs = LinkedHashSet<ObservedLink>()
     private val requests = LinkedHashSet<ObservedRequest>()
     private val vulnerabilities = ConcurrentVulnerabilityStore(fixture.manager)
     private val shared = fixture.shared.let { source ->
@@ -71,6 +72,8 @@ class ProductionSchedule(
             "call=${event.ref.call},linkLayer=${event.linkLayer},added=${shared.ops.leaves(event.added).toList()})"
         is RunEvent.ZeroIn -> "Zero(${event.callee})"
         is RunEvent.MarkRequestsIn -> "MarkRequests(${event.method},${event.premise.toPattern()},${event.marks})"
+        is RunEvent.InitialAnswersIn -> "InitialAnswers(${event.method},${event.answers.map { it.toPattern() }})"
+        is RunEvent.QuestionDelivery -> "Questions(${event.callee},${event.delta.key},${event.delta.marks})"
         is RunEvent.Delivery -> "Delivery(${event.callee},${event.publications.flatMap {
             observedEdges(shared.ops, event.callee, it.premise, it.conclusion)
         }})"
@@ -99,6 +102,12 @@ class ProductionSchedule(
         override fun post(event: RunEvent.Delivery): Boolean {
             postEvent(event)
             if (duplicateDeliveries) postEvent(RunEvent.Delivery(event.callee, event.publications))
+            return true
+        }
+
+        override fun post(event: RunEvent.QuestionDelivery): Boolean {
+            postEvent(event)
+            if (duplicateDeliveries) postEvent(RunEvent.QuestionDelivery(event.callee, event.delta))
             return true
         }
 
@@ -137,6 +146,7 @@ class ProductionSchedule(
         }
 
         override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
+            ops.leaves(added).forEach { inputs += observedLink(callee, Link(it, linkLayer, ref)) }
             val destination = owner(callee)
             val event = RunEvent.LinkIn(callee, ref, linkLayer, added)
             if (destination === this) {
@@ -194,14 +204,13 @@ class ProductionSchedule(
         val initials = LinkedHashSet<ObservedInitial>()
         val raw = LinkedHashSet<ObservedEdge>()
         val selected = LinkedHashSet<ObservedEdge>()
-        val links = LinkedHashSet<ObservedLink>()
+        val links = LinkedHashSet(inputs)
         val hits = LinkedHashSet<ObservedSourceHit>()
         for (unit in units.values) for ((method, actor) in unit.actors) {
             actor.initials.all().mapTo(initials) { ObservedInitial(method, it.toPattern()) }
             for ((premise, facts) in actor.summaries.all()) raw += observedEdges(shared.ops, method, premise, facts)
             for ((premise, facts) in actor.summaries.demandEdges())
                 selected += observedEdges(shared.ops, method, premise, facts)
-            actor.links.links().mapTo(links) { observedLink(method, it) }
             actor.sourceHits?.entries()?.mapTo(hits) { (key, statement, forward) ->
                 ObservedSourceHit(key, statement, forward)
             }

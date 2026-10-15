@@ -45,7 +45,7 @@ class DriverTest {
     }
 
     @Test
-    fun `the first limit is read once and the public constructor executes the actual normal confirmation barrier`(): Unit {
+    fun `the first limit is read once and the public constructor executes the actual normal candidate barrier`(): Unit {
         DriverFixtures().use { f ->
             val c = f.confirmed()
             val reads = ArrayList<Int>()
@@ -53,18 +53,18 @@ class DriverTest {
                 reads += index
                 check(reads.count { it == 1 } == 1) { "The first limit was sampled twice" }
                 1
-            }, next = { _, _, _ -> error("STOP_RULE precedes policy") })
+            }, next = { _, _, _ -> error("NO_DEMAND_EDGE precedes policy") })
             val driver = IterationDriver(p, f.shared, 5.seconds)
             val report = driver.analyze(listOf(c.root))
             assertEquals(listOf(1), reads)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
             val entry = report.entries.single()
             assertEquals(c.rule, entry.key.rule)
-            assertEquals(ReportState.CONFIRMED, entry.state)
-            assertTrue(entry.witnesses.all { it.confirmed })
+            assertEquals(ReportState.DEMAND, entry.state)
+            assertTrue(entry.witnesses.all { !it.confirmed })
             assertEquals(listOf(1), driver.frontiers.map { it.run })
-            assertEquals(1, driver.frontiers.single().confirmedVulnerabilities)
-            assertEquals(0, driver.frontiers.single().demandVulnerabilities)
+            assertEquals(0, driver.frontiers.single().confirmedVulnerabilities)
+            assertEquals(1, driver.frontiers.single().demandVulnerabilities)
         }
     }
 
@@ -228,7 +228,7 @@ class DriverTest {
                 30.seconds
             }), budget = 5.seconds)
             val report = driver.analyze(listOf(c.root))
-            assertEquals(EndReason.STOP_RULE, report.end.reason)
+            assertEquals(EndReason.NO_DEMAND_EDGE, report.end.reason)
             assertEquals(1, remainingAtPolicy.size)
             assertEquals(1, f.timeouts.size)
             assertTrue(f.timeouts.single() > Duration.ZERO)

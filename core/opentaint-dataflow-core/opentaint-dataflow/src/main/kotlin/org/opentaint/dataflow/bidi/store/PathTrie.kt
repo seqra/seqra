@@ -49,6 +49,34 @@ class PathTrie<V : Any>(private val cancellation: Cancellation? = null) {
     fun around(base: AccessPathBase, path: IntArray): List<V> =
         lookupPrefixes(base, path).also { out -> find(base, path)?.let { collect(it, out, self = false) } }
 
+    /** Finite owner-local visit; the callback must not mutate this index or its owning directory. */
+    fun visitAround(base: AccessPathBase, path: IntArray, visit: (V) -> Unit) {
+        cancellation?.checkpoint()
+        var node = roots[base] ?: return
+        fun values(at: Node<V>) {
+            for (value in at.values) {
+                cancellation?.checkpoint()
+                visit(value)
+            }
+        }
+        for (accessor in path) {
+            cancellation?.checkpoint()
+            values(node)
+            node = node.child(accessor) ?: return
+        }
+        val stack = ArrayDeque<Node<V>>()
+        stack.addLast(node)
+        while (stack.isNotEmpty()) {
+            cancellation?.checkpoint()
+            val at = stack.removeLast()
+            values(at)
+            at.children?.values?.forEach {
+                cancellation?.checkpoint()
+                stack.addLast(it)
+            }
+        }
+    }
+
     fun all(): Sequence<V> = sequence {
         cancellation?.checkpoint()
         for (root in roots.values) {

@@ -16,6 +16,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 data class ProgramCase(val root: MethodKey, val rule: RuleId, val sink: CommonInst, val source: PathEdge)
+data class DriverInput(val run: Int, val callee: MethodKey, val link: Link)
 data class DriverProcessed(val run: Int, val method: MethodKey, val delta: EdgeDelta)
 data class DemandLinkCase(val root: MethodKey, val sourceMethod: MethodKey, val reader: MethodKey,
                           val sinkMethod: MethodKey, val rule: RuleId, val sink: CommonInst,
@@ -36,6 +37,8 @@ class DriverFixtures(threads: Int = 1) : AutoCloseable {
     val results = ArrayList<RunResult<RunMethodAnalyzer>>()
     val timeouts = ArrayList<Duration>()
     private val processRows = ConcurrentLinkedQueue<DriverProcessed>()
+    private val inputRows = ConcurrentLinkedQueue<DriverInput>()
+    fun links(run: Int, method: MethodKey): List<Link> = inputRows.filter { it.run == run && it.callee == method }.map { it.link }.distinct()
     val processed: List<DriverProcessed> get() = processRows.toList()
 
     fun manager(config: RunConfig, owner: SharedObjects = shared): RunManager<RunMethodAnalyzer> {
@@ -43,6 +46,10 @@ class DriverFixtures(threads: Int = 1) : AutoCloseable {
             MethodCallServicesFactory(::RunMethodCallServices))
         val factory = RunnerHandlerFactory<RunMethodAnalyzer> { port ->
             val observed = object : RunnerPort<RunMethodAnalyzer> by port {
+                override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
+                    ops.leaves(added).forEach { inputRows += DriverInput(config.index, callee, Link(it, linkLayer, ref)) }
+                    port.link(callee, ref, linkLayer, added)
+                }
                 override val onProcess: (MethodKey, EdgeDelta) -> Unit = { key, delta ->
                     processRows += DriverProcessed(config.index, key, delta)
                     port.onProcess?.invoke(key, delta)
@@ -82,7 +89,7 @@ class DriverFixtures(threads: Int = 1) : AutoCloseable {
     private fun exitSink(sink: SinkRule): ExitRules =
         ExitRules(RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY, listOf(sink)), false, emptySet())
 
-    /** A supported normal root witness stops after its final complete barrier. */
+    /** A normal root witness remains an unproved candidate under the minimal report policy. */
     fun confirmed(): ProgramCase {
         val root = program.method("confirmed", listOf(listOf(1), emptyList()), 1).key()
         val mark = MarkSlot.Concrete(program.mark("confirmed T"))

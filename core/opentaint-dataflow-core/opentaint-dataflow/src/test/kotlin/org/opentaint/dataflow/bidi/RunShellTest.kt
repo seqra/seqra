@@ -21,6 +21,44 @@ import kotlin.time.Duration.Companion.seconds
 
 /** Finite actors check the run protocol without a method-transfer implementation. */
 class RunShellTest {
+    @Test fun `question delivery and local answer result reserve work until both queued handlers finish`(): Unit {
+        val f = EngineShellFixtures()
+        val original = f.manager.initial(org.opentaint.dataflow.ap.ifds.AccessPathBase.Argument(0), null,
+            Tail.STAR, ExclusionSet.Empty, MarkSlot.STAR)
+        val question = QuestionDelta(MarkQuestionKey.dynamic(original),
+            RequestMarkSet.of(f.manager.marks.mark("T")))
+        val seen = CopyOnWriteArrayList<RunEvent>()
+        f.shared().use { shared ->
+            val factory = ShellHandlers({ port, event ->
+                seen += event
+                when (event) {
+                    is RunEvent.Start -> {
+                        port.analyzer(event.root)
+                        assertTrue(port.post(RunEvent.QuestionDelivery(f.b, question)))
+                    }
+                    is RunEvent.QuestionDelivery -> {
+                        assertSame(question, event.delta)
+                        assertTrue(port.send(RunEvent.InitialAnswersIn(f.a, listOf(original))))
+                    }
+                    is RunEvent.InitialAnswersIn -> {
+                        assertEquals(listOf(original), event.answers)
+                        port.analyzer(event.method).add(1)
+                        assertTrue(port.enqueue(port.analyzer(event.method)))
+                    }
+                    else -> error("Only question and answer transport is used")
+                }
+            })
+            val run = RunManager(f.config(), shared, factory)
+            val result = run.run(5.seconds)
+            assertEquals(RunStatus.COMPLETE, result.status)
+            assertEquals(0L, run.inFlight.pending)
+            assertEquals(5L, run.inFlight.handled, "Start reservation, Start, question, answer and Work")
+            assertEquals(1L, result.analyzers.single().steps)
+            assertEquals(1, seen.filterIsInstance<RunEvent.QuestionDelivery>().size)
+            assertEquals(1, seen.filterIsInstance<RunEvent.InitialAnswersIn>().size)
+        }
+    }
+
     @Test fun `empty and all unknown root batches complete without creating any runner actor`(): Unit {
         val f = EngineShellFixtures()
         for (roots in listOf(emptyList(), listOf(f.unknown), listOf(f.unknown, f.unknown))) {
@@ -152,7 +190,7 @@ class RunShellTest {
                     }
                     is RunEvent.ZeroIn -> { port.analyzer(event.callee).add(1); port.enqueue(port.analyzer(event.callee)) }
                     is RunEvent.MarkRequestsIn -> { port.analyzer(event.method).add(1); port.enqueue(port.analyzer(event.method)) }
-                    is RunEvent.MarkRequestsIn -> { port.analyzer(event.method).add(event.marks.size); port.enqueue(port.analyzer(event.method)) }
+                    is RunEvent.InitialAnswersIn, is RunEvent.QuestionDelivery -> error("This scalar shell control sends no question batch")
                     is RunEvent.Delivery -> {
                         assertEquals(f.b, event.callee)
                         assertSame(publication.conclusion, event.publications.single().conclusion)

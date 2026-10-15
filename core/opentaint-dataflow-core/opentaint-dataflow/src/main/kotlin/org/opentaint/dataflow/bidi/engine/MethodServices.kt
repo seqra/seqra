@@ -6,7 +6,6 @@ import org.opentaint.dataflow.bidi.interp.SourceRuleOccurrence
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.ConjunctionStore
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
-import org.opentaint.dataflow.bidi.store.AddedFactStore
 import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.Collections
 
@@ -34,8 +33,6 @@ interface MethodLocalServices {
     fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
         marks.forEachMark { addMarkRequest(premise, it) }
     }
-    fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts)
-    fun onAddedLink(update: AddedFactStore.Update) = onAddedLink(update.ref, update.group.layer, update.delta)
     val hasPendingRequests: Boolean get() = false
     /** A positive, bounded service opportunity; callbacks can admit another frontier. */
     fun flushRequests(quantum: Int): Boolean = true

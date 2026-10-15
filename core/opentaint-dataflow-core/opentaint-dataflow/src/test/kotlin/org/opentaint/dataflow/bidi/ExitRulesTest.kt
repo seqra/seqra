@@ -307,7 +307,7 @@ class ExitRulesTest {
             core.addInitial(j)
             val added = fact(f, argument, emptyList(), Tail.EXACT, t)
             val ref = CallerRef(f.key, f.manager.zero, Layer.NORMAL, f.inst(1))
-            core.links.add(ref, Layer.NORMAL, added)
+            f.admit(core, ref, Layer.NORMAL, added)
             val source = PathEdge(ZERO_FACT, PathFact(argument, emptyList(), Tail.EXACT, t), ExclusionSet.Empty)
             if (index == 2) core.sourceHits!!.add(f.key, f.inst(1), source)
             f.drain(core)
@@ -322,12 +322,12 @@ class ExitRulesTest {
             assertEquals(steps, core.steps)
             assertTrue(core.nonZeroInitial)
             if (index == 1) {
-                val link = core.links.links().single()
+                val link = f.links(core).single()
                 assertEquals(ref, link.caller)
                 assertEquals(Pattern(PathFact(argument, emptyList(), Tail.EXACT, t), ExclusionSet.Empty), link.addedFact)
                 assertNull(core.sourceHits)
             } else {
-                assertFails { core.links }
+                assertNull(core.abstraction)
                 val hit = core.sourceHits!!.entries().single()
                 assertEquals(f.key, hit.first)
                 assertSame(f.inst(1), hit.second)

@@ -60,10 +60,11 @@ class HandOffRegressionTest {
             val report = ReportBuilder()
             val forwardConfig = f.config(index = 1, L = 1)
             val forward = run(forwardConfig)
-            Support(forward, forwardConfig.roots, forwardConfig.mode, f.shared).confirm()
-            report.add(forwardConfig, forward)
             val earlyKey = VulnerabilityKey(early.rule, f.key.method, f.inst(1))
             val laterKey = VulnerabilityKey(later.rule, f.key.method, f.inst(2))
+            // This sticky-report control supplies a certificate explicitly; NORMAL does not prove support.
+            forward.witnessesByKey().getValue(earlyKey).forEach { it.confirmed = true }
+            report.add(forwardConfig, forward)
             assertTrue(forward.witnessesByKey().getValue(earlyKey).all { it.confirmed })
             assertTrue(forward.witnessesByKey().getValue(laterKey).all { !it.confirmed })
             assertEquals(listOf(laterKey), report.demandEntries().map { it.key })
@@ -86,9 +87,9 @@ class HandOffRegressionTest {
             assertEquals(1, toForward.seeds.size, "End facts create a trigger, not a synthetic source hit")
             val refinedConfig = f.config(index = 3, L = 1, demand = toForward.demand, seeds = toForward.seeds)
             val refined = run(refinedConfig)
-            Support(refined, refinedConfig.roots, refinedConfig.mode, f.shared).confirm()
             report.add(refinedConfig, refined)
-            assertTrue(refined.witnessesByKey().getValue(earlyKey).all { it.confirmed })
+            assertTrue(refined.witnessesByKey().getValue(earlyKey).all { !it.confirmed },
+                "The old proven report entry is sticky even when current witnesses are unproved")
             assertTrue(refined.witnessesByKey().getValue(laterKey).all { !it.confirmed })
             val final = report.build(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.POLICY))
             assertEquals(setOf(earlyKey, laterKey), final.entries.map { it.key }.toSet())

@@ -27,6 +27,7 @@ class RunMethodHandlersTest {
         var localFrozen = 0
         var callsFrozen = 0
         lateinit var handler: RunnerHandler<RunMethodAnalyzer>
+        val actualHandler: RunnerHandler<RunMethodAnalyzer>
         val port = object : RunnerPort<RunMethodAnalyzer> {
             override val config get() = this@Harness.config
             override val shared get() = this@Harness.shared
@@ -47,7 +48,7 @@ class RunMethodHandlersTest {
             }
         }
         init {
-            handler = RunMethodHandlers(MethodLocalServicesFactory { core ->
+            actualHandler = RunMethodHandlers(MethodLocalServicesFactory { core ->
                 localCreated++
                 object : MethodLocalServices by RunMethodLocalServices(core) {
                     override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
@@ -57,18 +58,21 @@ class RunMethodHandlersTest {
                     override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
                         marks.forEachMark { addMarkRequest(premise, it) }
                     }
-                    override fun onAddedLink(update: AddedFactStore.Update) {
-                        onAddedLink(update.ref, update.group.layer, update.delta)
-                    }
-                    override fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts) {
-                        links += Triple(ref, linkLayer, delta)
-                    }
                     override fun freeze() { localFrozen++ }
                 }
             }, MethodCallServicesFactory { core ->
                 callsCreated++
                 finiteCalls(core, applications) { callsFrozen++ }
             }).create(port)
+            handler = object : RunnerHandler<RunMethodAnalyzer>, SubscriptionHandler {
+                override fun createActor(key: MethodKey) = actualHandler.createActor(key)
+                override fun subscribe(sub: Subscription) = (actualHandler as SubscriptionHandler).subscribe(sub)
+                override fun freeze() = (actualHandler as SubscriptionHandler).freeze()
+                override fun handle(event: RunEvent) {
+                    if (event is RunEvent.LinkIn) links += Triple(event.ref, event.linkLayer, event.added)
+                    actualHandler.handle(event)
+                }
+            }
         }
         fun drain() {
             var remaining = 1000
@@ -112,7 +116,9 @@ class RunMethodHandlersTest {
             h.handler.handle(RunEvent.LinkIn(f.a, ref, Layer.NORMAL, added))
             val kind = RequestKind.Mark(f.manager.marks.mark("request"))
             h.handler.handle(RunEvent.MarkRequestsIn(f.a, initial, RequestMarkSet.of(kind.mark)))
-            assertEquals(listOf(Triple(ref, Layer.NORMAL, added)), h.links)
+            assertEquals(listOf(Triple(ref, Layer.NORMAL, added), Triple(ref, Layer.NORMAL, added)), h.links)
+            assertEquals(1, h.actors.getValue(f.a).initials.all().count { it.mark is MarkSlot.Star && it.base == added.base },
+                "Repeated input deliveries remain observable while initial emission deduplicates")
             assertEquals(listOf<Pair<InitialAp, RequestKind>>(initial to kind), h.requests)
             assertEquals(1, h.localCreated)
             assertEquals(1, h.callsCreated)
@@ -162,10 +168,10 @@ class RunMethodHandlersTest {
             h.drain()
             h.actors.values.forEach { it.freeze() }
             (h.handler as SubscriptionHandler).freeze()
-            val subscriptions = h.handler.javaClass.declaredFields.single {
+            val subscriptions = h.actualHandler.javaClass.declaredFields.single {
                 it.type == SubscriptionManager::class.java
             }.apply { isAccessible = true }
-            assertNull(subscriptions.get(h.handler), "Joined release drops the subscription manager reference")
+            assertNull(subscriptions.get(h.actualHandler), "Joined release drops the subscription manager reference")
             assertEquals(1, h.localFrozen)
             assertEquals(1, h.callsFrozen)
             assertFails { h.port.subscribe(Subscription(f.b, ref, Layer.NORMAL, Reach.NORMAL, zeroOnly = true)) }

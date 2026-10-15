@@ -94,7 +94,7 @@ class BarrierFailureTest {
         }
     }
 
-    @Test fun `every actual incomplete later run preserves the previous mixed report and completed frontier`(): Unit {
+    @Test fun `every actual incomplete later run preserves the previous candidate report and completed frontier`(): Unit {
         for (fault in Fault.entries) DriverFixtures(threads = 2).use { f ->
             val demand = f.persistentDemand()
             val confirmed = f.confirmed()
@@ -108,16 +108,16 @@ class BarrierFailureTest {
             }, guardBarrier = { _, body -> barriers++; body() })
             val report = driver.analyze(listOf(demand.root, confirmed.root))
             assertEquals(AnalysisEnd(fault.status, 2, Direction.BACKWARD, EndReason.ABNORMAL), report.end)
-            assertEquals(mapOf(demand.rule.id to ReportState.DEMAND, confirmed.rule.id to ReportState.CONFIRMED), states(report))
+            assertEquals(mapOf(demand.rule.id to ReportState.DEMAND, confirmed.rule.id to ReportState.DEMAND), states(report))
             assertTrue(report.entries.all { it.run == 1 && it.witnesses.all { witness -> witness.run == 1 } })
-            assertTrue(report.entries.single { it.key.rule == confirmed.rule }.witnesses.any { it.confirmed })
+            assertTrue(report.entries.single { it.key.rule == confirmed.rule }.witnesses.none { it.confirmed })
             assertTrue(report.entries.single { it.key.rule == demand.rule }.witnesses.none { it.confirmed })
             assertEquals(listOf(1, 2), calls)
             assertEquals(listOf(RunStatus.COMPLETE), completed.map { it.status })
             assertEquals(1, barriers)
             assertEquals(listOf(1), driver.frontiers.map { it.run })
-            assertEquals(1, driver.frontiers.single().demandVulnerabilities)
-            assertEquals(1, driver.frontiers.single().confirmedVulnerabilities)
+            assertEquals(2, driver.frontiers.single().demandVulnerabilities)
+            assertEquals(0, driver.frontiers.single().confirmedVulnerabilities)
             assertFalse(f.cancellation.isActive())
         }
     }
@@ -182,11 +182,11 @@ class BarrierFailureTest {
                 assertEquals(1, barriers)
                 assertEquals(if (phase == GuardPhase.CONSTRUCTION) 0 else 1, bodies)
                 val expected = if (phase == GuardPhase.CONSTRUCTION) emptyMap() else
-                    mapOf(demand.rule.id to ReportState.DEMAND, confirmed.rule.id to ReportState.CONFIRMED)
+                    mapOf(demand.rule.id to ReportState.DEMAND, confirmed.rule.id to ReportState.DEMAND)
                 assertEquals(expected, states(report))
                 assertEquals(if (phase == GuardPhase.CLEANUP) listOf(1) else emptyList(), driver.frontiers.map { it.run })
                 if (phase != GuardPhase.CONSTRUCTION)
-                    assertTrue(report.entries.single { it.key.rule == confirmed.rule }.witnesses.any { it.confirmed })
+                    assertTrue(report.entries.single { it.key.rule == confirmed.rule }.witnesses.none { it.confirmed })
             }
         }
     }
@@ -209,7 +209,7 @@ class BarrierFailureTest {
                     guardBarrier = { _, body -> barriers++; body() })
                 val report = driver.analyze(listOf(demand.root, confirmed.root))
                 assertEquals(AnalysisEnd(RunStatus.OOM, 1, Direction.FORWARD, EndReason.ABNORMAL), report.end)
-                assertEquals(mapOf(demand.rule.id to ReportState.DEMAND, confirmed.rule.id to ReportState.CONFIRMED), states(report))
+                assertEquals(mapOf(demand.rule.id to ReportState.DEMAND, confirmed.rule.id to ReportState.DEMAND), states(report))
                 assertEquals(listOf(1), calls)
                 assertEquals(1, barriers)
                 assertTrue(driver.frontiers.isEmpty(), "Cancellation interrupted persistence before the frontier was completed")
@@ -236,7 +236,7 @@ class BarrierFailureTest {
                 } else {
                     val end = assertIs<Next.End>(next)
                     assertEquals(RunStatus.COMPLETE, end.status)
-                    assertEquals(EndReason.STOP_RULE, end.reason)
+                    assertEquals(EndReason.NO_DEMAND_EDGE, end.reason)
                 }
                 bodyReturned = true
                 owner.cancellation.cancel() // After the last body checkpoint, before the guard returns.
@@ -245,12 +245,12 @@ class BarrierFailureTest {
             val report = driver.analyze(listOf(program.root))
             assertTrue(bodyReturned)
             assertEquals(AnalysisEnd(RunStatus.OOM, 1, Direction.FORWARD, EndReason.ABNORMAL), report.end)
-            assertEquals(mapOf(program.rule.id to if (continuation) ReportState.DEMAND else ReportState.CONFIRMED), states(report))
+            assertEquals(mapOf(program.rule.id to ReportState.DEMAND), states(report))
             assertEquals(listOf(1), calls, "An already constructed Next.Run cannot restart cancelled work")
             assertEquals(1, barriers)
             assertEquals(listOf(1), driver.frontiers.map { it.run })
-            assertEquals(if (continuation) 1 else 0, driver.frontiers.single().demandVulnerabilities)
-            assertEquals(if (continuation) 0 else 1, driver.frontiers.single().confirmedVulnerabilities)
+            assertEquals(1, driver.frontiers.single().demandVulnerabilities)
+            assertEquals(0, driver.frontiers.single().confirmedVulnerabilities)
             assertFalse(f.cancellation.isActive())
         }
     }

@@ -134,6 +134,44 @@ class MethodAnalysisFixtures(
     val cuts = ArrayList<Pair<Cut, Facts>>()
     val requests = ArrayList<Pair<InitialAp, RequestKind>>()
     val addedLinks = ArrayList<Triple<CallerRef, Layer, Facts>>()
+    private val inputRows = IdentityHashMap<RunMethodAnalyzer, MutableList<Link>>()
+    private val questionManagers = IdentityHashMap<RunMethodAnalyzer, SubscriptionManager>()
+    private val questionQueue = ArrayDeque<() -> Unit>()
+    private val summaryStores = LinkedHashMap<MethodKey, SummaryStorage>()
+
+    /** Test-owned arrival observations; actors retain none of this input history. */
+    fun links(core: RunMethodAnalyzer): List<Link> = inputRows[core].orEmpty().distinct()
+
+    /** Admit the original caller subscription before delivering its callee input, as real call routing does. */
+    fun admit(core: RunMethodAnalyzer, ref: CallerRef, layer: Layer, facts: Facts) {
+        cancellation.checkpoint()
+        addedLinks += Triple(ref, layer, facts)
+        inputRows.getOrPut(core, ::ArrayList).addAll(ops.leaves(facts).map { Link(it, layer, ref) })
+        if (facts !is Reach) questionManagers.getValue(core).subscribe(
+            Subscription(core.key, ref, layer, facts, zeroOnly = false))
+        (core.localServices as? ScalarPositionLocalServices)?.onInput(ref, facts)
+        core.addLink(ref, layer, facts)
+    }
+
+    /** Queued question delivery never calls an actor during a captured N2 visit. */
+    fun pumpQuestions(): Boolean {
+        var count = 0
+        while (questionQueue.isNotEmpty()) {
+            check(++count <= 100_000) { "Finite question routing did not close" }
+            questionQueue.removeFirst().invoke()
+        }
+        return count != 0
+    }
+
+    fun flushRequests(core: RunMethodAnalyzer, quantum: Int = 3) {
+        var count = 0
+        do {
+            check(++count <= 100_000)
+            val complete = core.localServices.flushRequests(quantum)
+            pumpQuestions()
+        } while (!complete || core.localServices.hasPendingRequests || questionQueue.isNotEmpty())
+    }
+
     val published = ArrayList<List<Publication>>()
     val publications: List<List<Publication>> get() = published
     val enqueued = ArrayList<RunMethodAnalyzer>()
@@ -177,8 +215,12 @@ class MethodAnalysisFixtures(
             override val steps = ProtocolSteps.Inline
             override fun send(event: RunEvent): Boolean { events += event; return true }
             override fun post(event: RunEvent.Delivery): Boolean { events += event; return true }
+            override fun post(event: RunEvent.QuestionDelivery): Boolean {
+                questionQueue += { questionManagers.getValue(actor).onQuestions(event.callee, event.delta) }
+                return true
+            }
             override fun summaryStorage(key: MethodKey): SummaryStorage =
-                error("Summary storage requires an explicit protocol fixture")
+                summaryStores.getOrPut(key) { SummaryStorage(key, manager, ops, steps) }
             override fun subscribe(sub: Subscription) {
                 val receive = checkNotNull(onSubscribe) { "Subscriptions require an explicit protocol fixture" }
                 subscriptions += sub
@@ -213,6 +255,25 @@ class MethodAnalysisFixtures(
         actor = RunMethodAnalyzer(key, port, publisher,
             localFactory ?: MethodLocalServicesFactory(::LocalServices),
             callFactory ?: MethodCallServicesFactory { NoCalls })
+        lateinit var questions: SubscriptionManager
+        questions = SubscriptionManager(object : SubscriptionPort {
+            override val config = config
+            override val ops = this@MethodAnalysisFixtures.ops
+            override val steps = ProtocolSteps.Inline
+            override fun covered(method: MethodKey, initial: InitialAp, mark: TaintMark): Boolean =
+                shared.run1StaticProfiles?.get(method.method)?.covers(initial, mark) == true
+            override fun summaryStorage(key: MethodKey): SummaryStorage = port.summaryStorage(key)
+            override fun applier(key: MethodKey): SummaryApplier = actor
+            override fun post(event: RunEvent.Delivery): Boolean = port.post(event)
+            override fun post(event: RunEvent.QuestionDelivery): Boolean = port.post(event)
+            override fun send(event: RunEvent): Boolean {
+                events += event
+                if (event is RunEvent.InitialAnswersIn && event.method == actor.key)
+                    questionQueue += { event.answers.forEach(actor::addInitial) }
+                return true
+            }
+        })
+        questionManagers[actor] = questions
         return actor
     }
 
@@ -222,9 +283,6 @@ class MethodAnalysisFixtures(
             error("Standing conjunction storage requires an explicit test service")
         private val triggered = HashSet<Pair<CommonInst, SinkRule>>()
         override fun addMarkRequest(premise: InitialAp, mark: TaintMark) { requests += premise to RequestKind.Mark(mark) }
-        override fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts) {
-            addedLinks += Triple(ref, linkLayer, delta)
-        }
         override fun conjunction(edge: ConjunctiveEdge, premise: PremiseKey, facts: Facts, node: CommonInst,
                                  sink: (PremiseKey, Facts) -> Unit): Unit =
             error("Standing conjunctions require an explicit test service")
@@ -294,7 +352,10 @@ class MethodAnalysisFixtures(
         while (true) {
             cancellation.checkpoint()
             check(++attempts <= 10000) { "The finite method fixture did not reach closure" }
-            if (core.work(quantum)) return attempts
+            val complete = core.work(quantum)
+            val delivered = pumpQuestions()
+            // An answer delivered after work() returned can schedule a new initial/fact delta.
+            if (complete && !delivered && !core.localServices.hasPendingRequests && questionQueue.isEmpty()) return attempts
         }
     }
     fun field(name: String): Int = store.field(name)
@@ -306,5 +367,12 @@ class MethodAnalysisFixtures(
              tail: Tail = Tail.EXACT, mark: MarkSlot = MarkSlot.Concrete(mark("T")),
              exclusion: ExclusionSet = ExclusionSet.Empty, layer: Layer = Layer.NORMAL): Facts =
         store.fact(base, path, tail, mark, exclusion, layer)
-    override fun close(): Unit = shared.close()
+    override fun close() {
+        questionManagers.values.forEach { it.freeze() }
+        questionManagers.clear()
+        questionQueue.clear()
+        summaryStores.clear()
+        inputRows.clear()
+        shared.close()
+    }
 }

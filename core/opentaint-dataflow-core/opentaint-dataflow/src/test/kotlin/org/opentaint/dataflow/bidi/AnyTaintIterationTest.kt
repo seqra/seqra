@@ -32,6 +32,7 @@ class AnyTaintIterationTest {
         private val processed = ConcurrentLinkedQueue<Pair<Int, ObservedEdge>>()
         private val requests = ConcurrentLinkedQueue<Pair<Int, ObservedRequest>>()
         private val publications = ConcurrentLinkedQueue<Pair<Int, ObservedEdge>>()
+        private val inputs = ConcurrentLinkedQueue<Pair<Int, ObservedLink>>()
         val barriers = ArrayList<Barrier>()
         private val report = ReportBuilder()
 
@@ -56,6 +57,10 @@ class AnyTaintIterationTest {
             val actual = RunMethodHandlers(local, calls)
             val observed = RunnerHandlerFactory<RunMethodAnalyzer> { port ->
                 val observedPort = object : RunnerPort<RunMethodAnalyzer> by port {
+                    override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
+                        f.ops.leaves(added).forEach { inputs += config.index to observedLink(callee, Link(it, linkLayer, ref)) }
+                        port.link(callee, ref, linkLayer, added)
+                    }
                     override val onProcess: (MethodKey, EdgeDelta) -> Unit = { key, delta ->
                         for (edge in observedEdges(f.ops, key, delta.premise, delta.facts, delta.node))
                             processed += config.index to edge
@@ -112,9 +117,7 @@ class AnyTaintIterationTest {
                     selectedDemand = joined.analyzers.flatMap { actor -> actor.summaries.demandEdges().flatMap { (pr, facts) ->
                         observedEdges(f.ops, actor.key, pr, facts)
                     }.toList() }.toSet(),
-                    links = if (config.direction == Direction.FORWARD) joined.analyzers.flatMap { actor ->
-                        actor.links.links().map { observedLink(actor.key, it) }.toList()
-                    }.toSet() else emptySet(),
+                    links = inputs.filter { it.first == config.index }.map { it.second }.toSet(),
                     requests = requests.filter { it.first == config.index }.map { it.second }.toSet(),
                     sourceHits = joined.analyzers.flatMap { actor -> actor.sourceHits?.entries()?.map {
                         ObservedSourceHit(it.first, it.second, it.third)
@@ -141,8 +144,8 @@ class AnyTaintIterationTest {
                     if (it.state == ReportState.CONFIRMED) HistoricalState.CONFIRMED else HistoricalState.DEMAND }
                 for ((key, state) in earlier.findings) {
                     assertNotNull(current[key], "Earlier finding lost: $historicalLabel key=$key")
-                    if (state == HistoricalState.CONFIRMED)
-                        assertEquals(state, current[key], "Earlier confirmation weakened: $historicalLabel key=$key")
+                    assertEquals(HistoricalState.DEMAND, current[key],
+                        "Current witnesses are candidates; the labelled historical support policy is separate")
                 }
             }
             assertEquals(f.configs.size, barriers.size)
@@ -242,13 +245,13 @@ class AnyTaintIterationTest {
                 conclusions(runs.barriers[2].observation.rawSummaries, root, result))
             assertEquals(setOf(Seed.Source(root, root.statement, src)), runs.barriers[1].seeds)
             assertTrue(runs.barriers.all { it.observation.requests.isEmpty() })
-            assertEquals(listOf(1, 1, 0), frontiers.map { it.seeds })
+            assertEquals(listOf(1, 1, 1), frontiers.map { it.seeds })
             assertContains(frontiers[0].analysed, get)
             assertContains(frontiers[1].analysed, get)
             assertContains(frontiers[2].zeroOnly, get)
             assertTrue(frontiers[2].recordCrossings > 0L)
-            assertEquals(ReportState.CONFIRMED, report.entries.single { it.key == finding(f, rule, root, 2) }.state)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertEquals(ReportState.DEMAND, report.entries.single { it.key == finding(f, rule, root, 2) }.state)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
         }
     }
 
@@ -273,7 +276,7 @@ class AnyTaintIterationTest {
             assertEquals(setOf(Seed.Source(root, root.statement, src)), runs.barriers[1].seeds)
             val admitted = f.program.pattern(argument, listOf(name), Tail.ANY_TAINT, t)
             assertContains(initialRows(runs.barriers[2], use), admitted)
-            val witness = runs.barriers[2].observation.witnesses.single { it.methodKey == use && it.confirmed }
+            val witness = runs.barriers[2].observation.witnesses.single { it.methodKey == use && !it.confirmed }
             assertEquals(setOf(admitted), witness.edges.single().premise)
             assertEquals(Layer.NORMAL, witness.edges.single().layer)
             assertTrue(runs.barriers[2].observation.links.any { link ->
@@ -281,9 +284,9 @@ class AnyTaintIterationTest {
                     link.premise == setOf(zero(f)) && link.callerLayer == Layer.NORMAL && link.linkLayer == Layer.NORMAL &&
                     link.added == f.program.pattern(argument, tail = Tail.ANY_TAINT, mark = t)
             })
-            assertEquals(ReportState.CONFIRMED, report.entries.single { it.key == finding(f, rule, use, 1) }.state)
+            assertEquals(ReportState.DEMAND, report.entries.single { it.key == finding(f, rule, use, 1) }.state)
             assertEquals(listOf(1, 2, 3), frontiers.map { it.run })
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
         }
     }
 
@@ -310,12 +313,13 @@ class AnyTaintIterationTest {
                 Conclusion(normal.fact, ExclusionSet.Empty, false)))
             assertTrue(runs.barriers.single().observation.selectedDemand.isEmpty())
             assertTrue(runs.barriers.single().counts.isEmpty())
-            assertTrue(runs.barriers.single().seeds.isEmpty())
+            assertEquals(setOf(Seed.Sink(rule, root, f.program.inst(root, 2),
+                f.program.pattern(result, tail = Tail.ANY, mark = t))), runs.barriers.single().seeds)
             assertTrue(runs.barriers.single().observation.requests.isEmpty())
-            assertEquals(0, frontiers.single().demandVulnerabilities)
-            assertEquals(1, frontiers.single().confirmedVulnerabilities)
-            assertEquals(ReportState.CONFIRMED, report.entries.single().state)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertEquals(1, frontiers.single().demandVulnerabilities)
+            assertEquals(0, frontiers.single().confirmedVulnerabilities)
+            assertEquals(ReportState.DEMAND, report.entries.single().state)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
         }
     }
 
@@ -355,9 +359,9 @@ class AnyTaintIterationTest {
             assertTrue(runs.barriers.single().observation.selectedDemand.isEmpty())
             assertTrue(runs.barriers.single().observation.requests.isEmpty())
             assertEquals(listOf(finding(f, admitted, root, 2)), report.entries.map { it.key })
-            assertEquals(ReportState.CONFIRMED, report.entries.single().state)
-            assertEquals(0, frontiers.single().seeds)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertEquals(ReportState.DEMAND, report.entries.single().state)
+            assertEquals(1, frontiers.single().seeds)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
         }
     }
     @Test
@@ -443,8 +447,8 @@ class AnyTaintIterationTest {
             assertTrue(frontiers[1].recordCrossings > 0L)
             assertTrue(frontiers[2].recordCrossings > 0L)
             assertEquals(setOf(finding(f, admittedT, root, 8), finding(f, admittedU, root, 8)), report.entries.map { it.key }.toSet())
-            assertTrue(report.entries.all { it.state == ReportState.CONFIRMED && it.run == 3 })
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertTrue(report.entries.all { it.state == ReportState.DEMAND && it.run == 3 })
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
         }
     }
 
@@ -468,8 +472,8 @@ class AnyTaintIterationTest {
             if (isSource) {
                 assertEquals(1, runs.barriers.size)
                 assertTrue(runs.barriers.single().observation.selectedDemand.isEmpty())
-                assertEquals(ReportState.CONFIRMED, report.entries.single().state)
-                assertEquals(EndReason.STOP_RULE, report.end.reason)
+                assertEquals(ReportState.DEMAND, report.entries.single().state)
+                assertEquals(EndReason.NO_DEMAND_EDGE, report.end.reason)
             } else {
                 assertEquals(3, runs.barriers.size)
                 assertEquals(setOf(expected), conclusions(runs.barriers[2].observation.rawSummaries, root, result))
@@ -539,8 +543,8 @@ class AnyTaintIterationTest {
             assertEquals(setOf(Conclusion(exact.fact, ExclusionSet.Empty, false)),
                 conclusions(runs.barriers[2].observation.rawSummaries, root, result))
             assertTrue(frontiers[2].recordCrossings > 0L)
-            assertEquals(ReportState.CONFIRMED, report.entries.single().state)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.STOP_RULE), report.end)
+            assertEquals(ReportState.DEMAND, report.entries.single().state)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
         }
     }
 }

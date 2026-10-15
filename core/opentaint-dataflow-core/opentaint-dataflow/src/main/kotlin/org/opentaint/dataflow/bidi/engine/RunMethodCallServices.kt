@@ -2,7 +2,7 @@ package org.opentaint.dataflow.bidi.engine
 
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.interp.*
-import org.opentaint.dataflow.bidi.store.AddedFactStore
+import org.opentaint.dataflow.bidi.store.AddedFactAccumulator
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.ConjunctionStore
 import org.opentaint.dataflow.bidi.store.NdBinding
@@ -14,7 +14,10 @@ import java.util.ArrayDeque
 /** Call walks and suspended return batches belong to one method actor. */
 class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
     private var owner: RunMethodAnalyzer? = core
-    private var observed: AddedFactStore? = if (core.config.run1) AddedFactStore(core.ap) else null
+    // Callback multiplicity is reported as ExternalMethodRecord.callSites. Keep the existing
+    // exact duplicate contract until that observation contract has a separate design. No index
+    // or immutable input view is needed for this gate, and it is never used by emission/replay.
+    private var observed: AddedFactAccumulator? = if (core.config.run1) AddedFactAccumulator(core.ap) else null
 
     private fun active(): RunMethodAnalyzer = checkNotNull(owner) { "The call services were released" }.also {
         it.ap.cancellation.checkpoint()

@@ -956,8 +956,10 @@ observer does not select transfers. Release its delta cache with the service.
         cur.forEach(emit)
     }
 
-    // Observation uses a delivered-observation identity set, not a supplier store.
-    // Its callback/rebuild oracle is required by the selected implementation proposal.
+    // The callback oracle finds observable per-delta callSites counts. Preserve the
+    // existing exact observation gate as an isolated accumulator, without a position
+    // index or captured views. Identity-only cleanup needs a separate contract.
+    // Emission and request replay never use this observation history.
 
     private fun enterCallees(ctx: CallCtx, stage: CallStage.Callees, a: PlanFact) {
         val ref = CallerRef(key, a.premise, ctx.callerLayer, ctx.node)
@@ -1269,7 +1271,7 @@ remain candidates; post-freeze Support cannot scan deleted links or released N2.
 
     fun freeze() {
         port = null; rctx = null; worklist = DeltaWorklist(); pending = ArrayList()
-        // Release run-1 question/pending-answer state and the observation identity set.
+        // Release run-1 question/pending-answer state and the isolated observation gate.
         conjunctions = null; triggered.clear()
         edgeStore = null; initialStore = null
     }
@@ -2049,7 +2051,7 @@ class ReportBuilder {
 
 | Data | Release point |
 |---|---|
-| Edges, initials, run-1 questions/pending answers, N2 inputs, observation identities, conjunctions, work queues, ports and run context | `freeze`, after every runner joined. No callee input store exists. |
+| Edges, initials, run-1 questions/pending answers, N2 inputs, isolated observation gate, conjunctions, work queues, ports and run context | `freeze`, after every runner joined. No callee input store exists. |
 | Raw summaries, stored demand publications and backward source hits | After persistence and hand-off. |
 | Incomplete run stores | End of the run; never expose them to a barrier. |
 | Runner maps, shared run storages and subscription managers | End of the run. |

@@ -5,6 +5,7 @@ import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.EngineShellFixtures
 import org.opentaint.dataflow.bidi.store.CallerRef
+import org.opentaint.dataflow.bidi.store.Link
 import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import org.opentaint.dataflow.ifds.UnitResolver
@@ -30,6 +31,7 @@ class RequestBatchCycleTest {
                 val offered = ConcurrentHashMap.newKeySet<Member>()
                 val outgoing = CopyOnWriteArrayList<RunEvent.MarkRequestsIn>()
                 val services = AtomicInteger()
+                val inputs = CopyOnWriteArrayList<Pair<MethodKey, Link>>()
                 lateinit var run: RunManager<RunMethodAnalyzer>
                 val actual = RunMethodHandlers(MethodLocalServicesFactory { actor ->
                     val local = RunMethodLocalServices(actor)
@@ -68,16 +70,22 @@ class RequestBatchCycleTest {
                         override fun handle(event: RunEvent) {
                             if (event is RunEvent.Start) {
                                 val flow = f.fact(tail = Tail.STAR, mark = MarkSlot.STAR)
-                                assertTrue(observing.send(RunEvent.LinkIn(f.a,
-                                    CallerRef(f.b, initial, Layer.NORMAL, f.inst(f.methodB, 2)), Layer.NORMAL, flow)))
-                                assertTrue(observing.send(RunEvent.LinkIn(f.b,
-                                    CallerRef(f.a, initial, Layer.NORMAL, f.inst(f.methodA, 2)), Layer.NORMAL, flow)))
-                                assertTrue(observing.send(RunEvent.MarkRequestsIn(f.a, initial, marks)))
-                            } else delegate.handle(event)
+                                val destination = if (event.root == f.a) f.b else f.a
+                                val ref = CallerRef(event.root, initial, Layer.NORMAL, f.inst(event.root.method, 2))
+                                // Retained caller N2 owns the route; the callee stores no raw input.
+                                (delegate as SubscriptionHandler).subscribe(Subscription(destination, ref, Layer.NORMAL, flow))
+                                assertTrue(observing.send(RunEvent.LinkIn(destination, ref, Layer.NORMAL, flow)))
+                                if (event.root == f.a) assertTrue(observing.send(RunEvent.MarkRequestsIn(f.a, initial, marks)))
+                            } else {
+                                if (event is RunEvent.LinkIn) f.ops.leaves(event.added).forEach {
+                                    inputs += event.callee to Link(it, event.linkLayer, event.ref)
+                                }
+                                delegate.handle(event)
+                            }
                         }
                     }
                 }
-                run = RunManager(f.config(), shared, factory, quantum = quantum)
+                run = RunManager(f.config(roots = listOf(f.a, f.b)), shared, factory, quantum = quantum)
                 val result = run.run(10.seconds)
                 assertEquals(RunStatus.COMPLETE, result.status, "$sameUnit/$quantum/$size")
                 assertEquals(0L, run.inFlight.pending)
@@ -92,18 +100,21 @@ class RequestBatchCycleTest {
                 assertEquals(listOf(2, 1), listOf(outgoing.count { it.method == f.a }, outgoing.count { it.method == f.b }))
                 assertTrue(outgoing.all { it.premise === initial && it.marks == marks && it.marks.size == size })
                 for (actor in result.analyzers) {
-                    assertEquals(1, actor.links.links().count())
-                    assertEquals(initial.toPattern(), actor.links.links().single().addedFact)
+                    val arrived = inputs.filter { it.first == actor.key }.map { it.second }
+                    assertEquals(1, arrived.size)
+                    assertEquals(initial.toPattern(), arrived.single().addedFact)
                 }
             }
         }
     }
 
     @Test
-    fun `failed partial request phase cannot leak into a fresh run`(): Unit {
+    fun `failed partial question publication cannot leak into a fresh run`(): Unit {
         val f = EngineShellFixtures()
         f.shared(threads = 1).use { shared ->
             val initial = f.manager.initial(AccessPathBase.Argument(0), null, Tail.STAR,
+                ExclusionSet.Empty, MarkSlot.STAR)
+            val otherInitial = f.manager.initial(AccessPathBase.Argument(1), null, Tail.STAR,
                 ExclusionSet.Empty, MarkSlot.STAR)
             val marks = RequestMarkSet.fromIds(IntArray(32) { f.manager.marks.mark("T$it").id })
             var failOnce = true
@@ -116,7 +127,8 @@ class RequestBatchCycleTest {
                             failOnce = false
                             assertFalse(local.flushRequests(1))
                             partialSeen = true
-                            error("Controlled failure after a captured request phase starts")
+                            assertTrue(local.hasPendingRequests, "A second independent question remains unpublished")
+                            error("Controlled failure after the first question publication")
                         }
                         return local.flushRequests(quantum)
                     }
@@ -129,8 +141,10 @@ class RequestBatchCycleTest {
                     override fun subscribe(sub: Subscription) = (delegate as SubscriptionHandler).subscribe(sub)
                     override fun freeze() = (delegate as SubscriptionHandler).freeze()
                     override fun handle(event: RunEvent) {
-                        if (event is RunEvent.Start) assertTrue(port.send(RunEvent.MarkRequestsIn(f.a, initial, marks)))
-                        else delegate.handle(event)
+                        if (event is RunEvent.Start) {
+                            assertTrue(port.send(RunEvent.MarkRequestsIn(f.a, initial, marks)))
+                            assertTrue(port.send(RunEvent.MarkRequestsIn(f.a, otherInitial, marks)))
+                        } else delegate.handle(event)
                     }
                 }
             }
@@ -141,7 +155,7 @@ class RequestBatchCycleTest {
             // AP state, before the RunManager constructor can activate a fresh run's cancellation.
             assertFailsWith<org.opentaint.dataflow.util.Cancellation.Cancelled> { f.config(index = 3) }
             f.cancellation.activate()
-            // Fresh setup installs new actors/local stores/Work owners; the failed phase is not reused.
+            // Fresh setup installs new actors/policies/Work owners; pending publications are not reused.
             val second = RunManager(f.config(index = 3), shared, actual, quantum = 1)
             val result = second.run(5.seconds)
             assertEquals(RunStatus.COMPLETE, result.status)

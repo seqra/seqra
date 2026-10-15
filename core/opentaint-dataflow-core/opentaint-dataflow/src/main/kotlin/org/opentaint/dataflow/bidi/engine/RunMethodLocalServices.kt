@@ -42,15 +42,6 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
         return core.abstraction?.flush(quantum) ?: true
     }
 
-    override fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts) {
-        activeCore()
-        error("Abstraction needs the raw link's admitted group metadata")
-    }
-
-    override fun onAddedLink(update: AddedFactStore.Update) {
-        activeCore() // The core's initial-emission owner already admitted this supplier update.
-    }
-
     override fun conjunction(edge: ConjunctiveEdge, premise: PremiseKey, facts: Facts, node: CommonInst,
                              sink: (PremiseKey, Facts) -> Unit) {
         val core = activeCore()

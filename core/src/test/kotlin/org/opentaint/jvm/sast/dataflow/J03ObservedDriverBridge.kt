@@ -31,7 +31,7 @@ data class J03ObservedLiteral(
     val facts: Set<JvmObservedConclusion>,
 )
 
-/** Captured after actual Support.confirm; no witness flag or mutable Facts is retained. */
+/** Captured after the actual report barrier; all scalar flags and paths are owned snapshots. */
 data class J03ObservedWitness(
     val rule: RuleId,
     val statement: CommonInst,
@@ -117,7 +117,6 @@ class J03ObservedDriverBridge {
                     // after this hook returns; handler.freeze would be too late.
                     for (initial in core.initials.all())
                         live.initials += JvmObservedInitial(core.key, path(shared.ap, initial.toPattern()))
-                    for (rawLink in core.links.links()) live.links += link(shared.ap, core.key, rawLink)
                     actual.freeze()
                 }
             }
@@ -125,6 +124,10 @@ class J03ObservedDriverBridge {
         val actualHandlers = RunMethodHandlers(local, MethodCallServicesFactory(::RunMethodCallServices))
         val factory = RunnerHandlerFactory<RunMethodAnalyzer> { port ->
             val observed = object : RunnerPort<RunMethodAnalyzer> by port {
+                override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
+                    shared.ops.leaves(added).forEach { live.links += link(shared.ap, callee, ref, linkLayer, it) }
+                    port.link(callee, ref, linkLayer, added)
+                }
                 override val onProcess: ((MethodKey, EdgeDelta) -> Unit) = { key, delta ->
                     live.processed.addAll(edges(shared.ops, key, delta.premise, delta.facts, delta.node))
                     port.onProcess?.invoke(key, delta)
@@ -147,7 +150,7 @@ class J03ObservedDriverBridge {
             val guardClass = Class.forName("org.opentaint.dataflow.bidi.driver.IterationDriverKt")
             val actualGuard = guardClass.declaredMethods.single { it.name == "withBarrierGuard" }
             actualGuard.isAccessible = true
-            // Invoke actual Support/report/R1/HandOff/policy inside the existing memory guard.
+            // Invoke actual candidate report/R1/HandOff/policy inside the existing memory guard.
             val next = unwrap { actualGuard.invoke(null, shared, body) } as Next
             if (shared.cancellation.isActive()) {
                 for ((key, values) in joined.result.witnessesByKey()) for (rawWitness in values)
@@ -208,9 +211,9 @@ class J03ObservedDriverBridge {
     private fun premise(ap: ApManager, premise: PremiseKey): Set<JvmObservedPath> =
         ownSet(premise.members.map { path(ap, it.toPattern()) })
 
-    private fun link(ap: ApManager, callee: MethodKey, link: Link): JvmObservedLink =
-        JvmObservedLink(callee, link.caller.caller, link.caller.call, premise(ap, link.caller.premise),
-            link.caller.callerLayer, link.linkLayer, path(ap, link.addedFact))
+    private fun link(ap: ApManager, callee: MethodKey, ref: CallerRef, layer: Layer, added: Pattern): JvmObservedLink =
+        JvmObservedLink(callee, ref.caller, ref.call, premise(ap, ref.premise),
+            ref.callerLayer, layer, path(ap, added))
 
     private fun request(ap: ApManager, key: MethodKey, premise: InitialAp, kind: RequestKind): JvmObservedRequest =
         when (kind) {

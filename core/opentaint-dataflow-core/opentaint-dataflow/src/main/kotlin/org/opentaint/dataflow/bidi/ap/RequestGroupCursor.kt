@@ -4,6 +4,13 @@ import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.RequestMarkCursor
 import org.opentaint.dataflow.bidi.store.RequestMarkSelection
 
+/** A checked answer with no mark membership or supplier payload attached. */
+data class RequestAnswerShape(val base: org.opentaint.dataflow.ap.ifds.AccessPathBase,
+                              val path: PathNode?, val tail: Tail, val exclusion: ExclusionSet) {
+    fun initial(manager: ApManager, mark: TaintMark): InitialAp =
+        manager.initial(base, path, tail, exclusion, MarkSlot.Concrete(mark))
+}
+
 /** One immutable raw group and one request row. Cursor state belongs only to the active join phase. */
 class RequestGroupCursor internal constructor(
     private val manager: ApManager,
@@ -57,7 +64,11 @@ class RequestGroupCursor internal constructor(
         }
     }
 
-    fun step(budget: Int, onAnswer: (InitialAp) -> Unit, onClimb: (TaintMark) -> Unit): Int {
+    fun step(budget: Int, onAnswer: (InitialAp) -> Unit, onClimb: (TaintMark) -> Unit): Int =
+        stepShapes(budget, { shape, mark -> onAnswer(shape.initial(manager, mark)) }, onClimb)
+
+    /** Pending answers must not intern every concrete initial before anyone requests its mark. */
+    fun stepShapes(budget: Int, onAnswer: (RequestAnswerShape, TaintMark) -> Unit, onClimb: (TaintMark) -> Unit): Int {
         require(budget > 0)
         var used = 0
         while (used < budget && !complete) {
@@ -106,7 +117,7 @@ class RequestGroupCursor internal constructor(
         return 1
     }
 
-    private fun taintStep(taint: TaintTree, onAnswer: (InitialAp) -> Unit): Int {
+    private fun taintStep(taint: TaintTree, onAnswer: (RequestAnswerShape, TaintMark) -> Unit): Int {
         // Static answers at or below the request retain the actual leaf position. Build that
         // canonical path once per leaf, with one prefix cell per budget unit, then reuse it.
         val pending = pendingMark
@@ -182,16 +193,15 @@ class RequestGroupCursor internal constructor(
         exactOffset = 0; anyOffset = 0; leafPath = null; leafPathReady = false
     }
 
-    private fun emit(taint: TaintTree, mark: TaintMark, exact: Boolean, onAnswer: (InitialAp) -> Unit) {
-        val concrete = MarkSlot.Concrete(mark)
+    private fun emit(taint: TaintTree, mark: TaintMark, exact: Boolean, onAnswer: (RequestAnswerShape, TaintMark) -> Unit) {
         val result = when {
-            initial.base == STATIC && staticAnswerAtSupplier -> manager.initial(STATIC, leafPath,
-                if (exact) Tail.EXACT else Tail.ANY, ExclusionSet.Empty, concrete)
-            exact && leafPrefixDepth() == path.size -> manager.initial(initial.base, initial.path,
-                Tail.EXACT, ExclusionSet.Empty, concrete)
-            else -> manager.initial(initial.base, initial.path, Tail.STAR, ExclusionSet.Empty, concrete)
+            initial.base == STATIC && staticAnswerAtSupplier -> RequestAnswerShape(STATIC, leafPath,
+                if (exact) Tail.EXACT else Tail.ANY, ExclusionSet.Empty)
+            exact && leafPrefixDepth() == path.size -> RequestAnswerShape(initial.base, initial.path,
+                Tail.EXACT, ExclusionSet.Empty)
+            else -> RequestAnswerShape(initial.base, initial.path, Tail.STAR, ExclusionSet.Empty)
         }
-        onAnswer(result)
+        onAnswer(result, mark)
     }
 
     private fun leafPrefixDepth(): Int {

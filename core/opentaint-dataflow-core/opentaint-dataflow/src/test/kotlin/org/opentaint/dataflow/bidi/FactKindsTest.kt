@@ -97,7 +97,7 @@ class FactKindsTest {
             val core = f.core(index = 3, demand = demand)
             val ref = CallerRef(f.key, f.manager.zero, Layer.NORMAL, f.inst(1))
             val added = f.fact(x, mark = mt, layer = Layer.DEMAND)
-            core.addLink(ref, Layer.DEMAND, added)
+            f.admit(core, ref, Layer.DEMAND, added)
             f.drain(core, quantum = 1)
             val initial = core.initials.all().single()
             assertEquals(3L, core.demandLayerEdges, "One accepted added fact, one method delta and one summary delta")
@@ -107,11 +107,11 @@ class FactKindsTest {
             assertEquals(setOf(initial to expected), methodEntries(f.ops, core.summaries.demandEdges()))
             assertEquals(setOf(initial to expected), methodEntries(f.ops, f.publications.flatten().asSequence()
                 .map { it.premise to it.conclusion }))
-            core.addLink(ref, Layer.DEMAND, added)
+            f.admit(core, ref, Layer.DEMAND, added)
             f.drain(core)
             assertEquals(3L, core.demandLayerEdges)
             assertEquals(3L, core.edgeDeltas)
-            assertEquals(1, f.addedLinks.size)
+            assertEquals(2, f.addedLinks.size, "Both deliveries are observed; only emission is deduplicated")
         }
     }
 
@@ -122,13 +122,13 @@ class FactKindsTest {
             val core = f.core()
             val ref = CallerRef(f.key, f.manager.zero, Layer.NORMAL, f.inst(1))
             val added = f.fact(x, layer = Layer.DEMAND)
-            core.addLink(ref, Layer.DEMAND, added)
+            f.admit(core, ref, Layer.DEMAND, added)
             f.drain(core, quantum = 1)
             assertEquals(1L, core.demandLayerEdges)
             assertEquals(1L, core.edgeDeltas)
             assertTrue(core.summaries.all().none())
             assertTrue(f.publications.isEmpty())
-            core.addLink(ref, Layer.DEMAND, added)
+            f.admit(core, ref, Layer.DEMAND, added)
             assertEquals(1L, core.demandLayerEdges)
             assertEquals(1L, core.edgeDeltas)
         }
@@ -235,7 +235,7 @@ class FactKindsTest {
             val first = CallerRef(f.key, f.manager.zero, Layer.NORMAL, f.inst(1))
             val second = first.copy(caller = f.store.key(context = "second caller"))
             val added = f.fact(x, mark = mt, layer = Layer.DEMAND)
-            core.addLink(first, Layer.DEMAND, added)
+            f.admit(core, first, Layer.DEMAND, added)
             f.drain(core, quantum = 1)
             val initials = core.initials.all().toSet()
             val processed = f.processed.toList()
@@ -245,9 +245,9 @@ class FactKindsTest {
             val previousSteps = core.steps
             val previousEdges = core.edgeDeltas
             val previousDemand = core.demandLayerEdges
-            core.addLink(second, Layer.DEMAND, added)
+            f.admit(core, second, Layer.DEMAND, added)
             f.drain(core, quantum = 1)
-            assertEquals(previousDemand + 1L, core.demandLayerEdges)
+            assertEquals(previousDemand, core.demandLayerEdges, "Demand input presence is one scalar per actor, not a retained caller-group count")
             assertEquals(previousEdges, core.edgeDeltas)
             assertEquals(previousSteps, core.steps)
             assertEquals(initials, core.initials.all().toSet())
@@ -256,11 +256,11 @@ class FactKindsTest {
             assertEquals(selected, methodEntries(f.ops, core.summaries.demandEdges()))
             assertEquals(publications, f.publications)
             assertEquals(listOf(first, second), f.addedLinks.map { it.first })
-            assertEquals(setOf(first, second), core.links.links().map { it.caller }.toSet())
-            core.addLink(second, Layer.DEMAND, added)
+            assertEquals(setOf(first, second), f.links(core).asSequence().map { it.caller }.toSet())
+            f.admit(core, second, Layer.DEMAND, added)
             f.drain(core)
-            assertEquals(previousDemand + 1L, core.demandLayerEdges)
-            assertEquals(2, f.addedLinks.size)
+            assertEquals(previousDemand, core.demandLayerEdges, "Demand input presence is one scalar per actor, not a retained caller-group count")
+            assertEquals(3, f.addedLinks.size)
         }
     }
 }

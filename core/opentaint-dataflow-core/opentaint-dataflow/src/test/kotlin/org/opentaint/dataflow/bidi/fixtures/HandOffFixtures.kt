@@ -44,6 +44,10 @@ class HandOffFixtures(val index: Int = 1, val L: Int = 1) : AutoCloseable {
             finite.core(config, localFactory, callFactory, key).also { actors[key] = it }
         }
 
+    fun admit(core: RunMethodAnalyzer, ref: org.opentaint.dataflow.bidi.store.CallerRef, layer: Layer, facts: Facts) =
+        finite.admit(core, ref, layer, facts)
+    fun links(core: RunMethodAnalyzer) = finite.links(core)
+
     fun drain(core: RunMethodAnalyzer, quantum: Int = 1000): Int = finite.drain(core, quantum)
 
     /** These two methods prescribe the stored inputs; neither computes demand selection. */

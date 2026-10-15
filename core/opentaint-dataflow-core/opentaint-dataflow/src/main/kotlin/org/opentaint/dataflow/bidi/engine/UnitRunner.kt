@@ -41,6 +41,7 @@ class UnitRunner<A : RunActor> internal constructor(
     }
 
     override fun post(event: RunEvent.Delivery): Boolean = postEvent(event)
+    override fun post(event: RunEvent.QuestionDelivery): Boolean = postEvent(event)
     override fun send(event: RunEvent): Boolean = run.route(event)
 
     override fun summaryStorage(key: MethodKey): SummaryStorage = run.summaryStorage(key)

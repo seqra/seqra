@@ -5,7 +5,7 @@ import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.Seed
 import org.opentaint.dataflow.bidi.driver.SeedIndex
-import org.opentaint.dataflow.bidi.driver.Support
+import org.opentaint.dataflow.bidi.driver.ReportBuilder
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.DriverFixtures
 import org.opentaint.dataflow.bidi.interp.*
@@ -84,7 +84,7 @@ class CallerStateAcceptanceTest {
                             Conclusion(it.fact, it.exclusion, facts.layer == Layer.DEMAND) == expected
                         }
                     }, "Caller-owned state must remain in $callee's nonzero raw summary in run $index")
-                    val link = actor.links.links().single { it.addedFact == state && it.caller.caller == root }
+                    val link = f.links(index, actor.key).asSequence().single { it.addedFact == state && it.caller.caller == root }
                     assertEquals(Layer.NORMAL, link.linkLayer)
                     assertEquals(Layer.NORMAL, link.caller.callerLayer)
                     assertTrue(link.caller.premise.isZero)
@@ -107,8 +107,10 @@ class CallerStateAcceptanceTest {
                             witness.supportPremise(f.manager) == initial
                     }, "Both sinks must receive the normal state in run $index")
                 }
-                Support(result, listOf(root), config.mode, f.shared).confirm()
-                assertTrue(witnesses.values.all { rows -> rows.any { it.confirmed } })
+                val report = ReportBuilder().also { it.add(config, result) }
+                assertTrue(report.hasDemandVulnerability())
+                assertTrue(witnesses.values.flatten().all { !it.confirmed },
+                    "Caller-owned state is exact, but this run supplied no confirmation certificate")
                 if (index == 3) {
                     assertTrue(actors.getValue(release).summaries.demandEdges().none())
                     assertTrue(actors.getValue(after).summaries.demandEdges().none())
