@@ -7,36 +7,26 @@ import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
-import org.opentaint.dataflow.bidi.fixtures.ScalarPositionLocalServices
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import kotlin.test.*
 
-/** Expectations expand scalar request actions independently of the deferred join implementation. */
+/** F78 actor barriers and caller replay; historical full-query joins are not the request policy. */
 class RequestBarrierJoinTest {
     private val x = AccessPathBase.Argument(0)
     private fun policy(f: MethodAnalysisFixtures, base: AccessPathBase = x, path: List<Int> = emptyList()) =
         f.manager.initial(base, f.manager.path(path), Tail.STAR, ExclusionSet.Empty, MarkSlot.STAR)
     private fun core(f: MethodAnalysisFixtures): RunMethodAnalyzer =
-        f.core(localFactory = MethodLocalServicesFactory { ScalarPositionLocalServices(it, f.positionDeliveries::add) })
+        f.core(localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
     private fun caller(f: MethodAnalysisFixtures, context: String = "caller", flow: Boolean = false,
                        layer: Layer = Layer.NORMAL, call: Int = 1) =
         CallerRef(f.store.key(context), if (flow) policy(f) else f.manager.zero, layer, f.inst(call))
     private fun local(actor: RunMethodAnalyzer) = actor.localServices
-    private fun flush(f: MethodAnalysisFixtures, actor: RunMethodAnalyzer, quantum: Int = 1): Int {
-        var calls = 0
-        do {
-            calls++
-            check(calls < 100_000) { "The finite request phase did not finish" }
-            val complete = local(actor).flushRequests(quantum)
-            f.pumpQuestions()
-        } while (!complete || local(actor).hasPendingRequests)
-        assertFalse(local(actor).hasPendingRequests)
-        return calls
-    }
+    private fun flush(f: MethodAnalysisFixtures, actor: RunMethodAnalyzer, quantum: Int = 1): Int =
+        f.drain(actor, quantum)
     private fun climbs(f: MethodAnalysisFixtures): Set<Triple<MethodKey, InitialAp, TaintMark>> = buildSet {
         for (event in f.events) when (event) {
-            is RunEvent.MarkRequestsIn -> for (i in 0 until event.marks.size)
-                add(Triple(event.method, event.premise, event.marks.markAt(i)))
+            is RunEvent.MarkRequestsIn -> for ((slot, marks) in event.rows)
+                marks.forEachMark { add(Triple(event.method, slot.initial(f.manager), it)) }
             else -> Unit
         }
     }
@@ -56,7 +46,7 @@ class RequestBarrierJoinTest {
             }
             if (requestsFirst) { addRequests(); addLinks() } else { addLinks(); addRequests() }
             assertEquals(setOf(i), actor.initials.all().toSet())
-            assertTrue(local(actor).hasPendingRequests)
+            assertFails { actor.freeze() }
             assertTrue(f.enqueued.isNotEmpty(), "The phase has counted Work ownership")
             flush(f, actor)
             val expected = setOf(i, f.manager.initial(f.pattern(mark = MarkSlot.Concrete(t))),
@@ -85,16 +75,17 @@ class RequestBarrierJoinTest {
             val a = caller(f, flow = true)
             val b = a.copy(callerLayer = Layer.DEMAND, call = f.inst(2))
             actor.addMarkRequests(i, RequestMarkSet.fromIds(marks.map { it.id }.toIntArray()))
-            for (ref in listOf(a, b)) for (path in listOf(listOf(field), listOf(field, g))) {
+            for (ref in listOf(a, b)) for (path in listOf(emptyList(), listOf(field))) {
                 f.admit(actor, ref, layer, f.fact(path = path, tail = tail,
                     mark = MarkSlot.Star(excluded), exclusion = e, layer = layer))
             }
             assertTrue(f.events.isEmpty())
             flush(f, actor)
-            assertEquals(marks.filter { it !in excluded }.map { Triple(a.caller, a.premise as InitialAp, it) }.toSet(), climbs(f))
+            assertEquals(marks.map { Triple(a.caller, a.premise as InitialAp, it) }.toSet(), climbs(f),
+                "F78 ignores incoming FLOW mark exclusions")
             val batches = f.events.filterIsInstance<RunEvent.MarkRequestsIn>()
             assertEquals(1, batches.size, "Equal full request targets combine in one replay visit")
-            assertEquals(30, batches.single().marks.size)
+            assertEquals(32, batches.single().rows.getValue(assertNotNull(Run1Slot.fromInitial(i))).size)
             assertEquals(setOf(a, b), f.links(actor).asSequence().map { it.caller }.toSet())
             assertEquals(setOf(i), actor.initials.all().toSet())
         }
@@ -118,16 +109,18 @@ class RequestBarrierJoinTest {
     @Test
     fun `concrete same mark keeps exact chain and multiple static answer initials`(): Unit {
         MethodAnalysisFixtures().use { f ->
-            val actor = core(f)
             val t = f.mark("T")
             val field = f.field("f")
             val g = f.field("g")
             val h = f.field("h")
             val cls = f.manager.accessors.index(ClassStaticAccessor("Box"))
+            f.declareStaticDomain(listOf(cls, field), listOf(cls, g))
+            val actor = core(f)
             val root = policy(f)
             val stat = policy(f, STATIC)
             actor.addMarkRequest(root, t)
-            actor.addMarkRequest(stat, t)
+            actor.addMarkRequest(policy(f, STATIC, listOf(cls, field)), t)
+            actor.addMarkRequest(policy(f, STATIC, listOf(cls, g)), t)
             val ref = caller(f)
             for (path in listOf(emptyList(), listOf(field)))
                 f.admit(actor, ref, Layer.NORMAL, f.fact(path = path, mark = MarkSlot.Concrete(t)))
@@ -139,29 +132,22 @@ class RequestBarrierJoinTest {
                 f.manager.initial(f.pattern(mark = MarkSlot.Concrete(t))),
                 f.manager.initial(f.pattern(tail = Tail.STAR, mark = MarkSlot.Concrete(t))),
                 f.manager.initial(f.pattern(base = STATIC, path = listOf(cls, field), mark = MarkSlot.Concrete(t))),
-                f.manager.initial(f.pattern(base = STATIC, path = listOf(cls, g), tail = Tail.ANY, mark = MarkSlot.Concrete(t))))
+                f.manager.initial(f.pattern(base = STATIC, path = listOf(cls, g), tail = Tail.STAR, mark = MarkSlot.Concrete(t))))
             assertEquals(expected, actor.initials.all().toSet())
             assertTrue(climbs(f).isEmpty())
         }
     }
 
     @Test
-    fun `historical position answer stays immediate and reentrant mark answers finish after the current answer`(): Unit {
+    fun `a request and input produced reentrantly by fact work join after the method drains`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val actor = core(f)
-            val cls = f.manager.accessors.index(ClassStaticAccessor("Box"))
-            val field = f.field("f")
             val t = f.mark("T")
             val u = f.mark("U")
             val i = policy(f)
-            val stat = policy(f, STATIC)
-            val atClass = policy(f, STATIC, listOf(cls))
-            assertIs<ScalarPositionLocalServices>(actor.localServices).addPositionRequest(stat, RequestKind.Position(checkNotNull(f.manager.path(listOf(cls)))))
-            f.admit(actor, caller(f), Layer.NORMAL, f.fact(base = STATIC, path = listOf(cls, field), mark = MarkSlot.Concrete(t)))
-            assertTrue(atClass in actor.initials.all(), "Position startup does not wait for the mark phase")
             var reentered = false
-            f.onCut = { point, _ ->
-                if (point == Cut.ENTRY_RULES && !reentered) {
+            f.onProcess = { _, _ ->
+                if (!reentered) {
                     reentered = true
                     actor.addMarkRequest(i, u)
                     f.admit(actor, caller(f, "late"), Layer.NORMAL, f.fact(mark = MarkSlot.Concrete(u)))
@@ -169,6 +155,7 @@ class RequestBarrierJoinTest {
             }
             actor.addMarkRequest(i, t)
             f.admit(actor, caller(f), Layer.NORMAL, f.fact(mark = MarkSlot.Concrete(t)))
+            assertFalse(reentered)
             flush(f, actor)
             assertTrue(reentered)
             assertTrue(f.manager.initial(f.pattern(mark = MarkSlot.Concrete(t))) in actor.initials.all())
@@ -177,30 +164,31 @@ class RequestBarrierJoinTest {
     }
 
     @Test
-    fun `an exact-only delta keeps its admitted must exclusion and every full caller target`(): Unit {
+    fun `an exact-only delta retains its admitted E and both exact and nonexact static answers`(): Unit {
         MethodAnalysisFixtures().use { f ->
+            val cls = f.manager.accessors.index(ClassStaticAccessor("C"))
+            val g = f.field("g")
+            f.declareStaticDomain(listOf(cls, g))
             val actor = core(f)
             val t = f.mark("T")
-            val g = f.field("g")
-            val h = f.field("h")
-            val i = policy(f, path = listOf(g))
+            val slot = policy(f, STATIC, listOf(cls, g))
             val ref = caller(f)
             val e = ExclusionSet.of(g)
-            val must = f.fact(tail = Tail.ANY_TAINT, mark = MarkSlot.Concrete(t), exclusion = e)
+            val must = f.fact(STATIC, listOf(cls), Tail.ANY_TAINT, MarkSlot.Concrete(t), e)
             f.admit(actor, ref, Layer.NORMAL, must)
-            actor.addMarkRequest(i, t)
+            actor.addMarkRequest(slot, t)
             flush(f, actor)
-            assertFalse(actor.initials.all().any { it.mark == MarkSlot.Concrete(t) })
-            // Add a concrete exception at the excluded child under the original admitted E key.
-            val child = f.fact(path = listOf(g, h), mark = MarkSlot.Concrete(t))
+            val chain = f.manager.initial(STATIC, slot.path, Tail.STAR, ExclusionSet.Empty, MarkSlot.Concrete(t))
+            assertContains(actor.initials.all(), chain, "Request matching ignores the supplier E")
+            val child = f.fact(STATIC, listOf(cls, g), mark = MarkSlot.Concrete(t))
             val root = f.manager.taintAlg.mergeAddDelta(assertIs<TaintTree>(must).root, assertIs<TaintTree>(child).root).first
-            val mixed = f.manager.taintTree(x, Layer.NORMAL, root, e)
-            f.admit(actor, ref, Layer.NORMAL, mixed)
+            f.admit(actor, ref, Layer.NORMAL, f.manager.taintTree(STATIC, Layer.NORMAL, root, e))
             flush(f, actor)
-            assertTrue(f.manager.initial(f.pattern(path = listOf(g), tail = Tail.STAR,
-                mark = MarkSlot.Concrete(t))) in actor.initials.all())
-            assertTrue(f.links(actor).asSequence().any { it.addedFact.fact.path == listOf(g, h) })
-            assertTrue(f.links(actor).asSequence().any { it.addedFact.exclusion == e && it.addedFact.fact.tail == Tail.ANY_TAINT })
+            val exact = f.manager.initial(STATIC, slot.path, Tail.EXACT, ExclusionSet.Empty, MarkSlot.Concrete(t))
+            assertContains(actor.initials.all(), exact)
+            assertContains(actor.initials.all(), chain)
+            assertTrue(f.links(actor).any { it.addedFact.fact.path == listOf(cls, g) })
+            assertTrue(f.links(actor).any { it.addedFact.exclusion == e && it.addedFact.fact.tail == Tail.ANY_TAINT })
         }
     }
 }

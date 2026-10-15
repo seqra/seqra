@@ -1,7 +1,5 @@
 package org.opentaint.dataflow.bidi.ap
 
-import org.opentaint.dataflow.bidi.store.CallerRef
-import org.opentaint.dataflow.bidi.store.RequestMarkSelection
 
 /** Shared facade. All walk state is local to the call. */
 class ApOps(val manager: ApManager) {
@@ -85,8 +83,6 @@ class ApOps(val manager: ApManager) {
     fun restrict(j: InitialAp, g: Facts, d: DemandPattern): List<Facts> = restrictFacts(this, j, g, d)
     fun demandPart(premise: PremiseKey, g: Facts, direction: Direction): Facts? =
         selectDemand(manager, premise, g, direction)
-    fun requestGroup(i: InitialAp, marks: RequestMarkSelection, facts: Facts, caller: CallerRef): RequestGroupCursor =
-        RequestGroupCursor(manager, i, marks, facts, caller)
 }
 
 private fun staticIdentityDepth(c: Facts, premise: PremiseKey, ce: CompiledEdge,

@@ -1,0 +1,85 @@
+package org.opentaint.dataflow.bidi
+
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
+import org.opentaint.dataflow.bidi.ap.*
+import org.opentaint.dataflow.bidi.engine.*
+import org.opentaint.dataflow.bidi.fixtures.StoreFixtures
+import org.opentaint.dataflow.bidi.store.RequestMarkSet
+import kotlin.test.*
+
+/** F78 scalar answer relation, independent of the packed traversal being tested. */
+class Run1ConcreteAnswerOracleTest {
+    private val f = StoreFixtures()
+    private val ap = f.manager
+    private val b = AccessPathBase.Argument(0)
+    private val c = ap.accessors.index(ClassStaticAccessor("C"))
+    private val d = ap.accessors.index(ClassStaticAccessor("D"))
+    private val a = f.field("a")
+    private val z = f.field("z")
+    private val t = f.mark("T")
+    private val u = f.mark("U")
+
+    private fun answers(input: Facts, slot: Run1Slot, marks: RequestMarkSet,
+                        counts: RequestBatchStatistics.Counts? = null): Set<InitialAp> = buildSet {
+        forEachConcreteAnswer(ap, input, listOf(RequestedRow(slot, RequestRowView(marks, RequestMarkSet.EMPTY))), counts) { add(it) }
+    }
+
+    @Test
+    fun `all accepted supplier tails and layers match the scalar slot answer relation ignoring E`() {
+        val slots = listOf(Run1Slot.Base(b), Run1Slot.StaticField(c, a), Run1Slot.StaticField(c, z))
+        val suppliers = listOf(b to emptyList(), b to listOf(a), STATIC to emptyList(), STATIC to listOf(c),
+            STATIC to listOf(c, a), STATIC to listOf(c, z), STATIC to listOf(d, a))
+        for (slot in slots) for ((base, path) in suppliers) for (layer in Layer.entries) {
+            for (tail in listOf(Tail.EXACT, if (layer == Layer.NORMAL) Tail.ANY_TAINT else Tail.ANY)) {
+                if (base == STATIC && path.isEmpty() && tail == Tail.EXACT) continue // forbidden supplier
+                val e = if (tail == Tail.ANY_TAINT) ExclusionSet.of(a) else ExclusionSet.Empty
+                val input = f.fact(base, path, tail, MarkSlot.Concrete(t), e, layer)
+                val requested = RequestMarkSet.fromIds(intArrayOf(t.id, u.id))
+                val target = slot.pathData.toList()
+                val same = path == target
+                val supplies = base == slot.base && (slot is Run1Slot.Base ||
+                    path.take(target.size) == target ||
+                    (tail != Tail.EXACT && target.take(path.size) == path))
+                val expected = if (!supplies) emptySet() else setOf(ap.initial(slot.base, ap.path(target),
+                    if (same && tail == Tail.EXACT) Tail.EXACT else Tail.STAR,
+                    ExclusionSet.Empty, MarkSlot.Concrete(t)))
+                assertEquals(expected, answers(input, slot, requested), "$slot <- $base/$path/$tail/$layer")
+                assertTrue(answers(input, slot, RequestMarkSet.of(u)).isEmpty())
+            }
+        }
+    }
+
+    @Test
+    fun `one concrete leaf probes actual marks rather than a wide request set`() {
+        val input = f.fact(mark = MarkSlot.Concrete(TaintMark(250)))
+        val counts = RequestBatchStatistics.Counts()
+        val result = answers(input, Run1Slot.Base(b), RequestMarkSet.fromIds(IntArray(500) { it + 1 }), counts)
+        assertEquals(1, result.size)
+        assertEquals(1L, counts.memberScans)
+    }
+
+    @Test
+    fun `packed exact and nonexact branches retain both initial alternatives without ANY initials`() {
+        val exact = ap.taintAlg.leafNode(ap.taintLeaves(ap.markSetOf(t), MarkSet.EMPTY))
+        val any = ap.taintAlg.leafNode(ap.taintLeaves(MarkSet.EMPTY, ap.markSetOf(t)))
+        val ordinary = ap.taintTree(b, Layer.NORMAL, ap.taintAlg.mergeAdd(exact,
+            ap.taintAlg.prepend(ap, ap.path(a, null), any)))
+        val result = answers(ordinary, Run1Slot.Base(b), RequestMarkSet.of(t))
+        assertEquals(setOf(Tail.EXACT, Tail.STAR), result.mapTo(linkedSetOf()) { it.tail })
+        val static = ap.taintTree(STATIC, Layer.NORMAL, ap.taintAlg.prepend(ap, ap.path(listOf(c, a)),
+            ap.taintAlg.mergeAdd(exact, any)))
+        assertEquals(setOf(Tail.EXACT, Tail.STAR), answers(static, Run1Slot.StaticField(c, a),
+            RequestMarkSet.of(t)).mapTo(linkedSetOf()) { it.tail })
+    }
+
+    @Test
+    fun `FLOW slot geometry ignores field and mark exclusions and has no concrete answers`() {
+        val input = f.fact(STATIC, listOf(c), Tail.STAR, MarkSlot.Star(ap.markSetOf(t)),
+            ExclusionSet.of(a), Layer.NORMAL)
+        val slot = Run1Slot.StaticField(c, a)
+        assertTrue(slotMatches(slot, input))
+        assertFalse(slotMatches(Run1Slot.StaticField(d, a), input))
+        assertTrue(answers(input, slot, RequestMarkSet.of(t)).isEmpty())
+    }
+}

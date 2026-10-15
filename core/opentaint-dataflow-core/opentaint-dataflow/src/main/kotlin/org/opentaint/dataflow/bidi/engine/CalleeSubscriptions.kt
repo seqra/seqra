@@ -16,7 +16,7 @@ class CalleeSubscriptions(private val ops: ApOps, private val statistics: N2Stat
     private var visitingQuestion = false
 
     /** A queued replay keeps the established fresh delta, not an old cumulative root. */
-    internal inner class Admission(val fresh: Subscription, private val handle: Int) {
+    internal inner class Admission(val fresh: Subscription, private val handle: Int, val growth: Boolean = false) {
         val current: Subscription get() {
             if (handle < 0) return fresh
             val value = values.snapshot(handle)
@@ -48,22 +48,26 @@ class CalleeSubscriptions(private val ops: ApOps, private val statistics: N2Stat
             }
         }
         // This immutable delta is retained only by the pending replay callback.
-        return Admission(sub.copy(added = update.delta), update.handle)
+        return Admission(sub.copy(added = update.delta), update.handle, growth = !update.newGroup)
     }
 
     /** Request overlap differs from run-1 summary applicability: ancestors are candidates too.
      *  The owner must queue every effect, including local effects, until this finite visit ends. */
-    internal fun visitQuestion(key: MarkQuestionKey, visit: (Subscription) -> Unit) {
+    internal fun visitRequestBatch(rows: List<RequestedRow>, visit: (Subscription) -> Unit) {
         ops.manager.cancellation.checkpoint()
-        check(!visitingQuestion) { "A question visit cannot recursively enter the N2 directory" }
+        check(!visitingQuestion) { "A request visit cannot recursively enter the caller directory" }
         visitingQuestion = true
         try {
+            // One set for the whole batch, not one set per requested slot.
             val seen = IntOpenHashSet()
-            index.visitAround(key.pattern.fact.base, key.pattern.fact.path.toIntArray()) { handle ->
+            for (row in rows) {
                 ops.manager.cancellation.checkpoint()
-                if (seen.add(handle)) {
-                    val value = values.snapshot(handle)
-                    visit(Subscription(callees[handle], value.ref, value.group.layer, value.facts))
+                index.visitAround(row.slot.base, row.slot.pathData) { handle ->
+                    ops.manager.cancellation.checkpoint()
+                    if (seen.add(handle)) {
+                        val value = values.snapshot(handle)
+                        visit(Subscription(callees[handle], value.ref, value.group.layer, value.facts))
+                    }
                 }
             }
         } finally { visitingQuestion = false }
@@ -73,7 +77,14 @@ class CalleeSubscriptions(private val ops: ApOps, private val statistics: N2Stat
         ops.manager.cancellation.checkpoint()
         val initial = pub.premise.member(member)
         val ids = LinkedHashSet<Int>()
-        if (mode.run1) ids += index.lookupExtensions(initial.base, initial.pathData)
+        if (mode.run1) {
+            ids += index.lookupExtensions(initial.base, initial.pathData)
+            // The component reader can project a broad root/class supplier into
+            // an owned static field before full ordinary satisfaction.
+            if (initial.base == STATIC && initial.pathData.size == 2) {
+                ids += index.lookupPrefixes(initial.base, initial.pathData)
+            }
+        }
         else {
             ids += index.lookupPrefixes(initial.base, initial.pathData)
             if (initial.mark is MarkSlot.Star) ids += index.lookupExtensions(initial.base, initial.pathData)

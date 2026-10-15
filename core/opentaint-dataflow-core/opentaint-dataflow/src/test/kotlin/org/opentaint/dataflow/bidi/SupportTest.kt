@@ -99,9 +99,9 @@ class SupportTest {
     fun `cycles without a supported zero supplier never bootstrap exact support`(): Unit {
         SupportFixtures().use { f ->
             val root = f.key("unrelated root")
-            f.actor(root)
             val left = f.key("left")
             val right = f.key("right")
+            f.actor(root)
             val a = f.initial()
             val b = f.initial(y, mark = MarkSlot.Concrete(f.mark("B")))
             val rows = ArrayList<InputLink>()
@@ -317,12 +317,13 @@ class SupportTest {
     @Test
     fun `support construction checks cancellation even with no roots or actors`(): Unit {
         SupportFixtures().use { f ->
+            val unreached = f.key("unreached")
             val result = f.result()
             f.cancellation.cancel()
             assertFailsWith<Cancellation.Cancelled> { HistoricalSupport(result, emptyList(), f.mode, f.shared) }
             f.cancellation.activate()
             val support = HistoricalSupport(result, emptyList(), f.mode, f.shared)
-            assertFalse(support.isSupported(f.key("unreached"), f.manager.zero.members))
+            assertFalse(support.isSupported(unreached, f.manager.zero.members))
         }
     }
 

@@ -3,8 +3,10 @@
 This document proves the semantic laws used by the selected
 [run-1 request design](../docs/design/bidirectional-run1-mark-request-redesign-20261015.md).
 The normative construction rules are in [run1-requests.md](run1-requests.md).
-The measured runtime remains `27e22bb1ed871651143538783473cb0d4fcbcf3e`.
-That runtime does not implement this design.
+The last measured project runtime is `27e22bb1ed871651143538783473cb0d4fcbcf3e`.
+That historical runtime does not implement this design. The
+[implementation validation](../docs/reports/bidirectional-run1-mark-request-validation-20261015.md)
+records the new runtime checks; fresh project measurements are pending.
 
 The proofs below concern a finite, accepted program and its request/initial and
 component-summary semantics. They do not prove a JVM implementation, a physical
@@ -106,8 +108,8 @@ concrete supplier carrying T. Class projections need their actual direct or
 metadata-selected supplier. A request-only actor does not start every legal
 initial, invent a supplier, or add a synthetic zero.
 
-This is the complete selected emitter grammar, not a claim that the measured
-generic constructor already enforces it. Broad concrete root/class ANY inputs
+This is the complete selected emitter grammar, not a claim that every generic
+AP constructor enforces it. Broad concrete root/class ANY inputs
 remain legal even though no concrete empty-S-root **initial** is emitted. The
 separate impossible-input condition excludes only exact empty-S-root taint.
 
@@ -129,7 +131,7 @@ production route grammar; section 1.2 states its actual JVM boundary conditions.
 
 ### 1.2 Source audit and the bounded-input bridge
 
-The measured source supports the following narrower facts:
+The source audit distinguishes generic AP constructors from selected admission:
 
 - [Premise](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/Premise.kt)
   enforces canonical Zero base, no temporary base, no excluded premise mark, and
@@ -144,21 +146,22 @@ The measured source supports the following narrower facts:
   `policyInitial` chooses zero or abstract base root. `initialFacts` makes exact
   concrete starts NORMAL, concrete STAR/ANY starts DEMAND, and zero Reach.NORMAL.
   The supplier's real layer is still used by ordinary summary application.
-- [Run1Abstraction](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/Run1Abstraction.kt)
-  and [StaticSupplierCursor](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/StaticSupplierCursor.kt)
-  are historical measured constructors here: the current structural cursor can
-  emit an abstract class slot, and a root cleaner question can emit a concrete
-  root answer. The current request cursor also emits static concrete ANY answers.
-  F78 removes those routes rather than claiming they never existed.
+- At historical revision `27e22bb1e`, `Run1Abstraction`, `StaticSupplierCursor`
+  and `RequestGroupCursor` could emit abstract class, concrete root and static
+  concrete ANY initials. F78 removes those routes rather than claiming they
+  never existed. The new [projectors](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/Run1RequestMatching.kt)
+  construct only the selected rows.
 - [RunMethodAnalyzer](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunMethodAnalyzer.kt)
-  `addInitial` currently rejects run-1 ANY_TAINT but permits ANY, so it does not
-  enforce the corrected no-ANY inventory. `addLink` and the current emitter do not perform a fresh field cut.
-  InitialAnswersIn must therefore contain validated projector outputs.
+  `addInitial` now validates the full run-1 inventory, including the no-ANY rule.
+  `addLink` and the emitter do not perform a fresh field cut. Incoming facts must
+  already satisfy the selected bound, and InitialAnswersIn carries validated
+  projector outputs.
 - [IterationDriver](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/driver/IterationDriver.kt)
   starts run 1 with no demand and `SeedIndex.EMPTY`.
   [IterationPolicy](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/driver/IterationPolicy.kt)
-  starts the default increasing policy at limit 1. Generic RunConfig/custom
-  policies only require a positive limit; that weaker API is not an F78 proof.
+  starts the default increasing policy at limit 1. The driver now requires that
+  exact first limit even for custom policies. Generic RunConfig still requires
+  only a positive limit; that weaker API is not an F78 proof.
 
 For the selected JVM workflow the **first limit is exactly 1**, and incoming
 facts satisfy the validated JVM accessor grammar: a static class prefix occurs
@@ -560,6 +563,14 @@ The selected repair is **structural ownership plus a proved untouched identity
 frame**. It is not an extra request store or a supplier cache.
 
 ## 6. Constructive static component composition
+
+Implementation exposed additional packed-codec obligations, specified in the
+[codec clarification](../docs/design/bidirectional-run1-static-component-codec-20261015.md).
+Class-point ownership is separate from field ownership; broad owned point starts
+preserve every supplied mark. Mixed E headers stay separate. The selected JVM
+broad-FLOW source-route invariant and Kotlin codec conformance are implementation
+gates. The existing Lean receipts below do not certify those new source/codec
+bridges; their scalar partition and initial-projector results retain their stated scope.
 
 Partition a static input into these disjoint semantic components:
 

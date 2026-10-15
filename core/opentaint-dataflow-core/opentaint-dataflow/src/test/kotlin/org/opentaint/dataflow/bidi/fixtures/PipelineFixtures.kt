@@ -3,6 +3,7 @@ package org.opentaint.dataflow.bidi.fixtures
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.store.*
+import org.opentaint.ir.api.common.CommonMethod
 
 /** Protocol timing remains test-owned; all indexing and matching use production code. */
 class PipelineFixtures(index: Int = 1, limit: Int = 3,
@@ -16,6 +17,7 @@ class PipelineFixtures(index: Int = 1, limit: Int = 3,
     val records = method.records
     val config = method.config(index = index, L = limit)
     val storages = LinkedHashMap<MethodKey, SummaryStorage>()
+    val staticFootprints = LinkedHashMap<CommonMethod, Run1StaticFootprint>()
     val deliveries = ArrayList<RunEvent.Delivery>()
     data class Summary(val caller: MethodKey, val part: Subscription, val publication: Publication, val member: Int)
     data class Native(val caller: MethodKey, val part: Subscription, val record: Record)
@@ -37,6 +39,7 @@ class PipelineFixtures(index: Int = 1, limit: Int = 3,
         override val ops get() = this@PipelineFixtures.ops
         override val steps get() = protocol
         override fun summaryStorage(key: MethodKey): SummaryStorage = storage(key)
+        override fun staticFootprint(method: CommonMethod): Run1StaticFootprint? = staticFootprints[method]
         override fun applier(caller: MethodKey): SummaryApplier = object : SummaryApplier {
             override fun applySummary(part: Subscription, pub: Publication, member: Int) {
                 val application = Summary(caller, part, pub, member)

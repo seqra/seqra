@@ -96,10 +96,19 @@ class CumulativeSubscriptionEquivalenceTest {
                             oracle.denotation(header, conclusions(f.ops, selected)),
                             "selected case=$case size=$size mode=$mode j=$pattern")
                         val actual = ArrayList<Facts>()
+                        val creatorRequests = LinkedHashSet<Pair<InitialAp, TaintMark>>()
                         for (value in selected) f.ops.applySummary(value, j, publication.conclusion, mode, object : ApOut {
                             override fun result(facts: Facts) { actual += facts }
-                            override fun markRequest(mark: TaintMark) = error("A matched summary has no mark request")
+                            override fun markRequest(mark: TaintMark) { creatorRequests += callerPremise to mark }
                         })
+                        // F78 adds creator interest without changing the independently
+                        // decoded ordinary transfer. The collector belongs to the caller,
+                        // not to the callee summary premise j.
+                        val expectedCreators = if (mode.run1 && expectedSelected.any { it.fact.mark is MarkSlot.Star })
+                            ((target.fact.mark as? MarkSlot.Star)?.excluded ?: MarkSet.EMPTY).ids
+                                .map { callerPremise to TaintMark(it) }.toSet() else emptySet()
+                        assertEquals(expectedCreators,creatorRequests,
+                            "creator case=$case size=$size mode=$mode j=$pattern target=$target")
                         val expected = expectedSelected.mapNotNull { leaf ->
                             when (val outcome = oracle.transfer(pattern, target, leaf, mode.restricted)) {
                                 is EdgeOutcome.Fact -> outcome.conclusion
@@ -166,13 +175,14 @@ class CumulativeSubscriptionEquivalenceTest {
             })
             val accepted = listOf(raw(x, emptyList(), Tail.STAR, star, e),
                 raw(x, listOf(a), Tail.STAR, star, e), raw(x, listOf(b), Tail.STAR, star, e))
-            val callerPremise = j
+            val callerPremise = f.manager.initial(f.pattern(AccessPathBase.Argument(3), tail = Tail.STAR, mark = star))
+            assertNotSame(j,callerPremise,"The actual caller origin must differ from the callee summary premise")
             val ref = CallerRef(actor.key, callerPremise, Layer.NORMAL, f.inst(1))
             for (size in 1..accepted.size) manager.subscribe(Subscription(callee, ref, Layer.NORMAL,
                 cumulativeInput(f.manager, accepted.take(size))))
             // The publication arrives after all growth. Notification uses current subscriptions (P6),
             // while delayed replays retain their own fresh deltas. Compare both schedules' effect union.
-            val target = raw(returned, listOf(a), Tail.STAR, star, e)
+            val target = raw(returned, listOf(a), Tail.STAR, MarkSlot.Star(f.manager.markSetOf(u)), e)
             val pub = Publication(j, f.manager.factsOf(target.fact, target.exclusion, Layer.NORMAL))
             storage.publish(listOf(pub))
             steps.runNotifications()
@@ -182,8 +192,9 @@ class CumulativeSubscriptionEquivalenceTest {
             val universe = BoundedDenotation(listOf(x, returned, alias), listOf(a, b, f.field("fresh")),
                 listOf(t, u, f.mark("fresh")), 4)
             val oracle = CumulativeSubscriptionReference(universe)
-            val header = setOf(j.toPattern())
+            val header = setOf(callerPremise.toPattern())
             val expectedRequests = LinkedHashSet<Pair<Set<Pattern>, RequestKind>>()
+            if (actor.mode.run1) expectedRequests += header to RequestKind.Mark(u)
             val reference = FormsReference(f.ops, ReferenceAlgebra(actor.mode, manager = f.manager))
             val expected = ArrayList<Conclusion>()
             for (leaf in accepted.filter { oracle.selects(j.toPattern(), it, actor.mode.restricted) }) {
@@ -202,7 +213,8 @@ class CumulativeSubscriptionEquivalenceTest {
             assertEquals(oracle.denotation(header, expected), oracle.denotation(header, conclusions(f.ops, actual)),
                 "run=$run L=$fieldLimit")
             assertEquals(expectedRequests, f.requests.map { setOf(it.first.toPattern()) to it.second }.toSet())
-            assertEquals(if (run == 1) setOf(t) else emptySet(), f.requests.map { (it.second as RequestKind.Mark).mark }.toSet())
+            assertEquals(if (run == 1) setOf(t,u) else emptySet(), f.requests.map { (it.second as RequestKind.Mark).mark }.toSet())
+            assertTrue(f.requests.all { it.first === callerPremise },"Summary and cleaner interests keep the actual caller origin")
             assertTrue(actual.isNotEmpty())
             manager.freeze()
         }

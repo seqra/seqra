@@ -116,7 +116,7 @@ class ExitRulesTest {
                     PathFact(base, listOf(b), Tail.ANY_TAINT, retained))
                 val input = taint(f, base, all, e)
                 f.exitRules[2] = ExitRules(RuleStatement.EMPTY, false, setOf(entry.mark))
-                val core = f.core(L = 2)
+                val core = f.core(index = 3, L = 2)
                 val premise = if (zeroPremise) f.manager.zero else initial(f, argument, emptyList(), Tail.EXACT, retained)
                 core.emitAfter(premise, f.inst(2), input)
                 f.drain(core)
@@ -160,7 +160,7 @@ class ExitRulesTest {
                 evaluations++
                 Triggers(emptyList(), parts)
             }
-            val core = f.core(L = 2)
+            val core = f.core(index = 3, L = 2)
             val premise = if (zeroPremise) f.manager.zero else initial(f, argument, emptyList(), Tail.EXACT, t)
             core.emitAfter(premise, f.inst(2), input)
             f.drain(core)
@@ -279,13 +279,13 @@ class ExitRulesTest {
     }
 
     @Test
-    fun `finite statement closure preserves independent path facts in both directions`(): Unit {
-        for (index in listOf(1, 2)) {
+    fun `finite statement closure preserves independent path facts in both restricted directions`(): Unit {
+        for (index in listOf(3, 2)) {
             val f = MethodAnalysisFixtures()
             val a = field(f, "a")
             f.statements[1] = summary(keepEdge(argument),
                 starEdge(argument, emptyList(), result, emptyList()))
-            val base = if (index == 1) argument else result
+            val base = if (index == 3) argument else result
             val j = initial(f, base, listOf(a), Tail.STAR, MarkSlot.STAR)
             val core = f.core(index = index)
             core.addInitial(j)

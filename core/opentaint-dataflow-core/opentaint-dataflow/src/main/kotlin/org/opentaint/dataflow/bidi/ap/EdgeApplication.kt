@@ -62,6 +62,14 @@ internal class EdgeApplication(private val m: ApManager, private val ce: Compile
     }
 
     fun flow(c: FlowTree, staticAt: Int) {
+        // F78: exclusion creation also creates interest on the original abstract
+        // slot. Do this before the positional/mark tests and before any output.
+        // The engine's collector applies the normal-origin and static-root guards.
+        if (mode.run1) (ce.toMark as? MarkSlot.Star)?.excluded?.data?.forEach { id ->
+            m.cancellation.checkpoint()
+            out.markRequest(TaintMark(id))
+            if ((ce.fromMark as? MarkSlot.Concrete)?.mark?.id == id) requested = true
+        }
         val mx = gate.flowMarks(c.markExclusion)
         check(mx == null || (ce.toTail != Tail.EXACT && ce.toTail != Tail.ANY_TAINT))
         val normal = c.layer == Layer.NORMAL

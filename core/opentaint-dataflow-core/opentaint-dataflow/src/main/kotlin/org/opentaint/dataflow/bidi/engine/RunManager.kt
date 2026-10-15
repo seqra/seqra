@@ -66,7 +66,9 @@ class RunManager<A : RunActor>(
     fun summaryStorage(key: MethodKey): SummaryStorage = synchronized(admission) {
         check(!ended) { "The run has ended" }
         shared.cancellation.checkpoint()
-        storages.computeIfAbsent(key) { SummaryStorage(it, shared.ap, shared.ops, steps) }
+        storages.computeIfAbsent(key) { SummaryStorage(it, shared.ap, shared.ops, steps,
+            if (config.run1) shared.run1StaticProfiles?.get(it.method)?.precomputedRequests.orEmpty() else emptyMap(),
+            shared.abstractionStatistics) }
     }
 
     fun route(event: RunEvent): Boolean {
@@ -190,7 +192,8 @@ class RunManager<A : RunActor>(
             for (analyzer in analyzers) release { analyzer.freeze() }
         } finally {
             if (joined) for (runner in snapshot) release { runner.release() }
-            if (joined && config.run1) shared.releaseRun1StaticProfiles()
+            // A complete run's frozen state is still needed by the driver barrier.
+            if (joined && config.run1 && end != RunStatus.COMPLETE) shared.releaseRun1StaticProfiles()
             synchronized(admission) {
                 runners.clear()
                 runnerJobs.clear()

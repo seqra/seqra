@@ -11,7 +11,7 @@ import org.opentaint.dataflow.configuration.CommonTaintConfigurationSink
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import kotlin.test.*
 
-internal fun localCore(f: MethodAnalysisFixtures, index: Int = 1, limit: Int = 3,
+internal fun localCore(f: MethodAnalysisFixtures, index: Int = 1, limit: Int = if (index == 1) 1 else 3,
                        key: MethodKey = f.key): RunMethodAnalyzer =
     f.core(index = index, L = limit, key = key, localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
 
@@ -298,7 +298,7 @@ class SinkEndFactTest {
             val core = f.core(index = index, L = 1, demand = demand,
                 localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
             val ref = CallerRef(f.key, f.manager.zero, Layer.NORMAL, f.inst(1))
-            core.addLink(ref, Layer.NORMAL, f.fact(argument, mark = t))
+            f.admit(core, ref, Layer.NORMAL, f.fact(argument, mark = t))
             assertEquals(setOf(policy), core.initials.all().toSet())
             assertTrue(f.vulnerabilities.witnessesOf(index).none())
             f.drain(core, quantum = 1)
@@ -318,7 +318,10 @@ class SinkEndFactTest {
                 assertEquals(setOf(flow), methodEntries(f.ops, core.summaries.all()))
                 assertTrue(f.vulnerabilities.witnessesOf(3).none())
             }
-            assertTrue(f.events.isEmpty(), "The run-one request is answered locally; restricted mode raises none")
+            assertTrue(f.events.none { it is RunEvent.MarkRequestsIn },
+                "TAINT replay answers locally; restricted mode raises no mark requests")
+            if (index == 1) assertTrue(f.events.any { it is RunEvent.InitialAnswersIn },
+                "The late request queues its answer from the retained caller input")
             assertEquals(0L, core.demandLayerEdges)
         }
     }

@@ -72,7 +72,7 @@ class MethodLocalServicesTest {
             val request = f.mark("T")
             val premise = f.manager.initial(f.pattern())
             val input = f.fact()
-            val ref = CallerRef(f.store.key("caller"), policy, Layer.NORMAL, f.inst(1))
+            val ref = CallerRef(f.store.key("caller"), f.manager.zero, Layer.NORMAL, f.inst(1))
             val sink = sink(listOf(f.pattern()))
             val conjunction = ConjunctiveEdge(listOf(f.pattern(argument), f.pattern(result)),
                 f.pattern(AccessPathBase.This).fact)
@@ -95,7 +95,7 @@ class MethodLocalServicesTest {
                 fail("The cancelled first literal cannot remain in the store")
             }
 
-            actor.addLink(ref, Layer.NORMAL, input)
+            f.admit(actor, ref, Layer.NORMAL, input)
             f.drain(actor, quantum = 1)
             assertEquals(setOf(policy), actor.initials.all().toSet(),
                 "The later supplier must not answer an interest from the cancelled call")
@@ -140,25 +140,30 @@ class MethodLocalServicesTest {
         }
     }
 
-    @Test fun `local freeze releases predicate literal and trigger state while core still owns pending abstraction`(): Unit {
+    @Test fun `local freeze releases predicate literal and trigger state while actor still owns temporary requests`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val (actor, service) = core(f)
             populateState(f, actor, service)
             val abstraction = assertNotNull(actor.abstraction)
-            assertTrue(abstraction.hasPending)
-            assertTrue(mapFields(abstraction).any { it.isNotEmpty() })
+            val pending = assertIs<RequestStorage>(fieldNamed(actor, "temporary"))
+            assertEquals(1L, pending.dynamicMembers)
+            assertFalse(abstraction.hasPending)
+            assertTrue(mapFields(abstraction).isEmpty(), "The emitter owns no cumulative request mirror")
             assertNotNull(service.conjunctions)
             assertNotNull(fieldNamed(service, "predicateStore"))
             assertTrue(collectionFields(service).any { it.isNotEmpty() })
             service.freeze()
             assertLocalReleased(service)
             assertSame(abstraction, actor.abstraction, "Local freeze cannot release the core-owned interest policy")
-            assertTrue(abstraction.hasPending)
+            assertSame(pending, fieldNamed(actor, "temporary"))
+            assertEquals(1L, pending.dynamicMembers)
             assertFailsWith<IllegalStateException> { actor.freeze() }
             assertFailsWith<IllegalStateException> {
                 service.addMarkRequest(f.manager.initial(f.pattern(tail = Tail.STAR, mark = MarkSlot.STAR)),
                     f.mark("T"))
             }
+            f.drain(actor)
+            assertTrue(assertIs<RequestStorage>(fieldNamed(actor, "temporary")).isEmpty)
             actor.releaseAbstraction()
             assertNull(actor.abstraction)
             assertAbstractionReleased(abstraction)
@@ -173,17 +178,18 @@ class MethodLocalServicesTest {
             populateState(f, actor, service)
             assertSame(service, actor.localServices)
             val abstraction = assertNotNull(actor.abstraction)
-            assertTrue(service.hasPendingRequests)
+            assertEquals(1L, assertIs<RequestStorage>(fieldNamed(actor, "temporary")).dynamicMembers)
             val otherPolicy = f.manager.initial(AccessPathBase.Argument(1), null, Tail.STAR,
                 ExclusionSet.Empty, MarkSlot.STAR)
             service.addMarkRequest(otherPolicy, f.mark("T"))
-            assertFalse(actor.work(1), "One quantum publishes only one of two independent questions")
-            assertTrue(service.hasPendingRequests)
             assertFails { actor.freeze() }
             assertSame(abstraction, actor.abstraction, "A rejected freeze keeps pending policy work")
             assertSame(service, actor.localServices)
             f.drain(actor, quantum = 1)
-            assertFalse(service.hasPendingRequests)
+            assertTrue(assertIs<RequestStorage>(fieldNamed(actor, "temporary")).isEmpty)
+            val firstPolicy = f.manager.initial(f.pattern(tail = Tail.STAR, mark = MarkSlot.STAR))
+            assertTrue(f.mark("T") in f.requestRow(actor, assertNotNull(Run1Slot.fromInitial(firstPolicy))))
+            assertTrue(f.mark("T") in f.requestRow(actor, assertNotNull(Run1Slot.fromInitial(otherPolicy))))
             actor.freeze()
             assertFails { actor.localServices }
             assertFails { actor.runnerPort }
@@ -285,8 +291,10 @@ class MethodLocalServicesTest {
         }, "The emitter has no supplier payload, origin or captured raw-input phase field")
         assertTrue(mapFields(abstraction).all { it.isEmpty() }, "No question, answer memo or publication remains")
         assertTrue(collectionFields(abstraction).all { it.isEmpty() }, "No queued initial answer remains")
-        for (name in listOf("policyCount", "policyMembers", "pendingShapes", "pendingMembers", "pendingCapacity"))
-            assertEquals(0L, fieldNamed(abstraction, name), "Released abstraction field $name")
+        assertTrue(abstraction.javaClass.declaredFields.none {
+            it.type == RequestStorage::class.java || it.name in
+                setOf("questions", "pending", "publications", "policyCount", "policyMembers")
+        }, "The emitter retains neither authoritative requests, temporary rows nor an answer memo")
     }
 
     private fun mapFields(owner: Any): List<Map<*, *>> = owner.javaClass.declaredFields

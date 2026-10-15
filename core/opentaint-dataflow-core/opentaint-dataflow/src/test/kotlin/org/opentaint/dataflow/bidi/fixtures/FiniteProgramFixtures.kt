@@ -84,6 +84,18 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
     private val rawFacts = IdentityHashMap<Facts, List<Conclusion>>()
     private val recordInputs = IdentityHashMap<Record, List<Conclusion>>()
     private var staticCatalog: Run1StaticProfiles? = null
+    private val declaredStaticFields = LinkedHashSet<Run1Slot.StaticField>()
+    private val declaredStaticClasses = LinkedHashSet<Int>()
+
+    /** Add only canonical input domain; actual forms still determine owned semantic components. */
+    fun declareStaticDomain(vararg paths: List<Int>) {
+        check(staticCatalog == null) { "The finite static plan is already frozen" }
+        for (path in paths) {
+            require(path.size in 1..2 && path[0].isClass())
+            declaredStaticClasses += path[0]
+            if (path.size == 2) declaredStaticFields += Run1Slot.StaticField(path[0], path[1])
+        }
+    }
     val defaultCallExpression = object : CommonCallExpr {
         override val typeName = "Box"
         override val args: List<CommonValue> = emptyList()
@@ -202,8 +214,11 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
     private val unitResolver = UnitResolver<CommonMethod> { method ->
         if (methodData.any { it.method === method }) ProgramUnit(method.name) else UnknownUnit
     }
-    val shared = SharedObjects(ap, ops, interpreter, language, contexts, records, vulnerabilities, unitResolver,
-        refManager, cancellation, threads)
+    private val sharedOwner = lazy {
+        SharedObjects(ap, ops, interpreter, language, contexts, records, vulnerabilities, unitResolver,
+            refManager, cancellation, threads, run1StaticProfiles = staticProfiles())
+    }
+    val shared: SharedObjects get() = sharedOwner.value
     fun freshShared(sameUnit: Boolean = false, freshVulnerabilities: Boolean = true, threads: Int = 1,
                     useStaticCatalog: Boolean = true): SharedObjects =
         SharedObjects(ap, ops, interpreter, language, contexts, records,
@@ -212,93 +227,20 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
             else unitResolver, refManager, cancellation, threads,
             run1StaticProfiles = if (useStaticCatalog) staticProfiles() else null)
 
-    /** Collect only the explicit forward program inputs. The scalar oracle does not use this collector. */
+    /** Collect only explicit forward forms. The scalar oracle does not use this collector. */
     fun staticProfiles(): Run1StaticProfiles {
         staticCatalog?.let { return it }
-        class Local {
-            val accesses = LinkedHashSet<List<Int>>()
-            val abstractions = LinkedHashSet<List<Int>>()
-            val marks = LinkedHashSet<StaticMarkInterest>()
-            val cleaners = RequestMarkSetBuilder()
-        }
-        val locals = methodData.associate { it.method to Local() }
+        val locals = methodData.associate { it.method to FiniteStaticProfileLocal() }
         val adjacency = methodData.associate { it.method to LinkedHashSet<CommonMethod>() }
-        fun position(local: Local, fact: PathFact, access: Boolean = true, includeRoot: Boolean = false) {
-            cancellation.checkpoint()
-            if (fact.base != STATIC || (fact.path.isEmpty() && !includeRoot)) return
-            val slot = fact.path.take(2)
-            local.abstractions += slot
-            if (access) local.accesses += slot
+        statements.forEach { locals.getValue(it.key.method).summary(it.summary) }
+        entries.forEach { locals.getValue(it.key.method).rules(it.rules) }
+        exits.forEach { locals.getValue(it.key.method).rules(it.rules.rules) }
+        calls.forEach { call ->
+            locals.getValue(call.key.method).plan(call.plan) { adjacency.getValue(call.key.method) += it.method }
         }
-        fun literal(local: Local, pattern: Pattern, role: StaticMarkRole) {
-            if (pattern.fact.base != STATIC) return
-            position(local, pattern.fact, includeRoot = true)
-            val mark = (pattern.fact.mark as? MarkSlot.Concrete)?.mark ?: return
-            local.marks += StaticMarkInterest(pattern, role, RequestMarkSet.of(mark))
-        }
-        fun summary(local: Local, value: StatementSummary) {
-            for (edge in value.edges) {
-                cancellation.checkpoint()
-                val from = edge.edge.from; val to = edge.edge.to
-                val identity = from == to && from.mark is MarkSlot.Star
-                position(local, from, access = !identity)
-                position(local, to, access = !identity)
-                if (from.mark is MarkSlot.Concrete) literal(local, Pattern(from, ExclusionSet.Empty), StaticMarkRole.INPUT_GATE)
-            }
-            for (source in value.sources) {
-                for (leaf in source.predicate.leaves) literal(local, leaf, StaticMarkRole.SOURCE)
-                source.actions.forEach { position(local, it.target, includeRoot = true) }
-            }
-            for (conjunction in value.conjunctions) {
-                conjunction.literals.forEach { literal(local, it, StaticMarkRole.SOURCE) }
-                position(local, conjunction.target, includeRoot = true)
-            }
-        }
-        fun rules(local: Local, value: RuleStatement) {
-            summary(local, value.summary); summary(local, value.endFacts)
-            for (sink in value.sinks) {
-                (sink.predicate?.leaves ?: sink.patterns).forEach { literal(local, it, StaticMarkRole.SINK) }
-                sink.endFacts.forEach { position(local, it.edge.to, includeRoot = true) }
-            }
-        }
-        fun actions(local: Local, value: CleanStep) {
-            when (value) {
-                is CleanStep.Clean -> if (value.cleaner.base == STATIC) {
-                    val slot = value.cleaner.path?.toList().orEmpty().take(2)
-                    local.accesses += slot; local.abstractions += slot
-                    value.cleaner.mark?.let(local.cleaners::add)
-                }
-                is CleanStep.Kill -> {
-                    summary(local, value.keepEdges)
-                    val last = value.keepEdges.edges.maxByOrNull { it.edge.from.path.size }?.edge
-                    if (last != null) (last.exclusion as? ExclusionSet.Concrete)?.ids?.forEach { field ->
-                        position(local, last.from.copy(path = last.from.path + field), includeRoot = true)
-                    }
-                }
-                is CleanStep.Field -> { summary(local, value.read); summary(local, value.write) }
-            }
-        }
-        statements.forEach { summary(locals.getValue(it.key.method), it.summary) }
-        entries.forEach { rules(locals.getValue(it.key.method), it.rules) }
-        exits.forEach { rules(locals.getValue(it.key.method), it.rules.rules) }
-        for (call in calls) {
-            val local = locals.getValue(call.key.method)
-            call.plan.sinks.forEach { sink ->
-                (sink.predicate?.leaves ?: sink.patterns).forEach { literal(local, it, StaticMarkRole.SINK) }
-                sink.endFacts.forEach { position(local, it.edge.to, includeRoot = true) }
-            }
-            for (stage in call.plan.stages) {
-                cancellation.checkpoint()
-                when (stage) {
-                    is CallStage.Edges -> summary(local, stage.summary)
-                    is CallStage.Actions -> stage.steps.forEach { actions(local, it) }
-                    is CallStage.Callees -> stage.callees.forEach { adjacency.getValue(call.key.method) += it.method }
-                }
-            }
-        }
-        val compiled = locals.mapValues { (_, local) -> Run1StaticLocalProfile(local.accesses,
-            local.abstractions, local.marks, local.cleaners.takeSnapshot()) }
-        return Run1StaticProfiles.build(ap, adjacency, compiled).also { staticCatalog = it }
+        return Run1StaticProfiles.build(ap, adjacency, locals.mapValues { it.value.profile() },
+            declaredFieldUniverse = declaredStaticFields, declaredClassUniverse = declaredStaticClasses)
+            .also { staticCatalog = it }
     }
 
     fun config(index: Int = 1, L: Int = 1, roots: List<MethodKey>,
@@ -426,5 +368,5 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
         appendLine("accessors=${accessorIds.sorted().associateWith { ap.accessors.accessor(it) }}")
         appendLine("marks=${markIds.sorted().associateWith { ap.marks.name(TaintMark(it)) }}")
     }
-    override fun close(): Unit = shared.close()
+    override fun close() { if (sharedOwner.isInitialized()) sharedOwner.value.close() }
 }

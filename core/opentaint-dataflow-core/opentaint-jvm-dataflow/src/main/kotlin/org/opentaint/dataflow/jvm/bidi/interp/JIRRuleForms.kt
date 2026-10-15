@@ -109,6 +109,10 @@ internal class JIRRuleForms(
         val any = anyCount == 1
         val path = if (any) accessors.dropLast(1) else accessors
         val base = p.base().let { if (it == AccessPathBase.Return) resultBase else it }
+        if (base == AccessPathBase.ClassStatic && path.size > 1 && path[1] !is FieldAccessor) {
+            errors.reject(rule, "a static class accessor must be followed by a named field (F78 §1.1)")
+            return null
+        }
         return RulePos(base, owned(path.map { manager.accessors.index(it) }), any)
     }
 

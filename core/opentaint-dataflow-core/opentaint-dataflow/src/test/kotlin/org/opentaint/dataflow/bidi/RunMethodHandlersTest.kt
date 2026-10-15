@@ -115,11 +115,15 @@ class RunMethodHandlersTest {
             h.handler.handle(RunEvent.LinkIn(f.a, ref, Layer.NORMAL, added))
             h.handler.handle(RunEvent.LinkIn(f.a, ref, Layer.NORMAL, added))
             val kind = RequestKind.Mark(f.manager.marks.mark("request"))
-            h.handler.handle(RunEvent.MarkRequestsIn(f.a, initial, RequestMarkSet.of(kind.mark)))
+            val slot = Run1Slot.Base(added.base)
+            h.handler.handle(RunEvent.MarkRequestsIn(f.a, mapOf(slot to RequestMarkSet.of(kind.mark))))
             assertEquals(listOf(Triple(ref, Layer.NORMAL, added), Triple(ref, Layer.NORMAL, added)), h.links)
             assertEquals(1, h.actors.getValue(f.a).initials.all().count { it.mark is MarkSlot.Star && it.base == added.base },
                 "Repeated input deliveries remain observable while initial emission deduplicates")
-            assertEquals(listOf<Pair<InitialAp, RequestKind>>(initial to kind), h.requests)
+            assertTrue(h.port.summaryStorage(f.a).borrowRequest(slot).isEmpty,
+                "Handler dispatch collects P; it does not commit a request early")
+            h.drain()
+            assertEquals(RequestMarkSet.of(kind.mark), h.port.summaryStorage(f.a).borrowRequest(slot).dynamic)
             assertEquals(1, h.localCreated)
             assertEquals(1, h.callsCreated)
         }

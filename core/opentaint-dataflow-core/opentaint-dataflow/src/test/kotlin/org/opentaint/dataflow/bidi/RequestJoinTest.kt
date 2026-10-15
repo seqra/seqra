@@ -6,7 +6,6 @@ import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.ap.ExclusionSet
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
-import org.opentaint.dataflow.bidi.fixtures.ScalarPositionLocalServices
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.bidi.fixtures.ReferenceRequestDelivery
@@ -22,7 +21,7 @@ class RequestJoinTest {
                         exclusion: ExclusionSet = ExclusionSet.Empty): InitialAp =
         f.manager.initial(base, f.manager.path(path), tail, exclusion, MarkSlot.Concrete(mark))
     private fun core(f: MethodAnalysisFixtures, key: MethodKey = f.key, index: Int = 1): RunMethodAnalyzer =
-        f.core(index = index, key = key, localFactory = MethodLocalServicesFactory { ScalarPositionLocalServices(it, f.positionDeliveries::add) })
+        f.core(index = index, key = key, localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
     private fun caller(f: MethodAnalysisFixtures, context: String = "caller", base: AccessPathBase = x,
                        path: List<Int> = emptyList(), node: Int = 1, flow: Boolean = false): CallerRef =
         CallerRef(f.store.key(context), if (flow) policy(f, base, path) else f.manager.zero, Layer.NORMAL, f.inst(node))
@@ -44,51 +43,41 @@ class RequestJoinTest {
     private fun request(actor: RunMethodAnalyzer, initial: InitialAp, kind: RequestKind) {
         when (kind) {
             is RequestKind.Mark -> actor.addMarkRequest(initial, kind.mark)
-            is RequestKind.Position -> assertIs<ScalarPositionLocalServices>(actor.localServices).addPositionRequest(initial, kind)
+            is RequestKind.Position -> error("Historical Position is tested only by the pure reference controls")
         }
     }
     private fun climbs(f: MethodAnalysisFixtures): List<ReferenceRequestDelivery> = buildList {
         addAll(f.positionDeliveries)
-        for (event in f.events) if (event is RunEvent.MarkRequestsIn) for (i in 0 until event.marks.size)
-            add(ReferenceRequestDelivery(event.method, event.premise, RequestKind.Mark(event.marks.markAt(i))))
+        for (event in f.events) if (event is RunEvent.MarkRequestsIn) for ((slot, marks) in event.rows)
+            marks.forEachMark { add(ReferenceRequestDelivery(event.method, slot.initial(f.manager), RequestKind.Mark(it))) }
     }
 
     @Test
-    fun `a callback request for a later bucket joins once through its own new-request path`(): Unit {
+    fun `a request produced during fact processing joins through the same method-empty batch`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val cls = f.manager.accessors.index(ClassStaticAccessor("Box"))
             val field = f.field("f")
             val t = f.mark("T")
             val u = f.mark("U")
-            val root = policy(f, static)
-            val atClass = policy(f, static, listOf(cls))
             val atField = policy(f, static, listOf(cls, field))
+            f.declareStaticDomain(listOf(cls, field))
             val actor = core(f)
-            actor.addInitial(root)
-            request(actor, root, RequestKind.Position(checkNotNull(f.manager.path(listOf(cls)))))
             request(actor, atField, RequestKind.Mark(u))
             var inserted = false
-            f.onCut = { point, _ ->
-                if (point == Cut.ENTRY_RULES && !inserted) {
-                    inserted = true
-                    request(actor, atField, RequestKind.Mark(t))
-                }
+            f.onProcess = { _, _ ->
+                if (!inserted) { inserted = true; request(actor, atField, RequestKind.Mark(t)) }
             }
-            val a = caller(f, "A", static, flow = true)
-            val added = f.fact(base = static, path = listOf(cls, field), tail = Tail.STAR, mark = MarkSlot.STAR)
-            f.admit(actor, a, Layer.NORMAL, added)
+            val ref = caller(f, "A", flow = true)
+            f.admit(actor, ref, Layer.NORMAL,
+                f.fact(static, listOf(cls, field), Tail.STAR, MarkSlot.STAR))
+            assertFalse(inserted)
+            assertTrue(climbs(f).isEmpty())
+            barrier(f, actor)
             assertTrue(inserted)
-            assertTrue(climbs(f).isEmpty(), "The position callback is prompt; its mark requests are deferred")
-            barrier(f, actor)
-            assertEquals(listOf(ReferenceRequestDelivery(a.caller, a.premise as InitialAp, RequestKind.Mark(t)),
-                ReferenceRequestDelivery(a.caller, a.premise as InitialAp, RequestKind.Mark(u))), climbs(f))
-            assertTrue(atClass in actor.initials.all().toSet())
-            f.onCut = null
-            val b = caller(f, "B", static, flow = true)
-            f.admit(actor, b, Layer.NORMAL, added)
-            barrier(f, actor)
-            assertEquals(setOf(ReferenceRequestDelivery(b.caller, b.premise as InitialAp, RequestKind.Mark(u)),
-                ReferenceRequestDelivery(b.caller, b.premise as InitialAp, RequestKind.Mark(t))), climbs(f).takeLast(2).toSet())
+            assertEquals(setOf(ReferenceRequestDelivery(ref.caller, ref.premise as InitialAp, RequestKind.Mark(t)),
+                ReferenceRequestDelivery(ref.caller, ref.premise as InitialAp, RequestKind.Mark(u))), climbs(f).toSet())
+            assertEquals(1, f.events.filterIsInstance<RunEvent.MarkRequestsIn>().size)
+            assertTrue(actor.initials.all().none { it.base == static && it.pathData.size == 1 && it.isFlow })
         }
     }
 
@@ -123,7 +112,7 @@ class RequestJoinTest {
             assertEquals(setOf(i), actor.initials.all().toSet(), "The late mark answer is deferred")
             barrier(f, actor)
             assertEquals(setOf(i, initial(f, x, emptyList(), Tail.EXACT, t)), actor.initials.all().toSet())
-            assertTrue(climbs(f).isEmpty())
+            assertEquals(1, climbs(f).size, "F78 forwards even an incoming excluded mark")
         }
     }
 
@@ -214,7 +203,7 @@ class RequestJoinTest {
     }
 
     @Test
-    fun `wrong concrete marks excluded abstract marks and zero links neither answer nor climb`(): Unit {
+    fun `wrong concrete marks and zero do not answer while incoming FLOW mx does not block a request`(): Unit {
         for (firstRequest in listOf(true, false)) for (shape in listOf("wrong", "excluded", "zero")) {
             MethodAnalysisFixtures().use { f ->
                 val t = f.mark("T")
@@ -226,7 +215,8 @@ class RequestJoinTest {
                 }
                 val actor = core(f)
                 arrive(f, actor, firstRequest, i, RequestKind.Mark(t), caller(f, flow = shape == "excluded"), added)
-                assertTrue(climbs(f).isEmpty(), "$firstRequest/$shape")
+                if (shape == "excluded") assertEquals(1, climbs(f).size, "$firstRequest/$shape")
+                else assertTrue(climbs(f).isEmpty(), "$firstRequest/$shape")
                 assertEquals(setOf(if (shape == "zero") f.manager.zero else i), actor.initials.all().toSet())
                 assertTrue(actor.initials.all().all { it.mark !is MarkSlot.Concrete || it.isZero })
             }
@@ -335,10 +325,11 @@ class RequestJoinTest {
                 val e = if (tail == Tail.ANY_TAINT) ExclusionSet.of(b) else ExclusionSet.Empty
                 val added = f.fact(static, listOf(cls, a), tail, MarkSlot.Concrete(t), e,
                     if (tail == Tail.ANY) Layer.DEMAND else Layer.NORMAL)
-                val i = policy(f, static, listOf(cls))
+                val i = policy(f, static, listOf(cls, a))
+                f.declareStaticDomain(listOf(cls, a))
                 val actor = core(f)
                 arrive(f, actor, firstRequest, i, RequestKind.Mark(t), caller(f), added)
-                val expectedTail = if (tail == Tail.ANY_TAINT) Tail.ANY else tail
+                val expectedTail = if (tail == Tail.EXACT) Tail.EXACT else Tail.STAR
                 val answer = initial(f, static, listOf(cls, a), expectedTail, t)
                 assertEquals(setOf(policy(f, static), answer), actor.initials.all().toSet())
                 assertEquals(ExclusionSet.Empty, answer.exclusion)
@@ -360,6 +351,7 @@ class RequestJoinTest {
             val excluded = f.field("excluded")
             val added = f.fact(static, listOf(cls), Tail.ANY_TAINT, MarkSlot.Concrete(t), ExclusionSet.of(excluded))
             val i = policy(f, static, listOf(cls, a))
+            f.declareStaticDomain(listOf(cls, a))
             val actor = core(f)
             arrive(f, actor, firstRequest, i, RequestKind.Mark(t), caller(f), added)
             val answer = initial(f, static, listOf(cls, a), Tail.STAR, t)
@@ -372,67 +364,50 @@ class RequestJoinTest {
     }
 
     @Test
-    fun `a position request is answered at or below its full static path in either arrival order`(): Unit {
-        for (firstRequest in listOf(true, false)) for (deeper in listOf(false, true)) MethodAnalysisFixtures().use { f ->
+    fun `historical scalar Position alone retains its full path and at-or-below reference rule`(): Unit {
+        MethodAnalysisFixtures().use { f ->
             val cls = f.manager.accessors.index(ClassStaticAccessor("State"))
             val a = f.field("a")
             val b = f.field("b")
             val path = listOf(cls, a)
-            val kind = RequestKind.Position(checkNotNull(f.manager.path(path)))
-            val i = policy(f, static)
-            val added = f.fact(static, path + if (deeper) listOf(b) else emptyList(), Tail.EXACT,
-                MarkSlot.Concrete(f.mark("T")))
-            val actor = f.core(L = 2, localFactory = MethodLocalServicesFactory { ScalarPositionLocalServices(it, f.positionDeliveries::add) })
-            arrive(f, actor, firstRequest, i, kind, caller(f), added)
-            val answer = policy(f, static, path)
-            assertEquals(setOf(i, answer), actor.initials.all().toSet())
-            val start = assertIs<FlowTree>(actor.edges.edgesAt(f.inst(0), answer).single().second)
-            assertEquals(Layer.NORMAL, start.layer)
-            assertEquals(ExclusionSet.Empty, start.exclusion)
-            assertEquals(MarkSet.EMPTY, start.markExclusion)
-            assertTrue(climbs(f).isEmpty())
-        }
-    }
-
-    @Test
-    fun `position links above the query climb only through a static caller premise`(): Unit {
-        for (firstRequest in listOf(true, false)) for (staticCaller in listOf(true, false)) MethodAnalysisFixtures().use { f ->
-            val cls = f.manager.accessors.index(ClassStaticAccessor("State"))
-            val a = f.field("a")
-            val path = listOf(cls, a)
-            val kind = RequestKind.Position(checkNotNull(f.manager.path(path)))
-            val i = policy(f, static)
-            val added = f.fact(static, listOf(cls), Tail.STAR, MarkSlot.STAR)
-            val ref = caller(f, base = if (staticCaller) static else x, flow = true)
-            val actor = core(f)
-            arrive(f, actor, firstRequest, i, kind, ref, added)
-            assertEquals(if (staticCaller) listOf(ReferenceRequestDelivery(ref.caller, ref.premise as InitialAp, kind))
-                else emptyList(), climbs(f), "$firstRequest/$staticCaller")
-            assertEquals(setOf(i), actor.initials.all().toSet())
-        }
-    }
-
-    @Test
-    fun `first accessor exclusions and exact ancestors block mark and position joins in both arrival orders`(): Unit {
-        for (firstRequest in listOf(true, false)) for (position in listOf(true, false)) {
-            for (shape in listOf("must-excluded", "flow-excluded", "exact-ancestor")) MethodAnalysisFixtures().use { f ->
-                val t = f.mark("T")
-                val cls = f.manager.accessors.index(ClassStaticAccessor("State"))
-                val a = f.field("a")
-                val query = listOf(cls, a)
-                val i = policy(f, static, if (position) emptyList() else query)
-                val kind = if (position) RequestKind.Position(checkNotNull(f.manager.path(query))) else RequestKind.Mark(t)
-                val added = when (shape) {
-                    "must-excluded" -> f.fact(static, listOf(cls), Tail.ANY_TAINT, MarkSlot.Concrete(t), ExclusionSet.of(a))
-                    "flow-excluded" -> f.fact(static, listOf(cls), Tail.STAR, MarkSlot.STAR, ExclusionSet.of(a))
-                    else -> f.fact(static, listOf(cls), Tail.EXACT, MarkSlot.Concrete(t))
-                }
-                val actor = core(f)
-                val ref = caller(f, base = static, flow = shape == "flow-excluded")
-                arrive(f, actor, firstRequest, i, kind, ref, added)
-                assertEquals(setOf(policy(f, static)), actor.initials.all().toSet(), "$firstRequest/$position/$shape")
-                assertTrue(climbs(f).isEmpty(), "$firstRequest/$position/$shape")
+            val query = RequestKind.Position(checkNotNull(f.manager.path(path)))
+            val root = policy(f, static)
+            val ref = caller(f)
+            for (deeper in listOf(false, true)) {
+                val added = f.pattern(static, path + if (deeper) listOf(b) else emptyList())
+                val answer = assertIs<ReferenceRequestAction.Answer>(f.ops.referenceRequestAction(root, query, added, ref))
+                assertEquals(policy(f, static, path), answer.initial)
             }
+        }
+    }
+
+    @Test
+    fun `historical scalar Position above-query climbs only through a static original premise`(): Unit {
+        MethodAnalysisFixtures().use { f ->
+            val cls = f.manager.accessors.index(ClassStaticAccessor("State"))
+            val path = listOf(cls, f.field("a"))
+            val query = RequestKind.Position(checkNotNull(f.manager.path(path)))
+            for (staticCaller in listOf(false, true)) {
+                val ref = caller(f, base = if (staticCaller) static else x, flow = true)
+                val action = f.ops.referenceRequestAction(policy(f, static), query,
+                    f.pattern(static, listOf(cls), Tail.STAR, MarkSlot.STAR), ref)
+                if (staticCaller) assertIs<ReferenceRequestAction.Climb>(action)
+                else assertIs<ReferenceRequestAction.None>(action)
+            }
+        }
+    }
+
+    @Test
+    fun `historical Position exclusion rule is distinct from the F78 exclusion-insensitive mark matcher`(): Unit {
+        MethodAnalysisFixtures().use { f ->
+            val cls = f.manager.accessors.index(ClassStaticAccessor("State"))
+            val field = f.field("a")
+            val query = RequestKind.Position(checkNotNull(f.manager.path(listOf(cls, field))))
+            val input = f.pattern(static, listOf(cls), Tail.ANY_TAINT,
+                MarkSlot.Concrete(f.mark("T")), ExclusionSet.of(field))
+            assertIs<ReferenceRequestAction.None>(f.ops.referenceRequestAction(policy(f, static), query, input, caller(f)))
+            assertTrue(slotMatches(Run1Slot.StaticField(cls, field), f.fact(static, listOf(cls),
+                Tail.ANY_TAINT, MarkSlot.Concrete(f.mark("T")), ExclusionSet.of(field))))
         }
     }
 

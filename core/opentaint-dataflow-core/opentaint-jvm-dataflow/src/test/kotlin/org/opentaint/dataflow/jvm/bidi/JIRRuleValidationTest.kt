@@ -212,6 +212,27 @@ class JIRRuleValidationTest : BasicTestUtils() {
     }
 
     @Test
+    fun `static class cannot be indexed as an array but a named static array field can`(): Unit {
+        val forms = forms()
+        val bad = element(cls)
+        // A provider can construct this bound rule even though the current YAML
+        // text parser does not expose a class base. Reject before catalog setup.
+        assertNull(forms.pos("class array",bad))
+        for (position in listOf(bad,any(bad),field(bad))) {
+            assertFalse(forms.valid(source(listOf(AssignMark(t,position)))))
+            assertFalse(forms.valid(pass(listOf(CopyAllMarks(arg0,position)))))
+            assertFalse(forms.valid(cleaner(listOf(RemoveMark(t,position)))))
+            assertFalse(forms.valid(sink(condition=contains(position))))
+        }
+        val good = element(field(cls))
+        assertEquals(listOf(f.cls,f.field("f"),f.element),assertNotNull(forms.pos("static array field",good)).path)
+        assertTrue(forms.valid(source(listOf(AssignMark(t,good)))))
+        assertTrue(forms.valid(pass(listOf(CopyAllMarks(arg0,good)))))
+        assertTrue(forms.valid(cleaner(listOf(RemoveMark(t,good)))))
+        assertTrue(forms.valid(sink(condition=contains(good))))
+    }
+
+    @Test
     fun `class source and end targets admit exact marks and reject every any shape`(): Unit {
         val forms = forms()
         for (condition in listOf<Condition>(mkTrue(), contains(arg0),

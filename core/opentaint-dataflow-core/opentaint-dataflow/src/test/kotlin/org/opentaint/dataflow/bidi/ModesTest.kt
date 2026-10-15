@@ -167,7 +167,8 @@ class ModesTest {
 
     @Test fun `forward unchanged component drains without summarizing a detached normal exit`(): Unit {
         MethodAnalysisFixtures(listOf(listOf(1), listOf(1), emptyList())).use { f ->
-            val core = f.core()
+            // A later forward run admits this generic non-root FLOW initial.
+            val core = f.core(index = 3)
             val initial = f.manager.initial(f.pattern(x, listOf(f.field("f")), Tail.STAR, MarkSlot.STAR))
             core.addRootZero()
             core.addInitial(initial)

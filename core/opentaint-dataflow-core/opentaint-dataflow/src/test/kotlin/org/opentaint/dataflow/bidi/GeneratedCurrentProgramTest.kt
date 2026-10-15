@@ -42,7 +42,13 @@ class GeneratedCurrentProgramTest {
     private fun compare(f: FiniteProgramFixtures, config: RunConfig, seed: Long,
                         fields: List<Int>, marks: List<TaintMark>, catalogRefinement: Boolean = false): RunObservation {
         check(!catalogRefinement || config.run1) { "Only run-1 static transport is replaced by the catalog" }
-        val expected = NaiveClosure(f, config).run()
+        val initialAdmission = if (catalogRefinement)
+            NaiveClosure.InitialAdmission.RUN1_CONCRETE_CHAIN
+        else NaiveClosure.InitialAdmission.HISTORICAL
+        val expected = NaiveClosure(f, config, initialAdmission).run()
+        if (catalogRefinement) assertTrue(expected.initials.none {
+            it.initial.fact.tail == Tail.ANY || it.initial.fact.tail == Tail.ANY_TAINT
+        }, "The independent selected run-1 closure must construct STAR, never ANY, initials")
         fun facts(o: RunObservation): List<PathFact> = buildList {
             for (e in o.processed + o.rawSummaries + o.publications + o.selectedDemand) {
                 addAll(e.premise.map { it.fact }); add(e.conclusion.fact)
@@ -66,7 +72,7 @@ class GeneratedCurrentProgramTest {
                 (marks + all.mapNotNull { (it.mark as? MarkSlot.Concrete)?.mark } + f.mark("fresh mark") + TaintMark.ZERO).distinct(),
                 2)
             try {
-                if (catalogRefinement) expected.assertCatalogRefinement(actual, universe, config.roots)
+                if (catalogRefinement) expected.assertCatalogRefinement(actual, universe, config.roots, initialAdmission)
                 else actual.assertEquivalent(expected, universe)
             }
             catch (failure: AssertionError) {
@@ -115,7 +121,7 @@ class GeneratedCurrentProgramTest {
                 caller to DemandPattern(ZERO_PATTERN, f.pattern(ret, tail = Tail.ANY, mark = t)))
             val seeds = if (index == 2) listOf<Seed>(Seed.Sink(sink.rule, caller, root.inst(2), sink.patterns.single()))
                 else listOf<Seed>(Seed.Source(caller, root.inst(0), source))
-            val config = f.config(index, L = 1 + (seed % 3).toInt(), roots = listOf(caller),
+            val config = f.config(index, L = if (index == 1) 1 else 1 + (seed % 3).toInt(), roots = listOf(caller),
                 demand = if (index == 1) emptyList() else demand, seeds = seeds)
             val actual = compare(f, config, seed, fields, listOf(t.mark, u))
             assertTrue(actual.processed.isNotEmpty())
@@ -155,14 +161,15 @@ class GeneratedCurrentProgramTest {
             val d = DemandPattern(f.pattern(AccessPathBase.ClassStatic, path,
                 if (abstract) Tail.ANY else Tail.EXACT, if (abstract) MarkSlot.STAR else t),
                 f.pattern(ret, tail = if (abstract) Tail.ANY else Tail.EXACT, mark = u))
-            val config = f.config(index, L = path.size, roots = listOf(caller),
+            val config = f.config(index, L = if (index == 1) 1 else path.size, roots = listOf(caller),
                 demand = if (index == 1) emptyList() else listOf(callee to d),
                 seeds = listOf(Seed.Source(caller, root.inst(0), source)))
-            // Keep the scalar Position closure intact; compare replaced static registration through
-            // supplier-backed admissions and complete supported effects, with strict restricted runs.
+            // Keep scalar Position discovery, with the selected concrete initial constructor.
+            // STAR participates in closure: relabeling an old ANY premise afterwards would miss
+            // its different ordinary summary applicability. Restricted runs stay strict.
             val actual = compare(f, config, seed + 100L, listOf(cls) + fields, listOf(t.mark, u.mark),
                 catalogRefinement = index == 1)
-            if (index == 1 || !abstract) assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(ZERO_PATTERN),
+            if ((index == 1 && path.size == 2) || (index != 1 && !abstract)) assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(ZERO_PATTERN),
                 Conclusion(PathFact(ret, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false)),
                 "seed=$seed index=$index full static path=$path")
             if (index == 3 && abstract) {
@@ -195,19 +202,19 @@ class GeneratedCurrentProgramTest {
             val target = PathFact(ret, out, if (seed % 2 == 0L) Tail.EXACT else Tail.ANY_TAINT, t)
             f.statement(callee, 0, StatementSummary(setOf(x, y), emptyList(),
                 listOf(ConjunctiveEdge(literals, target)), emptyMap()))
-            val config = f.config(index, L = 3, roots = listOf(caller),
+            val config = f.config(index, L = if (index == 1) 1 else 3, roots = listOf(caller),
                 demand = if (index == 1) emptyList() else listOf(
                     callee to DemandPattern(literals[0], f.pattern(ret, out, Tail.ANY, t)),
                     callee to DemandPattern(literals[1], f.pattern(ret, out, Tail.ANY, t))),
                 seeds = listOf(Seed.Source(caller, root.inst(0), sx), Seed.Source(caller, root.inst(0), sy)))
             val actual = compare(f, config, seed + 200L, fields, listOf(t.mark, u.mark))
             assertTrue(actual.selectedDemand.any { it.method == callee && it.premise.size == 2 })
-            // At run1's nonstatic root policy, a below-root mark answer has an ANY initial and DEMAND
+            // At run1's nonstatic root policy, a below-root mark answer has a STAR initial and an ANY starting fact in DEMAND
             // layer. A root exact answer is NORMAL. Restricted exact demand entries copy exact facts.
             val targetDemand = index == 1 && (px.isNotEmpty() || py.isNotEmpty())
             val expectedTail = if (targetDemand && target.tail == Tail.ANY_TAINT) Tail.ANY else target.tail
-            assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(ZERO_PATTERN),
-                Conclusion(target.copy(tail = expectedTail), ExclusionSet.Empty, targetDemand)),
+            val expectedResult = limit(Conclusion(target.copy(tail = expectedTail), ExclusionSet.Empty, targetDemand), config.fieldLimit)
+            assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(ZERO_PATTERN), expectedResult),
                 "seed=$seed index=$index px=$px py=$py out=$out target=$target expectedDemand=$targetDemand")
             assertFalse(actual.rawSummaries.any { it.method == callee && it.premise.size == 1 && it.conclusion.fact.base == ret })
         }

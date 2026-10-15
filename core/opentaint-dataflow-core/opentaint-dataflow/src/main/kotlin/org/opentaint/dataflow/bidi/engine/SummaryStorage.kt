@@ -1,12 +1,10 @@
 package org.opentaint.dataflow.bidi.engine
 
-import kotlinx.collections.immutable.persistentHashMapOf
 import org.opentaint.dataflow.bidi.ap.ApManager
 import org.opentaint.dataflow.bidi.ap.ApMode
 import org.opentaint.dataflow.bidi.ap.ApOps
 import org.opentaint.dataflow.bidi.ap.MethodKey
-import java.util.concurrent.ConcurrentLinkedQueue
-import org.opentaint.dataflow.bidi.store.RequestMarkSetBuilder
+import org.opentaint.dataflow.bidi.ap.Facts
 
 /** A run owns this callee's published deltas and its subscribed caller runners. */
 class SummaryStorage(
@@ -14,50 +12,55 @@ class SummaryStorage(
     private val ap: ApManager,
     ops: ApOps,
     private val steps: ProtocolSteps,
+    precomputedRequests: RequestRows = emptyMap(),
+    private val statistics: Run1AbstractionStatistics? = null,
 ) {
     private val lock = Any()
     private val published = PublicationIndex(ap, ops)
-    private val subscribers = ConcurrentLinkedQueue<SubscriptionManager>()
-    private var questions: QuestionView = persistentHashMapOf()
+    private val subscribers = LinkedHashSet<SubscriptionManager>()
+    private val requests = RequestStorage(precomputedRequests)
 
-    /** The returned persistent root is immutable and may be borrowed by a replay handler. */
-    fun questions(): QuestionView = synchronized(lock) { questions }
+    fun borrowRequest(slot: Run1Slot): RequestRowView = synchronized(lock) { requests.borrow(slot) }
 
-    /** Install before notify. Registration before the corresponding replay read closes the other race. */
-    fun publishQuestions(delta: QuestionDelta) {
+    fun borrowMatchingRequests(input: Facts): List<RequestedRow> = synchronized(lock) {
+        val counts = statistics?.let { RequestMatchCounts() }
+        requests.borrowMatchingRows(input, ap.cancellation::checkpoint, counts).also { rows ->
+            if (counts != null) statistics?.requestMatch(counts, rows.size)
+        }
+    }
+
+    /** Commit synchronously; keep B shared and queue fresh D after releasing the storage lock. */
+    fun commit(temporary: RequestStorage) {
         ap.cancellation.checkpoint()
-        if (delta.marks.isEmpty) return
-        val fresh = synchronized(lock) {
-            val old = questions[delta.key]
-            val added = RequestMarkSetBuilder()
-            delta.marks.forEachMark { mark ->
+        val (fresh, recipients) = synchronized(lock) {
+            val oldRows = requests.dynamicRows
+            val rows = LinkedHashMap<Run1Slot, org.opentaint.dataflow.bidi.store.RequestMarkSet>()
+            for ((slot, marks) in temporary.pendingRows()) {
                 ap.cancellation.checkpoint()
-                if (old == null || mark !in old) added.add(mark)
+                val delta = requests.addAll(slot, marks, ap.cancellation::checkpoint)
+                if (!delta.isEmpty) rows[slot] = delta
             }
-            if (added.isEmpty) null else {
-                val marks = added.takeSnapshot()
-                val all = if (old == null) marks else RequestMarkSetBuilder().apply {
-                    old.forEachMark { ap.cancellation.checkpoint(); add(it) }
-                    marks.forEachMark { ap.cancellation.checkpoint(); add(it) }
-                }.takeSnapshot()
-                questions = questions.put(delta.key, all)
-                QuestionDelta(delta.key, marks)
-            }
-        } ?: return
+            statistics?.requestCommit(rows.size, rows.values.sumOf { it.size.toLong() }, requests.dynamicRows - oldRows)
+            freezeRequestRows(rows) to if (rows.isEmpty()) emptyList() else subscribers.toList()
+        }
+        if (fresh.isEmpty()) return
         steps.notify {
-            for (subscriber in subscribers) {
+            for (subscriber in recipients) {
                 ap.cancellation.checkpoint()
-                subscriber.notifyQuestions(method, fresh)
+                if (!subscriber.notifyRequests(method, fresh)) {
+                    ap.cancellation.checkpoint()
+                    error("An active run rejected a required request delivery")
+                }
             }
         }
     }
 
     fun publish(pubs: List<Publication>) {
         ap.cancellation.checkpoint()
-        val delta = synchronized(lock) { published.addAll(pubs) }
+        val (delta, recipients) = synchronized(lock) { published.addAll(pubs) to subscribers.toList() }
         if (delta.isEmpty()) return
         steps.notify {
-            for (subscriber in subscribers) {
+            for (subscriber in recipients) {
                 ap.cancellation.checkpoint()
                 subscriber.notify(method, delta)
             }
@@ -66,7 +69,7 @@ class SummaryStorage(
 
     fun addSubscriber(subscriber: SubscriptionManager) {
         ap.cancellation.checkpoint()
-        subscribers.add(subscriber)
+        synchronized(lock) { subscribers.add(subscriber) }
     }
 
     fun candidates(part: Subscription, mode: ApMode): List<Pair<Publication, Int>> =

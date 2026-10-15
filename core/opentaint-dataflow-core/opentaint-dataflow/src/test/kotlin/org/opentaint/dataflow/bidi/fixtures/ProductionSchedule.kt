@@ -71,9 +71,9 @@ class ProductionSchedule(
             "premise=${observedPremise(event.ref.premise)},callerLayer=${event.ref.callerLayer}," +
             "call=${event.ref.call},linkLayer=${event.linkLayer},added=${shared.ops.leaves(event.added).toList()})"
         is RunEvent.ZeroIn -> "Zero(${event.callee})"
-        is RunEvent.MarkRequestsIn -> "MarkRequests(${event.method},${event.premise.toPattern()},${event.marks})"
+        is RunEvent.MarkRequestsIn -> "MarkRequests(${event.method},${event.rows})"
         is RunEvent.InitialAnswersIn -> "InitialAnswers(${event.method},${event.answers.map { it.toPattern() }})"
-        is RunEvent.QuestionDelivery -> "Questions(${event.callee},${event.delta.key},${event.delta.marks})"
+        is RunEvent.ChangedRequests -> "Requests(${event.callee},${event.rows})"
         is RunEvent.Delivery -> "Delivery(${event.callee},${event.publications.flatMap {
             observedEdges(shared.ops, event.callee, it.premise, it.conclusion)
         }})"
@@ -91,7 +91,13 @@ class ProductionSchedule(
         val handler = factories.create(this)
 
         fun postEvent(event: RunEvent) {
-            pool += Pending(Kind.EVENT, description(event)) { handler.handle(event) }
+            pool += Pending(Kind.EVENT, description(event)) {
+                if (event is RunEvent.MarkRequestsIn) for ((slot, marks) in event.rows) {
+                    marks.forEachMark { requests += ObservedRequest(event.method,
+                        slot.initial(shared.ap).toPattern(), RequestKind.Mark(it)) }
+                }
+                handler.handle(event)
+            }
         }
 
         override fun send(event: RunEvent): Boolean {
@@ -105,9 +111,9 @@ class ProductionSchedule(
             return true
         }
 
-        override fun post(event: RunEvent.QuestionDelivery): Boolean {
+        override fun post(event: RunEvent.ChangedRequests): Boolean {
             postEvent(event)
-            if (duplicateDeliveries) postEvent(RunEvent.QuestionDelivery(event.callee, event.delta))
+            if (duplicateDeliveries) postEvent(RunEvent.ChangedRequests(event.callee, event.rows))
             return true
         }
 
@@ -134,7 +140,8 @@ class ProductionSchedule(
         }
 
         override fun summaryStorage(key: MethodKey): SummaryStorage =
-            storages.getOrPut(key) { SummaryStorage(key, shared.ap, ops, deferred) }
+            storages.getOrPut(key) { SummaryStorage(key, shared.ap, ops, deferred,
+                if (config.run1) shared.run1StaticProfiles?.get(key.method)?.precomputedRequests.orEmpty() else emptyMap()) }
 
         override fun subscribe(sub: Subscription) {
             registered += sub

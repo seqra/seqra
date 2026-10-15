@@ -124,7 +124,11 @@ class CutPointTest {
                 listOf(MicroEdge.of(ZERO_KEEP), identityEdge(x), short, deep), emptyList(),
                 mapOf(x to rejecting(f, g)), mapOf(y to rejecting(f, g))), StatementSummary.EMPTY, emptyList()))
             val initialX = f.manager.initial(f.pattern(x, listOf(g), mark = mt))
-            val forward = f.core(L = 1)
+            // This isolates generic boundary/filter order using a later forward
+            // run, whose initial grammar permits the explicit x.g premise.
+            val sourceSeeds = SeedIndex.of(listOf(Seed.Source(f.key, f.inst(0), short.forward),
+                Seed.Source(f.key, f.inst(0), deep.forward)))
+            val forward = f.core(index = 3, L = 1, seeds = sourceSeeds)
             forward.addRootZero()
             forward.addInitial(initialX)
             f.drain(forward, quantum = 1)

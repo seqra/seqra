@@ -10,7 +10,27 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.ArrayDeque
 
 /** Exact per-path closure. No production fact store, candidate index or subsumption is used. */
-class NaiveClosure(private val program: FiniteProgramFixtures, private val config: RunConfig) {
+class NaiveClosure(
+    private val program: FiniteProgramFixtures,
+    private val config: RunConfig,
+    private val initialAdmission: InitialAdmission = InitialAdmission.HISTORICAL,
+) {
+    /** Keep the scalar Position oracle available unchanged. The selected run-1 constructor
+     *  admits nonexact concrete answers as STAR before starting their analyses; this is not
+     *  a normalization of observations or of ordinary summary applicability. */
+    enum class InitialAdmission {
+        HISTORICAL, RUN1_CONCRETE_CHAIN;
+
+        fun admit(offered: Pattern, run1: Boolean): Pattern {
+            if (this == HISTORICAL) return offered
+            check(run1) { "The selected initial constructor belongs to run 1" }
+            check(offered.fact.tail != Tail.ANY_TAINT) { "Run 1 never admits a must initial" }
+            if (offered.fact.tail != Tail.ANY) return offered
+            check(offered.fact.mark is MarkSlot.Concrete && offered.fact.base != AccessPathBase.Zero)
+            return Pattern(offered.fact.copy(tail = Tail.STAR), ExclusionSet.Empty)
+        }
+    }
+
     private val inputs = program.inputs(config)
     private val forward = config.direction == Direction.FORWARD
     private val zero = setOf(ZERO_PATTERN)
@@ -92,7 +112,8 @@ class NaiveClosure(private val program: FiniteProgramFixtures, private val confi
         FormsReference(program.ops, algebra(method))
     }
 
-    private fun addInitial(method: MethodKey, initial: Pattern) {
+    private fun addInitial(method: MethodKey, offered: Pattern) {
+        val initial = initialAdmission.admit(offered, config.run1)
         if (!program.isKnown(method) || !initials.add(ObservedInitial(method, initial))) return
         check(initial.fact.tail != Tail.ANY_TAINT || (config.restricted && forward))
         work += {

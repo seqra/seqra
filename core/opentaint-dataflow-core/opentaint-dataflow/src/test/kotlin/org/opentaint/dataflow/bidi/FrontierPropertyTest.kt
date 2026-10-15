@@ -139,8 +139,10 @@ class FrontierPropertyTest {
             val keys = listOf(f.key("left context"), f.key("right context"))
             val expected = LinkedHashSet<Pair<MethodKey, DemandPattern>>()
             for (key in keys) {
-                for (premisePath in listOf(emptyList(), listOf(a))) {
-                    val initial = f.initial(x, premisePath, Tail.STAR, MarkSlot.STAR)
+                val origins = if (index == 1) listOf(x to emptyList(), y to emptyList())
+                    else listOf(x to emptyList(), x to listOf(a))
+                for ((premiseBase, premisePath) in origins) {
+                    val initial = f.initial(premiseBase, premisePath, Tail.STAR, MarkSlot.STAR)
                     f.core(key).addInitial(initial)
                     for (path in listOf(listOf(a), listOf(b))) for ((bit, exclusions) in markExclusions.withIndex()) {
                         if ((mask and (1 shl bit)) == 0) continue
@@ -163,7 +165,7 @@ class FrontierPropertyTest {
             val actual = keys.flatMap { key -> listOf(listOf(a), listOf(b)).flatMap { path ->
                 handOff.demand.near(key, y, f.manager.path(path)).map { key to it }
             } }.toSet()
-            assertEquals(expected, actual, "Normalized abstract exclusions collide, while full premise paths and contexts remain distinct")
+            assertEquals(expected, actual, "Normalized abstract exclusions collide, while full allowed premises and contexts remain distinct")
             val frontier = frontierOf(f.config, result, handOff, f.report)
             assertEquals(counts, frontier.demandEdges)
             assertEquals(keys.toSet(), frontier.analysed)

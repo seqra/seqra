@@ -55,8 +55,9 @@ class AnyTaintSupportTest {
                 SupplyCell("may member is inadmissible", queryTail = Tail.ANY, restricted = false),
                 SupplyCell("FLOW member is inadmissible", queryTail = Tail.STAR, queryMark = "*", restricted = false),
             )
-            val questions = rows.map { row ->
-                val callee = f.key(row.name)
+            // The complete finite program precedes actor construction and its frozen static plan.
+            val callees = rows.map { f.key(it.name) }
+            val questions = rows.zip(callees).map { (row, callee) ->
                 f.link(callee, root, f.manager.zero, f.fact(x, row.addedPath, Tail.ANY_TAINT,
                     exclusion = ExclusionSet.of(row.addedE.toIntArray())))
                 val mark = if (row.queryMark == "*") MarkSlot.STAR else MarkSlot.Concrete(f.mark(row.queryMark))

@@ -5,148 +5,127 @@ import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.EngineShellFixtures
 import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
-import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
+import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import org.opentaint.dataflow.util.Cancellation
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.*
 import kotlin.time.Duration.Companion.seconds
 
+/** These controls use actual actor P, method work and synchronous SummaryStorage commit. */
 class RequestWorkBarrierTest {
-    /** A finite deferred service isolates the Work contract from the set-join cursor. */
-    private class Deferred(private val core: RunMethodAnalyzer) : MethodLocalServices by RunMethodLocalServices(core) {
-        var remaining = 0
-        var flushes = 0
-        var answer: InitialAp? = null
-        var duringFlush: (() -> Unit)? = null
-        override val hasPendingRequests get() = remaining > 0
-        override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
-            remaining++
-            core.requestWork()
-        }
-        override fun flushRequests(quantum: Int): Boolean {
-            require(quantum > 0)
-            if (remaining == 0) return true
-            flushes++
-            remaining = (remaining - quantum).coerceAtLeast(0)
-            answer?.let { answer = null; core.addInitial(it) }
-            duringFlush?.invoke()
-            return remaining == 0
-        }
-    }
+    private val slot = Run1Slot.Base(AccessPathBase.Argument(0))
+    private fun actor(f: MethodAnalysisFixtures) =
+        f.core(localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
 
-    @Test fun `a request-only actor is queued and partial request work cannot finish`(): Unit {
+    @Test fun `request-only actor schedules real Work and cannot freeze before its method-empty commit`(): Unit {
         MethodAnalysisFixtures().use { f ->
-            lateinit var service: Deferred
-            val actor = f.core(localFactory = MethodLocalServicesFactory { Deferred(it).also { service = it } })
-            val policy = f.manager.initial(AccessPathBase.Argument(0), null, Tail.STAR,
-                ExclusionSet.Empty, MarkSlot.STAR)
-            repeat(3) { actor.addMarkRequest(policy, f.mark("T$it")) }
+            val actor = actor(f)
+            val marks = (0 until 3).map { f.mark("T$it") }
+            marks.forEach { actor.addMarkRequest(slot.initial(f.manager), it) }
             assertTrue(actor in f.enqueued)
             assertEquals(0L, actor.steps)
+            assertTrue(f.requestRow(actor, slot).isEmpty)
             assertFails { actor.freeze() }
-            assertFalse(actor.work(1))
-            assertFalse(actor.work(1))
-            assertTrue(actor.work(1))
-            assertEquals(3, service.flushes)
-            assertEquals(0L, actor.steps, "Request scans are not fact steps")
+            assertTrue(actor.work(1), "With no facts, the method-empty boundary commits the entire merged P")
+            assertEquals(3, f.requestRow(actor, slot).size)
+            assertEquals(0L, actor.steps, "Request commits are not fact steps")
             actor.freeze()
         }
     }
 
-    @Test fun `request answer facts keep the current Work token live through the zero phase transition`(): Unit {
+    @Test fun `late answer stays queued after commit and schedules fact work only when delivered`(): Unit {
         MethodAnalysisFixtures().use { f ->
-            lateinit var service: Deferred
-            val actor = f.core(localFactory = MethodLocalServicesFactory { Deferred(it).also { service = it } })
-            val policy = f.manager.initial(AccessPathBase.Argument(0), null, Tail.STAR,
-                ExclusionSet.Empty, MarkSlot.STAR)
-            service.answer = f.manager.zero
-            actor.addMarkRequest(policy, f.mark("T"))
-            assertFalse(actor.work(1), "The answer added zero work after the phase's completion")
-            assertTrue(actor.hasZeroWork)
-            assertEquals(0L, actor.steps)
+            val actor = actor(f)
+            val t = f.mark("T")
+            val input = f.fact(mark = MarkSlot.Concrete(t))
+            val ref = CallerRef(f.store.key("supplier"), f.manager.zero, Layer.NORMAL, f.inst(1))
+            f.admit(actor, ref, Layer.NORMAL, input); f.drain(actor)
+            val before = actor.steps
+            actor.addMarkRequest(slot.initial(f.manager), t)
+            assertTrue(actor.work(1))
+            val answer = f.manager.initial(slot.base, null, Tail.EXACT, ExclusionSet.Empty, MarkSlot.Concrete(t))
+            assertFalse(answer in actor.initials.all())
+            assertTrue(f.pumpQuestions(), "Commit secures queued replay/answer ownership before its Work ends")
+            assertTrue(answer in actor.initials.all())
             f.drain(actor, quantum = 1)
-            assertTrue(actor.steps > 0)
-            assertTrue(f.publications.isNotEmpty())
+            assertTrue(actor.steps > before)
         }
     }
 
-    @Test fun `nonzero quantum services requests while the method fact queue remains busy`(): Unit {
+    @Test fun `a finite fact quantum does not submit P while the method fact queue is busy`(): Unit {
         MethodAnalysisFixtures().use { f ->
-            lateinit var service: Deferred
-            val actor = f.core(localFactory = MethodLocalServicesFactory { Deferred(it).also { service = it } })
-            val policy = f.manager.initial(AccessPathBase.Argument(0), null, Tail.STAR,
-                ExclusionSet.Empty, MarkSlot.STAR)
-            val concrete = f.manager.initial(AccessPathBase.Argument(0), null, Tail.EXACT,
-                ExclusionSet.Empty, MarkSlot.Concrete(f.mark("T")))
-            actor.addInitial(concrete)
-            actor.addMarkRequest(policy, f.mark("T"))
+            val actor = actor(f)
+            val t = f.mark("T")
+            actor.addInitial(f.manager.initial(slot.base, null, Tail.EXACT,
+                ExclusionSet.Empty, MarkSlot.Concrete(t)))
+            actor.addMarkRequest(slot.initial(f.manager), t)
             assertFalse(actor.work(1))
-            assertEquals(1, service.flushes)
             assertEquals(1L, actor.steps)
-            assertFalse(service.hasPendingRequests)
+            assertTrue(f.requestRow(actor, slot).isEmpty, "There is no extra quantum/backstop request barrier")
             f.drain(actor, quantum = 1)
+            assertTrue(t in f.requestRow(actor, slot))
         }
     }
 
-    @Test fun `zero quantum boundary preserves zero priority before request service`(): Unit {
+    @Test fun `zero work retains priority and requests commit only after that method drains`(): Unit {
         MethodAnalysisFixtures().use { f ->
-            lateinit var service: Deferred
-            val actor = f.core(localFactory = MethodLocalServicesFactory { Deferred(it).also { service = it } })
+            val actor = actor(f)
+            val t = f.mark("T")
             actor.addRootZero()
-            val policy = f.manager.initial(AccessPathBase.Argument(0), null, Tail.STAR,
-                ExclusionSet.Empty, MarkSlot.STAR)
-            actor.addMarkRequest(policy, f.mark("T"))
+            actor.addMarkRequest(slot.initial(f.manager), t)
             assertFalse(actor.work(1))
-            assertEquals(0, service.flushes)
             assertTrue(actor.hasZeroWork)
+            assertTrue(f.requestRow(actor, slot).isEmpty)
             f.drain(actor, quantum = 1)
-            assertEquals(1, service.flushes)
+            assertTrue(t in f.requestRow(actor, slot))
         }
     }
 
-    @Test fun `cancellation at the last request callback cannot return complete`(): Unit {
+    @Test fun `cancellation after commit queues a notification but never certifies complete`(): Unit {
         MethodAnalysisFixtures().use { f ->
-            lateinit var service: Deferred
-            val actor = f.core(localFactory = MethodLocalServicesFactory { Deferred(it).also { service = it } })
-            val policy = f.manager.initial(AccessPathBase.Argument(0), null, Tail.STAR,
-                ExclusionSet.Empty, MarkSlot.STAR)
-            actor.addMarkRequest(policy, f.mark("T"))
-            service.duringFlush = { f.cancellation.cancel() }
+            val actor = actor(f)
+            val initial = slot.initial(f.manager)
+            val ref = CallerRef(f.store.key("caller"), initial, Layer.NORMAL, f.inst(1))
+            f.admit(actor, ref, Layer.NORMAL, f.fact(tail = Tail.STAR, mark = MarkSlot.STAR))
+            f.drain(actor)
+            val t = f.mark("T")
+            f.onRequestNotification = { f.cancellation.cancel() }
+            actor.addMarkRequest(initial, t)
             assertFailsWith<Cancellation.Cancelled> { actor.work(1) }
+            f.cancellation.activate()
+            assertTrue(t in f.requestRow(actor, slot), "An installed monotone admission is not rolled back on cancellation")
         }
     }
 
-    @Test fun `last remote batch schedules request-only Work before its reservation ends`(): Unit {
+    @Test fun `last remote batch reserves request-only Work before its delivery reservation ends`(): Unit {
         val f = EngineShellFixtures()
         f.shared(threads = 2).use { shared ->
             lateinit var run: RunManager<RunMethodAnalyzer>
-            val policy = f.manager.initial(AccessPathBase.Argument(0), null, Tail.STAR,
-                ExclusionSet.Empty, MarkSlot.STAR)
-            var requestServices = 0
-            val handlers = RunMethodHandlers(MethodLocalServicesFactory { actor ->
-                val actual = RunMethodLocalServices(actor)
-                object : MethodLocalServices by actual {
-                    override fun flushRequests(quantum: Int): Boolean {
-                        if (actor.key == f.b && actual.hasPendingRequests) {
+            val enqueues = AtomicInteger()
+            val handlers = RunMethodHandlers(MethodLocalServicesFactory(::RunMethodLocalServices),
+                MethodCallServicesFactory(::RunMethodCallServices))
+            val factory = RunnerHandlerFactory<RunMethodAnalyzer> { owner ->
+                val observed = object : RunnerPort<RunMethodAnalyzer> by owner {
+                    override fun enqueue(analyzer: RunMethodAnalyzer): Boolean {
+                        if (analyzer.key == f.b) {
                             assertNull(run.terminalStatus)
                             assertTrue(run.inFlight.pending > 0)
-                            requestServices++
+                            enqueues.incrementAndGet()
                         }
-                        return actual.flushRequests(quantum)
+                        return owner.enqueue(analyzer)
                     }
                 }
-            }, MethodCallServicesFactory(::RunMethodCallServices))
-            val factory = RunnerHandlerFactory<RunMethodAnalyzer> { port ->
-                val delegate = handlers.create(port)
+                val delegate = handlers.create(observed)
                 object : RunnerHandler<RunMethodAnalyzer>, SubscriptionHandler {
                     override fun createActor(key: MethodKey) = delegate.createActor(key)
                     override fun subscribe(sub: Subscription) = (delegate as SubscriptionHandler).subscribe(sub)
                     override fun freeze() = (delegate as SubscriptionHandler).freeze()
                     override fun handle(event: RunEvent) {
                         if (event is RunEvent.Start) {
-                            assertTrue(port.send(RunEvent.MarkRequestsIn(f.b, policy,
+                            assertTrue(observed.send(RunEvent.MarkRequestsIn(f.b, mapOf(slot to
                                 RequestMarkSet.fromIds(intArrayOf(f.manager.marks.mark("T").id,
-                                    f.manager.marks.mark("U").id)))))
+                                    f.manager.marks.mark("U").id))))))
                         } else delegate.handle(event)
                     }
                 }
@@ -154,7 +133,7 @@ class RequestWorkBarrierTest {
             run = RunManager(f.config(), shared, factory, quantum = 1)
             val result = run.run(5.seconds)
             assertEquals(RunStatus.COMPLETE, result.status)
-            assertTrue(requestServices > 0)
+            assertTrue(enqueues.get() > 0)
             assertEquals(0L, run.inFlight.pending)
             assertEquals(0L, result.analyzers.single { it.key == f.b }.steps)
             assertEquals(4L, run.inFlight.handled, "Root reservation, Start, remote batch and request-only Work")

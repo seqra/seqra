@@ -56,17 +56,19 @@ class SubscriptionManager(port: SubscriptionPort) {
         }
         if (!part.zeroOnly && port.config.restricted) replayRecords(part)
         if (port.config.run1 && !part.zeroOnly) {
-            // The question read follows registration and uses the original admitted header/value.
-            // Summary replay above retains its existing fresh-delta contract.
+            // Registration precedes this read. FLOW joins its original accumulated
+            // header; new TAINT is answered only by LinkIn at the callee owner.
             val current = admitted.current
-            if (current.added !is Reach) for ((key, marks) in storage.questions()) {
-                port.ops.manager.cancellation.checkpoint()
-                replayQuestion(QuestionDelta(key, marks)) { visit -> visit(current) }
+            checkKinds(current)
+            if (current.added is FlowTree && normalRun1Slot(current.ref.premise) != null) {
+                port.abstractionStatistics?.freshFlowInputVisit(admitted.growth)
+                val rows = storage.borrowMatchingRequests(current.added)
+                joinRequests(rows) { visit -> visit(current) }
             }
         }
     }
 
-    private data class ClimbTarget(val method: MethodKey, val initial: InitialAp)
+    private data class ClimbTarget(val method: MethodKey, val slot: Run1Slot)
     private class ReplayCounts {
         var candidates = 0L
         var tests = 0L
@@ -74,11 +76,20 @@ class SubscriptionManager(port: SubscriptionPort) {
         var climbs = 0L
     }
 
-    /** A complete owner-local visit has no mutating callbacks. Only detached results leave it. */
-    private fun replayQuestion(delta: QuestionDelta, inputs: ((Subscription) -> Unit) -> Unit) {
+    private fun checkKinds(part: Subscription) {
+        check((part.added is FlowTree) == part.ref.premise.isFlow) {
+            "K6: the conclusion kind follows its original premise"
+        }
+        check(part.ref.premise !is PremiseSet || part.added is TaintTree) {
+            "A multiple-member input must be TAINT"
+        }
+    }
+
+    /** Visit first, then queue every effect, including same-unit effects. */
+    private fun joinRequests(rows: List<RequestedRow>, inputs: ((Subscription) -> Unit) -> Unit) {
         val port = active()
-        check(port.config.run1) { "Mark questions exist only in run 1" }
-        if (delta.marks.isEmpty) return
+        check(port.config.run1) { "Mark requests exist only in run 1" }
+        if (rows.isEmpty()) return
         val ap = port.ops.manager
         val statistics = port.abstractionStatistics
         val counts = statistics?.let { ReplayCounts() }
@@ -91,49 +102,75 @@ class SubscriptionManager(port: SubscriptionPort) {
             inputs { part ->
                 ap.cancellation.checkpoint()
                 if (counts != null) counts.candidates++
-                if (!part.zeroOnly && part.added !is Reach) {
-                    if (counts != null) counts.tests++
-                    if (batch != null) batch.groupGeometryTests++
-                    val cursor = RequestGroupCursor(ap, delta.key.initial, delta.marks,
-                        part.added, part.ref, delta.key.pattern)
-                    try {
-                        while (!cursor.isComplete) {
-                            ap.cancellation.checkpoint()
-                            cursor.step(QUESTION_TRAVERSAL_CHUNK, onAnswer = { initial ->
-                                if (counts != null) counts.answers++
-                                if (batch != null) batch.answers++
-                                answers.getOrPut(part.callee, ::LinkedHashSet).add(initial)
-                            }, onClimb = { mark ->
-                                if (counts != null) counts.climbs++
-                                if (batch != null) batch.climbs++
-                                val initial = part.ref.premise as InitialAp
-                                if (port.covered(part.ref.caller, initial, mark)) statistics?.covered()
-                                else if (!climbs.getOrPut(ClimbTarget(part.ref.caller, initial),
-                                        ::RequestMarkSetBuilder).add(mark) && batch != null) batch.duplicateTargetUnions++
-                            })
-                        }
-                    } finally {
-                        if (batch != null) {
-                            batch.memberScans += cursor.memberScans
-                            batch.groupGeometrySteps += cursor.geometryTests
+                checkKinds(part) // K6 before eligibility guards
+                if (!part.zeroOnly) when (part.added) {
+                    is FlowTree -> {
+                        val original = normalRun1Slot(part.ref.premise)
+                        if (original != null) {
+                            if (counts != null) counts.tests++
+                            if (batch != null) batch.groupGeometryTests++
+                            val offered = RequestMarkSetBuilder()
+                            // Compute geometry once per row, then merge the matching
+                            // marks before one target-R read and one destination union.
+                            for (row in rows) {
+                                ap.cancellation.checkpoint()
+                                if (batch != null) batch.groupGeometrySteps++
+                                if (!slotMatches(row.slot, part.added)) continue
+                                if (original != row.slot || original !is Run1Slot.StaticField) {
+                                    row.marks.precomputed.forEachMark {
+                                        ap.cancellation.checkpoint(); offered.add(it)
+                                        if (batch != null) batch.memberScans++
+                                    }
+                                } else if (!row.marks.precomputed.isEmpty) statistics?.inheritedBaseRowSkipped()
+                                row.marks.dynamic.forEachMark {
+                                    ap.cancellation.checkpoint(); offered.add(it)
+                                    if (batch != null) batch.memberScans++
+                                }
+                            }
+                            if (!offered.isEmpty) {
+                                val target = ClimbTarget(part.ref.caller, original)
+                                val admitted = port.summaryStorage(target.method).borrowRequest(original)
+                                val destination = climbs.getOrPut(target, ::RequestMarkSetBuilder)
+                                offered.takeSnapshot().forEachMark { mark ->
+                                    ap.cancellation.checkpoint()
+                                    if (!admitted.containsId(mark.id)) {
+                                        if (counts != null) counts.climbs++
+                                        if (batch != null) batch.climbs++
+                                        if (!destination.add(mark) && batch != null) batch.duplicateTargetUnions++
+                                    }
+                                }
+                            }
                         }
                     }
+                    is TaintTree -> {
+                        if (counts != null) counts.tests++
+                        if (batch != null) batch.groupGeometryTests++
+                        forEachConcreteAnswer(ap, part.added, rows, batch) { initial ->
+                            if (counts != null) counts.answers++
+                            if (batch != null) batch.answers++
+                            answers.getOrPut(part.callee, ::LinkedHashSet).add(initial)
+                        }
+                    }
+                    is Reach -> Unit
                 }
             }
-            // All directory iteration has ended. send always queues, even for the local unit.
+            val requestsByMethod = LinkedHashMap<MethodKey, MutableMap<Run1Slot, org.opentaint.dataflow.bidi.store.RequestMarkSet>>()
+            for ((target, marks) in climbs) {
+                ap.cancellation.checkpoint()
+                if (!marks.isEmpty) requestsByMethod.getOrPut(target.method, ::LinkedHashMap)[target.slot] = marks.takeSnapshot()
+            }
+            for ((method, rowsToSend) in requestsByMethod) {
+                ap.cancellation.checkpoint()
+                val accepted = port.send(RunEvent.MarkRequestsIn(method, java.util.Collections.unmodifiableMap(rowsToSend)))
+                ap.cancellation.checkpoint()
+                check(accepted) { "An active run rejected a request delivery" }
+                if (batch != null) batch.acceptedBatch(rowsToSend.values.sumOf { it.size })
+            }
             for ((method, values) in answers) {
                 ap.cancellation.checkpoint()
                 val accepted = port.send(RunEvent.InitialAnswersIn(method, values))
                 ap.cancellation.checkpoint()
                 check(accepted) { "An active run rejected a concrete answer delivery" }
-            }
-            for ((target, marks) in climbs) {
-                ap.cancellation.checkpoint()
-                val selected = marks.takeSnapshot()
-                val accepted = port.send(RunEvent.MarkRequestsIn(target.method, target.initial, selected))
-                ap.cancellation.checkpoint()
-                check(accepted) { "An active run rejected a climb delivery" }
-                if (batch != null) batch.acceptedBatch(selected.size)
             }
         } finally {
             if (counts != null) statistics?.replayVisit(counts.candidates, counts.tests, counts.answers,
@@ -142,30 +179,40 @@ class SubscriptionManager(port: SubscriptionPort) {
         }
     }
 
-    /** Called by the publisher thread; it may not inspect byCallee. */
-    fun notifyQuestions(callee: MethodKey, delta: QuestionDelta): Boolean {
+    /** Publisher thread: post to the subscriber runner without reading its directory. */
+    fun notifyRequests(callee: MethodKey, rows: RequestRows): Boolean {
         val port = active()
-        check(port.config.run1) { "Mark questions exist only in run 1" }
-        val accepted = port.post(RunEvent.QuestionDelivery(callee, delta))
+        check(port.config.run1) { "Mark requests exist only in run 1" }
+        val accepted = port.post(RunEvent.ChangedRequests(callee, rows))
         port.ops.manager.cancellation.checkpoint()
-        check(accepted) { "An active run rejected a question delivery" }
+        check(accepted) { "An active run rejected a request notification" }
         return accepted
     }
 
-    /** The destination runner selects its current N2 groups when handling the notification. */
-    fun onQuestions(callee: MethodKey, delta: QuestionDelta) {
+    fun onRequests(callee: MethodKey, rows: RequestRows) {
         val port = active()
-        check(port.config.run1) { "Mark questions exist only in run 1" }
-        val entry = byCallee[callee]
-        replayQuestion(delta) { visit -> entry?.visitQuestion(delta.key, visit) }
+        check(port.config.run1) { "Mark requests exist only in run 1" }
+        val entry = byCallee[callee] ?: return
+        val selected = rows.map { (slot, marks) ->
+            RequestedRow(slot, RequestRowView(org.opentaint.dataflow.bidi.store.RequestMarkSet.EMPTY, marks))
+        }
+        joinRequests(selected) { visit -> entry.visitRequestBatch(selected, visit) }
     }
 
     private fun applyMatch(part: Subscription, pub: Publication, member: Int) {
         val port = active()
-        val added = matches(part, pub, member, port.ops, port.config.mode) ?: return
-        port.ops.manager.cancellation.checkpoint()
-        port.applier(part.caller).applySummary(part.copy(added = added), pub, member)
-        port.ops.manager.cancellation.checkpoint()
+        if (isSpecialStaticRoot(pub.premise.member(member)) &&
+            port.staticFootprint(part.callee.method) != null && !hasStaticRootReturnEvidence(pub.conclusion)) return
+        val inputs = if (part.zeroOnly) listOf(part.added) else prepareStaticSummaryInputs(
+            port.ops.manager, part.added, pub.premise.member(member), port.staticFootprint(part.callee.method))
+        for (input in inputs) {
+            port.ops.manager.cancellation.checkpoint()
+            val prepared = part.copy(added = input)
+            val added = matches(prepared, pub, member, port.ops, port.config.mode) ?: continue
+            port.ops.manager.cancellation.checkpoint()
+            port.applier(part.caller).applySummary(prepared.copy(added = added), pub, member)
+            port.ops.manager.cancellation.checkpoint()
+        }
     }
 
     /** Native records and transient reversed views remain reads of the previous-run store. */
@@ -177,30 +224,46 @@ class SubscriptionManager(port: SubscriptionPort) {
         val ops = port.ops
         val cancellation = ops.manager.cancellation
         val applier = port.applier(part.caller)
+        val footprint = port.staticFootprint(part.callee.method)
         val seen = HashSet<Any>()
         fun applyRecord(record: Record) {
             cancellation.checkpoint()
-            val added = ops.satisfying(part.added, record.premise, mode, record = true) ?: return
-            cancellation.checkpoint()
-            applier.applyRecord(part.copy(added = added), record)
-            cancellation.checkpoint()
+            if (isSpecialStaticRoot(record.premise) && footprint != null &&
+                !hasStaticRootReturnEvidence(record.conclusion)) return
+            for (input in prepareStaticSummaryInputs(ops.manager, part.added, record.premise, footprint)) {
+                cancellation.checkpoint()
+                val added = ops.satisfying(input, record.premise, mode, record = true) ?: continue
+                applier.applyRecord(part.copy(added = added), record)
+                cancellation.checkpoint()
+            }
         }
+
         for (leaf in ops.leaves(part.added)) {
             cancellation.checkpoint()
             for (record in records.byEntry(part.callee, leaf)) {
                 cancellation.checkpoint()
-                if (record.direction == direction && seen.add(record)) applyRecord(record)
+                if ((record.direction == direction || isSpecialStaticRoot(record.premise)) && seen.add(record)) {
+                    applyRecord(record)
+                }
             }
             for (record in records.byExit(part.callee, leaf)) {
                 cancellation.checkpoint()
                 if (record.direction == direction) continue
+                // Preserve the original normal-exit/root provenance. A reversed
+                // leaf view has no owner identity and cannot authorize a frame.
+                if (isSpecialStaticRoot(record.premise)) {
+                    if (seen.add(record)) applyRecord(record)
+                    continue
+                }
                 for (view in record.reversedAt(leaf)) {
                     cancellation.checkpoint()
                     if (!seen.add(view)) continue
-                    val added = ops.satisfying(part.added, view.premise, mode, record = true) ?: continue
-                    cancellation.checkpoint()
-                    applier.applyRecordView(part.copy(added = added), view)
-                    cancellation.checkpoint()
+                    for (input in prepareStaticSummaryInputs(ops.manager, part.added, view.premise, footprint)) {
+                        cancellation.checkpoint()
+                        val added = ops.satisfying(input, view.premise, mode, record = true) ?: continue
+                        applier.applyRecordView(part.copy(added = added), view)
+                        cancellation.checkpoint()
+                    }
                 }
             }
         }
@@ -237,7 +300,4 @@ class SubscriptionManager(port: SubscriptionPort) {
         port = null
     }
 
-    private companion object {
-        const val QUESTION_TRAVERSAL_CHUNK = 256
-    }
 }

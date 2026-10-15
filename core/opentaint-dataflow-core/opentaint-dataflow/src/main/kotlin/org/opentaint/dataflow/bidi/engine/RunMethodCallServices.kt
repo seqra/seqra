@@ -69,7 +69,8 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                 if (core.forward && frame.point == CallPoint.BOUND) {
                     for (fact in frame.facts) {
                         core.ap.cancellation.checkpoint()
-                        frame.triggers += core.localServices.checkSinks(fact.premise, ctx.node, fact.facts, ctx.plan.sinks)
+                        val input = if (core.config.run1) withoutStaticRootFact(core.ap, fact.facts) else fact.facts
+                        if (input != null) frame.triggers += core.localServices.checkSinks(fact.premise, ctx.node, input, ctx.plan.sinks)
                     }
                 }
                 if (core.config.run1 && frame.point == CallPoint.ADDED) observeUnresolved(ctx, frame.facts)
@@ -103,9 +104,17 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                         core.ap.cancellation.checkpoint()
                         if (guard == Guard.MemoryEffect && !Guard.MemoryEffect.admits(
                                 checkNotNull(fact.identityCandidate), fact.facts.layer)) continue
+                        var input = fact.facts
+                        if (core.config.run1 && (stage.kind == StageKind.SOURCES || stage.kind == StageKind.END_FACTS || stage.kind == StageKind.UNRESOLVED)) {
+                            // Source/end branches cannot manufacture a return. The unresolved
+                            // ordinary pass channel keeps control without evaluating model rules.
+                            if (stage.kind == StageKind.UNRESOLVED)
+                                staticRootFact(core.ap, input)?.let { out += PlanFact(fact.premise, it, true) }
+                            input = withoutStaticRootFact(core.ap, input) ?: continue
+                        }
                         val place = Place(ctx.node, core.config.run1 && stage.kind.statementEdges,
                             sources = stage.kind == StageKind.SOURCES)
-                        core.applier.stage(stage.summary, fact.premise, fact.facts, place) { premise, result, edge ->
+                        core.applier.stage(stage.summary, fact.premise, input, place) { premise, result, edge ->
                             core.ap.cancellation.checkpoint()
                             out += PlanFact(premise, result, stage.kind.identityCandidateOf(edge, fact.identityCandidate))
                         }
@@ -133,6 +142,14 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
 
     private fun cleanChain(steps: List<CleanStep>, fact: PlanFact, node: CommonInst, emit: (PlanFact) -> Unit) {
         val core = active()
+        if (core.config.run1) {
+            staticRootFact(core.ap, fact.facts)?.let { emit(PlanFact(fact.premise, it, fact.identityCandidate)) }
+            val input = withoutStaticRootFact(core.ap, fact.facts) ?: return
+            if (input !== fact.facts) {
+                cleanChain(steps, PlanFact(fact.premise, input, fact.identityCandidate), node, emit)
+                return
+            }
+        }
         fun statement(summary: StatementSummary, input: PlanFact): List<PlanFact> {
             val out = ArrayList<PlanFact>()
             core.applier.statement(summary, input.premise, input.facts, Place(node, core.config.run1, sources = false),
@@ -239,6 +256,13 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
     override fun applyRecord(part: Subscription, record: Record) {
         val core = active()
         val premise = record.premise
+        if (isSpecialStaticRoot(premise) && core.context.shared.staticFootprint(part.callee.method) != null) {
+            val frame = ArrayList<PlanFact>()
+            applyParts(part, premise, record.conclusion, frame)
+            if (frame.isNotEmpty()) core.countRecordCrossing()
+            resumeCallees(part.ref, frame)
+            return
+        }
         val native = ArrayList<PlanFact>()
         val pending = ArrayList<PlanFact>()
         if (premise.tail != Tail.ANY_TAINT) applyParts(part, premise, record.conclusion, native)
@@ -289,6 +313,15 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
 
     private fun applyParts(part: Subscription, premise: InitialAp, conclusion: Facts, results: MutableList<PlanFact>) {
         val core = active()
+        if (isSpecialStaticRoot(premise) && core.context.shared.staticFootprint(part.callee.method) != null) {
+            // The caller reader already selected ONLY the footprint complement.
+            // Reached normal-exit publication/native provenance supplies return
+            // evidence. Its raw coarse root output is never applied as data.
+            if (hasStaticRootReturnEvidence(conclusion) && part.added.base == STATIC) {
+                results += PlanFact(part.ref.premise, part.added, true)
+            }
+            return
+        }
         for ((group, identity) in summaryParts(premise, conclusion)) {
             core.ap.cancellation.checkpoint()
             core.ops.applySummary(part.added, premise, group, core.mode, core.collect(part.ref.premise, part.added) { pr, result ->

@@ -26,7 +26,8 @@ fun catalogObservables(value: RunObservation, roots: List<MethodKey>): RunObserv
 
 /** An interest is not a supplier. Check each eager initial against full raw incoming link leaves
  *  using independent per-path overlap and answer rules, without production indexes/selectors. */
-fun assertCatalogSupplierAdmission(actual: RunObservation) {
+fun assertCatalogSupplierAdmission(actual: RunObservation,
+                                   initialAdmission: NaiveClosure.InitialAdmission = NaiveClosure.InitialAdmission.HISTORICAL) {
     for (initial in actual.initials.filter { it.initial.fact.base == STATIC }) {
         val i = initial.initial
         val suppliers = actual.links.filter { it.callee == initial.method && it.added.fact.base == STATIC }.map { it.added }
@@ -48,7 +49,7 @@ fun assertCatalogSupplierAdmission(actual: RunObservation) {
                         listOfNotNull(i.fact.path.takeIf { it.size <= 2 })
                     chains.any { path ->
                         val chain = Pattern(PathFact(STATIC, path, Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty)
-                        overlap(chain, supplier) && answer(chain, supplier, mark) == i
+                        overlap(chain, supplier) && initialAdmission.admit(answer(chain, supplier, mark), run1 = true) == i
                     }
                 }
             }, "Every concrete answer needs its actual same-mark supplier: $initial")
@@ -57,8 +58,9 @@ fun assertCatalogSupplierAdmission(actual: RunObservation) {
 }
 
 fun RunObservation.assertCatalogRefinement(actual: RunObservation, universe: BoundedDenotation,
-                                          roots: List<MethodKey>) {
+                                          roots: List<MethodKey>,
+                                          initialAdmission: NaiveClosure.InitialAdmission = NaiveClosure.InitialAdmission.HISTORICAL) {
     catalogObservables(this, roots).assertEquivalent(catalogObservables(actual, roots), universe)
-    assertCatalogSupplierAdmission(actual)
+    assertCatalogSupplierAdmission(actual, initialAdmission)
     assertTrue(actual.requests.none { it.kind is RequestKind.Position }, "No production Position protocol remains")
 }

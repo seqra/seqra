@@ -1,6 +1,10 @@
 # Merged run-1 mark requests: implementation proposal
 
-Date: 15 October 2026. Status: proposed implementation; no analyzer code changed.
+Date: 15 October 2026. Status: implemented; core validation passes. New project measurements are pending.
+
+The [static component codec clarification](bidirectional-run1-static-component-codec-20261015.md)
+specifies the packed exclusion headers, separate class-point ownership, supplied
+class-mark preservation and selected JVM FLOW boundary required during implementation.
 
 This proposal implements [F78](../../spec/run1-requests.md). The
 [proof dossier](../../spec/run1-request-proofs.md) states the semantic arguments,
@@ -25,11 +29,11 @@ speedup or time bound.
 
 ## 1. Scope and proposed interfaces
 
-The snippets below are Kotlin-like design code, not a patch. The
+The snippets below define the design interfaces. The runtime follows these contracts. The
 [F78 spec](../../spec/run1-requests.md) and its
 [proofs](../../spec/run1-request-proofs.md) define their contracts. Keep existing
 AP transfers and ordinary/ND matching follow the spec. The proposed initial and
-request policy differs from the current runtime; section 5.1 lists those changes.
+request policy differs from the historical measured runtime; section 5.1 lists those changes.
 
 ```kotlin
 sealed interface Run1Slot {
@@ -562,9 +566,9 @@ not yet conform to this proposed boundary.
 
 ### 5.1 Emitted initial facts: current runtime versus proposed F78
 
-Here **current** means the code at `27e22bb1e`; the relevant runtime files are
-unchanged at `fa86688b8`. **New** means this proposal, not an implemented or measured
-change. `C.f.*(*)` has an abstract mark; `C.f.*(T)` has concrete mark T. All
+Here **current** means the historical code at `27e22bb1e`; the relevant runtime files
+were unchanged at the proposal review revision `fa86688b8`. **New** means the selected
+F78 implementation. Its project measurements are pending. `C.f.*(*)` has an abstract mark; `C.f.*(T)` has concrete mark T. All
 emissions below have Empty E. A normal-slot concrete answer always requires an
 actual supplier carrying the requested mark. Direct class components are the
 separate exception already specified by F78; there is no class request slot.
@@ -586,14 +590,13 @@ separate exception already specified by F78; there is no class request slot.
 | Nonexact class-point/broad class component carrying T | A matching class query can emit `C.[any](T)`; a broad root projected to C can give `C.*(T)` | Metadata-selected class component emits `C.*(T)`; never an ANY class initial |
 | Concrete empty-S-root answer | A matching legacy root question can emit one; broad root input can yield `S.[any](T)` | No concrete empty-S-root initial of any tail and no root request. Keep the abstract S seed and permitted field/class projections |
 
-The current paths above follow
-[Run1Abstraction.emit](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/Run1Abstraction.kt),
-[StaticSupplierCursor](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/StaticSupplierCursor.kt)
-and [RequestGroupCursor.emit](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/RequestGroupCursor.kt).
-[JIRStaticMetadata](../../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/bidi/interp/JIRStaticMetadata.kt)
-currently adds an abstract class position for a static write, so abstract-class
-removal is an actual constructor change. Current emission has no unconditional
-direct-class branch; F78's direct exact-class start is an added admission path.
+The historical paths above used `Run1Abstraction.emit`, `StaticSupplierCursor`
+and `RequestGroupCursor.emit` at `27e22bb1e`. The last two runtime classes are now
+removed. The old metadata collector added an abstract class position for a static
+write, and old emission had no unconditional direct-class branch. Abstract-class
+removal and F78's direct exact-class start are actual constructor changes. The new
+[Run1RequestMatching](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/Run1RequestMatching.kt)
+contains the selected projectors.
 These are source-level differences, not counts observed in a new workload run.
 
 ```text
@@ -626,16 +629,16 @@ create. Removing class/root initials removes other starts. This is not an
 identity of old/new initial sets or a claim that their total count decreases.
 Actual T is never invented, and request membership alone never satisfies a rule.
 
-The current generic cursor can also retain a deeper supplier path in a static
-answer, and the generic driver permits a first limit above 1. The selected F78
+The historical generic cursor could also retain a deeper supplier path in a static
+answer, and the old driver permitted a first limit above 1. The selected F78
 domain requires limit exactly 1 and bounded inputs before emission; it rejects a
 violated contract rather than adding an emitter cut. Likewise, exact concrete
 empty-S-root input is forbidden by the selected frontend assumption. Those generic
 API capabilities do not prove that such inputs occur in the selected JVM workloads.
 
 F78 does not add a `T != 0` restriction on nonzero bases. The current generic mark
-and initial APIs permit that ID, but the static catalog builder has an `id > 0`
-check. Its replacement must preserve every frontend-admitted mark, as the spec
+and initial APIs permit that ID, but the old static catalog builder had an `id > 0`
+check. Its replacement preserves every frontend-admitted mark, as the spec
 requires; it must not infer a Zero base from the mark ID alone.
 
 Concrete STAR and the former ANY initial start with the same DEMAND/ANY fact,
@@ -687,8 +690,8 @@ fun forEachDirectClassInitial(input: Facts, needs: ClassPointNeeds, emit: (Initi
         if (leaf.isExactClassPoint) {
             leaf.actualMarks.forEach { mark -> emit(exactInitial(STATIC, leaf.path, mark)) }
         } else if (leaf.isAnyOrMustStaticRootOrClass) {
-            for (need in needs.matchingBroadClassNeeds(leaf)) {
-                leaf.actualMarks.intersect(need.marks).forEach { mark ->
+            for (need in needs.matchingOwnedClassPoints(leaf)) {
+                leaf.actualMarks.forEach { mark -> // class selected by point ownership; no mark mask
                     emit(chainInitial(STATIC, path(need.cls), mark))
                 }
             }
@@ -1062,6 +1065,28 @@ fresh-FLOW current-value visits/rescanned geometry, temporary peak
 size and submission delay. Count shared owners as a
 retained union; do not add overlapping base references as memory savings.
 
+The current numeric counter contract is:
+
+| Counter | Unit and scope |
+| --- | --- |
+| `precomputedBaseRoots`, `physicalPrecomputedRows`, `runtimeMarkSetRoots`, `ownedMarkPrimitiveCells` | Distinct frozen plan maps, their row entries, nonempty immutable mark sets, and owned primitive mark cells, counted by object identity after plan freeze. These are not retained bytes. |
+| `logicalMethodRequestRows`, `logicalMethodRequestMembers` | B memberships expanded per method plan. Shared references contribute again here; they do not create another physical B. |
+| `requestOfferCalls`, `offeredRequestMembers` | Method-owner collection calls and the mark IDs they examine before effective R filtering. Caller-side filters before transport are outside this admission census. |
+| `authoritativeDuplicateRequestMembers`, `temporaryDuplicateRequestMembers` | Offered IDs already in effective R, then R-fresh IDs already in P, respectively. Each repeated attempt contributes in member units. |
+| `freshTemporaryRequestMembers`, `currentTemporaryRequestRows/Members`, `peakTemporaryRequestRows/Members` | Cumulative accepted P memberships, aggregate current P cells/rows, and their aggregate high-water values. They overlap later D admission; they are not facts or queue entries. |
+| `requestCommits`, `freshRequestRows/Members`, `createdDynamicRequestRows` | Commit calls, changed slot rows/new D memberships published by those commits, and newly created D row keys. Changed rows can recur across commits; created row keys cannot recur within one storage lifetime. |
+| `requestMatcherCalls`, `requestDirectLookups`, `requestBroadScans`, `requestScannedKeys`, `requestMatchedRows` | Borrowed matcher calls, direct slot probes, stored-key scan passes, keys examined, and returned unique slot descriptors. A descriptor borrows B and D without a combined mark-set copy. |
+| `freshFlowInputReads`, `growthFlowInputReads` | Actual current-value reads for admitted FLOW input updates; growth reads are a subset. They do not count logical facts or marks. |
+| `inheritedBaseRowsSkipped` | Matching unchanged static B row segments skipped as a whole before mark enumeration. This is a row count, not a skipped-mark count. |
+| `replayVisits/Candidates/Tests/Answers/Climbs`, request-batch geometry/member counters | Finite batch visits and the actual input, geometry, answer, climb, or member operations performed. Inclusive work counters overlap; concrete answers are still deduplicated by `InitialFactStore`. |
+| `maxServiceDelayNanos` | Oldest fresh P admission's observed wait until the method-empty commit begins. It excludes commit execution time and gives no fixed latency guarantee. |
+
+Counters aggregate numeric totals only. Cancellation can record a visited prefix
+without a completed admission or replay. Read run-attributed START/END differences
+for work, and keep failed-cohort accounting distinct from actual heap reachability.
+Obsolete emitter-policy and deferred-answer-memo fields are removed from the
+current abstraction snapshot; historical snapshots retain their original meaning.
+
 Use only the fixed OWASP, Conductor, ThingsBoard and Stirling-PDF configurations
 with `runProjectAnalyzer` and a fresh main comparison. Report strict findings,
 completed run-1 engine time and latest reached/completed/accepted iterations.
@@ -1071,8 +1096,9 @@ confirmation, whole-driver correctness or a universal 60-second bound.
 
 ## 11. Review against the selected spec
 
-This review changes the proposal only. It leaves the normative F78 construction,
-checked Lean sources and analyzer runtime unchanged.
+This section records the proposal review before implementation. That review changed
+documentation only. The current code and validation are described in the
+[implementation report](../reports/bidirectional-run1-mark-request-validation-20261015.md).
 
 | Spec contract | Review result and proposal correction |
 | --- | --- |
@@ -1087,6 +1113,7 @@ checked Lean sources and analyzer runtime unchanged.
 
 The shared B reference, disjoint D/P, lack of an initial B wave, per-slot inherited-B
 skip, exclusion-insensitive request join, method-empty barrier and return-gated frame
-already match the selected spec. AP codecs, complete effective-form extraction,
-annotated record readers and actual scheduling/accounting still require the stated
-implementation checks. This document's review does not validate future code.
+already matched the selected spec at review. AP codecs, complete effective-form
+extraction, annotated record readers and scheduling/accounting needed the stated
+implementation checks. The implementation report records the executed gates;
+the design review alone does not validate code.

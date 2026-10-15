@@ -121,7 +121,10 @@ class SummaryKindsTest {
             ops.applySummary(selected, premise, summary, mode, out)
             assertEquals(expected, out.results.flatMap { decode(it) }.toSet())
         } else assertNull(selected)
-        assertTrue(out.markRequests.isEmpty())
+        val expectedCreators = if (mode.run1 && selected is FlowTree && summary is FlowTree)
+            summary.markExclusion.ids.map(::TaintMark).toSet() else emptySet()
+        assertEquals(expectedCreators,out.markRequests.toSet(),
+            "F78 creator interest is additive; the ordinary fact/layer/E oracle remains unchanged")
         return out
     }
 

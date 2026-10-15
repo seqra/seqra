@@ -84,8 +84,32 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         val metadata = JIRStaticMetadataCollector(interp(rules)).collect(key(method("ruleCalls", "sample.bidi.BidiPrescanSample")))
         assertEquals(setOf("T"), metadata.cleanerMarks)
         assertTrue(queries.containsAll(listOf(false, true)))
-        assertTrue(metadata.marks.isEmpty())
+        assertEquals(listOf(Triple(listOf(cls), Tail.EXACT, "T")), metadata.marks.map { Triple(it.path,it.tail,it.mark) })
+        assertEquals(setOf(cls), metadata.classPoints)
         assertTrue(listOf(cls) in metadata.abstractions)
+    }
+
+    @Test
+    fun `exact class condition owns only its point and keeps frontend admitted mark zero`(): Unit {
+        val v = JIRRuleTestFixtures(cp)
+        val caller = method("callOnly")
+        val target = checkNotNull(caller.instList.instructions.first { it.callExpr != null }.callExpr).method.method
+        val sink = v.sink(condition = CommonCondition.Atom(ContainsMark(ClassStatic(owner), TaintMark("<zero>"))), method = target)
+        val rules = object : org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider by NoTaintRules {
+            override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) =
+                if (method == target) listOf(sink) else emptyList()
+        }
+        val metadata = JIRStaticMetadataCollector(interp(rules)).collect(key(caller))
+        assertEquals(setOf(cls), metadata.classPoints)
+        assertTrue(metadata.wideClasses.isEmpty()); assertFalse(metadata.allStatic)
+        val ap = ApManager(Cancellation())
+        val profile = org.opentaint.dataflow.bidi.engine.Run1StaticProfiles.build(ap, emptyMap(),
+            mapOf(caller to metadata.compile(ap)))[caller]
+        val classId = ap.accessors.index(cls)
+        assertEquals(setOf(classId), profile.classPointClasses)
+        assertTrue(profile.precomputedRequests.isEmpty(), "No class request slot or field product is introduced")
+        assertTrue(profile.structuralFieldSlots.isEmpty())
+        assertTrue(profile.classPointMarks(classId).containsId(0))
     }
 
     @Test

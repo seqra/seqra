@@ -117,6 +117,11 @@ class EdgeTreeEquivalenceTest {
         val facts = linkedSetOf<Conclusion>()
         val marks = linkedSetOf<TaintMark>()
         val positions = linkedSetOf<List<Int>>()
+        // F78 adds a creator obligation to ordinary concat. It does not change
+        // concat's positional transfer or its concrete gate outcome.
+        if (mode.run1 && input.facts is FlowTree && input.facts.base == e.from.base) {
+            (e.to.mark as? MarkSlot.Star)?.excluded?.ids?.forEach { marks += TaintMark(it) }
+        }
         for (leaf in input.leaves) when (val result = concat(leaf, e, may,
             staticIdentity(leaf, premise, statement, mode), mode.restricted)) {
             EdgeOutcome.None -> Unit

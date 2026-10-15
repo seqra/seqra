@@ -45,7 +45,7 @@ class IterationDriver internal constructor(
         }
         try {
             val firstLimit = policy.fieldLimit(1)
-            require(firstLimit >= 1) { "ap.md S12 (d): run 1 needs a field limit of at least 1" }
+            require(firstLimit == 1) { "F78: selected run 1 needs field limit exactly 1" }
             var config = RunConfig(1, firstLimit, demand = null, records = shared.records.view(),
                 seeds = SeedIndex.EMPTY, roots = roots)
             while (true) {
@@ -86,6 +86,7 @@ class IterationDriver internal constructor(
             Next.End(RunStatus.OOM)
         } finally {
             logger.info { "BIDI_BARRIER_END run=${config.index} barrierTime=${barrierStart.elapsedNow()} iterationTime=${start.elapsedNow()}" }
+            if (config.run1) shared.releaseRun1StaticProfiles()
         }
         if (shared.cancellation.isActive()) return next
         logger.error { "Run ${config.index}: the barrier memory guard fired; the analysis ends with the report so far" }

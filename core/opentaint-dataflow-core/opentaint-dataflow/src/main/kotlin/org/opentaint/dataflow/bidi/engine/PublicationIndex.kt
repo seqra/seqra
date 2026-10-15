@@ -51,7 +51,15 @@ class PublicationIndex(private val ap: ApManager, private val ops: ApOps) {
             for (leaf in ops.leaves(part.added)) {
                 ap.cancellation.checkpoint()
                 val path = leaf.fact.path.toIntArray()
-                if (mode.run1) members += byMember.lookupPrefixes(leaf.fact.base, path)
+                if (mode.run1) {
+                    members += byMember.lookupPrefixes(leaf.fact.base, path)
+                    if (leaf.fact.base == STATIC && path.size < 2 && leaf.fact.tail != Tail.EXACT) {
+                        // Broad suppliers also read owned field analyses. This
+                        // is only candidate discovery; component guards and the
+                        // ordinary AP predicate decide application.
+                        members += byMember.lookupExtensions(leaf.fact.base, path)
+                    }
+                }
                 else {
                     members += byMember.lookupExtensions(leaf.fact.base, path)
                     for (member in byMember.lookupPrefixes(leaf.fact.base, path)) {

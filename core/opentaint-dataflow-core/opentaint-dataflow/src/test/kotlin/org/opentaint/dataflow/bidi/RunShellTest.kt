@@ -25,7 +25,7 @@ class RunShellTest {
         val f = EngineShellFixtures()
         val original = f.manager.initial(org.opentaint.dataflow.ap.ifds.AccessPathBase.Argument(0), null,
             Tail.STAR, ExclusionSet.Empty, MarkSlot.STAR)
-        val question = QuestionDelta(MarkQuestionKey.dynamic(original),
+        val question = mapOf(checkNotNull(Run1Slot.fromInitial(original)) to
             RequestMarkSet.of(f.manager.marks.mark("T")))
         val seen = CopyOnWriteArrayList<RunEvent>()
         f.shared().use { shared ->
@@ -34,10 +34,10 @@ class RunShellTest {
                 when (event) {
                     is RunEvent.Start -> {
                         port.analyzer(event.root)
-                        assertTrue(port.post(RunEvent.QuestionDelivery(f.b, question)))
+                        assertTrue(port.post(RunEvent.ChangedRequests(f.b, question)))
                     }
-                    is RunEvent.QuestionDelivery -> {
-                        assertSame(question, event.delta)
+                    is RunEvent.ChangedRequests -> {
+                        assertSame(question, event.rows)
                         assertTrue(port.send(RunEvent.InitialAnswersIn(f.a, listOf(original))))
                     }
                     is RunEvent.InitialAnswersIn -> {
@@ -54,7 +54,7 @@ class RunShellTest {
             assertEquals(0L, run.inFlight.pending)
             assertEquals(5L, run.inFlight.handled, "Start reservation, Start, question, answer and Work")
             assertEquals(1L, result.analyzers.single().steps)
-            assertEquals(1, seen.filterIsInstance<RunEvent.QuestionDelivery>().size)
+            assertEquals(1, seen.filterIsInstance<RunEvent.ChangedRequests>().size)
             assertEquals(1, seen.filterIsInstance<RunEvent.InitialAnswersIn>().size)
         }
     }
@@ -177,7 +177,7 @@ class RunShellTest {
                             assertTrue(port.send(RunEvent.Start(f.b)))
                             assertTrue(port.send(RunEvent.LinkIn(f.b, ref, Layer.NORMAL, Reach.NORMAL)))
                             assertTrue(port.send(RunEvent.ZeroIn(f.b)))
-                            assertTrue(port.send(RunEvent.MarkRequestsIn(f.b, f.manager.zero, RequestMarkSet.of(f.manager.marks.mark("T")))))
+                            assertTrue(port.send(RunEvent.MarkRequestsIn(f.b, mapOf(Run1Slot.Base(org.opentaint.dataflow.ap.ifds.AccessPathBase.Argument(0)) to RequestMarkSet.of(f.manager.marks.mark("T"))))))
                             assertFalse(port.send(RunEvent.ZeroIn(f.unknown)))
                             assertTrue(port.post(RunEvent.Delivery(f.b, listOf(publication))))
                         }
@@ -190,7 +190,7 @@ class RunShellTest {
                     }
                     is RunEvent.ZeroIn -> { port.analyzer(event.callee).add(1); port.enqueue(port.analyzer(event.callee)) }
                     is RunEvent.MarkRequestsIn -> { port.analyzer(event.method).add(1); port.enqueue(port.analyzer(event.method)) }
-                    is RunEvent.InitialAnswersIn, is RunEvent.QuestionDelivery -> error("This scalar shell control sends no question batch")
+                    is RunEvent.InitialAnswersIn, is RunEvent.ChangedRequests -> error("This scalar shell control sends no question batch")
                     is RunEvent.Delivery -> {
                         assertEquals(f.b, event.callee)
                         assertSame(publication.conclusion, event.publications.single().conclusion)

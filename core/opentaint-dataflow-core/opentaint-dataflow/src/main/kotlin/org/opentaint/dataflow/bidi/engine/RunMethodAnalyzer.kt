@@ -33,15 +33,25 @@ class RunMethodAnalyzer(
     val initials: InitialFactStore get() = checkNotNull(initialStore) { "The initial facts were released" }
     val summaries = RunSummaryStore(ap)
     val sourceHits: SourceHitStore? = if (forward) null else SourceHitStore()
+    private var temporary = RequestStorage()
+    private var temporarySinceNanos = 0L
     internal var abstraction: Run1Abstraction? = if (config.run1) Run1Abstraction(
         ops, context.shared.run1StaticProfiles?.get(key.method),
         answer = ::addInitial,
-        publish = { delta -> runnerPort.summaryStorage(key).publishQuestions(delta) },
+        borrowRequests = { input -> runnerPort.summaryStorage(key).borrowMatchingRequests(input) },
+        collectRequests = ::collectRequests,
         statistics = context.shared.requestBatchStatistics,
         policyStatistics = context.shared.abstractionStatistics,
     ) else null
         private set
-    internal fun releaseAbstraction() { abstraction?.release(); abstraction = null }
+    internal fun releaseAbstraction() {
+        abstraction?.release(); abstraction = null
+        if (!temporary.isEmpty) {
+            context.shared.abstractionStatistics?.temporaryChanged(-temporary.dynamicRows.toLong(), -temporary.dynamicMembers)
+            temporary = RequestStorage()
+        }
+        temporarySinceNanos = 0L
+    }
     internal fun unchangedStaticInitial(premise: PremiseKey): InitialAp? =
         if (config.run1 && context.shared.run1StaticProfiles != null) premise as? InitialAp else null
 
@@ -77,7 +87,6 @@ class RunMethodAnalyzer(
         // This is input presence for NO_DEMAND_EDGE, not a distinct retained-group count.
         if (added.layer == Layer.DEMAND && !sawDemandInput) { sawDemandInput = true; demandLayerEdges++ }
         if (config.run1) checkNotNull(abstraction).emit(ref, added) else emit(added)
-        if (abstraction?.hasPending == true) requestWork()
     }
 
     private var sawDemandInput = false
@@ -90,6 +99,33 @@ class RunMethodAnalyzer(
     fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
         check(config.run1) { "Requests exist only in run 1" }
         localServices.addMarkRequests(premise, marks)
+    }
+
+    fun addMarkRequests(rows: RequestRows) {
+        check(config.run1) { "Requests exist only in run 1" }
+        for ((slot, marks) in rows) { ap.cancellation.checkpoint(); collectRequests(slot, marks) }
+    }
+
+    internal fun collectRequests(slot: Run1Slot, offered: RequestMarkSelection) {
+        check(config.run1) { "Requests exist only in run 1" }
+        val statistics = context.shared.abstractionStatistics
+        val counts = statistics?.let { RequestAdmissionCounts() }
+        val beforeRows = temporary.dynamicRows
+        val beforeMembers = temporary.dynamicMembers
+        try {
+            val fresh = offered.minus(runnerPort.summaryStorage(key).borrowRequest(slot), counts, ap.cancellation::checkpoint)
+            if (fresh.isEmpty) return
+            val delta = temporary.addAll(slot, fresh, counts, ap.cancellation::checkpoint)
+            if (!delta.isEmpty && temporarySinceNanos == 0L && context.shared.requestBatchStatistics != null)
+                temporarySinceNanos = System.nanoTime()
+            requestWork() // also schedules request-only actors; producers never read P
+        } finally {
+            if (counts != null) {
+                counts.freshTemporaryMembers = temporary.dynamicMembers - beforeMembers
+                statistics?.temporaryChanged((temporary.dynamicRows - beforeRows).toLong(), counts.freshTemporaryMembers)
+                statistics?.requestOffer(counts)
+            }
+        }
     }
 
     private fun emit(delta: Facts) {
@@ -113,7 +149,12 @@ class RunMethodAnalyzer(
 
     internal fun addInitial(initial: InitialAp) {
         ap.cancellation.checkpoint()
-        check(!config.run1 || initial.tail != Tail.ANY_TAINT) { "Run 1 has no must premise" }
+        if (config.run1) {
+            validateRun1Initial(initial, limit)
+            check(initial.base != STATIC || context.shared.staticFootprint(key.method) != null) {
+                "A run-1 static initial needs its frozen prescan footprint"
+            }
+        }
         check(forward || initial.tail != Tail.ANY_TAINT) { "A backward run has no must premise" }
         val fresh = initials.add(initial)
         context.shared.abstractionStatistics?.initial(fresh)
@@ -143,11 +184,16 @@ class RunMethodAnalyzer(
     }
 
     private val hasPendingAbstractionWork: Boolean get() =
-        abstraction?.hasPending == true || localServices.hasPendingRequests
+        !temporary.isEmpty
 
-    private fun flushAbstractionWork(quantum: Int): Boolean {
-        if (!localServices.flushRequests(quantum)) return false
-        return abstraction?.flush(quantum) ?: true
+    private fun commitRequests() {
+        if (!config.run1 || temporary.isEmpty) return
+        if (temporarySinceNanos != 0L)
+            context.shared.requestBatchStatistics?.serviceDelay(System.nanoTime() - temporarySinceNanos)
+        runnerPort.summaryStorage(key).commit(temporary)
+        context.shared.abstractionStatistics?.temporaryChanged(-temporary.dynamicRows.toLong(), -temporary.dynamicMembers)
+        temporary = RequestStorage() // replace only after synchronous commit and secured sends
+        temporarySinceNanos = 0L
     }
 
     override fun work(quantum: Int): Boolean {
@@ -158,11 +204,10 @@ class RunMethodAnalyzer(
         while (true) {
             ap.cancellation.checkpoint()
             while (!worklist.isEmpty) {
-                // Keep the zero phase separate. A selected nonzero quantum also gives deferred
-                // requests one bounded service opportunity when this method's fact queue stays busy.
+                // Keep the zero phase separate. A quantum yield retains P without publishing it;
+                // only the method fact-queue-empty boundary commits request memberships.
                 if (worklist.hasZeroWork != zeroAtStart) return false
                 if (processed >= quantum) {
-                    if (!zeroAtStart) flushAbstractionWork(quantum)
                     return false
                 }
                 processed++
@@ -172,11 +217,9 @@ class RunMethodAnalyzer(
             flushPublications()
             ap.cancellation.checkpoint()
             if (!worklist.isEmpty || pending.isNotEmpty()) continue
-            val requestsComplete = flushAbstractionWork(quantum)
+            commitRequests()
             ap.cancellation.checkpoint()
-            // Answers and sends can synchronously create facts, publications or a new request
-            // frontier. Retain the existing counted Work token until all of them are complete.
-            if (!requestsComplete) return false
+            // Retain the counted Work reservation through P commit/replacement and sends.
             if (worklist.isEmpty && pending.isEmpty() && !hasPendingAbstractionWork) return true
         }
     }
@@ -257,15 +300,22 @@ class RunMethodAnalyzer(
                     .takeIf { it.isNotEmpty() }?.let { sink to it }
             }
 
-        fun input(premise: PremiseKey, facts: Facts): Unit =
-            applier.statement(rules.summary, premise, facts, Place(node, config.run1, sources = true), sink = add)
+        fun input(premise: PremiseKey, facts: Facts) {
+            val input = if (config.run1) {
+                staticRootFact(ap, facts)?.let { add(premise, it) }
+                withoutStaticRootFact(ap, facts) ?: return
+            } else facts
+            applier.statement(rules.summary, premise, input, Place(node, config.run1, sources = true), sink = add)
+        }
 
         fun drain(after: (PremiseKey, Facts, Triggers) -> Unit = { _, _, _ -> }) {
             var index = 0
             while (index < items.size) {
                 ap.cancellation.checkpoint()
                 val (premise, facts) = items[index++]
-                val triggers = localServices.checkSinks(premise, node, facts, rules.sinks)
+                val ruleInput = if (config.run1) withoutStaticRootFact(ap, facts) else facts
+                val triggers = if (ruleInput == null) Triggers.NONE else
+                    localServices.checkSinks(premise, node, ruleInput, rules.sinks)
                 for ((sink, layer) in triggers.fired) {
                     ap.cancellation.checkpoint()
                     applier.gen(sink.endFacts, ap.zero, Reach.of(layer), add)
@@ -387,6 +437,7 @@ class RunMethodAnalyzer(
             pending = ArrayList()
             edgeStore = null
             initialStore = null
+            temporary = RequestStorage()
         }
         failure?.let { throw it }
     }

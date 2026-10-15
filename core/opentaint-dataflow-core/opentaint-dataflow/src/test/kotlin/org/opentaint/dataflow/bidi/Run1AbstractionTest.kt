@@ -22,7 +22,8 @@ class Run1AbstractionTest {
                 if (empty) Run1StaticLocalProfile.EMPTY else Run1StaticLocalProfile(
                     accesses = listOf(fp, gp), abstractions = listOf(fp.take(1), fp, gp),
                     marks = if (marks) listOf(StaticMarkInterest(interest, StaticMarkRole.SINK,
-                        RequestMarkSet.of(f.mark("T")))) else emptyList())))
+                        RequestMarkSet.of(f.mark("T")))) else emptyList())),
+                declaredFieldUniverse = setOf(Run1Slot.StaticField(fp[0], fp[1]), Run1Slot.StaticField(gp[0], gp[1])))
         })
     private fun actor(f: MethodAnalysisFixtures): RunMethodAnalyzer =
         f.core(localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
@@ -46,16 +47,17 @@ class Run1AbstractionTest {
     }
 
     @Test
-    fun `structural slots need a real supplier at or below and retain the abstract root`(): Unit {
+    fun `broad supplier projects selected structural fields and never starts an abstract class`(): Unit {
         fixture().use { f ->
             val core = actor(f)
             f.admit(core, caller(f, emptyList()), Layer.NORMAL,
                 f.fact(STATIC, tail = Tail.STAR, mark = MarkSlot.STAR))
-            assertEquals(setOf(abstract(f)), core.initials.all().toSet())
+            val fp = path(f, "f")
             val gp = path(f, "g")
+            assertEquals(setOf(abstract(f), abstract(f, fp), abstract(f, gp)), core.initials.all().toSet())
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, gp))
             barrier(f, core)
-            assertEquals(setOf(abstract(f), abstract(f, gp.take(1)), abstract(f, gp)), core.initials.all().toSet())
+            assertEquals(setOf(abstract(f), abstract(f, fp), abstract(f, gp)), core.initials.all().toSet())
             assertTrue(answers(core).isEmpty())
             assertTrue(f.events.filterIsInstance<RunEvent.MarkRequestsIn>().isEmpty())
         }
@@ -73,10 +75,10 @@ class Run1AbstractionTest {
             assertTrue(answers(core).isEmpty())
             val abstracts = core.initials.all().toSet()
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, fp, mark = MarkSlot.Concrete(t)))
-            assertTrue(answers(core).isEmpty(), "Concrete answers wait for the method barrier")
-            barrier(f, core)
             val expected = f.manager.initial(STATIC, f.manager.path(fp), Tail.EXACT,
                 ExclusionSet.Empty, MarkSlot.Concrete(t))
+            assertEquals(setOf(expected), answers(core), "A new concrete supplier reads already installed B immediately")
+            barrier(f, core)
             assertEquals(abstracts + expected, core.initials.all().toSet())
             val deltas = core.edgeDeltas
             f.admit(core, caller(f, context = "another caller"), Layer.NORMAL,
@@ -149,8 +151,7 @@ class Run1AbstractionTest {
             f.drain(core)
             val request = f.events.filterIsInstance<RunEvent.MarkRequestsIn>().single()
             assertEquals(ref.caller, request.method)
-            assertSame(ref.premise, request.premise)
-            assertEquals(RequestMarkSet.of(f.mark("T")), request.marks)
+            assertEquals(mapOf<Run1Slot, RequestMarkSet>(Run1Slot.StaticField(gp[0], gp[1]) to RequestMarkSet.of(f.mark("T"))), request.rows)
             assertTrue(f.vulnerabilities.witnessesOf(1).none(), "An abstract check supplies no predicate proof")
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, gp))
             f.drain(core)
@@ -163,16 +164,22 @@ class Run1AbstractionTest {
     }
 
     @Test
-    fun `joined release clears projected answers and pending policies`(): Unit {
+    fun `emitter retains no answer memo and joined release detaches the emitter`(): Unit {
         fixture().use { f ->
             val core = actor(f)
             val gp = path(f, "g")
-            f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, gp))
+            val ref = caller(f)
+            val input = f.fact(STATIC, gp)
+            f.admit(core, ref, Layer.NORMAL, input)
+            val emitter = assertNotNull(core.abstraction)
+            assertEquals(0L, emitter.pendingAnswerShapeCount)
+            assertEquals(0L, emitter.pendingAnswerMarkCount)
             core.addMarkRequests(abstract(f, gp), RequestMarkSet.of(f.mark("T")))
-            assertTrue(core.localServices.hasPendingRequests)
+            barrier(f, core)
+            assertEquals(1, answers(core).size)
             core.releaseAbstraction()
-            assertFalse(core.localServices.hasPendingRequests)
             assertNull(core.abstraction)
+            assertFailsWith<IllegalStateException> { emitter.emit(ref, input) }
         }
     }
 }

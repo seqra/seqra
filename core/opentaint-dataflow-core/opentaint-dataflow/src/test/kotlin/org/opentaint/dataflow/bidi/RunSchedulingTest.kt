@@ -211,7 +211,7 @@ class RunSchedulingTest {
                             override fun freeze(): Unit = (delegate as SubscriptionHandler).freeze()
                         }
                     }
-                    val config = f.config(L = 3)
+                    val config = f.config(L = 1)
                     run = RunManager(config, shared, factory, steps = steps, quantum = 1)
                     val future = caller.submit<RunResult<RunMethodAnalyzer>> { run.run(10.seconds) }
                     assertTrue(entered.await(5, TimeUnit.SECONDS))

@@ -51,6 +51,9 @@ class SharedObjects(
     var run1StaticProfiles: Run1StaticProfiles? = run1StaticProfiles
         private set
 
+    private val staticFootprints = run1StaticProfiles?.footprints().orEmpty()
+    fun staticFootprint(method: org.opentaint.ir.api.common.CommonMethod): Run1StaticFootprint? = staticFootprints[method]
+
     /** Call only after run-1 workers have joined. Later runs keep their existing demand policy. */
     private var releaseRun1Coverage: (() -> Unit)? = releaseRun1CatalogCoverage
     fun releaseRun1StaticProfiles() {

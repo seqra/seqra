@@ -28,6 +28,10 @@ class MethodAnalysisFixtures(
     val normalExit: Int = 2,
     val exceptionalExit: Int? = null,
     staticProfiles: ((MethodAnalysisFixtures) -> Run1StaticProfiles)? = null,
+    abstractionStatistics: Run1AbstractionStatistics? =
+        if (java.lang.Boolean.getBoolean("org.opentaint.bidi.optimizationStatistics")) Run1AbstractionStatistics() else null,
+    requestBatchStatistics: RequestBatchStatistics? =
+        if (java.lang.Boolean.getBoolean("org.opentaint.bidi.optimizationStatistics")) RequestBatchStatistics() else null,
 ) : AutoCloseable {
     val cancellation = Cancellation()
     val refManager = RefManager()
@@ -126,9 +130,41 @@ class MethodAnalysisFixtures(
         override fun forms(key: MethodKey): MethodForms = forms
         override fun graph(key: MethodKey, direction: Direction): MethodInstGraph = graph(direction)
     })
-    val shared = SharedObjects(manager, ops, interpreter, language, contexts, records, vulnerabilities,
-        UnitResolver { UnknownUnit }, refManager, cancellation, threads = 1,
-        run1StaticProfiles = staticProfiles?.invoke(this))
+    private var profileBound = false
+    private val staticDomain = LinkedHashSet<Run1Slot.StaticField>()
+    private val staticClasses = LinkedHashSet<Int>()
+
+    /** Declare the canonical supplier domain before creating an actor. This does not make it owned. */
+    fun declareStaticDomain(vararg paths: List<Int>) {
+        check(!profileBound) { "The finite static plan is already frozen" }
+        for (path in paths) {
+            require(path.size in 1..2 && path[0].isClass())
+            staticClasses += path[0]
+            if (path.size == 2) staticDomain += Run1Slot.StaticField(path[0], path[1])
+        }
+    }
+
+    private val sharedOwner = lazy {
+        profileBound = true
+        SharedObjects(manager, ops, interpreter, language, contexts, records, vulnerabilities,
+            UnitResolver { UnknownUnit }, refManager, cancellation, threads = 1,
+            run1StaticProfiles = staticProfiles?.invoke(this) ?: collectStaticProfiles(),
+            abstractionStatistics = abstractionStatistics, requestBatchStatistics = requestBatchStatistics)
+    }
+    val shared: SharedObjects get() = sharedOwner.value
+
+    /** Only configured forward forms enter this finite prescan. No runtime input is read here. */
+    private fun collectStaticProfiles(): Run1StaticProfiles {
+        val local = FiniteStaticProfileLocal()
+        statements.values.forEach(local::summary)
+        local.rules(entryRules)
+        exitRules.values.forEach { local.rules(it.rules) }
+        val targets = LinkedHashSet<org.opentaint.ir.api.common.CommonMethod>()
+        callPlans.values.forEach { plan -> local.plan(plan) { targets += it.method } }
+        check(targets.all { it == key.method }) { "Foreign finite callees need an explicit complete static profile" }
+        return Run1StaticProfiles.build(manager, mapOf(key.method to targets), mapOf(key.method to local.profile()),
+            declaredFieldUniverse = staticDomain, declaredClassUniverse = staticClasses)
+    }
 
     val processed = ArrayList<EdgeDelta>()
     val cuts = ArrayList<Pair<Cut, Facts>>()
@@ -138,6 +174,10 @@ class MethodAnalysisFixtures(
     private val questionManagers = IdentityHashMap<RunMethodAnalyzer, SubscriptionManager>()
     private val questionQueue = ArrayDeque<() -> Unit>()
     private val summaryStores = LinkedHashMap<MethodKey, SummaryStorage>()
+    var onRequestNotification: ((RunEvent.ChangedRequests) -> Unit)? = null
+
+    fun requestRow(core: RunMethodAnalyzer, slot: Run1Slot): RequestRowView =
+        summaryStores.getValue(core.key).borrowRequest(slot)
 
     /** Test-owned arrival observations; actors retain none of this input history. */
     fun links(core: RunMethodAnalyzer): List<Link> = inputRows[core].orEmpty().distinct()
@@ -164,12 +204,8 @@ class MethodAnalysisFixtures(
     }
 
     fun flushRequests(core: RunMethodAnalyzer, quantum: Int = 3) {
-        var count = 0
-        do {
-            check(++count <= 100_000)
-            val complete = core.localServices.flushRequests(quantum)
-            pumpQuestions()
-        } while (!complete || core.localServices.hasPendingRequests || questionQueue.isNotEmpty())
+        // F78 submits only after actual method fact/publication work empties.
+        drain(core, quantum)
     }
 
     val published = ArrayList<List<Publication>>()
@@ -215,12 +251,14 @@ class MethodAnalysisFixtures(
             override val steps = ProtocolSteps.Inline
             override fun send(event: RunEvent): Boolean { events += event; return true }
             override fun post(event: RunEvent.Delivery): Boolean { events += event; return true }
-            override fun post(event: RunEvent.QuestionDelivery): Boolean {
-                questionQueue += { questionManagers.getValue(actor).onQuestions(event.callee, event.delta) }
+            override fun post(event: RunEvent.ChangedRequests): Boolean {
+                questionQueue += { questionManagers.getValue(actor).onRequests(event.callee, event.rows) }
+                onRequestNotification?.invoke(event)
                 return true
             }
             override fun summaryStorage(key: MethodKey): SummaryStorage =
-                summaryStores.getOrPut(key) { SummaryStorage(key, manager, ops, steps) }
+                summaryStores.getOrPut(key) { SummaryStorage(key, manager, ops, steps,
+                    shared.run1StaticProfiles?.get(key.method)?.precomputedRequests.orEmpty()) }
             override fun subscribe(sub: Subscription) {
                 val receive = checkNotNull(onSubscribe) { "Subscriptions require an explicit protocol fixture" }
                 subscriptions += sub
@@ -260,12 +298,12 @@ class MethodAnalysisFixtures(
             override val config = config
             override val ops = this@MethodAnalysisFixtures.ops
             override val steps = ProtocolSteps.Inline
-            override fun covered(method: MethodKey, initial: InitialAp, mark: TaintMark): Boolean =
-                shared.run1StaticProfiles?.get(method.method)?.covers(initial, mark) == true
             override fun summaryStorage(key: MethodKey): SummaryStorage = port.summaryStorage(key)
+            override fun staticFootprint(method: org.opentaint.ir.api.common.CommonMethod): Run1StaticFootprint? =
+                shared.run1StaticProfiles?.get(method)?.footprint
             override fun applier(key: MethodKey): SummaryApplier = actor
             override fun post(event: RunEvent.Delivery): Boolean = port.post(event)
-            override fun post(event: RunEvent.QuestionDelivery): Boolean = port.post(event)
+            override fun post(event: RunEvent.ChangedRequests): Boolean = port.post(event)
             override fun send(event: RunEvent): Boolean {
                 events += event
                 if (event is RunEvent.InitialAnswersIn && event.method == actor.key)
@@ -373,6 +411,6 @@ class MethodAnalysisFixtures(
         questionQueue.clear()
         summaryStores.clear()
         inputRows.clear()
-        shared.close()
+        if (sharedOwner.isInitialized()) sharedOwner.value.close()
     }
 }

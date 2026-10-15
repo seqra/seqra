@@ -62,7 +62,7 @@ class StaticCatalogClosureTest {
 
     @Test
     fun `catalog supplies deepest static reads through chains diamonds and recursion in both unit layouts`(): Unit {
-        for (shape in listOf("chain", "diamond", "recursive")) for (limit in 1..3)
+        for (shape in listOf("chain", "diamond", "recursive")) for (limit in 1..1)
             for (sameUnit in listOf(false, true)) for (policy in listOf(SchedulePolicy.FIFO,
                 SchedulePolicy.REPLAY_FIRST, SchedulePolicy.NOTIFY_FIRST)) FiniteProgramFixtures().use { f ->
                 val caller = f.method("$shape caller", listOf(listOf(1), listOf(2), emptyList()), 2).key("root")
@@ -105,7 +105,7 @@ class StaticCatalogClosureTest {
     @Test
     fun `catalog root preserves untouched state and respects class keep strong writes and selected cleaners`(): Unit {
         for (effect in listOf("empty", "kill other field", "clean other field", "kill supplied field", "clean supplied field"))
-            for (limit in 1..3) for (sameUnit in listOf(false, true)) FiniteProgramFixtures().use { f ->
+            for (limit in 1..1) for (sameUnit in listOf(false, true)) FiniteProgramFixtures().use { f ->
                 val caller = f.method("caller $effect", listOf(listOf(1), listOf(2), emptyList()), 2).key("caller")
                 val callee = f.method("callee $effect", listOf(listOf(1), emptyList()), 1).key("callee")
                 val cls = f.ap.accessors.index(ClassStaticAccessor("Box"))
@@ -141,7 +141,7 @@ class StaticCatalogClosureTest {
 
     @Test
     fun `static copies local copies and argument writes keep demands on their original chains with late suppliers`(): Unit {
-        for (origin in listOf("static copy", "static local", "argument")) for (limit in 1..3)
+        for (origin in listOf("static copy", "static local", "argument")) for (limit in 1..1)
             for (sameUnit in listOf(false, true)) for (seed in 0L..3L) FiniteProgramFixtures().use { f ->
                 val caller = f.method("$origin caller", listOf(listOf(1, 2), listOf(3), listOf(3), listOf(4), emptyList()), 4).key("caller")
                 val callee = f.method("$origin callee", listOf(listOf(1), listOf(2), emptyList()), 2).key("callee")

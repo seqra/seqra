@@ -35,6 +35,8 @@ internal data class StaticMarkDescriptor(val path: List<Accessor>, val tail: Tai
 internal class JIRStaticMetadata(
     accesses: Collection<List<Accessor>>, abstractions: Collection<List<Accessor>>,
     marks: Collection<StaticMarkDescriptor>, cleanerMarks: Collection<String>,
+    wideClasses: Collection<Accessor> = emptyList(), val allStatic: Boolean = false,
+    classPoints: Collection<Accessor> = emptyList(),
 ) {
     val accesses: Set<List<Accessor>> = paths(accesses)
     val abstractions: Set<List<Accessor>> = paths(abstractions)
@@ -42,6 +44,8 @@ internal class JIRStaticMetadata(
         it.copy(path = Collections.unmodifiableList(ArrayList(it.path)))
     })
     val cleanerMarks: Set<String> = Collections.unmodifiableSet(LinkedHashSet(cleanerMarks))
+    val wideClasses: Set<Accessor> = Collections.unmodifiableSet(LinkedHashSet(wideClasses))
+    val classPoints: Set<Accessor> = Collections.unmodifiableSet(LinkedHashSet(classPoints))
 
     fun compile(ap: ApManager): Run1StaticLocalProfile {
         fun path(xs: List<Accessor>): List<Int> {
@@ -56,11 +60,13 @@ internal class JIRStaticMetadata(
         }, RequestMarkSet.fromIds(cleanerMarks.map {
             ap.cancellation.checkpoint()
             ap.marks.mark(it).id
-        }.toIntArray()))
+        }.toIntArray()), wideClasses.mapTo(LinkedHashSet(), ap.accessors::index), allStatic,
+            classPoints.mapTo(LinkedHashSet(), ap.accessors::index))
     }
 
     fun union(other: JIRStaticMetadata) = JIRStaticMetadata(accesses + other.accesses,
-        abstractions + other.abstractions, marks + other.marks, cleanerMarks + other.cleanerMarks)
+        abstractions + other.abstractions, marks + other.marks, cleanerMarks + other.cleanerMarks,
+        wideClasses + other.wideClasses, allStatic || other.allStatic, classPoints + other.classPoints)
 
     companion object {
         val EMPTY = JIRStaticMetadata(emptyList(), emptyList(), emptyList(), emptyList())
@@ -79,11 +85,17 @@ internal class JIRStaticMetadataCollector(private val interp: JIRInterpreter) {
         val abstractions = LinkedHashSet<List<Accessor>>()
         val marks = LinkedHashSet<StaticMarkDescriptor>()
         val cleaners = LinkedHashSet<String>()
+        val wideClasses = LinkedHashSet<Accessor>()
+        val classPoints = LinkedHashSet<Accessor>()
+        var allStatic = false
         fun position(fact: PathFact, access: Boolean = true, empty: Boolean = false) {
             if (fact.base != AccessPathBase.ClassStatic || (fact.path.isEmpty() && !empty)) return
             val slot = fact.path.take(2).map(ap.accessors::accessor)
             abstractions.add(slot)
             if (access) accesses.add(slot)
+            if (access && fact.path.isEmpty()) allStatic = true
+            if (access && fact.path.size == 1) classPoints += ap.accessors.accessor(fact.path[0])
+            if (access && fact.path.size == 1 && fact.tail != Tail.EXACT) wideClasses += ap.accessors.accessor(fact.path[0])
         }
         fun literal(pattern: Pattern, role: StaticMarkRole) {
             val fact = pattern.fact
@@ -94,29 +106,48 @@ internal class JIRStaticMetadataCollector(private val interp: JIRInterpreter) {
             marks.add(StaticMarkDescriptor(fact.path.map(ap.accessors::accessor), fact.tail,
                 ap.marks.name(mark.mark), role))
         }
+        fun excludedTarget(from: PathFact, target: PathFact) {
+            if (from.base != AccessPathBase.ClassStatic) return
+            val excluded = (target.mark as? MarkSlot.Star)?.excluded ?: return
+            if (excluded.isEmpty) return
+            position(from, empty = true)
+            for (id in excluded.ids) {
+                ap.cancellation.checkpoint()
+                marks += StaticMarkDescriptor(from.path.map(ap.accessors::accessor), from.tail,
+                    ap.marks.name(org.opentaint.dataflow.bidi.ap.TaintMark(id)), StaticMarkRole.INPUT_GATE)
+            }
+        }
         fun summary(s: StatementSummary) {
             for (micro in s.edges) {
                 ap.cancellation.checkpoint()
                 val edge = micro.edge
                 val keep = edge.from == edge.to && edge.from.mark is MarkSlot.Star
-                position(edge.from, access = !keep)
-                position(edge.to, access = !keep)
+                position(edge.from, access = !keep, empty = !keep)
+                position(edge.to, access = !keep, empty = !keep)
+                excludedTarget(edge.from, edge.to)
                 if (edge.from.mark is MarkSlot.Concrete)
                     literal(Pattern(edge.from, ExclusionSet.Empty), StaticMarkRole.INPUT_GATE)
             }
             for (source in s.sources) {
                 ap.cancellation.checkpoint()
                 for (leaf in source.predicate.leaves) literal(leaf, StaticMarkRole.SOURCE)
-                for (action in source.actions) position(action.target, empty = true)
+                for (action in source.actions) {
+                    position(action.target, empty = true)
+                    for (leaf in source.predicate.leaves) excludedTarget(leaf.fact, action.target)
+                }
             }
             for (conjunction in s.conjunctions) {
                 for (leaf in conjunction.literals) literal(leaf, StaticMarkRole.SOURCE)
                 position(conjunction.target, empty = true)
+                for (leaf in conjunction.literals) excludedTarget(leaf.fact, conjunction.target)
             }
         }
         fun sink(s: SinkRule) {
             for (leaf in s.predicate?.leaves ?: s.patterns) literal(leaf, StaticMarkRole.SINK)
-            for (edge in s.endFacts) position(edge.edge.to, empty = true)
+            for (edge in s.endFacts) {
+                position(edge.edge.to, empty = true)
+                excludedTarget(edge.edge.from, edge.edge.to)
+            }
         }
         fun clean(step: CleanStep) {
             ap.cancellation.checkpoint()
@@ -127,16 +158,40 @@ internal class JIRStaticMetadataCollector(private val interp: JIRInterpreter) {
                     accesses.add(descriptors)
                     abstractions.add(descriptors)
                     step.cleaner.mark?.let { cleaners.add(ap.marks.name(it)) }
+                    if (path.isEmpty()) allStatic = true
+                    else if (path.size == 1 && step.cleaner.reach != org.opentaint.dataflow.bidi.ap.CleanReach.EXACT)
+                        wideClasses += ap.accessors.accessor(path[0])
+                    if (path.size == 1 && step.cleaner.reach != org.opentaint.dataflow.bidi.ap.CleanReach.BELOW)
+                        classPoints += ap.accessors.accessor(path[0])
+                    if (path.size <= 1 && step.cleaner.mark != null &&
+                        step.cleaner.reach != org.opentaint.dataflow.bidi.ap.CleanReach.BELOW) {
+                        marks += StaticMarkDescriptor(path.map(ap.accessors::accessor),
+                            if (path.isEmpty()) Tail.ANY else Tail.EXACT,
+                            ap.marks.name(step.cleaner.mark!!), StaticMarkRole.INPUT_GATE)
+                    }
                 }
                 is CleanStep.Kill -> {
                     summary(step.keepEdges)
+                    if (AccessPathBase.ClassStatic in step.keepEdges.touched &&
+                        step.keepEdges.edges.none { it.edge.from.base == AccessPathBase.ClassStatic }) allStatic = true
                     // A strong kill encodes the written position in its deepest keep's exclusion.
                     val last = step.keepEdges.edges.maxByOrNull { it.edge.from.path.size }?.edge
                     if (last != null) (last.exclusion as? ExclusionSet.Concrete)?.ids?.forEach { field ->
                         position(last.from.copy(path = last.from.path + field), empty = true)
                     }
                 }
-                is CleanStep.Field -> { summary(step.read); summary(step.write) }
+                is CleanStep.Field -> {
+                    summary(step.read); summary(step.write)
+                    // F74's selected cleaner acts on a temporary, but its request belongs to
+                    // the original static read, never to the temporary or the write target.
+                    step.cleaner.mark?.let { mark ->
+                        for (read in step.read.edges) if (read.edge.from.base == AccessPathBase.ClassStatic) {
+                            val from = read.edge.from
+                            marks += StaticMarkDescriptor(from.path.map(ap.accessors::accessor), from.tail,
+                                ap.marks.name(mark), StaticMarkRole.INPUT_GATE)
+                        }
+                    }
+                }
             }
         }
         fun rules(r: RuleStatement) { summary(r.summary); summary(r.endFacts); r.sinks.forEach(::sink) }
@@ -149,15 +204,14 @@ internal class JIRStaticMetadataCollector(private val interp: JIRInterpreter) {
         for (node in method.instList.instructions) {
             ap.cancellation.checkpoint()
             if (node is JIRAssignInst) {
-                fun field(ref: JIRFieldRef?, write: Boolean) {
+                fun field(ref: JIRFieldRef?) {
                     val access = ref?.let(MethodFlowFunctionUtils::mkAccess) as? MethodFlowFunctionUtils.StaticRefAccess ?: return
                     val slot = listOf(access.classStaticAccessor, access.accessor)
                     accesses.add(slot)
                     abstractions.add(slot)
-                    if (write) abstractions.add(listOf(access.classStaticAccessor))
                 }
-                field(node.rhv as? JIRFieldRef, write = false)
-                field(node.lhv as? JIRFieldRef, write = true)
+                field(node.rhv as? JIRFieldRef)
+                field(node.lhv as? JIRFieldRef)
             }
             when (node) {
                 is JMethodEnterInst -> Unit
@@ -175,6 +229,6 @@ internal class JIRStaticMetadataCollector(private val interp: JIRInterpreter) {
                 }
             }
         }
-        return JIRStaticMetadata(accesses, abstractions, marks, cleaners)
+        return JIRStaticMetadata(accesses, abstractions, marks, cleaners, wideClasses, allStatic, classPoints)
     }
 }

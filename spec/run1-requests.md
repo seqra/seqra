@@ -2,8 +2,9 @@
 
 This document is normative for the selected JVM analyzer. It replaces the run-1
 full-query/role request protocol, deferred-answer memo, and request exclusion tests
-in the earlier specifications. It does not change runtime code. The measured runtime
-is `27e22bb1ed871651143538783473cb0d4fcbcf3e`; its reports do not validate F78.
+in the earlier specifications. The [implementation validation](../docs/reports/bidirectional-run1-mark-request-validation-20261015.md)
+records the current runtime checks. The last measured project runtime is
+`27e22bb1ed871651143538783473cb0d4fcbcf3e`; its reports do not validate F78.
 
 Use this document with [ap.md](ap.md), [analyzer-core.md](analyzer-core.md) and
 [interpreter.md](interpreter.md). The constructive proof statements and checked
@@ -21,9 +22,9 @@ Position/full-query theorems keep their old hypotheses; they are not F78 proofs.
 An initial here means a method-entry fact admitted to InitialFactStore, not an
 arbitrary fact at a statement, a source seed, a record conclusion or a member of a
 packed incoming tree. F78 selects JVM run 1 with field limit **exactly 1**. Later
-limits remain positive and nondecreasing. The generic measured driver accepts a
-custom first limit greater than 1; that larger domain is not certified by this
-closed grammar. Nor does a generic AP factory enforce the grammar merely by
+limits remain positive and nondecreasing. The earlier measured driver accepted a
+custom first limit greater than 1; the selected driver now rejects it. That larger
+generic domain is not certified by this closed grammar. Nor does an AP factory enforce the grammar merely by
 constructing an InitialAp.
 
 Let b be an ordinary non-static, nonzero base, not a cleaner temporary; C a legal
@@ -178,7 +179,12 @@ an abstract class slot or request key. A broad supplier's possible class-point
 component uses a conservative concrete MAY/DEMAND direct path when class-level
 rules need it: its initial has tail STAR and Empty E. A nonexact class-point supplier
 also uses STAR. It cannot become a NORMAL exact class-point assumption. Never
-broaden exact class-point taint into field taint.
+broaden exact class-point taint into field taint. Select broad class components by
+structural point ownership, then emit every actual supplied mark for each selected
+point. A metadata mark mask alone can lose an untouched U when a class cleaner
+mentions only T. There is still no class request slot. The
+[codec clarification](../docs/design/bidirectional-run1-static-component-codec-20261015.md)
+states the required packed representation and selected-frontend validation gates.
 
 Always emit the permitted abstract initial and supplied structural field initials.
 In particular, for a selected supplied C.f slot an ANY/must input emits abstract
@@ -354,7 +360,10 @@ concrete analyses. Project a broad supplier into that field component before
 ordinary summary satisfaction; passing the raw ancestor to a descendant-only
 matcher is insufficient. If the required field result is pending, wait for its
 ordinary summary delivery. Do not temporarily fall back to the root identity.
-Class points use the direct concrete path of section 2.
+Class points have separate structural ownership. Owned points use the direct
+concrete path of section 2; the root frame cannot restore them. An exact class
+need does not itself own field cylinders. Unowned point components require the
+same normal-return evidence as unowned fields.
 
 For each unowned component, use the identity FRAME derived from primitive
 noninterference, not the raw root's unrestricted/coarse-E output. The finite
@@ -380,7 +389,12 @@ compact residual view where representable; otherwise enumerate the finite requir
 projection rows transiently. Do not copy every concrete mark onto every field:
 project only marks actually present, retaining packed leaf marks. Respect the
 existing ANY/must/layer rules. An AP codec proof is required to connect this view
-to the stored grammar.
+to the stored grammar. Keep ancestor and tip projections with different E in
+separate transient Facts. NORMAL residuals use compact E masks when representable;
+DEMAND TAINT uses finite field projections and exact DEMAND point views. A point-only
+DEMAND FLOW is unrepresentable with the current grammar. The selected JVM adapter
+must establish the stronger source-route invariant for broad FLOW stated in the
+codec clarification; do not widen or silently discard a legal component.
 
 Apply the same ownership/frame guard to native records, reversed leaf views and
 later-run reads of root-origin summaries. Persisted unrestricted root identity or

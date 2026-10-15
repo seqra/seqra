@@ -237,7 +237,7 @@ class LocalConjunctionTest {
             val core = f.core(index = index, L = 1, demand = demand, seeds = seeds,
                 localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
             core.addRootZero()
-            core.addLink(CallerRef(f.key, f.manager.zero, Layer.NORMAL, f.inst(1)), Layer.NORMAL, f.fact(firstBase, mark = t))
+            f.admit(core, CallerRef(f.key, f.manager.zero, Layer.NORMAL, f.inst(1)), Layer.NORMAL, f.fact(firstBase, mark = t))
             assertEquals(setOf(f.manager.zero, policy), core.initials.all().toSet())
             assertTrue(core.summaries.all().none())
             f.drain(core, quantum = 1)
@@ -258,7 +258,9 @@ class LocalConjunctionTest {
                 assertEquals(setOf(zero), methodEntries(f.ops, core.summaries.all()))
                 assertTrue(f.vulnerabilities.witnessesOf(3).none())
             }
-            assertTrue(f.events.isEmpty())
+            assertTrue(f.events.none { it is RunEvent.MarkRequestsIn })
+            if (index == 1) assertTrue(f.events.any { it is RunEvent.InitialAnswersIn },
+                "The late FLOW check recovers its concrete supplier through queued caller replay")
             assertEquals(0L, core.demandLayerEdges)
         }
     }

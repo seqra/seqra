@@ -109,7 +109,12 @@ internal fun applySummaryPart(ops: ApOps, a: Facts, j: InitialAp, g: Facts, mode
         m.cancellation.checkpoint()
         val one = CollectingOut()
         ops.applyCompiledEdge(a, kind.edge, g.layer == Layer.DEMAND, -1, mode, one)
-        check(one.markRequests.isEmpty())
+        // F78: applying an excluded abstract target preserves the interest on
+        // the caller's original slot before publishing its excluded result.
+        for (mark in one.markRequests) {
+            m.cancellation.checkpoint()
+            out.markRequest(mark)
+        }
         for (r in one.results) {
             m.cancellation.checkpoint()
             out.result(kind.graft(r))
@@ -124,7 +129,10 @@ internal fun applyRecordLeafPart(ops: ApOps, a: Facts, view: RecordLeafView, mod
     val edge = ops.compiled(summaryEdge(view.premise, view.result))
     val one = CollectingOut()
     ops.applyCompiledEdge(a, edge, view.result.demand, -1, mode, one)
-    check(one.markRequests.isEmpty())
+    for (mark in one.markRequests) {
+        m.cancellation.checkpoint()
+        out.markRequest(mark)
+    }
     for (r in one.results) {
         m.cancellation.checkpoint()
         out.result(r)
