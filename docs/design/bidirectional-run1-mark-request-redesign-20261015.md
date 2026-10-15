@@ -38,7 +38,8 @@ The abstraction and summary publisher also maintain separate cumulative request 
 
 New: use a shared authoritative request store and a temporary per-method collector,
 merge mark sets throughout, submit at method-queue-empty, and filter already admitted
-requests before per-mark propagation. The abstraction reads only the shared store.
+requests before per-mark propagation. Skip upstream request propagation for concrete
+initials. The abstraction reads only the shared store.
 
 Why: repeated contributions become one pending set, and repeated admitted requests
 need no transport or receiver work. The design retains the caller inputs required
@@ -60,14 +61,25 @@ requests[full MethodKey][slot] -> MarkSet
 ```
 
 The full MethodKey includes entry and context. Exclude zero and cleaner temporaries.
-There is no separate full query, tail, field exclusion E, mark exclusion mx, rule role,
+There is no separate full query, tail, field exclusion E, mark exclusion, rule role,
 caller or call site in a request key. Requested marks are independent alternatives,
 not an AND premise. Source/sink occurrence identities and proofs remain in their
 existing rule stores.
 
-Incoming field E is ignored for request matching. A request has no mx. If an incoming
-FLOW excludes T, it cannot supply or propagate that requested mark. Other requested
-marks can still use the supplier. A FLOW supplier never gives a concrete answer.
+Ignore incoming field exclusions E and FLOW mark exclusions during request matching
+and propagation. A request has neither kind of exclusion. Excluding T already emits
+a request for T on the original abstract initial. Forwarding T again therefore adds
+only a duplicate to that initial's merged request set. Section 7 explains the union.
+A FLOW supplier never gives a concrete answer; a concrete answer still requires an
+incoming concrete fact carrying the requested mark.
+
+Requests target abstract-mark initials only. A fact with a concrete-mark initial
+does not generate or propagate a request to that initial. Its concrete analysis
+already evaluates mark conditions directly. Use the actual fact's premise, including
+the CallerRef premise for a call input; do not infer it from the enclosing method
+analysis. A concrete current fact never propagates a request upstream. It can instead
+answer a matching callee request with its concrete mark. Answering a request and
+propagating it to an earlier abstract initial are separate operations.
 
 Match the two slot forms directly. A non-static request matches a nonempty supplier
 on its base. A static request matches its class/field or a broad ancestor supplier;
@@ -181,6 +193,9 @@ The plan does not establish that such an origin already carries the required mar
 
 ### 3.3 Requests that remain dynamic
 
+The dynamic routes below require an abstract-mark original initial. Check that
+before collecting marks or doing an upstream request join.
+
 | Situation | Required dynamic handling |
 | --- | --- |
 | A mark check, concrete input gate or selected cleaner needs T under a non-static original initial | Collect T for that original BaseSlot |
@@ -188,6 +203,7 @@ The plan does not establish that such an origin already carries the required mar
 | A static input reaches a non-static checked position, or a non-static input reaches a static checked position | Keep the original initial slot; the current checked base is not the request origin |
 | A callee request matches a caller FLOW input | Route eligible marks to the full caller MethodKey and its original normal slot |
 | A runtime need is not covered by installed planned membership | Retain its normal dynamic route and merge it into the temporary collector |
+| A fact has a concrete-mark initial, or the current fact is concrete | No upstream request; evaluate concrete marks directly and retain concrete answers |
 | The special static-root summary seed | Skip rule evaluation; no root request |
 
 Example:
@@ -248,8 +264,9 @@ Prove it through the following obligations:
    identity route; do not guess an origin from the transformed output field.
 5. **Broad supplier coverage.** Root/class ANY suppliers still need projection onto
    relevant normal field slots. Define the complete relevant-slot set and show that
-   no valid concrete answer disappears. Ignoring E and excluding absent marks must
-   agree with the independent request matcher. Separately prove preservation of exact
+   no valid concrete answer disappears. Ignoring exclusions in the request join and
+   requiring actual concrete marks for answers must agree with the independent
+   request matcher. Separately prove preservation of exact
    class-point taint, which is legal and is not excluded by the empty-root assumption.
    Neither discard it nor broaden it into field taint. Its direct concrete path must
    cover class-level conditions and subsequent caller/summary use.
@@ -259,6 +276,19 @@ Prove it through the following obligations:
    native and opposite-direction persisted summary reads in later runs too.
 7. **Arrival-order coverage.** Prove the input/request ordering law in section 8,
    including a precomputed need materialized after an earlier input.
+8. **Concrete-initial safety.** Show that concrete-initial analyses evaluate their
+   actual marks without requesting a new initial. Concrete current facts, including
+   source-generated marks, must still answer matching callee
+   requests. Show that skipping their upstream request propagation loses no answer
+   or required analysis; do not discard their ordinary transfers or summaries.
+   Preserve the existing K6 invariant: a FLOW fact has a single abstract-mark premise,
+   and concrete facts retain their actual zero/concrete/multiple-concrete premise.
+   An invalid premise/fact pairing remains an invariant failure, not an ignored input.
+9. **Excluded-mark redundancy.** Show that excluding T already collects or admits
+   T for the same full MethodKey and original slot. Include generated rewriters and
+   exclusions carried through summaries and calls. Thus forwarding an excluded T
+   leaves the eventual request union unchanged. Pending requests use the normal
+   method barrier; no exclusion-specific tracking is needed.
 
 Use an induction over request producers and call propagation to connect these
 obligations. Independently check that no accepted transfer introduces the forbidden
@@ -272,36 +302,42 @@ For each method use the same `RequestStorage` class in two places:
 | Instance | Owner and purpose | Permitted use |
 | --- | --- | --- |
 | Authoritative requests | Inside SummaryStorage; cumulative admitted requests | Union admission and immutable reads by abstraction/propagation |
-| Temporary requests | Inside the method actor; contributions since last submission | Producer writes/merges and destructive drain at the method barrier |
+| Temporary requests | Inside the method actor; contributions since last submission | Producer writes/merges, then commit and replace at the method barrier |
 
 The temporary instance is write-only to producers. It is not queried as a second
 membership oracle and does not retain previously submitted requests.
 
 ```text
 RequestStorage.addAll(slot, MarkSet)
-RequestStorage.takeBatch() -> detached RequestBatch
 RequestStorage.borrow(slot) -> immutable MarkSet  // authoritative instance only
+SummaryStorage.commit(requests: RequestStorage)
 ```
 
 Use owner-only access for the temporary instance. SummaryStorage synchronizes the
 authoritative instance. The same storage class need not own thread synchronization.
-Keep both APIs free of callbacks. Independent marks always union.
+Keep RequestStorage free of callbacks. Independent marks always union.
 
 At the method barrier:
 
 ```text
-batch = temporary.takeBatch()       // temporary becomes empty before callbacks
-fresh = summaryStorage.commit(batch)
+summaryStorage.commit(temporary)
+temporary = new RequestStorage()
 
-commit(batch):
-    fresh[slot] = batch[slot] - authoritative[slot]
+commit(requests):
+    fresh[slot] = requests[slot] - authoritative[slot]
     authoritative[slot] union= fresh[slot]
-    return only nonempty fresh sets
+    enqueue notifications for nonempty fresh sets after releasing the lock
 ```
 
-Notify subscribers after releasing the lock, with one grouped slot/mark batch per
-subscribed caller runner. Empty fresh results produce no notification. New contributions
-during submission go into the now-empty temporary instance for a subsequent batch.
+Commit reads the submitted instance synchronously. It stores immutable admitted sets
+and queues one immutable grouped slot/mark batch per subscribed caller runner. It does
+not retain the mutable temporary store. Empty fresh results produce no notification.
+
+Notifications use the existing queued delivery, including local delivery. They do
+not reenter the method actor during commit. Only that actor writes its temporary
+store, so it can replace the instance immediately after commit returns. Contributions
+from later events go into the new instance. No takeBatch or destructive-drain API is
+needed.
 
 Only authoritative requests are read by the abstraction and early propagation filter.
 This intentionally permits equal proposals before admission. They merge in the temporary
@@ -326,14 +362,16 @@ Select this simple policy:
    effects remain queued even within the same unit; do not reenter an input-store visit.
 3. The receiver merges into the target method's temporary instance and schedules its
    existing method Work. A request-only method needs no synthetic fact or zero seed.
-4. When the fact queue is empty, flush normal summary publications, detach the request
-   batch, commit it, and secure its notification deliveries.
-5. If callbacks create facts, resume fact work. If temporary requests remain, submit
+4. When the fact queue is empty, flush normal summary publications, call
+   `summaryStorage.commit(temporary)`, then set `temporary = new RequestStorage()`.
+   Commit secures its queued notification deliveries before returning.
+5. If queued effects create facts, resume fact work. If temporary requests remain, submit
    another batch. Report method completion only after all method-owned work is empty.
 
-Keep the existing Work reservation during submission and arrange all child events before
-releasing it. This uses the current work/completion mechanism; it needs no new mailbox,
-unit wake latch, registration lane, version cursor or scheduler priority.
+Keep the existing Work reservation through commit and replacement, and arrange all
+child events before releasing it. This uses the current work/completion mechanism;
+it needs no new mailbox, unit wake latch, registration lane, version cursor or
+scheduler priority.
 
 The policy does not promise a maximum request delay while a method remains busy. Measure
 that delay and temporary-store sizes. An earlier barrier is a later option only if those
@@ -342,34 +380,72 @@ measurements show a problem; ordinary scheduling quanta and cancellation remain 
 ## 7. Reduce propagation before expanding marks
 
 Current: FLOW replay invokes one climb callback per eligible mark and often queues
-requests already admitted by the destination.
+requests already admitted by the destination. The proposal did not explicitly state
+the early concrete-initial guard.
 
-New: after slot eligibility, compute a mark-set contribution for the original target:
+New: first inspect the originating initial's mark. If it is concrete, skip upstream
+request propagation before slot matching, mark scans or target lookups. If the current
+fact is concrete, it can supply an answer but also needs no upstream request. Only
+FLOW facts under abstract-mark initials enter the propagation path.
+Use the actual edge/input premise. A source fact created while a method is processing
+an abstract initial still keeps its own actual premise; the method's active analysis
+does not make that concrete fact an abstract dependency. Preserve the K6 checks.
+
+The old notation `mx` meant `FlowTree.markExclusion`: marks excluded from the current
+abstract FLOW fact. It does not belong in this request join. When an operation
+excludes T, it immediately requests T on the original abstract initial. A later
+request can therefore include T without changing the eventual stored request set:
 
 ```text
-useful = offeredMarks - incomingFLOW.mx - targetAuthoritativeRequests[originalSlot]
+request emitted when excluding T:  {T}
+later propagated request:         {T,U}
+merged requests for the initial:  {T,U}
 ```
+
+Subtracting excluded marks from the later request gives the same union. Omit that
+subtraction and its per-FLOW set operations. Destination admission handles duplicates,
+including duplicates of a request still waiting in the temporary collector.
+
+After these guards and slot eligibility, compute the contribution for the original
+abstract initial:
+
+```text
+validate the existing premise/fact invariant
+
+// Concrete-answer handling is independent of the upstream branch below.
+if incomingFact is TAINT:
+    handle matching concrete answers
+
+// Upstream request propagation only:
+if originalPremise is not InitialAp or originalPremise.mark is Concrete:
+    skip upstream request propagation
+if incomingFact is not FLOW:
+    skip upstream request propagation
+
+useful = offeredMarks - targetAuthoritativeRequests[originalSlot]
+```
+
+`offeredMarks` is the callee's requested mark set for the matched slot. For
+`offeredMarks = {T,U,V}` and already admitted `{T,U}`, only V needs a new upstream
+contribution. If T is still pending locally, a forwarded T merges with it at the
+owner. Neither field exclusions E nor FLOW mark exclusions are consulted.
 
 Read only the authoritative store. Do not query the write-only temporary collector.
 A stale read can cause an extra proposal, which union/admission handles safely.
 
 Merge contributions for the same destination method/slot before sending a batch.
-Do not first expand T/U/V into separate callbacks and events. For suppliers with the
-same offered set and destination, allowed marks combine as:
-
-```text
-union_j (offered - mx_j) = offered - intersection_j(mx_j)
-```
-
-Using the union of excluded marks would lose a valid route. Sorted set operations
+Do not first expand T/U/V into separate callbacks and events. Union their requested
+marks directly, regardless of differences in FLOW mark exclusions. Set operations
 still inspect members; count those scans separately from avoided callbacks/transport.
 Use no persistent request-by-input seen-pair table or dependency cache.
 
 Batch changed slots for one callee and visit each relevant stored caller-input group
 once for that batch. Union marks from matching slots before routing the result. A
-fresh FLOW input/growth also checks current authoritative requests. Keep the ordinary
-input-store summary application and its full caller/call-site/layer/joint-premise
-identity unchanged. Ordinary summary matching still uses its original exclusion rules.
+fresh FLOW input/growth under an abstract initial also checks current authoritative
+requests. Keep the ordinary input-store summary application and its full
+caller/call-site/layer/joint-premise identity unchanged. Ordinary summary matching
+and rule evaluation still use their original exclusion rules. Ignoring exclusions
+for requests never makes a FLOW fact evidence that a concrete mark is present.
 
 ## 8. Handle late requests without a deferred-answer memo
 
@@ -380,8 +456,13 @@ call inputs and provenance, not another request relation.
 | Arrival | Request-specific handling |
 | --- | --- |
 | New concrete input | Abstraction reads authoritative requests and emits matching concrete initials |
-| Newly admitted request marks | Replay their batch against retained caller inputs, both TAINT and FLOW |
-| New FLOW input/growth | Join with current admitted requests and route useful marks to original caller slots |
+| Newly admitted request marks | Concrete inputs answer; FLOW inputs propagate only under abstract-mark caller initials |
+| New FLOW input/growth under an abstract-mark caller initial | Join with current admitted requests and route useful marks to original caller slots |
+| Concrete-mark caller initial | Skip upstream request propagation; preserve concrete answers and ordinary summary work |
+
+A TAINT input supplies a mark to the callee; it does not request a mark from its
+caller. Preserve this answer path even when the caller initial is concrete. Apply
+the initial-mark guard to upstream propagation, not to the concrete-answer path.
 
 Enforce this production ordering:
 
@@ -412,14 +493,14 @@ Do not add hard pending limits, emergency admission, backpressure, resumable sca
 rescan-all fallbacks in this iteration. The measurements do not establish a need for
 them. They would complicate the request protocol before measuring this simpler design.
 
-The temporary collector stores one merged mark set per slot and is cleared at method
-submission. Track its peak slots, mark cells and time before submission. This is a
-measurement requirement, not a fixed resource guarantee. If it becomes a demonstrated
-problem, propose a targeted change later.
+The temporary collector stores one merged mark set per slot and is replaced after
+method submission. Track its peak slots, mark cells and time before submission.
+This is a measurement requirement, not a fixed resource guarantee. If it becomes
+a demonstrated problem, propose a targeted change later.
 
 | Priority | Current versus new | Expected effect and limit |
 | --- | --- | --- |
-| 1 | Per-mark climbs before destination dedup -> set contributions minus admitted target marks | Avoid repeated callbacks and transport; eligible fraction needs measurement |
+| 1 | Per-mark climbs before destination dedup -> abstract-initial guard, then set contributions minus admitted marks | Skip ineligible propagation early and avoid repeated callbacks and transport; eligible fraction needs measurement |
 | 2 | Per-question replay -> batched changed slots and method submissions | Fewer repeated visits and messages; no assumed unit-barrier benefit |
 | 3 | Two cumulative request copies -> one authoritative copy plus temporary writes | Avoid duplicate cumulative reconstruction; temporary data is pending only |
 | 4 | Speculative concrete scans/memo -> new-input read plus late-request input replay | Remove the deferred-answer memo under the ordering proof |
@@ -435,19 +516,25 @@ and caller inputs remain. No speedup or 60-second success is established yet.
 
 1. Specify and prove the post-prescan plan, static/dynamic coverage theorem and root
    rule-evaluation policy under the exact-static-root assumption. Define the independent
-   two-slot matcher/projector, including broad suppliers and absent marks.
+   two-slot matcher/projector, including broad suppliers, concrete answers and the
+   redundancy of requests for excluded marks.
 2. Use the same RequestStorage class for authoritative SummaryStorage requests and
    the write-only per-method temporary collector. Seed the shared store from the plan;
    remove separate cumulative abstraction requests and request roles/full patterns.
-3. Connect temporary collection and method-queue-empty submission to existing method
-   Work, grouped normal notifications and completion accounting. Add no unit barrier.
+3. Connect temporary collection and method-queue-empty commit-and-replace to existing
+   method Work, grouped queued notifications and completion accounting. Add no unit
+   barrier.
 4. Enforce summary-subscription/input admission before callee input delivery. Read only
    authoritative requests in abstraction. Remove the deferred-answer memo and duplicate
    fresh-concrete-input request replay after the arrival-order controls pass.
-5. Replace scalar FLOW request expansion with early admitted-set filtering, merged
-   contributions and batched slot/input visits. Preserve ordinary summary/proof logic.
+5. Skip upstream propagation for concrete initials and concrete current facts before
+   doing request joins. For abstract-initial FLOW inputs, replace scalar expansion
+   with early admitted-set filtering, merged contributions and batched
+   slot/input visits. Preserve concrete answers and ordinary summary/proof logic.
+   Ignore field and FLOW mark exclusions in request joins and propagation.
 6. Remove obsolete request code and counters. Verify that the temporary instance is
-   drained, not a hidden cumulative mirror. Use descriptive names in new APIs/reports.
+   replaced after commit, not a hidden cumulative mirror. Use descriptive names in
+   new APIs/reports. Count concrete-initial skips and retained concrete answers.
 7. Run focused tests and then the same four fixed project configurations with a fresh
    main comparison. First assess ThingsBoard run-1 work reduction; report every reached,
    completed and accepted iteration and strict findings. No runtime tests are added or
@@ -455,12 +542,16 @@ and caller inputs remain. No speedup or 60-second success is established yet.
 
 Required controls include source/sink AND/OR predicates, microedge gates, cleaners and
 rewriters; recursive call-graph closure; C.g -> C.f and argument/static transfers;
-root/class ANY suppliers; ignored E and absent marks; cleaned f/T versus unchanged
-g/T; later persisted summary reads; both input/request orders; late callers; input
-growth; exact class-point taint and class-level rules; request-only method Work;
-writes during submission; duplicate temporary unions; stale authoritative reads;
-local queued effects; cancellation/rejected sends;
-completion immediately after a final flush; and fresh-run isolation.
+root/class ANY suppliers; ignored E and FLOW mark exclusions; missing concrete marks
+not producing answers; cleaned f/T versus unchanged g/T; later persisted summary
+reads; both input/request orders; late callers; input
+growth; exact class-point taint and class-level rules; concrete-initial propagation
+skips with preserved late concrete answers; actual source/summary/call premises and
+K6 checks; exclusion-emitted requests merging with later T/U requests under either
+commit order; two FLOW routes with different excluded marks; request-only method
+Work; queued events after commit-and-replace; duplicate temporary unions; stale
+authoritative reads; local queued effects; cancellation/rejected sends; completion
+immediately after a final flush; and fresh-run isolation.
 
 Use a scalar oracle for the new policy. Request membership proves neither a rule
 condition nor candidate confirmation. Compare strict finding locations and actual
