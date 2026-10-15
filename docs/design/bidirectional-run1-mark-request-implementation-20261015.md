@@ -38,7 +38,13 @@ sealed interface Run1Slot {
 
 // Full MethodKey is the owner; it includes entry and context.
 typealias RequestRows = ImmutableMap<Run1Slot, ImmutableMarkSet>
-data class ChangedRequests(val rows: RequestRows)
+
+// Posted to a subscribed CALLER RUNNER, which owns its caller-input directory.
+data class ChangedRequests(val callee: MethodKey, val rows: RequestRows) : RunEvent
+
+// Routed to the METHOD OWNER. Rows use that method's original initial slots.
+data class MarkRequestsIn(val method: MethodKey, val rows: RequestRows) : RunEvent
+data class InitialAnswersIn(val method: MethodKey, val answers: ImmutableSet<InitialAp>) : RunEvent
 
 // A borrowed selection, with no retained merged array/map.
 data class RequestRowView(
@@ -51,10 +57,15 @@ data class RequestRowView(
         dynamic.forEach(visit)
     }
 }
+
+data class RequestedRow(val slot: Run1Slot, val marks: RequestRowView)
 ```
 
 Requests carry no full pattern, tail, E, mark exclusion, rule role, caller or call
 site. Those ordinary rule and caller identities retain their current owners.
+The event envelope carries the destination or callee key; it does not add a
+caller/call-site dimension to stored request memberships. `ChangedRequests`
+replaces the payload of the existing `QuestionDelivery` caller-runner event.
 
 ## 2. One shared base; the same storage class for admitted and temporary requests
 
@@ -140,9 +151,13 @@ fun buildStaticPlans(joinedPrescan: PrescanResult): Map<Method, StaticPlan> {
 // Kept separately for later native/reversed readers; this holds no request map.
 val stableStaticFootprints = frozenRun1Plans.mapValues { it.value.footprint }
 
-fun afterRun1Joined() {
-    releaseRun1ActorsAndSummaryStores()
-    frozenRun1Plans = null // releases B and wide/class mark interests after all work joined
+fun releaseRun1AfterJoinedBarrier() {
+    check(allRun1RequestWorkJoined())
+    check(reportPersistAndHandOffConsumedFrozenRun1State())
+    releaseRun1ActorsAndSummaryStores() // includes R/D/P and all request-plan references
+    frozenRun1Plans = null // releases B and wide/class mark interests
+    // Broad owner release follows the existing barrier's use of frozen summaries,
+    // source hits and witnesses. Stable structural footprints remain for record readers.
 }
 ```
 
@@ -155,13 +170,24 @@ request store.
 ### 3.2 Bind the shared map before the first subscriber or input
 
 ```kotlin
-class SummaryStorage(val method: MethodKey, val plan: StaticPlan) {
+class SummaryStorage(val method: MethodKey, plan: StaticPlan) {
     private val lock = Any()
     private val requests = RequestStorage(sharedBase = plan.precomputedRequests)
+    private val subscribers = mutableSetOf<CallerRunnerPort>()
     // Empty D. The constructor borrows B; it does not iterate/copy B.
 
     fun borrowRequest(slot: Run1Slot): RequestRowView = synchronized(lock) {
         requests.borrow(slot) // captures immutable row values
+    }
+
+    fun borrowMatchingRequests(input: Facts): List<RequestedRow> = synchronized(lock) {
+        requests.borrowMatchingRows(input).toList()
+        // Transient row descriptors borrow immutable B/D mark sets. No iterator
+        // over the mutable additions map escapes the lock; no merged R copy.
+    }
+
+    fun registerSubscriber(callerRunner: CallerRunnerPort) = synchronized(lock) {
+        subscribers.add(callerRunner) // once per runner/full callee key
     }
 }
 
@@ -190,53 +216,65 @@ fun submitCallInput(part: Subscription) {
         calleeStore.registerSubscriber(callerRunner) // once per caller runner/callee
         CallerInputDirectory()
     }
-    inputs.admitOriginalHeaderAndFacts(part)
-    replayOrdinarySummaries(part)
-    if (part.added is FLOW) inspectNewFlowInput(part, calleeStore)
-    sendCounted(LinkIn(part)) // TAINT arm reads R at the callee
+    val admission = inputs.admitOriginalHeaderAndFacts(part)
+    if (admission != null) {
+        replayOrdinarySummaries(admission.fresh) // existing fresh-delta contract
+        val current = admission.current // original header + current accumulated Facts
+        if (current.added is FLOW) {
+            val effects = Effects()
+            collectFlowEffects(current, calleeStore.borrowMatchingRequests(current.added), effects)
+            effects.sendCountedAfterVisit()
+        }
+    }
+    sendCountedToOwner(LinkIn(part)) // new TAINT reads R at the callee
 }
 
-fun onLinkIn(part: Subscription) {
+fun MethodActor.onLinkIn(part: Subscription) {
+    check(part.callee == method)
     emitPermittedAbstractInitials(part.added)
-    emitDirectClassComponents(part.added)
+    forEachDirectClassInitial(part.added, plan.classPointNeeds, ::admitRun1Initial)
     activateRelevantWideNeeds(part.added)
     if (part.added is TAINT) {
-        for (row in summaries.requestsMatching(part.added)) {
-            emitActualConcreteAnswers(row.slot, row.marks, part.added)
-        }
+        val rows = summaries.borrowMatchingRequests(part.added)
+        forEachConcreteAnswer(part.added, rows, ::admitRun1Initial)
     }
     // No supplier history, speculative answer scan or answer memo.
 }
 ```
 
 Precomputed requests have been visible since storage construction, so every new
-input sees them. Fresh dynamic requests replay older retained caller inputs through
-the ordinary notification channel. Both arms are required; no extra fresh-TAINT
-request replay is added in the caller.
+input sees them. Section 7 defines the late dynamic-request path. New TAINT input
+is answered only at the callee; the caller's fresh-input request join handles FLOW.
+This snippet deliberately uses `admission.current` for fresh FLOW/growth. It can
+rescan older geometry on growth, which must be counted and measured. It preserves
+the original admitted group header; a normalized AP delta is not a replacement
+header. Ordinary summary replay still uses `admission.fresh`.
 
 ### 3.4 Unchanged and changed origins
 
 ```kotlin
-fun collectFlowEffects(part: Subscription, rows: Sequence<RequestedRow>, out: Effects) {
+fun collectFlowEffects(part: Subscription, rows: Iterable<RequestedRow>, out: Effects) {
     validateExistingPremiseFactInvariant(part.ref.premise, part.added) // K6
     if (part.added !is FLOW) return // concrete answers have their own branch
     val original = part.ref.premise.asNormalAbstractRun1SlotOrNull() ?: return
 
+    val offered = MarkSetBuilder()
     for (row in rows) {
         if (!slotMatches(row.slot, part.added)) continue // ignores request E/mx
 
         // Per queried slot, never per whole input or whole plan.
-        val baseOffer = if (original == row.slot && original is Run1Slot.StaticField) {
-            ImmutableMarkSet.EMPTY // closed B_callee(slot) is already in B_caller(slot)
-        } else {
-            row.marks.precomputed // changed origin must still receive these marks
+        if (original != row.slot || original !is Run1Slot.StaticField) {
+            offered.addAll(row.marks.precomputed) // changed origins keep these marks
         }
-        val offered = baseOffer.union(row.marks.dynamic)
-        if (offered.isEmpty()) continue
-        val targetR = summaryStorage(part.ref.caller).borrowRequest(original)
-        val useful = offered.minus(targetR)
-        if (useful.isNotEmpty()) out.requests.merge(part.ref.caller, original, useful)
+        // Otherwise skip the whole B row: caller's closed B already contains it.
+        offered.addAll(row.marks.dynamic) // fresh D is never suppressed by B inheritance
     }
+    if (offered.isEmpty()) return
+    val target = part.ref.caller // full caller MethodKey, not part.callee
+    val targetR = summaryStorage(target).borrowRequest(original)
+    val useful = offered.freeze().minus(targetR)
+    if (useful.isNotEmpty()) out.request(target, original, useful)
+    // Union all matching rows, read target R and merge once per input visit.
 }
 ```
 
@@ -271,7 +309,8 @@ fun MethodActor.activateRelevantWideNeeds(input: Facts) {
 }
 
 fun onMarkRequestsIn(event: MarkRequestsIn) {
-    actor(event.method).collectRequests(event.slot, event.marks)
+    val target = actor(event.method) // routed to this method's owner runner
+    for ((slot, marks) in event.rows) target.collectRequests(slot, marks)
 } // re-filter a queued/stale sender proposal against current R
 ```
 
@@ -284,17 +323,20 @@ or per-input request matrix is needed.
 
 ```kotlin
 fun SummaryStorage.commit(temporary: RequestStorage) {
-    val changed = synchronized(lock) {
-        immutableRows {
+    val (changed, recipients) = synchronized(lock) {
+        val freshRows = immutableRows {
             for ((slot, marks) in temporary.pendingRowsForCommit()) {
                 val fresh = requests.addAll(slot, marks) // subtracts B union D
                 if (fresh.isNotEmpty()) put(slot, fresh)
             }
         }
+        freshRows to if (freshRows.isEmpty()) emptyList() else subscribers.toList()
+        // Registration and recipient capture share this storage boundary.
     }
     if (changed.isEmpty()) return
-    for (subscriber in subscribers) {
-        subscriber.sendCounted(ChangedRequests(changed)) // queued, including local delivery
+    val event = ChangedRequests(callee = method, rows = changed)
+    for (callerRunner in recipients) {
+        requireAccepted(callerRunner.postCounted(event)) // explicit caller-runner destination
     }
 } // never retains temporary or invokes a solver/actor callback inline
 
@@ -383,12 +425,13 @@ onRootStart()                         { admitRun1Initial(canonicalZero) }
 onIncomingReach()                     { admitRun1Initial(canonicalZero) }
 onSuppliedNormalSlot(slot)            { admitRun1Initial(slot.abstractInitial()) }
 onStaticInput()                       { admitRun1Initial(specialStaticRoot) }
-onRequestedTaint(slot, mark, supplier) {
-    require(mark in summaries.borrowRequest(slot))
-    projectConcrete(slot, mark, supplier).forEach(::admitRun1Initial)
+onRequestedTaint(supplier) {
+    val rows = summaries.borrowMatchingRequests(supplier)
+    forEachConcreteAnswer(supplier, rows, ::admitRun1Initial)
 }
-onExactClassInput(supplier)           { directClass(supplier)?.let(::admitRun1Initial) }
-onBroadClassNeed(need, supplier)      { projectClass(need, supplier)?.let(::admitRun1Initial) }
+onDirectClassInput(supplier)          {
+    forEachDirectClassInitial(supplier, plan.classPointNeeds, ::admitRun1Initial)
+}
 
 // Source/end-GEN and sink/source seeds create edge work under their actual premise.
 // They do not admit arbitrary new run-1 method initials. ND members are not a
@@ -411,26 +454,45 @@ fun TAINT.concreteLeaves(): Sequence<ConcreteBranch> = sequence {
     // Keep branch-specific mark sets. Do not union exactMarks with anyMarks.
 }
 
-fun projectConcrete(slot: Run1Slot, mark: Mark, supplier: Facts): Sequence<InitialAp> = sequence {
-    if (supplier !is TAINT) return@sequence
-    for (leaf in supplier.concreteLeaves()) {
-        if (mark !in leaf.actualMarks || !slotMatches(slot, leaf)) continue
-        val initial = when (slot) {
-            is Run1Slot.Base -> if (leaf.isExactBaseRoot) {
-                exactInitial(slot.base, emptyPath, mark)
-            } else {
-                chainInitial(slot.base, emptyPath, mark)
-            }
-            is Run1Slot.StaticField -> when {
-                leaf.isExactAt(slot) -> exactInitial(STATIC, slot.path, mark)
-                leaf.isAnyOrMustAt(slot) -> chainInitial(STATIC, slot.path, mark)
-                leaf.isBroadAncestorOf(slot) -> chainInitial(STATIC, slot.path, mark)
-                else -> null
+fun forEachConcreteAnswer(
+    supplier: TAINT,
+    rows: Iterable<RequestedRow>, // only admitted marks: effective R or a committed fresh delta
+    emit: (InitialAp) -> Unit,
+) {
+    for (leaf in supplier.concreteLeaves()) { // visit the branch once for the whole mark batch
+        for (row in rows) {
+            if (!slotMatches(row.slot, leaf)) continue
+            val suppliedAndRequested = leaf.actualMarks.intersect(row.marks)
+            if (suppliedAndRequested.isEmpty()) continue
+            val slot = row.slot
+            val (base, path) = slot.geometry()
+            val exact = when (slot) {
+                is Run1Slot.Base -> leaf.isExactBaseRoot
+                is Run1Slot.StaticField -> leaf.isExactAt(slot)
+            } // geometry once per matching branch/row, before enumerating marks
+            suppliedAndRequested.forEach { mark ->
+                val initial = if (exact) exactInitial(base, path, mark)
+                    else chainInitial(base, path, mark) // nonexact field/ancestor or ordinary base
+                emit(initial) // one scalar key is unavoidable per distinct concrete initial
             }
         }
-        if (initial != null) yield(initial)
-    } // preserve both exact and chain alternatives; InitialFactStore deduplicates
+    } // preserve exact and chain alternatives; InitialFactStore deduplicates
     // Emitted E is empty; ordinary caller matching retains original E/layer.
+}
+
+fun forEachDirectClassInitial(input: Facts, needs: ClassPointNeeds, emit: (InitialAp) -> Unit) {
+    if (input !is TAINT) return
+    for (leaf in input.concreteLeaves()) {
+        if (leaf.isExactClassPoint) {
+            leaf.actualMarks.forEach { mark -> emit(exactInitial(STATIC, leaf.path, mark)) }
+        } else if (leaf.isAnyOrMustStaticRootOrClass) {
+            for (need in needs.matchingBroadClassNeeds(leaf)) {
+                leaf.actualMarks.intersect(need.marks).forEach { mark ->
+                    emit(chainInitial(STATIC, path(need.cls), mark))
+                }
+            }
+        }
+    } // all branches/marks; no nullable single-answer shortcut and no class request key
 }
 
 // Incoming and starting facts can have ANY; InitialAp never does in run-1.
@@ -458,6 +520,16 @@ fun introduceExcludedMarks(origin: PremiseKey, input: FLOW, excluded: MarkSet) {
     }
     publishOrdinaryExcludedOutput(input, excluded)
 }
+
+fun selectedMarkCleaner(origin: PremiseKey, input: Facts, cleaner: SelectedCleaner) {
+    validateExistingPremiseFactInvariant(origin, input)
+    if (input is FLOW && input.base == cleaner.base) {
+        origin.asNormalAbstractRun1SlotOrNull()?.let { slot ->
+            actor.collectRequests(slot, cleaner.marks) // F75 before path/E/mx tests
+        }
+    }
+    applyOrdinaryCleaner(origin, input, cleaner) // original AP geometry, outputs and E rules
+}
 ```
 
 The request matcher ignores field E and FLOW mark exclusions. Ordinary rule/fact
@@ -472,35 +544,236 @@ stored premise matching differs; tests must cover summary application and later
 record views under the new STAR premise. Equal starting facts alone do not prove
 equivalence to the historical static ANY-answer implementation.
 
-## 7. Late requests without an answer memo
+## 7. Dynamic requests: from the callee to the caller
+
+M calls N. A request stored in N names an **N slot**. The caller runner joins that
+slot with the existing bound inputs for N. A matching FLOW input supplies M's
+**original initial slot**, through its retained CallerRef. That is the destination
+of the next request. The request does not follow a summary edge or a guessed
+inverse binding, and N's publisher does not inspect M's input directory.
+`CallerInputDirectory` below denotes the existing `CalleeSubscriptions` relation,
+not a new input store. `CallerRunnerPort.postCounted` uses the existing subscriber
+port's counted post; it does not introduce another queue.
+
+```mermaid
+sequenceDiagram
+    participant N as Callee N actor
+    participant R as SummaryStorage(N)
+    participant C as Caller runner
+    participant M as Caller M actor
+    N->>N: Collect marks in temporary P_N
+    N->>R: commit(P_N) when N fact queue is empty
+    R->>C: Queued ChangedRequests(N, fresh rows)
+    C->>C: Join N slots with retained bound inputs for N
+    alt Matching FLOW under original slot p in M
+        C->>M: Queued MarkRequestsIn(M, p, useful marks)
+        M->>M: Merge P_M; commit at M's own barrier
+    else Matching TAINT carrying a requested mark
+        C->>N: Queued InitialAnswersIn(N, concrete initials)
+    end
+```
+
+### 7.1 Collect a local need, then publish it at the method barrier
 
 ```kotlin
-fun onChangedRequests(callee: MethodKey, delta: ChangedRequests) {
-    val effects = Effects() // transient packed answers and per-destination mark sets
-    callerInputs(callee).visitMatchingBatch(delta.rows) { input ->
-        validateExistingPremiseFactInvariant(input.ref.premise, input.added)
-        when (input.added) {
-            is TAINT -> collectActualConcreteAnswers(delta, input, effects)
-            is FLOW -> collectFlowEffects(input, dynamicOnlyRows(delta), effects)
-            is REACH -> Unit
+fun MethodActor.onLocalMarkNeed(premise: PremiseKey, input: Facts, marks: MarkSelection) {
+    validateExistingPremiseFactInvariant(premise, input) // K6 before eligibility
+    if (input !is FLOW) return // concrete facts are evaluated directly
+    val original = premise.asNormalAbstractRun1SlotOrNull() ?: return
+    collectRequests(original, marks) // section 3.5: R difference -> P -> request Work
+}
+
+// Mark checks, concrete input gates and generic exclusion creators use that path.
+// F75 selected-mark cleaners collect before geometry/mx tests, including disjoint
+// and already-excluded FLOW inputs. The special static root evaluates no rules.
+// Queue-empty handling then executes section 4's commit-and-replace exactly once.
+```
+
+Only a fresh admission to R_N creates `ChangedRequests(N, rows)`. Sending a
+proposal to P_N is not admission and sends no caller notification. B is already
+admitted before any input; this dynamic path publishes only fresh D memberships.
+
+### 7.2 The subscribed caller runner visits its inputs once per batch
+
+```kotlin
+fun onChangedRequests(event: ChangedRequests) { // SubscriptionManager on caller runner
+    val inputs = callerDirectories[event.callee] ?: return
+    val effects = Effects()
+    val rows = event.rows.map { (slot, freshMarks) ->
+        RequestedRow(slot, RequestRowView(
+            precomputed = ImmutableMarkSet.EMPTY,
+            dynamic = freshMarks,
+        )) // ALL event marks are fresh D; this does not discard any event member
+    }
+    inputs.visitRequestBatch(event.callee, rows) { part ->
+        when (part.added) {
+            is FLOW -> collectFlowEffects(part, rows, effects) // section 3.4
+            is TAINT -> {
+                validateExistingPremiseFactInvariant(part.ref.premise, part.added)
+                forEachConcreteAnswer(part.added, rows) { initial ->
+                    effects.answer(part.callee, initial) // back DOWN to N, not up to M
+                }
+            }
+            is REACH -> validateExistingPremiseFactInvariant(part.ref.premise, part.added)
         }
     }
-    effects.sendCountedAfterVisit() // no live-directory mutation or inline callbacks
+    effects.sendCountedAfterVisit() // directory visit ended before any delivery
+}
+
+fun CallerInputDirectory.visitRequestBatch(
+    callee: MethodKey,
+    rows: List<RequestedRow>,
+    visit: (Subscription) -> Unit,
+) {
+    check(!visitingRequests)
+    visitingRequests = true
+    val seen = IntOpenHashSet() // one transient set for ALL slots in this batch
+    try {
+        for (row in rows) {
+            cancellation.checkpoint()
+            val (base, path) = row.slot.geometry()
+            index.visitAround(base, path) { handle -> // existing prefix/extension candidates
+                cancellation.checkpoint()
+                if (seen.add(handle)) {
+                    val value = values.snapshot(handle)
+                    visit(Subscription(callee, value.ref, value.group.layer, value.facts))
+                    // Original CallerRef + group header + current accumulated Facts.
+                    // A candidate still needs the complete slot matcher in section 3.4/6.
+                }
+            }
+        }
+    } finally {
+        visitingRequests = false
+    }
 }
 ```
 
-```text
-register subscriber < admit original caller input < deliver LinkIn
-commit R < notify/replay fresh request
+`collectFlowEffects` unions marks from **all** matching rows before one target-R
+difference and one destination merge. Each row still applies its own unchanged-B
+skip. A concrete fact never enters that FLOW branch. Ordinary/ND caller matching
+keeps the complete original premise and independent layers; the request join does
+not rewrite those bindings. The transient `seen` set ends with the visit; no
+request-by-input seen matrix is retained.
 
-A = input admission; E = emitter's R read; Q = request commit; V = late replay
-Q <= E: emitter sees the request
-E < Q: A < E < Q < V, so replay sees the retained input
+### 7.3 Queue the resulting caller requests and callee answers
+
+```kotlin
+class Effects {
+    // Transient output builders for this visit, not additional cumulative stores.
+    private val requests = mutableMapOf<MethodKey, RequestRowsBuilder>()
+    private val answers = mutableMapOf<MethodKey, MutableSet<InitialAp>>()
+
+    fun request(method: MethodKey, original: Run1Slot, marks: ImmutableMarkSet) {
+        requests.getOrPut(method) { RequestRowsBuilder() }.union(original, marks)
+    }
+
+    fun answer(callee: MethodKey, initial: InitialAp) {
+        answers.getOrPut(callee) { linkedSetOf() }.add(initial)
+    }
+
+    fun sendCountedAfterVisit() {
+        for ((method, builder) in requests) {
+            val rows = builder.freeze()
+            if (rows.isNotEmpty()) sendCountedToOwner(MarkRequestsIn(method, rows))
+        }
+        for ((callee, initials) in answers) {
+            if (initials.isNotEmpty()) {
+                sendCountedToOwner(InitialAnswersIn(callee, initials.toImmutableSet()))
+            }
+        }
+    }
+}
+
+fun sendCountedToOwner(event: RunEvent) {
+    check(event !is ChangedRequests) // those deliveries target a subscribed runner explicitly
+    // Existing RunManager route resolves the full MethodKey to its owner runner.
+    // MarkRequestsIn and InitialAnswersIn always enqueue, including same-unit delivery.
+    requireAccepted(existingRunRoute(event))
+}
+
+fun requireAccepted(accepted: Boolean) {
+    cancellation.checkpoint()
+    check(accepted) { "An active run rejected required queued work" }
+    // Existing failure handling fails/cancels the run; this cannot certify COMPLETE.
+}
+
+fun onInitialAnswersIn(event: InitialAnswersIn) { // method-owner handler
+    val target = actor(event.method)
+    for (initial in event.answers) {
+        cancellation.checkpoint()
+        target.admitRun1Initial(initial) // grammar check + InitialFactStore dedup + start
+    }
+}
 ```
 
-Keep R active after an answer. Preserve original CallerRef, group header, input
-layer and complete ND premise scope in caller storage. No callee supplier relation,
-request-by-input seen cache or subscriber copy of R is introduced.
+At M, `onMarkRequestsIn` from section 3.5 subtracts **M's** current R, then merges
+into **M's** P. It never writes P from another runner. If M has no fact work,
+`requestWork()` schedules a request-only visit. At M's method-empty barrier,
+`SummaryStorage(M).commit(P_M)` notifies M's callers, and the same path repeats.
+Neither requests nor answers call a method actor inline from a directory visit.
+Existing counted Work remains reserved until every required child send is secured.
+
+Adapt the existing [SubscriptionManager](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/SubscriptionManager.kt)
+notification/replay/send path and [RunMethodHandlers](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunMethodHandlers.kt)
+owner dispatch. The former `QuestionDelivery(callee, delta)` becomes the batched
+`ChangedRequests(callee, rows)` delivery; `MarkRequestsIn` and `InitialAnswersIn`
+keep their method-owner routing roles.
+
+### 7.4 Example with different callee and caller slots
+
+```text
+E calls M; M calls N. M's original p flows to N's x.
+
+Stored caller input for N: (caller=M, original=p.*, added=N.x.*)
+N needs T on x:            P_N[BaseSlot(x)] += {T}
+N's empty-queue barrier:  R_N[x] gains T; ChangedRequests(N, {x -> {T}})
+M's caller runner:        match x against added N.x.*; recover ORIGINAL M.p.*
+Queued to M owner:        MarkRequestsIn(M, {p -> {T} - R_M[p]})
+M owner:                  P_M[p] += received marks; R_M changes only at M's barrier
+M's empty-queue barrier:  ChangedRequests(M, {p -> fresh marks}) reaches E's runner
+
+If E's bound input to M carries concrete p.$(T):
+    E's runner queues InitialAnswersIn(M, {p.$(T)}).
+    M starts that concrete analysis. Its ordinary call to N supplies concrete x/T.
+    N's abstraction reads R_N[x] and starts the requested concrete x analysis.
+
+For a static copy with original C.g and current C.f, the same join routes the
+request to M's StaticField(C,g), not to StaticField(C,f).
+```
+
+New interests travel through matching FLOW inputs. Already admitted memberships
+produce no further delivery. A matching concrete supplier answers an interest;
+if no input carries T, no concrete answer is invented. The resulting concrete
+analysis uses the ordinary forward pipeline. R remains active after an answer so
+later inputs can answer the same interest. An admitted interest alone does not
+keep Work scheduled once facts, publications and P are empty.
+
+### 7.5 Both arrival orders and subscription races
+
+```text
+bind B/effective R < register subscriber < admit original caller input < LinkIn
+commit R < queue ChangedRequests < caller's late-input visit
+
+New FLOW/growth: current admitted input joins full current R at the caller.
+New TAINT:       LinkIn joins full current R at the callee abstraction.
+New request:    ChangedRequests joins current retained FLOW and TAINT inputs.
+```
+
+Registration and commit's recipient capture use the same SummaryStorage lock.
+If registration precedes commit, that caller runner is a recipient. If commit
+precedes registration, the new input's current-R read sees the admission. A queued
+notification can find no input yet; admission precedes its own current-R read,
+which then covers that case. Delivery is queued even when the subscriber is local.
+
+For TAINT, let A be caller input admission, E the emitter read, Q commit and V late
+request replay. `Q <= E` is covered by the emitter. Otherwise
+`A < E < Q < V`, so replay sees the retained input. FLOW uses the same argument
+with its caller-side read. Sending TAINT directly to a callee without the caller
+registration/admission path violates this contract.
+
+Keep the existing caller input relation through joined work. There is no callee
+supplier history, deferred-answer memo or subscriber copy of R. Restricted runs
+do not use this request protocol.
 
 ## 8. Static-root ownership and return-gated frame
 
@@ -568,11 +841,19 @@ checkEveryExclusionCreatorAndOrdinaryCleanerOutputs()
 checkRootCleanerLeakSiblingWriteLossAndNoReturnFrame()
 checkNativeReversedAndLaterReadersKeepComponentGuards()
 checkCommitReplacementRequestOnlyWorkAndCancellation()
+checkChangedRequestsCalleeKeyAndOriginalCallerSlotRouting()
+checkOneInputVisitAcrossAllChangedSlotsAndMergedTargetMarks()
+checkFreshFlowGrowthUsesOriginalHeaderAndCurrentValue()
+checkRegisterCommitRecipientCaptureAndBothInputReadOrders()
+checkLocalAndRemoteEffectsQueueAfterVisitAndRejectRequiredSend()
+checkAllPackedClassBranchesAndSelectedCleanerPreGeometryCollection()
+checkJoinedBarrierConsumesFrozenResultsBeforeBroadOwnerRelease()
 ```
 
 Measure precomputed base bytes/references, D/P memberships, suppressed unchanged
 rows, fresh slot batches, duplicate proposals, input visits, marks scanned, concrete
-answers/starts, temporary peak size and submission delay. Count shared owners as a
+answers/starts, fresh-FLOW current-value visits/rescanned geometry, temporary peak
+size and submission delay. Count shared owners as a
 retained union; do not add overlapping base references as memory savings.
 
 Use only the fixed OWASP, Conductor, ThingsBoard and Stirling-PDF configurations
@@ -581,3 +862,23 @@ completed run-1 engine time and latest reached/completed/accepted iterations.
 An earlier OOM or smaller incomplete report is not an improvement. The Lean proofs
 cover their stated finite semantics, not future Kotlin conformance, pooled ND
 confirmation, whole-driver correctness or a universal 60-second bound.
+
+## 11. Review against the selected spec
+
+This review changes the proposal only. It leaves the normative F78 construction,
+checked Lean sources and analyzer runtime unchanged.
+
+| Spec contract | Review result and proposal correction |
+| --- | --- |
+| [F78 §6–7: commit, delivery and destination ownership](../../spec/run1-requests.md#6-the-two-requeststorage-instances) | The earlier notification omitted its callee key and hid the final sends. Sections 1, 4 and 7 now show full callee identity, explicit caller-runner notification, original caller-slot recovery, grouped method-owner requests and separate callee answers. |
+| [F78 §7: batch each relevant caller input once](../../spec/run1-requests.md#7-batched-propagation-and-late-inputs) | A single handle set spans all changed slots; matching FLOW rows union before one target-R difference/merge. TAINT traverses each concrete branch once for the mark batch. No persistent seen matrix is added. |
+| F78 §7: preserve admitted headers on growth | Section 3.3 now uses the admission result: ordinary summaries read fresh delta, FLOW requests read current accumulated input under its original header. Repeated current-value geometry is explicitly measured. |
+| F78 §6–7: linearization and counted queued effects | Registration and commit recipient capture share the storage lock. Notifications leave the lock before posting; results leave the input visit before sending. Local delivery queues too, and rejected required sends take existing failure handling. |
+| [F78 §1–3: producers and emitted initials](../../spec/run1-requests.md#2-slot-matching-and-concrete-answers) | All source/sink, gate, cleaner and exclusion producers remain covered. The snippets now state F75 pre-geometry collection and enumerate packed class branches/marks. Abstract starts stay additive; concrete answers need actual supplied/admitted marks; no ANY initial is emitted. |
+| [F78 §5 and §7: stable footprint and joined-state lifetime](../../spec/run1-requests.md#5-static-ownership-and-the-untouched-frame) | Broad release now follows report/persist/HandOff consumption of frozen results. Stable structural footprint and normal-return provenance remain available to ordinary/native/opposite readers after request marks are released. |
+
+The shared B reference, disjoint D/P, lack of an initial B wave, per-slot inherited-B
+skip, exclusion-insensitive request join, method-empty barrier and return-gated frame
+already match the selected spec. AP codecs, complete effective-form extraction,
+annotated record readers and actual scheduling/accounting still require the stated
+implementation checks. This document's review does not validate future code.
