@@ -1,6 +1,6 @@
 # Merged run-1 mark requests: implementation proposal
 
-Date: 15 October 2026. Status: implemented; core validation passes. New project measurements are pending.
+Date: 15 October 2026. Status: implemented; core validation passes; fresh project acceptance fails.
 
 The [static component codec clarification](bidirectional-run1-static-component-codec-20261015.md)
 specifies the packed exclusion headers, separate class-point ownership, supplied
@@ -12,18 +12,19 @@ Lean results and their scope. The [original proposal](bidirectional-run1-mark-re
 records the measurements and selected changes. F78 replaces its proof-obligation
 list with a precise contract and a required static-root safety clarification.
 
-The measured analyzer is `27e22bb1ed871651143538783473cb0d4fcbcf3e`.
-No new analyzer run was made for these specification and proof changes.
+The [fresh measurements](../reports/bidirectional-run1-mark-request-performance-20261015.md)
+use implemented `4c64c579f4c4a10fc8ffcc5bcd0bf1bcd45cf877`. The static-domain
+coverage obligation remains open: three projects fail at its class guard.
 
 | Project | Latest reached | Last completed engine | Accepted report | Run-1 engine seconds |
 | --- | --- | --- | --- | ---: |
-| OWASP | run-5, forward; TIMEOUT | run-4, backward | run-3 | 331.657 |
-| Conductor | run-2, backward; OOM | run-1, forward | run-1 | 60.210 |
-| ThingsBoard | run-1, forward; OOM | None | None | 279.104; incomplete |
-| Stirling-PDF | run-4, backward; OOM | run-3, forward | run-3 | 36.102 |
+| OWASP | run-5, forward; TIMEOUT | run-4, backward | run-3 | 245.412 |
+| Conductor | run-1, forward; FAILED | None | None | 8.551; failed |
+| ThingsBoard | run-1, forward; FAILED | None | None | 47.387; failed |
+| Stirling-PDF | run-1, forward; FAILED | None | None | 11.680; failed |
 
 The target is a completed run-1 engine within 60 seconds. Prescan and the report
-barrier are measured separately. The [performance report](../reports/bidirectional-added-facts-removal-performance-20261015.md)
+barrier are measured separately. The [performance report](../reports/bidirectional-run1-mark-request-performance-20261015.md)
 defines the fixed workloads and measurement limits. These proofs establish no
 speedup or time bound.
 

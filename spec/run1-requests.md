@@ -3,8 +3,12 @@
 This document is normative for the selected JVM analyzer. It replaces the run-1
 full-query/role request protocol, deferred-answer memo, and request exclusion tests
 in the earlier specifications. The [implementation validation](../docs/reports/bidirectional-run1-mark-request-validation-20261015.md)
-records the current runtime checks. The last measured project runtime is
-`27e22bb1ed871651143538783473cb0d4fcbcf3e`; its reports do not validate F78.
+records the current runtime checks. The [fresh project report](../docs/reports/bidirectional-run1-mark-request-performance-20261015.md)
+measures `4c64c579f`. OWASP reaches run-5, completes run-4 and accepts run-3.
+The other three fixed projects fail in run-1 at the frozen static-class guard,
+without a completed iteration or accepted report. The selected frontend's domain
+construction is therefore not validated by the passing core tests. This normative
+contract does not imply that the measured implementation meets it end to end.
 
 Use this document with [ap.md](ap.md), [analyzer-core.md](analyzer-core.md) and
 [interpreter.md](interpreter.md). The constructive proof statements and checked
@@ -142,8 +146,10 @@ does not certify that the caller supplied NORMAL evidence. Prove closure over al
 constructors and delivery adapters above before claiming an implementation obeys
 the inventory. Factory permissiveness or a finite vector test alone is insufficient.
 An incoming or starting fact may have the ANY tail; an InitialAp may not. The
-measured static answer constructor still emits ANY for a nonexact static leaf and
-does not conform to this selected boundary. No runtime change is made here.
+historical static answer constructor at `27e22bb1e` emitted ANY for a nonexact
+static leaf. The selected projectors at `4c64c579f` emit STAR, including nonexact
+class projections. Their starting facts can still be ANY/DEMAND. This shape
+check does not prove complete frozen-domain coverage for real project producers.
 
 ## 2. Slot matching and concrete answers
 

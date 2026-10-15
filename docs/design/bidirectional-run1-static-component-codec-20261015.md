@@ -1,13 +1,18 @@
 # Run-1 static component implementation clarification
 
-Date: 15 October 2026. Status: implemented; core validation passes. Project measurements are pending.
+Date: 15 October 2026. Status: implemented; core validation passes; project acceptance fails.
 
 This document fills the packed AP representation obligations in F78 section 5 and
 section 8 of the [implementation proposal](bidirectional-run1-mark-request-implementation-20261015.md).
 It adds no request kind, request index, scheduler, IR representation or reference
 manager. The [validation report](../reports/bidirectional-run1-mark-request-validation-20261015.md)
-records the current checks. No new fixed-project measurement is available. The last
-measured ThingsBoard engine reached run-1 and ended with OOM; run-1 did not complete.
+records the current checks. The [fresh project report](../reports/bidirectional-run1-mark-request-performance-20261015.md)
+measures `4c64c579f`: OWASP reaches run-5, completes run-4 and accepts run-3;
+Conductor, ThingsBoard and Stirling-PDF fail in run-1 with no completed iteration
+or accepted report. They fail the frozen static-class-domain guard. No scan reports
+OOM. The shape/layer arguments below do not discharge the separate obligation that
+the frozen domain contains every actual frontend-supplied component. The exact
+missing class/producer is not printed. That obligation remains open.
 
 A scalar component partition is not a sufficient implementation of a packed tree.
 Three cases need explicit code and tests before the static-root guard can land.
@@ -31,7 +36,7 @@ class StaticFootprint(
 )
 ```
 
-The current draft frame returns every class point. That restores T after a
+The pre-clarification draft frame returned every class point. That restores T after a
 class-point cleaner removes T. Stop framing owned points. Use their direct class
 analyses, just as owned fields use their field analyses.
 

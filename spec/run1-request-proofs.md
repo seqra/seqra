@@ -3,10 +3,15 @@
 This document proves the semantic laws used by the selected
 [run-1 request design](../docs/design/bidirectional-run1-mark-request-redesign-20261015.md).
 The normative construction rules are in [run1-requests.md](run1-requests.md).
-The last measured project runtime is `27e22bb1ed871651143538783473cb0d4fcbcf3e`.
-That historical runtime does not implement this design. The
+The measured implementation is `4c64c579f4c4a10fc8ffcc5bcd0bf1bcd45cf877`. The
 [implementation validation](../docs/reports/bidirectional-run1-mark-request-validation-20261015.md)
-records the new runtime checks; fresh project measurements are pending.
+records its core checks. The [fresh project report](../docs/reports/bidirectional-run1-mark-request-performance-20261015.md)
+shows OWASP reaching run-5, completing run-4 and accepting run-3. Conductor,
+ThingsBoard and Stirling-PDF fail in run-1 with no complete/accepted iteration.
+Their static-class guard failures leave the frontend Sigma-construction obligation
+open. The conditional finite-model laws below do not prove that this collector
+contains every actual delivered class/field. No Lean receipt is extended by these
+measurements or documentation changes.
 
 The proofs below concern a finite, accepted program and its request/initial and
 component-summary semantics. They do not prove a JVM implementation, a physical

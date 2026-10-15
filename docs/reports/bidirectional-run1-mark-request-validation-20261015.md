@@ -1,6 +1,6 @@
 # Merged run-1 mark requests: validation
 
-Date: 15 October 2026. Status: implemented; project measurements are pending.
+Date: 15 October 2026. Status: implemented; core checks pass; project acceptance fails.
 
 The implementation follows the [request proposal](../design/bidirectional-run1-mark-request-implementation-20261015.md)
 and its [static component clarification](../design/bidirectional-run1-static-component-codec-20261015.md).
@@ -64,11 +64,15 @@ reach and complete run-9 at limit 9, finish its barrier and return an accepted
 run-9 report with COMPLETE/POLICY. This gate remains failed; core protocol success
 does not establish full application precision or project recall.
 
-No new fixed-project scan has started. There is no measured speedup or completed
-run-1 time for this implementation. The 60-second run-1 engine target remains an
-acceptance target. Prescan and report-barrier time must be reported separately.
-Fresh OWASP, Conductor, ThingsBoard and Stirling-PDF scans must state their latest
-reached, completed and accepted-report iterations and compare locations with main.
+The [fresh fixed-project report](bidirectional-run1-mark-request-performance-20261015.md)
+measures committed `4c64c579f` against fresh main. OWASP reaches run-5, completes
+run-4 and exports accepted run-3. It preserves all baseline rule/sink identities,
+but run-1 takes 245.412 engine seconds. Conductor, ThingsBoard and Stirling-PDF fail
+in run-1 at the frozen static-class guard, complete no iteration and export no
+accepted report. They lose 7, 14 and 17 baseline identities respectively. None
+reports OOM. The 60-second completed run-1 target is not met. The exact upstream
+producer of the missing class is not printed; the frontend domain-construction
+obligation is still open. Passing core tests do not close that obligation.
 
 Evidence is under
 `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012/run1-mark-requests-preparation/verification-20261015T205444.938773Z`:
