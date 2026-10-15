@@ -1,7 +1,7 @@
 # Added-fact removal: project measurements
 
-Date: 15 October 2026. Status: scans and heap reviews complete; full recording review
-and PDF finding diagnosis remain open.
+Date: 15 October 2026. Status: scans, heap and recording reviews complete;
+the isolated PDF diagnosis is complete within the path limits below. Acceptance fails.
 Measured runtime: `27e22bb1ed871651143538783473cb0d4fcbcf3e`.
 Fresh main: `f945f92c5ae554ff4f5fc7696ee5a269210478bb`.
 
@@ -12,7 +12,7 @@ miss 17 strict main locations: 14 in ThingsBoard and three in Stirling-PDF.
 
 This compares the current bidirectional engine with legacy main. It does not isolate
 the effect of added-fact removal. Earlier optimization reports concern other runtime
-commits and are historical evidence only. No runtime change followed the measured
+commits and are historical evidence only. No canonical analyzer change followed the measured
 commit. The separate [validation report](bidirectional-added-facts-removal-validation-20261015.md)
 records the passing protocol checks and eight strict application precision failures.
 
@@ -55,12 +55,27 @@ Per-run manifests, summaries, logs, SARIF and resource samples are under
 `projects/<project>/{main,bidi}`. Full absent and added identities are in each
 `optimized-review` packet; they retain method, instruction, rule, path and full span.
 
+Documentation commit `8dee7fa8774d85e52f4eb37a017c4c387d60f097` follows the measured
+runtime. Its committed diff outside `docs` is empty. The recording review also
+checks all 19 selected live source hashes against the frozen runtime. The receipt
+is `profile-analysis/execution-source-equivalence-20261015/receipt.json`. Thus the
+measurements still describe the current analyzer implementation.
+
 Before measurement, cleanup removed 79 owned old capture/index files, or
 131,601,563,505 logical bytes. It kept compact old receipts and unrelated files.
 The before and after input audits pass all 80 checks over 41 full-content datasets.
 The after audit is bound by `input-audit/post-optimized-binding.json`. Endpoint
 equality does not prove that no input changed between those observations. The audit
 does not claim a new OWASP source build.
+
+After the reviews, cleanup removed 51 current raw files totaling 94,493,599,392
+logical bytes: eight continuous JFR files, two supplemental recordings, five raw
+CPU profiles, three HPROFs and 33 binary MAT indexes. All exact paths are absent;
+19 explicit compact archive/metadata files retain their checked hashes. Logs,
+finding comparisons, source/input bindings, heap reports and decoded profile
+metrics remain. The completed receipt is
+`cleanup-preparation/primary-removed-20261015T123904.005829Z/receipt.json`.
+Logical bytes removed do not establish physical disk savings.
 
 Scans run serially. CPU affinity exposes 20 processors. The inspected cgroup has
 no CPU quota or throttle and no child memory limit. All ancestor limits and host
@@ -142,29 +157,97 @@ the workload that prevents the first report.
 Stirling-PDF's accepted run-3 retains 14 main locations and misses three:
 
 1. Command injection at `ProcessExecutor#runCommandWithOutputHandling(List,File)`,
-   instruction 8, line 183 (`ProcessBuilder.start`).
+   instruction 8, line 183 (`ProcessBuilder` constructor).
 2. XSS at `ConvertEmlToPDF`, return instruction 103, lines 133–134.
 3. XSS at `PipelineController`, return instruction 50, lines 90–91.
 
 The same two XSS methods have current candidates at later returns, lines 148–149
-and 130. They do not replace strict missing locations. A Simple boundary result uses
-the synthetic normal exit; the export fallback selects the method's last return.
-This explains the displayed later locations. It does not prove that both engines
-carry the same mark on the same earlier catch path. The earlier EML return handles
+and 130. They do not replace strict missing locations. The isolated diagnostic
+observes two EML report entries at synthetic normal exit 157 and one Pipeline entry
+at synthetic normal exit 140. Their rule occurrences differ; the two EML entries
+export identical results. All encoded final entry fields equal their committed
+run-3 fields. The unchanged exporter emits Simple results with no trace-selected return, so its
+boundary fallback selects the method's last return. This proves the displayed
+later-location mechanism. It does not prove that both engines carry the same mark
+on the same earlier catch path. The earlier EML return handles
 `IllegalArgumentException` with the original filename; the later return handles
 `IOException` with the literal `File processing error`.
 
-The command loss occurs despite an accepted run-3, so later run-4 OOM does not explain
-it. Fresh main provides a request-to-getter-to-URL-append-to-executor trace. Current
-frontier logs omit the individual source hits, source seeds and mark/record payloads
-needed to locate its first failed propagation. Its exact root cause remains open.
-Neither a zero-only omission from compact frontier maps nor a diagnostic from an
-older runtime proves that cause. The PDF review packet records the precise missing
-observations. The 42 added sites are 25 path and 17 XSS candidates.
+The command loss occurs before run-4 OOM. The isolated diagnostic follows main's
+URL-to-command route. In backward run-2, the later `command.add` at instruction 58
+produces requirements on its argument, `tempOutputFile.toString()`. A paired cleaner
+input/output then shows removal of the NORMAL receiver requirement with exact mark
+ARGS729. That requirement cannot continue toward the earlier URL append at 55.
+The source-target rewrite thus directs this backward branch to the later argument.
+Forward run-1 has a separate DEMAND conversion and cut; it is not NORMAL erasure.
+
+The complete selected-method source census has 11 non-command hits. Their full
+MethodKey/node/original-forward-edge multiset equals the 11 prepared and 11 consumed
+run-3 source seeds. Seed transfer is intact. Actual run-3 entry decisions explicitly deny command
+mark UNTRUSTED158. Getter records survive and native replay runs, but the observed
+replay does not restore the command-marked constructor input.
+
+The complete run-3 constructor instruction-8 census has three NORMAL REACH and four
+NORMAL FLOW inputs. Those four FLOW inputs have empty E and mx, so they exclude no
+marks. Concrete FLOW mark checks return None outside run-1. The complete
+run-3 snapshots contain no command target candidate or committed command entry,
+and the final report has none. These observations explain the measured original
+route loss before OOM. They do not prove the earliest failure across every caller
+or rule out all other paths. No AP geometry, cache-key or store-removal defect is
+established. The 42 added sites are 25 path and 17 XSS candidates.
+
+## Isolated PDF diagnostic
+
+The diagnostic uses an external checkout of the measured runtime plus an opt-in
+observer. It changes no canonical analyzer source. It keeps the fixed PDF model,
+rules, Java 17, 8 GiB heap, 1,080/1,200-second limits, direct Gradle task, profilers,
+guard and statistics settings. The actual JVM command matches the primary after
+removing the observer property and normalizing isolated paths. All 115 focused
+controls pass with zero failures, errors or skips, and `:classes` succeeds.
+
+Let `D` mean
+`analysis-preparation/command-loss-diagnostic-27e22/packet-v2/jobs/replay-20261015T123944.943694Z`
+under evidence root B. `D/terminal-review/binding.json` binds source, command, terminal
+state and exact output parity. The patch is
+`bff723c40aeea023a37dc811f8cd0f0f597a3c7a8e09fee69317e4b60968e64d`.
+
+| Diagnostic run | Engine seconds | Barrier seconds | Status |
+| --- | ---: | ---: | --- |
+| run-1, forward | 86.920439998 | 0.635940711 | COMPLETE |
+| run-2, backward | 90.883475387 | 0.225535202 | COMPLETE |
+| run-3, forward | 304.996307795 | 1.134024958 | COMPLETE |
+| run-4, backward | 423.560163521 | Not reached | OOM |
+
+Latest reached is run-4, last completed and accepted forward report are run-3.
+Command time is 1,044.566 seconds. Its guard captures 11,819,396,071 HPROF bytes in
+26.465 seconds inside run-4. Observer work and host conditions change timing; these
+figures do not replace the primary performance results.
+
+The primary and diagnostic exports have exactly equal canonical full-result
+multisets: 56 unique identities and 128 rows, with unchanged locations and
+multiplicities. All 45 snapshot lanes are complete. Of 164 flow lanes, 135 are
+complete and 29 are capped. They write 119,951 rows and drop 102,758 at the fixed
+limits. There are no I/O or selector errors, unwritten rows or active numeric
+scopes at close. A capped lane supports a complete positive row, not an absence
+claim. `fieldCutoffs` includes quota cuts; it is not solely an AP-codec statistic.
+
+The command review is `D/independent-command-route-review/README.md`, with exact
+headers, paired cleaner rows, source/seed equality, entry decisions, getter replay
+and constructor/report snapshots in its adjacent evidence files. The positive
+cleaner pair has complete fields even though its wider flow lane later reaches a
+cap. The source and target censuses used for absence claims are complete. The cleaner
+payload has no ActionId, so the review does not infer a serialized rule/action ID.
+
+The independent XSS review is
+`report-preparation/xss-report-snapshot-review-20261015/index.json`. Its exact XSS
+and shared report/final scan lanes are complete with no cuts or errors. It checks
+the actual synthetic statements, witness identities and final/run-3 equality, then
+the unchanged Simple/null-trace export fallback. It makes no catch-path or returned-
+value equivalence claim. The three strict main losses remain acceptance failures.
 
 ## CPU capture scope
 
-Continuous JFR exists for all eight runs. The normal CPU capture requests 30 seconds
+Continuous JFR was captured for all eight runs. The normal CPU capture requests 30 seconds
 at first-forward-engine start plus 60 seconds. Main full scans finish before this
 trigger and before the near-limit trigger. No main normal/near CPU window exists.
 Five current CPU captures complete. Their inclusive stack groups overlap and cannot
@@ -182,11 +265,71 @@ Window alignment uses the captured timestamps and phase markers, with roughly
 two-second scheduling uncertainty. ThingsBoard's window does not overlap its heap
 dump. The Conductor and PDF windows cannot be presented as run-1 profiles.
 
-Supplementary dumps preserve the same live JFR recordings for early-event review:
+Supplementary dumps were taken from the same live JFR recordings for early-event review:
 Conductor check/dump takes 0.900624 seconds in run-2; PDF takes 2.885515302 seconds in
 run-4. Neither recording is stopped, restarted or reconfigured. These are captures
-of the same fixed scan. Full run-1 coverage and CPU/allocation/GC export remain under
-review. Overlapping recording samples must not be added.
+of the same fixed scan. The completed primary exports cover run-1, so the two
+supplements need no duplicate event export. Overlapping samples are not added.
+
+All eight primary JFR exports finish with exact selected-event counts against
+`jfr summary`. They stream one event at a time and retain compact aggregates.
+`profile-analysis/export-1` contains the manifests, controls, per-window metrics
+and terminal receipt. A separate read of 4,216 chunk-header bytes across the eight
+primary and two supplemental files verifies finalized chunks, byte partitions and
+time ranges. All four current run-1 log windows have zero uncovered header time,
+including ThingsBoard's terminal boundary, where the coarse summary rounded down.
+The exact coverage packet is `profile-analysis/chunk-metadata-review-1/headers.json`.
+This establishes recording time coverage, not continuous event sampling.
+`profile-review/exported-review-1/index.json` binds the final review of all 12 engine
+windows and 124 total windows. Selected-event censuses match, reported DataLoss is
+zero, and no ranking overflows occur. Some allocation weights have no stack and
+remain unattributed. All compact metrics remain available after raw cleanup.
+
+| Current run-1 | Java CPU samples | Sampled allocation weight, decimal GB | Clipped GC pause seconds |
+| --- | ---: | ---: | ---: |
+| OWASP | 9868 | 328.037 | 11.308 |
+| Conductor | 5311 | 116.271 | 3.569 |
+| ThingsBoard; incomplete | 43686 | 859.307 | 70.348 |
+| Stirling-PDF | 5524 | 114.193 | 1.870 |
+
+Allocation weight estimates total allocations during the window; it is not retained
+heap or an exact byte census. ExecutionSample covers sampled Java execution and
+does not measure all native CPU. GC pause time clips top-level pause intervals to
+each window. These measures have different units and cannot be added.
+
+Main full-scan windows contain 4,828/3,136/7,501/1,436 Java CPU samples and
+72.134/37.706/84.921/10.175 GB of sampled allocation, in table project order.
+Their clipped GC pauses are 1.117/0.798/1.914/0.206 seconds. Main full scan includes
+legacy trace work and is not the same phase as current run-1.
+
+The full OWASP run-1 profile broadens the normal-window diagnosis. Call-plan build
+occurs in 31.32% of Java CPU samples and 22.97% of allocation weight. Cleaner chains
+occur in 25.70% and 56.44%, and their lowered-field statement helper accounts for
+38.40% of allocation weight. These groups overlap. They do not establish that all
+cleaning is returned-value rewriting or that all its work can be skipped.
+
+ThingsBoard's observed run-1 request replay occurs in 44.00% of Java CPU samples and
+40.15% of allocation weight. FLOW callback frames occur in 29.19% and 20.85%; the
+coverage adapter occurs in 14.49% and 12.98%. Call-plan build occurs in 15.98% and
+17.80%. These inclusive groups overlap. The profile does not count already-active
+caller interests or establish their eligible skip rate. The last 30 seconds before
+its guard capture contain 26.369 seconds of GC pauses, which demonstrates pressure
+before the 34.179-second heap capture itself.
+
+Conductor run-1 call-stage application occurs in 46.58% of Java CPU samples and
+57.14% of allocation weight; cleaner chains occur in 14.44% and 28.13%. Its later
+run-2 has 28.431 seconds of GC pauses. PDF run-4 has 143.910 seconds. Snapshot and
+non-snapshot subwindows remain separate in the compact metrics.
+
+PDF run-1 call-plan build occurs in 53.01% of Java CPU samples and 35.48% of allocation
+weight; cleaner chains occur in 19.50% and 39.35%. Alias preparation occurs in 46.04%
+of CPU samples and overlaps graph construction. This describes an analyzer workload
+cost; IR storage changes remain outside this proposal.
+
+The exporter requests 256 frames, but every recording's observed maximum is 64
+with explicit truncated stacks. Export depth cannot recover missing callers.
+Absent frames in a bounded top list do not establish zero cost. Cold form builds
+and rebuilds after reference clearing remain unclassified.
 
 ## Run-1 work counts
 
@@ -212,9 +355,10 @@ units. Counts do not establish retained bytes or removable fractions.
 | Peak queued N2 replay work | 3 | 10 | 10 | 7 |
 
 ThingsBoard still has enormous request and caller-N2 work after removal of the callee
-history. Its 112,528,596 active mark cells alone need about 450 MB of logical 32-bit
-payload, before containers and sharing. This is a logical floor, not a measured
-retained union. Pending concrete answers are a different, much smaller mark count.
+history. Its 112,528,596 active mark cells account for 450,114,384 bytes when each
+membership uses an uncompressed 32-bit entry. This is membership accounting, not
+a retained-memory floor or union with sharing or compression. Pending concrete
+answers are a different, much smaller mark count.
 Duplicate admission counts include catalog and dynamic work; they cannot all be
 attributed to FLOW transport. The small queued replay count does not measure all
 actor worklists or other queues.
@@ -262,6 +406,21 @@ It binds all 13 terminal jobs and preserves query errors and field limitations.
 Query completion alone is not query validity. Owner unions overlap and must not be
 added or described as reclaimable savings. IR remains context only and is outside
 the optimization scope.
+
+| Owner / measure, bytes | Conductor, run-2 | ThingsBoard, run-1 | Stirling-PDF, run-4 |
+| --- | ---: | ---: | ---: |
+| Complete reachable heap | 7646014288 | 11384496856 | 7619516752 |
+| Actors/runners/subscriptions retained union | 2797840824 | 4932731184 | 5028103544 |
+| Caller N2 retained union | 1113073056 | 1714139208 | 730315024 |
+| N2 index alone, retained union | 703625352 | 849281176 | 521086640 |
+| Normal sink-cache retained union | 320730448 | 1092020512 | 151316032 |
+| Queues/channels retained union | 822512 | 12756016 | 488640 |
+
+Each retained union is measured independently; the rows overlap. ThingsBoard also
+has large active and shared question sets, detailed below. Conductor and PDF are
+in backward runs and have no live Run1Abstraction instances. Their later OOM cannot
+be attributed to a retained run-1 pending-answer memo. The measured standing method
+and N2 state is much larger than the transport queues.
 
 The original Conductor review already verifies a complete 7,646,014,288-byte reachable
 heap and a matching disjoint root-dominator partition. Its valid class-root unions
@@ -444,12 +603,13 @@ under `heap-review-normal-sink-cache/optimized/<project>`.
 
 The project acceptance gate fails. The application precision gate still has eight
 failures, ThingsBoard has no accepted report, and PDF has three strict location
-losses. The heap review is complete; full recording review is required before the
-next optimization ranking is final. PDF command propagation and the relation between
-its two earlier XSS paths and Simple output still need direct evidence. A proposal
-must keep these unknowns separate from measured memory or CPU costs.
+losses. Heap, recording and isolated finding reviews are complete. The PDF evidence
+explains the observed command-route loss and later XSS display locations. It does
+not prove command behavior on every alternative path or XSS value equivalence on
+the earlier catch paths. The added candidates remain unproved. Correctness repairs
+need a separate design; the measured memory and CPU costs do not establish a repair.
 
 The [next core proposal](../design/bidirectional-next-iteration-27e22bb1e-20261015.md)
-separates persistent-memory changes from duplicate-work changes. Its ranking remains
-provisional while the recording review and finding diagnosis remain open. It authorizes no new
-optimization implementation.
+separates persistent-memory changes from duplicate-work changes. Its expected ranking
+uses the completed reviews and retains explicit selection and net-saving gates.
+It authorizes no new optimization implementation.

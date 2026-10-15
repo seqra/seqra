@@ -1,8 +1,8 @@
 # Next core optimization proposal
 
-Date: 15 October 2026. Status: proposal only; current heap reviews are complete.
-Ranking is provisional until the full recording review is complete. No change
-below is implemented by the added-fact-removal patch.
+Date: 15 October 2026. Status: proposal only; current heap and recording reviews
+are complete. Expected impact is ranked below; net savings and eligible skip rates
+remain unmeasured. No change below is implemented by the added-fact-removal patch.
 
 The baseline for this proposal is runtime `27e22bb1ed871651143538783473cb0d4fcbcf3e`.
 Use the [current project report](../reports/bidirectional-added-facts-removal-performance-20261015.md).
@@ -44,10 +44,12 @@ initial mark is removed. A mark-packing redesign across initial premises needs t
 and a proof that full caller/ND correlation survives. It is not added as an assumed
 high-impact fix.
 
-OWASP's run-1 normal CPU window points to form construction: call-plan builds occur
-in 65.73% of samples, sink builds in 31.35%, and signed normalization in 11.69%.
-These inclusive groups overlap and cover one 30-second window. Current counters do
-not distinguish cold builds from rebuilds after soft-reference collection.
+OWASP's 30-second normal window emphasizes form construction, with call-plan builds
+in 65.73% of samples. The complete run-1 recording has builds in 31.32% of Java CPU
+samples and cleaner chains in 25.70%; cleaner chains account for 56.44% of sampled
+allocation. These inclusive groups overlap and use different sample denominators.
+Current counters do not distinguish cold builds from rebuilds after soft-reference
+collection. P10 addresses the newly measured cleaner-application work.
 
 A request-interest gate and a delta join can avoid repeated work. They do not remove
 the required standing input relation. Index simplification can avoid an auxiliary
@@ -59,7 +61,7 @@ consideration; a small queue alone does not justify a queue redesign.
 
 Persistent-memory order and run-1 CPU order are separate. The current owner sizes
 are scope ceilings, not predicted savings. Options overlap and are not additive.
-All three current owner reviews are complete; the full recording review remains open.
+All three owner reviews and all eight primary recording reviews are complete.
 
 | Memory priority | Proposal | Change and expected effect | Main decision gate |
 | --- | --- | --- | --- |
@@ -69,13 +71,17 @@ All three current owner reviews are complete; the full recording review remains 
 | 3; new run-1 memory target | P9: share cumulative question marks | Avoid the second cumulative immutable set at publication; ThingsBoard's shared arrays occupy 441.9 MB | Dirty keys, old readers, fallback and token overhead |
 | Conditional; could rank first | P3: retire discarded bound sink caches | Release discarded rules; all normal sink-cache roots retain 1.092 GB in ThingsBoard, including selected rules | Discarded fraction and sole cache ownership; previously selected separate scope |
 | CPU and temporary-state options | P5: active-interest gate; P6: two-sided delta join | Avoid repeated request enumeration, transport and old-input joins | Actual eligible duplicate work; standing relations remain |
-| CPU and allocation option | P7: one validation/normalization per binding operation | Reuse a build-local validated condition for source and sink rules | Full run-1 profile coverage and binding contract |
+| CPU and allocation options | P10: skip proven identity cleaner work; P7: one validation/normalization per binding operation | Avoid intermediate cleaner stages, or repeated bound-condition walks | Actual identity eligibility and binding contract; inclusive profile scopes overlap |
 | Possible later cache work | P8: managed cache lifecycle and reference registry | Trade retained cache for rebuilding, or reduce registry overhead | Cold/rebuild classification, lifetime and retained owner evidence |
 
-For run-1 time, investigate P5 first on ThingsBoard and P7 first on OWASP. P6 is a
-separate join improvement. Conductor and PDF's normal captures mostly cover later
-runs, so they cannot establish a run-1 CPU ranking. P1 requires a CPU tradeoff check
-before selecting it over P2. No measured speedup or exact net saving is claimed.
+For run-1 time, investigate P5 first on ThingsBoard. The full OWASP run-1 recording
+adds P10 ahead of P7 as a cleaner-work investigation: cleaner chains account for
+56.44% of sampled allocation, including lowered field statements. This is broader
+than the 30-second normal window. P7 remains a bounded build-path opportunity.
+P6 is a separate join improvement. Conductor and PDF's normal captures mostly
+cover later runs, so use the full recording windows for their run-1 assessment.
+P1 requires a CPU tradeoff check before selecting it over P2. No measured speedup
+or exact net saving is claimed.
 
 ## P1. Avoid unnecessary leaf-position postings
 
@@ -92,9 +98,18 @@ and uses coarse buckets for selected nonstatic bases. Every deep query on a coar
 base still scans that base and applies its full pattern; it is never omitted.
 
 Why: this avoids a large auxiliary relation rather than discarding input facts.
-Conductor has 10,576,358 postings for 1,265,465 groups. Replacing all those postings
-with one per group would avoid 9,310,893 memberships at that snapshot. This arithmetic
-does not predict bytes or CPU savings. Selective queries could become much more
+Replacing all positional postings with one membership per exact group gives these
+logical counts at the captured frontiers:
+
+| Capture | Current postings | Exact groups | Memberships avoided |
+| --- | ---: | ---: | ---: |
+| Conductor, run-2 | 10576358 | 1265465 | 9310893 |
+| ThingsBoard, run-1 | 9235116 | 5803728 | 3431388 |
+| Stirling-PDF, run-4 | 2445867 | 1112249 | 1333618 |
+
+This arithmetic does not predict bytes or CPU savings. A hybrid retains more
+memberships. The smaller reduction per group in ThingsBoard also limits the run-1
+opportunity relative to Conductor. Selective queries could become much more
 expensive, particularly when one static base contains many unrelated fields.
 
 Keep full callee and caller MethodKeys, entry/context, CallerRef, original premise,
@@ -232,6 +247,8 @@ Lookup must not create an actor or introduce another index, history or cache.
 
 Why: it can avoid cursor mark callbacks, builders and transport whose logical
 admission delta is empty. ThingsBoard's 1.607 billion climbs justify investigation.
+Its full run-1 request-replay frames account for 44.00% of Java CPU samples and
+40.15% of sampled allocation. FLOW callback and coverage frames overlap that work.
 The duplicate-admission counter includes other producers; no saved fraction follows.
 The standing question relation remains needed for later concrete suppliers.
 
@@ -385,6 +402,66 @@ gaps, tiny sets and immutable snapshots. Include headers, bitmap/rank metadata,
 builder peaks and CPU in measurements. Current cardinality and bytes do not prove
 span/density or a bitmap saving. This variant is separate from cumulative-set sharing.
 
+## P10. Avoid proven identity cleaner work and its intermediate objects
+
+Current: `cleanChain` builds a new list for every step and new PlanFact wrappers
+for callback results. A lowered field cleaner executes read, clean and write
+operations, with intermediate lists, even for an unrelated input base. Same-base
+cleaning can also allocate a Results accumulator with two maps and a REACH array.
+
+The full OWASP run-1 recording has 9,868 Java CPU samples and 328,036,804,944 bytes
+of sampled allocation weight. Cleaner chains occur in 25.70% of CPU samples and
+56.44% of allocation weight; their field-statement helper occurs in 38.40% of
+allocation weight. `cleanFacts` occurs in 37.61%. These groups overlap. They include
+ordinary lowered field actions as well as returned-value rewriting. They do not
+measure how many actions are identities or establish a removable fraction.
+
+New, algorithmic first slice: bypass a step only when its current implementation
+is proved to emit the identical premise, fact and identityCandidate once, with no
+request, source, conjunction, filter, cut or temporary-base effect. Keep the remaining
+steps in their original order and retain bounded cancellation checks.
+Check each current PlanFact at its actual step; an earlier operation can change its
+base or split it. Preserve result order and multiplicity. A guard based only on the
+chain's original input is insufficient.
+
+Conservative candidates from the current source are:
+
+- A plain Clean whose cleaner base differs from the input base. `cleanFacts`
+  returns the input directly in this case.
+- A Kill whose keepEdges summary does not touch the input base and has no sources
+  or conjunctions. FormApplier uses its unchanged callback in this case.
+- A Field whose read and write summaries both leave the input base untouched,
+  have no sources or conjunctions, and whose cleaner base and temporary differ
+  from that input base. Both statements take the unchanged path, the cleaner is
+  disjoint by base, and the temporary-result filter keeps the input.
+
+Unknown cases execute the full existing operation. In particular, an already
+excluded FLOW mark is not enough to skip a selected-mark cleaner: run-1 still
+requires its markRequest callback. An absent concrete mark is not enough to skip
+a lowered field action: its read/write filters, strong update and statement cuts
+need separate proof. Keep all-relevant rewriters and source conversion semantics.
+
+Why: this avoids whole chains of list, wrapper and collector creation for proven
+identity steps. It changes no retained fact relation. Count attempted steps by kind,
+proved-identity cases, full applications, output widths and allocations before
+predicting the benefit. Do not call all cleaner allocation redundant.
+
+An optional technical slice makes the transient Results accumulator lazy or stores
+one result key inline before promoting to a map. This is separate from persistent
+ConclusionGroup storage in P4. OWASP run-1 allocation samples attribute
+22,320,735,536 weighted bytes to allocation sites with Results construction as
+the top frame; that figure is not Results object size or retained heap. The replacement must
+support multiple kinds and keys, normalize E/mx identically, merge same-key roots,
+keep REACH/FLOW/TAINT and per-key encounter order, and preserve mark-request timing
+before flush. No reusable global buffer, cache or new fact store is proposed.
+
+Test complete callback sequences against the unchanged chain: unrelated and touched
+bases, both layers, selected/all-mark cleaners, existing FLOW mark exclusion, EXACT/
+ANY/STAR, every reach mode, E/mx, lowered field filters, strong writes, temporary
+removal, reversed steps, cancellation, identityCandidate and pendingDemotion. Include
+observer cut callbacks and source/request effects, not only final facts. Measure
+full run-1 CPU and allocation separately from retained-memory changes.
+
 ## Correctness work and implementation gates
 
 The eight application precision failures and the project location losses are separate
@@ -392,10 +469,19 @@ acceptance failures. Do not conceal them through faster partial runs, new sink-k
 normalization, relaxed expectations or NORMAL-to-CONFIRMED shortcuts. A later design
 can separate field-refinement obligations from concrete candidate confirmation, but
 it must retain unresolved candidates and full ND same-caller premises. It has no
-established run-1 benefit. PDF command and exit-location diagnosis remain required.
+established run-1 benefit.
 
-Before any selection, complete the profile review and finding diagnosis and freeze a
-source-bound proposal. Implement each selected change separately. Run the relevant
+The isolated PDF review identifies a source-target receiver cut on the observed
+command route, intact source-seed transfer, and denied command-source admission in
+run-3. It also proves that Simple boundary export selects later XSS return locations.
+It does not prove all alternative command paths or value equivalence on the earlier
+XSS catch paths. A later correctness design must address source-target rewriting,
+restricted source admission and report-location provenance with explicit tests.
+Do not treat these losses as proof that the removed added-fact store is required.
+These repairs are separate from P1–P10 and have no established run-1 speed benefit.
+
+Before any selection, freeze a source-bound proposal. Implement each selected
+change separately. Run the relevant
 independent AP/closure/scheduler/observer controls with the unchanged candidate
 policy, then the same four fixed project configurations. Report strict findings,
 engine and barrier times, actual reached/completed/accepted runs, queue counts and
