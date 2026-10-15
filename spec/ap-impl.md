@@ -5,7 +5,10 @@ F78 is the current run-1 request target: [specification](run1-requests.md),
 [implementation proposal](../docs/design/bidirectional-run1-mark-request-implementation-20261015.md).
 Its two normal slots, one authoritative store plus a temporary instance, no-memo
 replay, ignored request exclusions and component-owned static-root readers replace
-the earlier request guidance below. No analyzer or IR storage changes are made here.
+the earlier request guidance below. Run-1 initials have only EXACT or STAR tails;
+an ANY/must static supplier gives a STAR answer, never an ANY initial. The historical
+scalar `answer` sketch below is superseded by F78's concrete projector. No analyzer
+or IR storage changes are made here.
 
 HISTORICAL ADDED-FACT-REMOVAL CONTRACT:
 

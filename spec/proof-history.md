@@ -1861,3 +1861,37 @@ frontiers of every complete run (§7.1). Examples:
   (§7.5: an incomplete run adds nothing) and ends earlier.
 
 ---
+
+## 15 October 2026: F78 InitialAp ANY policy superseded
+
+The earlier F78 projector allowed concrete static-field and class-point ANY
+initials. Its closed inventory therefore had twelve families. The selected
+five-job/508-declaration shape receipt and the full 125-job/21,810-declaration
+receipt passed for those sources. Their immutable bindings remain under evidence
+root B from the performance report:
+
+```text
+report-preparation/run1-initial-shapes-20261015/
+  lean-20261015T192441.939809Z/receipt.json
+SHA-256 db6afa4377f55b0b396b8b70eba4daa308d8dd6dab018271bc68e3d3be025b11
+
+report-preparation/run1-request-shapes-precomputed-20261015/
+  full-20261015T193531.045382Z/receipt.json
+SHA-256 1334f8b247c8e94cf52186517b4a799c2efbffbdef89effb74d80ee5b8b36fa1
+```
+
+The user's correction removes **all ANY InitialAp values in run 1**, not incoming
+ANY/must facts. A nonexact supplied field or class answer is now STAR with empty E;
+its start remains an ANY fact in DEMAND. Exact suppliers remain EXACT. The closed
+inventory has ten families. Abstract emission stays independently additive. A
+requested normal-slot concrete answer still requires both admitted membership and
+an actual matching supplier carrying T. Direct exact class inputs and
+metadata-selected broad class components keep their separate paths.
+
+The prior receipts do not validate this correction. A refreshed source-bound full
+build/audit is pending with the coordinator. The local coverage/non-narrowing law
+does not establish whole summary, reversal, native-record, hand-off or driver
+equivalence merely because a previous ANY initial had the same starting fact.
+The current scope and fresh receipt belong in [proof-status.md](proof-status.md)
+and [run1-request-proofs.md](run1-request-proofs.md). No runtime change or analyzer
+run accompanies this history entry.

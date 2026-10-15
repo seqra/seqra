@@ -211,9 +211,10 @@ are not the zero fact (§4.6).
 * The policy facts and the chain answers of run 1 have the Empty exclusion (`Reverse.policy_premEmpty`,
   `Reverse.answerInit_premEmpty`). A catalog structural initial `(S, p, *, {}, *)` has the Empty exclusion by its definition
   (F78 §4.10; historical scalar position answers have the same Empty E). F78 static answers use the supplied field projector and direct class path. They have a concrete
-  mark and the `$`, `[any]` or chain `*` tail, all with Empty E. An actual field leaf gives `$`/`[any]`;
-  a broad ancestor's projected field gives the chain `*` answer. An `[any-taint]/E` field leaf gives the
-  `[any]` answer, with no exclusion: W8 (c). The exhaustive initial grammar is F78 §1.1.
+  mark and the `$` or chain `*` tail, all with Empty E. An exact field leaf gives `$`;
+  a nonexact `[any]`/`[any-taint]` leaf or broad ancestor gives the chain `*` answer.
+  No run-1 InitialAp has `[any]` or `[any-taint]`; its incoming/starting fact may have an any tail.
+  The exhaustive ten-family initial grammar is F78 §1.1.
   (The Lean theorems above do not cover all these static answers; the
   statements follow from their definitions.) In a restricted run an emitted fact can have the exclusion of the demand.
   Before F72 it was the meet with a `*/E` entry pattern (§6.3), with a concrete mark, so it started in the demand
@@ -228,7 +229,7 @@ are not the zero fact (§4.6).
   accessor below it (§4.7).
 * The LAYER is part of the edge identity. A micro edge has no layer (§4.2): the layer belongs to the propagation edge.
   Only these AP operations put a propagation edge in the demand layer:
-  * the start fact of an initial fact with the `[any]` tail, or with the `*` tail and a concrete mark (§6.5). An
+  * the start fact of an initial fact with the `[any]` tail (historical/restricted initials), or with the `*` tail and a concrete mark (§6.5). F78 run 1 uses only the latter nonexact initial. An
     `[any-taint]` start fact (a must-premise, forward restricted runs only) is normal;
   * the case `above` of §4.1 for a fact that is not `[any-taint]`;
   * an `[any]` result (W6: a may), and the normal form W2 of a `*` result (§4.1 step 6);
@@ -525,7 +526,7 @@ fun overlap(a: Pattern, b: Pattern): Boolean {
 }
 
 /** §4.3, run 1; a record also in every later run (with inside, R4): the premise j covers the added fact a
- *  (Lean: applicable). A premise with an any tail needs a fact with an any tail. Run 1 has no `[any-taint]`
+ *  (Lean: applicable). A premise with an any tail needs a fact with an any tail. F78 run 1 has no `[any]` or `[any-taint]`
  *  premise; a must record that applies by applicable only gives a demand result (§4.3). */
 fun applicable(j: Pattern, a: Pattern): Boolean =
     covers(j, a) && (!j.fact.tail.isAny || a.fact.tail.isAny)
@@ -1154,8 +1155,9 @@ including local replay results, are queued before mutating the visited directory
 
 A concrete answer requires an actual TAINT leaf carrying T. Non-static exact-root
 answers keep EXACT; other non-static leaves give the base chain STAR answer. Static
-field answers retain the actual field leaf shape under the selected limit-1 input
-invariant; broad ancestors give the requested field chain. Must becomes ANY, never a run-1 must initial. Exact class-point
+field answers retain an exact field leaf as EXACT under the selected limit-1 input
+invariant; nonexact ANY/must leaves and broad ancestors give the requested field STAR chain.
+No run-1 InitialAp has ANY or ANY_TAINT. Exact class-point
 input has a separate direct concrete path; broad class components remain MAY/DEMAND.
 No interest or FLOW supplier invents T. See F78 §2 for the complete projector.
 
@@ -1796,19 +1798,27 @@ that ignore marks do not satisfy C5.
 
 Use F78 [run1-requests.md](run1-requests.md). Zero emits zero. Non-static input emits
 its abstract base-root initial. Static input retains the special rule-free S-root
-summary seed and supplied normal field abstract initials from the joined plan.
+summary seed and supplied selected normal field abstract initials from the joined
+plan and actual relevant wide activation, independently of concrete requests.
 Exact class-point input uses its direct concrete path. Broad field/class suppliers
 use the stated conservative projector, never a normal exact assumption.
 
 The exhaustive initial grammar is F78 §1.1: canonical Zero; abstract base/root,
 special S/root and S/class/field; concrete base/root EXACT/STAR, static field
-EXACT/ANY/STAR and direct class-point EXACT/ANY/STAR. All have Empty E; no ANY_TAINT,
-abstract class/ANY, deeper initial or concrete empty S-root exists. A concrete mark
+EXACT/STAR and direct class-point EXACT/STAR: ten families in all. All have Empty E; no ANY/ANY_TAINT,
+abstract class, deeper initial or concrete empty S-root exists. A concrete mark
 with numeric ID 0 on a nonzero base is not canonical Zero. The selected cut/input
 invariant, not the emitter or generic factory, proves the depth bound.
 
 Concrete answers are additional and require actual supplied marks. The abstraction
-reads only effective SummaryStorage R, the shared frozen B plus dynamic residual D.
+always emits each selected supplied abstract base/field initial; an ANY/must field supplier
+adds concrete C.f.*(T) only when matching supplied T is requested in R. Its
+nonexact class component likewise uses a STAR initial. Incoming/starting ANY facts
+remain legal, but no selected run-1 initial has that tail. The measured static
+answer constructor still emits ANY and does not conform to this new boundary.
+This does not add structural slots for irrelevant incoming fields outside the
+closed plan/relevant wide selection or change the ownership/frame partition.
+It reads only effective SummaryStorage R, the shared frozen B plus dynamic residual D.
 No B rows are copied to P/D or recursively notified on startup. It has no cumulative question mirror, query geometry/
 role state, caller-separated inputs or deferred-answer memo. Its owner-only pending
 RequestStorage P merges interests and commits at method fact-queue-empty, then is
@@ -1956,6 +1966,13 @@ incorrectly retain it. The executable C5 certificate and indexed-reduction proof
 are listed in [proof-status.md](proof-status.md).
 
 ### 6.5 The start fact
+
+This is the generic starting-fact table, including historical and restricted-run
+initials. F78 §1.1 restricts selected run-1 InitialAp tails to EXACT/STAR; its
+concrete STAR starts as DEMAND/ANY. The ANY initial row below is not a run-1
+constructor. Equal starting facts from STAR(T) and historical ANY(T) do not prove
+equal summary applicability, reversal or native-record behavior: their premise
+keys differ, and the new chain-answer reader bridges require separate proofs.
 
 | initial fact `i` | start conclusion | layer |
 |---|---|---|

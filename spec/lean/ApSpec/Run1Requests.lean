@@ -9,6 +9,7 @@
   Runtime-to-effective-form coverage and the Kotlin lowering remain separate.
 -/
 import ApSpec.Core
+import ApSpec.Reverse
 
 namespace ApSpec.Run1Requests
 open ApSpec
@@ -105,7 +106,7 @@ def project (s : Slot) (a : Leaf) : Option PFact :=
     some (concrete (.local b []) (if exactRoot then .exact else .star .empty) a.mark)
   | .field c f =>
     let kind : Kind := match a.point with
-      | .field _ _ => if a.tail == .exact then .exact else .any
+      | .field _ _ => if a.tail == .exact then .exact else .star .empty
       | _ => .star .empty
     some (concrete (.field c f) kind a.mark)
 
@@ -138,11 +139,11 @@ theorem static_exact_field (c f t : Nat) :
 
 theorem static_any_field (c f t : Nat) :
     project (.field c f) ⟨.field c f, .any, t, .empty, false⟩ =
-      some (concrete (.field c f) .any t) := by simp [project, slotMatches]
+      some (concrete (.field c f) (.star .empty) t) := by simp [project, slotMatches]
 
 theorem static_must_field (c f t : Nat) :
     project (.field c f) ⟨.field c f, .must, t, .empty, false⟩ =
-      some (concrete (.field c f) .any t) := by simp [project, slotMatches]
+      some (concrete (.field c f) (.star .empty) t) := by simp [project, slotMatches]
 
 theorem broad_root_projects (c f t : Nat) (k : Tail) (hk : broad k = true) :
     project (.field c f) ⟨.root, k, t, .empty, false⟩ =
@@ -190,7 +191,7 @@ theorem existing_nonstatic_answer_adapter (b t : Nat) (p : List Acc) (k : Tail) 
     metadata handler has no abstract class initial or class request key. -/
 def classAnswer (cls : Nat) (a : Leaf) : Option PFact := match a.point with
   | .cls c => if c = cls then
-      some (concrete (.cls cls) (if a.tail == .exact then .exact else .any) a.mark)
+      some (concrete (.cls cls) (if a.tail == .exact then .exact else .star .empty) a.mark)
     else none
   | .root => if broad a.tail then some (concrete (.cls cls) (.star .empty) a.mark) else none
   | _ => none
@@ -200,14 +201,84 @@ theorem broad_root_class_answer (c t : Nat) (k : Tail) (hk : broad k = true) :
       some (concrete (.cls c) (.star .empty) t) := by simp [classAnswer, hk]
 
 theorem same_class_any_answer (c t : Nat) :
-    classAnswer c ⟨.cls c,.any,t,.empty,false⟩ = some (concrete (.cls c) .any t) := by
+    classAnswer c ⟨.cls c,.any,t,.empty,false⟩ = some (concrete (.cls c) (.star .empty) t) := by
   simp [classAnswer]
 
 theorem broad_class_answer_starts_demand (c t : Nat) :
     (startFact (concrete (.cls c) (.star .empty) t)).demand = true := rfl
 
 theorem same_class_any_starts_demand (c t : Nat) :
-    (startFact (concrete (.cls c) .any t)).demand = true := rfl
+    (startFact (concrete (.cls c) (.star .empty) t)).demand = true := rfl
+
+/-- Nonexact field suppliers always answer with a concrete STAR initial.
+    Incoming ANY and must are current-fact shapes, never run-1 initial shapes. -/
+theorem nonexact_field_chain (c f t : Nat) (k : Tail) (h : k ≠ .exact)
+    (e : Excl) (d : Bool) :
+    project (.field c f) ⟨.field c f,k,t,e,d⟩ =
+      some (concrete (.field c f) (.star .empty) t) := by
+  cases k <;> simp_all [project,slotMatches]
+
+theorem nonexact_class_chain (c t : Nat) (k : Tail) (h : k ≠ .exact)
+    (e : Excl) (d : Bool) :
+    classAnswer c ⟨.cls c,k,t,e,d⟩ =
+      some (concrete (.cls c) (.star .empty) t) := by
+  cases k <;> simp_all [classAnswer]
+
+/-- The local replacement has exactly the SAME initial current fact/layer.
+    This is not an identity of initial keys or of syntactic summary guards. -/
+theorem concrete_chain_any_start_equal (p : Point) (t : Mark) :
+    startFact (concrete p (.star .empty) t) =
+      startFact (concrete p .any t) := rfl
+
+theorem concrete_chain_any_same_coverage (p : Point) (t : Mark) (l : Loc) :
+    (concrete p (.star .empty) t).covers l ↔ (concrete p .any t).covers l := by
+  simp [PFact.covers,concrete,tailI,ApSpec.Reverse.empty_admits]
+
+/-- In the ordinary denotational AP kernel, replacing ANY by empty-E STAR
+    in a concrete PREMISE preserves the complete edge relation for every
+    conclusion. This is not a claim about native-key equality or reader code. -/
+theorem concrete_chain_any_same_summary_relation (p : Point) (t : Mark)
+    (f : PFact) (l0 l1 : Loc) :
+    den (concrete p (.star .empty) t) f l0 l1 ↔
+      den (concrete p .any t) f l0 l1 := by
+  simp [den,concrete,tailI,ApSpec.Reverse.empty_admits]
+
+/-- Existing exact-reversal theorem composes with the premise relation above.
+    This is the ordinary, mark-reversible AP relation, not the annotated
+    production reader or a persisted-store/handoff refinement. -/
+theorem concrete_chain_any_same_reversed_relation (p : Point) (t : Mark)
+    (f : PFact) (l0 l1 : Loc) :
+    den (revEdge (concrete p (.star .empty) t) f).1
+      (revEdge (concrete p (.star .empty) t) f).2 l1 l0 ↔
+    den (revEdge (concrete p .any t) f).1
+      (revEdge (concrete p .any t) f).2 l1 l0 := by
+  have hs := ApSpec.Reverse.rev_exact_of_empty_premise
+    (i := concrete p (.star .empty) t) (f := f) (l0 := l0) (l1 := l1)
+    (by rfl) (Or.inr ⟨t,rfl⟩)
+  have ha := ApSpec.Reverse.rev_exact_of_empty_premise
+    (i := concrete p .any t) (f := f) (l0 := l0) (l1 := l1)
+    (by trivial) (Or.inr ⟨t,rfl⟩)
+  exact hs.symm.trans ((concrete_chain_any_same_summary_relation p t f l0 l1).trans ha)
+
+/-- The selected concrete STAR initial covers both exact and broad ANY
+    caller facts at the same full geometry and concrete mark. -/
+theorem concrete_chain_covers_exact_and_any (p : Point) (t : Mark) :
+    coversB (concrete p (.star .empty) t) (concrete p .exact t) = true ∧
+      coversB (concrete p (.star .empty) t) (concrete p .any t) = true := by
+  have hp : dropPrefix p.path p.path = some [] := by
+    simpa using ApSpec.Reverse.dropPrefix_append p.path []
+  simp [coversB,concrete,markSubB,tailSubB,hp,Excl.isEmptyB,Excl.empty]
+
+/-- Counterexample to extending the local equality to all caller guards:
+    old ANY rejects an exact caller whereas STAR accepts it. Native keys,
+    selected demands and production record/reversal readers need a separate
+    refinement argument; startFact equality alone is insufficient. -/
+theorem replacement_changes_syntactic_summary_guard (p : Point) (t : Mark) :
+    applicable (concrete p .any t) (concrete p .exact t) = false ∧
+      applicable (concrete p (.star .empty) t) (concrete p .exact t) = true := by
+  have hp : dropPrefix p.path p.path = some [] := by
+    simpa using ApSpec.Reverse.dropPrefix_append p.path []
+  simp [applicable,coversB,concrete,markSubB,tailSubB,Kind.isAny,hp]
 
 /-- The special root seed is emitted independently of ordinary request slots. -/
 def specialRoot : PFact := ⟨1,[],.star .empty,.star⟩
@@ -499,6 +570,13 @@ theorem wide_cleaner_covers_unrelated_incoming_field :
     (.field 3 9, 7) ∈ activate [.marked .allStatic 7] [.field 3 2, .field 3 9] := by decide +kernel
 end Examples
 
+#print axioms nonexact_field_chain
+#print axioms nonexact_class_chain
+#print axioms concrete_chain_any_start_equal
+#print axioms concrete_chain_any_same_summary_relation
+#print axioms concrete_chain_any_same_reversed_relation
+#print axioms concrete_chain_covers_exact_and_any
+#print axioms replacement_changes_syntactic_summary_guard
 #print axioms project_exists_iff
 #print axioms projector_ignores_field_E
 #print axioms closure_least

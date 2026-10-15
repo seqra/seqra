@@ -5,7 +5,10 @@ its [proof dossier](run1-request-proofs.md) and the
 [new implementation proposal](../docs/design/bidirectional-run1-mark-request-implementation-20261015.md).
 They replace the full-query/role, duplicate cumulative-map, request-exclusion and
 deferred-answer-memo guidance below. The root summary also requires F78's component
-ownership/frame guard. These are proposed changes; the measured runtime is unchanged.
+ownership/frame guard. Run-1 admission rejects ANY/ANY_TAINT initials. A matching
+static ANY/must supplier keeps the abstract STAR and adds a concrete STAR answer
+only when its mark is requested. These are proposed changes; the measured runtime
+is unchanged.
 
 Historical added-fact-removal target:
 

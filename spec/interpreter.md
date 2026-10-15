@@ -144,11 +144,21 @@ Exact class-point input has a direct concrete initial; broad possible class comp
 
 F78 §1.1 is the complete selected JVM run-1 initial inventory, at field limit exactly 1:
 canonical Zero; abstract non-static base/root, special S/root and S/[C,f]; concrete non-static base/root
-EXACT/STAR, S/[C,f] EXACT/ANY/STAR, and direct S/[C] EXACT/ANY/STAR. E is Empty in all of them. There is
-no concrete empty S-root initial, abstract class/ANY/deeper initial, ANY_TAINT initial or cleaner temporary.
+EXACT/STAR, S/[C,f] EXACT/STAR, and direct S/[C] EXACT/STAR: ten families in all. E is Empty in all of them. There is
+no concrete empty S-root initial, abstract class/deeper initial, ANY/ANY_TAINT initial or cleaner temporary.
 T includes every frontend-admitted concrete mark, including numeric 0 on a nonzero base. Source/end-GEN outputs
 and seed/record work are not arbitrary extra constructors. The abstraction/answer adapters and startFact mapping
 must prove this inventory, not rely on permissive generic InitialAp factories.
+Each selected supplied abstract field initial is always emitted independently of
+concrete requests. Selection still uses the closed plan and actual relevant wide
+activation; it does not add irrelevant incoming fields or change the frame partition.
+For a C.f ANY/must supplier, emit concrete C.f.*(T) only for actual matching T
+requested in effective R; a nonexact direct class component also uses STAR.
+Exact concrete suppliers retain EXACT. Incoming/starting facts may be ANY even
+though run-1 InitialAp never is. The measured static answer constructor still emits
+ANY and violates this proposed boundary. No runtime change is made here.
+Prove no-ANY admission and whole-premise summary/native/reversal compatibility;
+the equal DEMAND/ANY starts of STAR(T) and old ANY(T) are insufficient by themselves.
 
 Prove the incoming bound before emission: ordinary statement/boundary/call cuts, F74 per-read/write cuts,
 non-growing root bindings and class-leading static accessor layout give []/[C]/[C,f] on S. There is no new

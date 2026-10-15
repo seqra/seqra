@@ -1,6 +1,6 @@
 /-
   Closed F78 run-1 INITIAL vocabulary, independent of current-fact vocabulary.
-  There are twelve shapes, not just the two normal ABSTRACT request slots.
+  There are ten shapes, not just the two normal ABSTRACT request slots.
 
   This certifies the selected firstLimit=1, valid JVM class-prefix supplier
   grammar and the F78 constructors below. It does NOT prove that the current
@@ -45,10 +45,8 @@ inductive Shape where
   | baseExact (base mark : Nat)
   | baseChain (base mark : Nat)
   | fieldExact (cls field mark : Nat)
-  | fieldAny (cls field mark : Nat)
   | fieldChain (cls field mark : Nat)
   | classExact (cls mark : Nat)
-  | classAny (cls mark : Nat)
   | classChain (cls mark : Nat)
   deriving DecidableEq, Repr
 
@@ -60,10 +58,8 @@ def encode : Shape → RawInitial
   | .baseExact b t => ⟨.at (.local b []),.exact,.conc t,.empty⟩
   | .baseChain b t => ⟨.at (.local b []),.star,.conc t,.empty⟩
   | .fieldExact c f t => ⟨.at (.field c f),.exact,.conc t,.empty⟩
-  | .fieldAny c f t => ⟨.at (.field c f),.any,.conc t,.empty⟩
   | .fieldChain c f t => ⟨.at (.field c f),.star,.conc t,.empty⟩
   | .classExact c t => ⟨.at (.cls c),.exact,.conc t,.empty⟩
-  | .classAny c t => ⟨.at (.cls c),.any,.conc t,.empty⟩
   | .classChain c t => ⟨.at (.cls c),.star,.conc t,.empty⟩
 
 /-- Constructive parser returns an actual shape witness and its encoding proof.
@@ -77,10 +73,8 @@ def classify : (i : RawInitial) → Option {s : Shape // encode s = i}
   | ⟨.at (.local b []),.exact,.conc t,.set []⟩ => some ⟨.baseExact b t,rfl⟩
   | ⟨.at (.local b []),.star,.conc t,.set []⟩ => some ⟨.baseChain b t,rfl⟩
   | ⟨.at (.field c f),.exact,.conc t,.set []⟩ => some ⟨.fieldExact c f t,rfl⟩
-  | ⟨.at (.field c f),.any,.conc t,.set []⟩ => some ⟨.fieldAny c f t,rfl⟩
   | ⟨.at (.field c f),.star,.conc t,.set []⟩ => some ⟨.fieldChain c f t,rfl⟩
   | ⟨.at (.cls c),.exact,.conc t,.set []⟩ => some ⟨.classExact c t,rfl⟩
-  | ⟨.at (.cls c),.any,.conc t,.set []⟩ => some ⟨.classAny c t,rfl⟩
   | ⟨.at (.cls c),.star,.conc t,.set []⟩ => some ⟨.classChain c t,rfl⟩
   | _ => none
 
@@ -104,6 +98,10 @@ theorem classification_exact (i : RawInitial) : check i = true ↔ Legal i := by
 theorem legal_empty_E (i : RawInitial) (h : Legal i) : i.exclusion = .empty := by
   obtain ⟨s,rfl⟩ := h
   cases s <;> rfl
+
+theorem legal_no_any (i : RawInitial) (h : Legal i) : i.tail ≠ .any := by
+  obtain ⟨s,rfl⟩ := h
+  cases s <;> simp [encode]
 
 theorem legal_no_must (i : RawInitial) (h : Legal i) : i.tail ≠ .must := by
   obtain ⟨s,rfl⟩ := h
@@ -169,6 +167,12 @@ def RawInitial.toAP (i : RawInitial) : PFact :=
 def Shape.toAP (s : Shape) : PFact := (encode s).toAP
 def LegalAP (i : PFact) : Prop := ∃ s : Shape, s.toAP = i
 
+/-- Universal no-ANY statement for the encoded AP initial, not its
+    start/current fact. Concrete STAR still starts as ANY in the DEMAND layer. -/
+theorem legalAP_no_any (i : PFact) (h : LegalAP i) : i.kind ≠ .any := by
+  obtain ⟨s,rfl⟩ := h
+  cases s <;> simp [Shape.toAP,RawInitial.toAP,encode]
+
 theorem root_zero_legal : LegalAP zeroFact := ⟨.zero,rfl⟩
 
 theorem slot_initial_legal (slot : Slot) : LegalAP slot.initial := by
@@ -215,7 +219,11 @@ theorem request_projector_legal (slot : Slot) (a : Leaf) (j : PFact)
         · simp only [Option.some.injEq] at h
           exact ⟨.fieldExact c f a.mark,h⟩
         · simp only [Option.some.injEq] at h
-          exact ⟨.fieldAny c f a.mark,h⟩
+          exact ⟨.fieldChain c f a.mark,h⟩
+
+theorem request_projector_no_any (slot : Slot) (a : Leaf) (j : PFact)
+    (h : project slot a = some j) : j.kind ≠ .any :=
+  legalAP_no_any j (request_projector_legal slot a j h)
 
 theorem direct_class_legal (a : Leaf) (j : PFact) (h : directClass a = some j) : LegalAP j := by
   cases a with
@@ -237,9 +245,13 @@ theorem class_projector_legal (c : Nat) (a : Leaf) (j : PFact)
       · simp only [Option.some.injEq] at h
         exact ⟨.classExact c a.mark,h⟩
       · simp only [Option.some.injEq] at h
-        exact ⟨.classAny c a.mark,h⟩
+        exact ⟨.classChain c a.mark,h⟩
     · cases h
   · cases h
+
+theorem class_projector_no_any (c : Nat) (a : Leaf) (j : PFact)
+    (h : classAnswer c a = some j) : j.kind ≠ .any :=
+  legalAP_no_any j (class_projector_legal c a j h)
 
 /-! ## Supply conditions and exhaustive run-1 factory inventory. -/
 
@@ -298,6 +310,72 @@ theorem every_emitted_initial_legal (cause : Cause) (j : PFact) (h : j ∈ emit 
     · simp [emit] at h
     · exact optional_legal _ (class_projector_legal cls supplier) j h
   | exactClassInput supplier => exact optional_legal _ (direct_class_legal supplier) j h
+
+theorem every_emitted_no_any (cause : Cause) (j : PFact) (h : j ∈ emit cause) :
+    j.kind ≠ .any := legalAP_no_any j (every_emitted_initial_legal cause j h)
+
+/-- Additive admission view: every matching concrete supplier starts the normal
+    abstract slot even when its concrete mark is not requested. The requested
+    concrete start is an addition, never a replacement for that abstract slot. -/
+def supplierStarts (slot : Slot) (a : Leaf) (admitted : Bool) : List PFact :=
+  if slotMatches slot a then slot.initial :: emit (.request slot a admitted) else []
+
+theorem supplier_starts_legal (slot : Slot) (a : Leaf) (admitted : Bool)
+    (j : PFact) (h : j ∈ supplierStarts slot a admitted) : LegalAP j := by
+  unfold supplierStarts at h
+  split at h
+  · simp only [List.mem_cons] at h
+    rcases h with rfl | h
+    · exact slot_initial_legal slot
+    · exact every_emitted_initial_legal _ j h
+  · cases h
+
+theorem supplier_starts_no_any (slot : Slot) (a : Leaf) (admitted : Bool)
+    (j : PFact) (h : j ∈ supplierStarts slot a admitted) : j.kind ≠ .any :=
+  legalAP_no_any j (supplier_starts_legal slot a admitted j h)
+
+theorem abstract_start_additive (slot : Slot) (a : Leaf) (admitted : Bool)
+    (matching : slotMatches slot a = true) :
+    slot.initial ∈ supplierStarts slot a admitted := by
+  simp [supplierStarts,matching]
+
+theorem no_request_abstract_only (slot : Slot) (a : Leaf)
+    (matching : slotMatches slot a = true) :
+    supplierStarts slot a false = [slot.initial] := by
+  simp [supplierStarts,matching,emit]
+
+/-- ANY and must incoming C.f(T) share this exact selected emission law.
+    No request: only C.f*(*) starts. Request: that start plus C.f*(T).
+    This theorem does not create a class request key or bypass admission. -/
+theorem nonexact_field_additive (c f t : Nat) (k : Tail) (hk : k ≠ .exact)
+    (e : Excl) (d : Bool) :
+    supplierStarts (.field c f) ⟨.field c f,k,t,e,d⟩ false =
+      [(Slot.field c f).initial] ∧
+    supplierStarts (.field c f) ⟨.field c f,k,t,e,d⟩ true =
+      [(Slot.field c f).initial,concrete (.field c f) (.star .empty) t] := by
+  cases k <;> simp_all [supplierStarts,slotMatches,emit,project,optional]
+
+/-- Admission reads the exact full owner/original-slot/actual supplier mark
+    membership. There is no field/class-wide or caller-erased request key. -/
+def requestedStarts (requests : List Question) (owner : Owner) (slot : Slot)
+    (a : Leaf) : List PFact :=
+  supplierStarts slot a (decide (⟨owner,slot,a.mark⟩ ∈ requests))
+
+theorem nonexact_field_without_request (requests : List Question) (owner : Owner)
+    (c f t : Nat) (k : Tail) (hk : k ≠ .exact) (e : Excl) (d : Bool)
+    (absent : ⟨owner,Slot.field c f,t⟩ ∉ requests) :
+    requestedStarts requests owner (.field c f) ⟨.field c f,k,t,e,d⟩ =
+      [(Slot.field c f).initial] := by
+  simp only [requestedStarts,absent,decide_false]
+  exact (nonexact_field_additive c f t k hk e d).1
+
+theorem nonexact_field_with_request (requests : List Question) (owner : Owner)
+    (c f t : Nat) (k : Tail) (hk : k ≠ .exact) (e : Excl) (d : Bool)
+    (admitted : ⟨owner,Slot.field c f,t⟩ ∈ requests) :
+    requestedStarts requests owner (.field c f) ⟨.field c f,k,t,e,d⟩ =
+      [(Slot.field c f).initial,concrete (.field c f) (.star .empty) t] := by
+  simp only [requestedStarts,admitted,decide_true]
+  exact (nonexact_field_additive c f t k hk e d).2
 
 theorem unadmitted_request_emits_nothing (slot : Slot) (a : Leaf) :
     emit (.request slot a false) = [] := rfl
@@ -359,10 +437,8 @@ def witness : Shape → Cause
   | .baseExact b t => .request (.base b) ⟨.local b [],.exact,t,.empty,false⟩ true
   | .baseChain b t => .request (.base b) ⟨.local b [],.any,t,.empty,true⟩ true
   | .fieldExact c f t => .request (.field c f) ⟨.field c f,.exact,t,.empty,false⟩ true
-  | .fieldAny c f t => .request (.field c f) ⟨.field c f,.must,t,.empty,false⟩ true
   | .fieldChain c f t => .request (.field c f) ⟨.root,.any,t,.empty,true⟩ true
   | .classExact c t => .exactClassInput ⟨.cls c,.exact,t,.empty,false⟩
-  | .classAny c t => .classMetadata c ⟨.cls c,.any,t,.empty,true⟩ true
   | .classChain c t => .classMetadata c ⟨.root,.any,t,.empty,true⟩ true
 
 theorem every_shape_has_supply_witness (shape : Shape) : shape.toAP ∈ emit (witness shape) := by
@@ -377,14 +453,12 @@ def abstractMark : Shape → Bool
   | _ => false
 
 def demandStart : Shape → Bool
-  | .baseChain _ _ | .fieldAny _ _ _ | .fieldChain _ _ _ |
-    .classAny _ _ | .classChain _ _ => true
+  | .baseChain _ _ | .fieldChain _ _ _ | .classChain _ _ => true
   | _ => false
 
 def startKind (s : Shape) : Kind := match s with
   | .abstractBase _ | .abstractRoot | .abstractField _ _ => .star .empty
-  | .baseChain _ _ | .fieldAny _ _ _ | .fieldChain _ _ _ |
-    .classAny _ _ | .classChain _ _ => .any
+  | .baseChain _ _ | .fieldChain _ _ _ | .classChain _ _ => .any
   | _ => .exact
 
 theorem started_layer (shape : Shape) :
@@ -404,8 +478,8 @@ theorem started_FLOW_exactly_abstract (shape : Shape) :
     (startFact shape.toAP).fact.mark = .star ↔ abstractMark shape = true := by
   cases shape <;> simp [startFact, Shape.toAP, RawInitial.toAP, encode, abstractMark]
 
-/-- Initial ANY/STAR distinction is real even though both concrete starts are
-    may facts. No normal initial constructor returns ANY_TAINT. -/
+/-- Current ANY facts remain legal even though every run-1 initial is EXACT
+    or STAR. No run-1 initial constructor returns ANY or ANY_TAINT. -/
 theorem concrete_any_is_not_an_ordinary_base_initial (b t : Nat) :
     ¬ Legal ⟨.at (.local b []),.any,.conc t,.empty⟩ := by
   rintro ⟨s,hs⟩
@@ -413,15 +487,23 @@ theorem concrete_any_is_not_an_ordinary_base_initial (b t : Nat) :
 
 namespace Certificate
 def samples : List Shape := [.zero,.abstractBase 2,.abstractRoot,.abstractField 3 2,
-  .baseExact 2 8,.baseChain 2 8,.fieldExact 3 2 8,.fieldAny 3 2 8,.fieldChain 3 2 8,
-  .classExact 3 8,.classAny 3 8,.classChain 3 0]
+  .baseExact 2 8,.baseChain 2 8,.fieldExact 3 2 8,.fieldChain 3 2 8,
+  .classExact 3 8,.classChain 3 0]
 
 def checks : Bool :=
   !(check ⟨.at .root,.exact,.conc 8,.empty⟩) &&
   !(check ⟨.at (.cls 3),.star,.star,.empty⟩) &&
   !(check ⟨.at (.local 2 []),.any,.conc 8,.empty⟩) &&
   !(check ⟨.at (.field 3 2),.must,.conc 8,.empty⟩) &&
-  check (encode (.classChain 3 0)) && check (encode (.fieldAny 3 2 8)) &&
+  check (encode (.classChain 3 0)) && check (encode (.fieldChain 3 2 8)) &&
+  !(check ⟨.at (.field 3 2),.any,.conc 8,.empty⟩) &&
+  !(check ⟨.at (.cls 3),.any,.conc 8,.empty⟩) &&
+  decide (supplierStarts (.field 3 2) ⟨.field 3 2,.any,8,.empty,false⟩ false =
+    [(Slot.field 3 2).initial]) &&
+  decide (supplierStarts (.field 3 2) ⟨.field 3 2,.must,8,.empty,false⟩ true =
+    [(Slot.field 3 2).initial,concrete (.field 3 2) (.star .empty) 8]) &&
+  decide (classAnswer 3 ⟨.cls 3,.must,8,.empty,false⟩ =
+    some (concrete (.cls 3) (.star .empty) 8)) &&
   decide ((startFact (Shape.baseChain 2 8).toAP).demand = true) &&
   samples.all (fun s => check (encode s) && decide (s.toAP ∈ emit (witness s)) &&
     decide ((startFact s.toAP).demand = demandStart s))
@@ -430,6 +512,10 @@ end Certificate
 
 #print axioms classification_exact
 #print axioms legal_empty_E
+#print axioms legal_no_any
+#print axioms legalAP_no_any
+#print axioms every_emitted_no_any
+#print axioms nonexact_field_additive
 #print axioms legal_no_must
 #print axioms request_projector_legal
 #print axioms class_projector_legal

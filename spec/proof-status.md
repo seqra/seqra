@@ -11,16 +11,29 @@ theorem catalogs; F70/F71 concrete-run results do not prove current restricted r
 
 ## F78: merged run-1 requests
 
-Validation on 15 October 2026: `lake build` passed (125 jobs), and
-`lake env lean audit.lean` passed for 21,810 declarations with zero unexpected
-axioms. F78 executable controls, including the closed initial grammar and shared
-precomputed-base lifecycle, passed. The
-[proof dossier receipt](run1-request-proofs.md#12-executable-witness-matrix-and-formal-scope)
-binds the sources and logs. No analyzer run or runtime change was made.
+Validation on 15 October 2026 passed for the corrected no-ANY initial policy:
+`lake build` completed 125 jobs; `lake env lean audit.lean` checked 21,826
+declarations with zero unexpected axioms. All executable audit groups passed.
+Run-1 InitialAp now has EXACT or STAR tail only, with ten initial families.
+An incoming ANY/must field supplier projects to concrete STAR; that initial
+starts as an ANY fact in DEMAND. The same rule applies to nonexact class
+projections. Exact suppliers keep EXACT. Abstract initials remain independently
+additive. A requested normal-slot concrete answer requires both an admitted
+request and an actual matching supplier carrying its mark; legal shape alone
+does not authorize emission. Direct exact class inputs and metadata-selected
+broad class components retain their separate paths, without a class request key.
+
+The earlier 125-job /21,810-declaration PASS receipt checked the superseded
+twelve-family policy, which allowed concrete field/class ANY initials. It remains
+historical evidence and does not validate this correction. The
+[proof dossier](run1-request-proofs.md#12-executable-witness-matrix-and-formal-scope)
+retains those historical source/log bindings and the fresh full receipt for the
+corrected sources, including no-ANY and request-gated additive emission controls.
+No analyzer run or runtime change was made.
 
 The [proof dossier](run1-request-proofs.md) gives the constructive arguments for
 all nine original obligations and the storage, arrival and completion laws.
-Its finite semantic domain includes all twelve initial families for the selected
+Its finite semantic domain includes all ten initial families for the selected
 JVM run-1 domain (forward, limit exactly 1, empty handoff seeds and previous-run
 records), the explicit impossible exact static-root supplier assumption, a complete
 prescan field/form domain, broad suppliers and separate legal class points. The theorem statements
@@ -28,7 +41,9 @@ do not assume a predicate that already asserts request coverage.
 
 | Result | Checked evidence | Scope |
 | --- | --- | --- |
-| Exhaustive run-1 initial grammar, supplied answers and start facts | [Run1InitialShapes.lean](lean/ApSpec/Run1InitialShapes.lean): `classification_exact`, `every_emitted_initial_legal`, `request_emission_exact`, `every_shape_has_supply_witness`, `started_layer`, `started_tail`, `started_FLOW_exactly_abstract` | Twelve families in the selected limit-1 domain. Shape permission alone does not authorize emission. Generic runtime factories still need a conformance check. |
+| Exhaustive run-1 initial grammar, supplied answers and start facts | [Run1InitialShapes.lean](lean/ApSpec/Run1InitialShapes.lean): `classification_exact`, `legal_no_any`, `legalAP_no_any`, `request_projector_no_any`, `class_projector_no_any`, `every_emitted_no_any`, `request_emission_exact`, `every_shape_has_supply_witness`, `started_layer`, `started_tail`, `started_FLOW_exactly_abstract` | Ten families in the selected limit-1 domain; no ANY/ANY_TAINT initial. Shape permission alone does not authorize emission. Generic runtime factories still need a conformance check. |
+| Selected abstract field stays additive; concrete field requires its request and supplier | `supplier_starts_no_any`, `abstract_start_additive`, `no_request_abstract_only`, `nonexact_field_additive`, `nonexact_field_without_request`, `nonexact_field_with_request` | For each selected supplied structural slot, lack of R(T) removes only concrete T. It does not expand to irrelevant fields or authorize concrete T from a request alone. |
+| Nonexact field/class projection uses STAR with local coverage | `Run1Requests.nonexact_field_chain`, `nonexact_class_chain`, `concrete_chain_any_start_equal`, `concrete_chain_any_same_coverage`, `concrete_chain_covers_exact_and_any`; denotational `concrete_chain_any_same_summary_relation`/`same_reversed_relation`; `replacement_changes_syntactic_summary_guard` | Same DEMAND/ANY start and ordinary denotational relation do not make native caller guards, initial identities, annotated records/reversal, hand-off or driver states equal. The explicit guard counterexample requires runtime refinement work. |
 | Shared precomputed base, no duplicate memberships or initial notification wave | [Run1PrecomputedRequests.lean](lean/ApSpec/Run1PrecomputedRequests.lean): `initialise_shares_base`, `trace_no_base_copies`, `trace_preserves_base_reference`, `every_input_after_binding_sees_base`, `no_precomputed_delivery_after_any_trace` | Immutable base reference plus disjoint dynamic residual; temporary requests have an empty base. Logical lifecycle proof, not JVM allocation measurement. |
 | Unchanged precomputed static routes need no propagation | `caller_frozen_base_inherits`, `frozen_batch_no_send`, `changed_origin_not_suppressed` | Actual frozen descriptors construct inherited slots and marks. Suppression is per queried slot and actual unchanged origin; changed-origin needs and late wide activations retain dynamic handling. |
 | Exact two-slot projector, exclusion-insensitive request matching and separate class points | [Run1Requests.lean](lean/ApSpec/Run1Requests.lean): `project_exists_iff`, `projector_ignores_field_E`, `direct_class_preserved` | Finite scalar leaves; actual concrete marks are required for answers. Broad suppliers do not prove an exact NORMAL class point. |
@@ -52,6 +67,10 @@ effective-form extraction; canonical AP-tree/component codecs preserving E and
 uncertainty; ordinary/native/reversed reader guards; the existing caller index;
 and actual lock, queue, cancellation and Work accounting. Finite semantic proofs
 do not certify future code, pooled ND confirmation or the whole alternating driver.
+Concrete STAR and the former ANY initial can start from the same DEMAND/ANY fact,
+but their premise applicability and identity differ. The corrected policy's local
+coverage/non-narrowing law does not establish summary, record/reversal, hand-off
+or full-driver equivalence. Those bridges require explicit validation.
 Historical memo proofs below are retained evidence for their old policy, not a
 reason to keep a second request map, full query or deferred answer cache.
 

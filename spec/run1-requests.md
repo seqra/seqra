@@ -38,15 +38,15 @@ legal initials, not one merged initial.
 | Zero | zero | [] | EXACT | canonical zero mark | Root start or incoming Reach |
 | Normal non-static abstraction | b | [] | STAR | STAR | Incoming non-static input |
 | Special static summary seed | S | [] | STAR | STAR | Incoming static input; rule/request guard below |
-| Normal static field abstraction | S | [C,f] | STAR | STAR | Supplied structural field from the closed plan |
+| Normal static field abstraction | S | [C,f] | STAR | STAR | Supplied selected structural field from the closed plan or relevant wide activation |
 | Concrete non-static answer | b | [] | EXACT or STAR | T | Actual requested supplier; exact root versus chain |
-| Concrete static field answer | S | [C,f] | EXACT, ANY or STAR | T | Actual requested field supplier or broad projection |
-| Direct concrete class component | S | [C] | EXACT, ANY or STAR | T | Direct class-point supplier or conservative broad projection |
+| Concrete static field answer | S | [C,f] | EXACT or STAR | T | Actual requested field supplier or broad projection |
+| Direct concrete class component | S | [C] | EXACT or STAR | T | Direct class-point supplier or conservative broad projection |
 
-These are twelve families if each alternative tail is counted separately. The
+These are ten families if each alternative tail is counted separately. The
 table is a legal envelope, not a requirement to emit all its rows for every input.
 InitialFactStore equality distinguishes the alternatives. There is no nonempty E,
-ANY_TAINT initial, abstract ANY, abstract class initial, non-static path below a
+ANY or ANY_TAINT initial, abstract class initial, non-static path below a
 base root, static path below [C,f], cleaner temporary, or concrete empty S-root
 initial of any tail. Only the canonical Zero row can have base zero. In particular,
 an incoming root/class ANY supplier is legal but is not itself admitted as a
@@ -104,14 +104,18 @@ Every path that admits a run-1 method initial must end in one of the table rows:
 1. Root start and incoming Reach create canonical Zero. A direct backward zero
    entry is not a run-1 constructor.
 2. Incoming nonzero input creates its permitted abstraction, the special S-root
-   seed for static input, and supplied structural field abstractions. A plan row
+   seed for static input, and supplied selected structural field abstractions.
+   Each selected supplied C.f slot always emits C.f.* with abstract mark
+   independently of concrete request membership. Selection still uses the closed
+   plan and actual relevant wide activation; do not add irrelevant incoming fields.
+   Broad inputs supply the relevant selected field projections. A plan row
    or request alone creates no concrete initial and no synthetic Zero start.
 3. Current-R TAINT emission and old-TAINT/new-request replay use the same concrete
    projector. A queued answer carries the already checked initial; receiver-side
    admission validates the same grammar and deduplicates it.
-4. Exact class-point inputs and broad possible class components use the separate
-   direct constructor, not a class request slot. A broad ANY/must supplier cannot
-   justify an exact class-point initial.
+4. Exact class-point inputs and nonexact/broad possible class components use the
+   separate direct constructor, not a class request slot. A nonexact ANY/must
+   supplier gives a STAR class initial, never ANY or EXACT.
 
 Source/end-GEN outputs and source/sink seeds are ordinary edge-work inputs under
 their actual premise, not a fifth way to admit arbitrary run-1 initials. Run 1
@@ -128,7 +132,7 @@ For a legal initial, startFact has exactly these results:
 | Canonical Zero | REACH, NORMAL |
 | Abstract STAR (normal slot or special S root) | FLOW at its path, NORMAL, Empty E/mx |
 | Concrete EXACT | singleton exact TAINT at its path, NORMAL, Empty E |
-| Concrete STAR or ANY | singleton ANY TAINT at its path, DEMAND, Empty E |
+| Concrete STAR | singleton ANY TAINT at its path, DEMAND, Empty E |
 
 The singleton describes the starting fact only. Later Facts may pack many concrete
 marks and many leaves, and method summaries keep each original premise. Supplier
@@ -136,6 +140,9 @@ layer is retained by ordinary caller matching; a NORMAL exact starting assumptio
 does not certify that the caller supplied NORMAL evidence. Prove closure over all
 constructors and delivery adapters above before claiming an implementation obeys
 the inventory. Factory permissiveness or a finite vector test alone is insufficient.
+An incoming or starting fact may have the ANY tail; an InitialAp may not. The
+measured static answer constructor still emits ANY for a nonexact static leaf and
+does not conform to this selected boundary. No runtime change is made here.
 
 ## 2. Slot matching and concrete answers
 
@@ -156,23 +163,30 @@ empty in the emitted initial:
 | --- | --- |
 | Exact non-static base-root leaf | same base, empty path, EXACT, T |
 | Other non-static matched leaf | same base, empty path, STAR, T |
-| Static leaf at C.f (the maximum accepted run-1 depth) | C.f, EXACT/ANY, T |
-| Broad static ancestor of C.f | C.f, STAR, T |
+| Exact static leaf at C.f (the maximum accepted run-1 depth) | C.f, EXACT, T |
+| Nonexact ANY/must static leaf at C.f | C.f, STAR, T |
+| Broad nonexact static ancestor of C.f | C.f, STAR, T |
 
-A must supplier uses the ANY answer, not an ANY_TAINT initial. EXACT starts NORMAL;
-concrete STAR/ANY starts DEMAND/ANY under AP §6.5. Preserve the supplier layer when
-reading the resulting summary: emission does not certify a NORMAL caller result.
+A nonexact supplier, including ANY and must, uses the STAR chain answer, never an
+ANY or ANY_TAINT initial. EXACT starts NORMAL; concrete STAR starts DEMAND/ANY under
+AP §6.5. Preserve the supplier layer when reading the resulting summary: emission
+does not certify a NORMAL caller result.
 Independent exact and chain shapes for the same T are not merged.
 
 Exact class-point input starts its exact concrete class initial directly, without
 an abstract class slot or request key. A broad supplier's possible class-point
 component uses a conservative concrete MAY/DEMAND direct path when class-level
-rules need it. It cannot become a NORMAL exact class-point assumption. Never
+rules need it: its initial has tail STAR and Empty E. A nonexact class-point supplier
+also uses STAR. It cannot become a NORMAL exact class-point assumption. Never
 broaden exact class-point taint into field taint.
 
 Always emit the permitted abstract initial and supplied structural field initials.
-Requested concrete answers are additive. InitialFactStore deduplicates method
-starts; answer callback counts need not equal distinct initial counts.
+In particular, for a selected supplied C.f slot an ANY/must input emits abstract
+C.f.* independently of requests; it adds concrete C.f.*(T) only when the supplier actually carries matching
+T and effective R requests it. The concrete branch never replaces the abstraction
+or emits a concrete ANY initial. Requested concrete answers are additive.
+InitialFactStore deduplicates method starts; answer callback counts need not equal
+distinct initial counts.
 
 ## 3. Request producers and excluded marks
 
@@ -493,13 +507,26 @@ separate obligations; their checked model/domain must be reported in
 
 * Constructor closure: root/Reach, ordinary abstraction, requested TAINT answers,
   direct class components and queued answers produce only §1.1 shapes from the
-  selected bounded input domain. The proof covers all exact/ANY/must and broad
+  selected bounded input domain. Prove explicitly that no admitted or emitted
+  InitialAp has tail ANY, including the nonexact field and direct class cases.
+  The proof covers all exact/ANY/must supplier and broad
   ancestor cases, excludes an empty-root exact supplier, and keeps T independent
   of the canonical Zero base.
 * Start preservation: each table row gives §1.3's typed starting fact, with the
   stated layer, singleton mark and Empty E; K6 stays valid through ordinary work.
   Seeds, generated edge facts, joint premises and later-run records do not add an
   unproved run-1 initial constructor.
+* Chain-answer use: prove the new STAR answer's supplied geometry, caller-layer
+  guard and whole-premise summary application; also cover persistence, native/
+  opposite views and reversal where those rows can be read. STAR(T) and the old
+  ANY(T) can start with the same DEMAND/ANY fact, but they are different premise
+  keys with different application/reversal obligations. Start-fact equality does
+  not prove these end-to-end properties or equivalence to the old request policy.
+  In particular, the ordinary applicability gate can accept an exact C.f/T caller
+  under a STAR(T) premise while rejecting it under the old ANY(T) premise. This
+  is a real syntactic admission difference, not a codec identity. State F78's
+  selected relation and guards explicitly; do not claim unchanged old summary
+  admission, runtime parity or whole-engine refinement from the local start model.
 * Physical/base identity: constructing R borrows B without copying its rows into
   P or D; effective membership equals B union D. Prove every collection/commit
   transition preserves `P intersect B = D intersect B = empty`, so no fresh

@@ -91,14 +91,12 @@ premise; it does not remove a nonzero-base member merely because its mark ID is 
 | Non-static concrete point | b/root | EXACT | T | Requested supplied exact root |
 | Non-static concrete chain | b/root | STAR | T | Requested supplied non-root/broad shape |
 | Static-field concrete point | S/[C,f] | EXACT | T | Supplied exact field |
-| Static-field concrete ANY | S/[C,f] | ANY | T | Supplied field ANY/must normalized to ANY |
-| Static-field concrete chain | S/[C,f] | STAR | T | Supplied broad ancestor projected to field |
+| Static-field concrete chain | S/[C,f] | STAR | T | Supplied field ANY/must or broad ancestor projected to field |
 | Class-point concrete point | S/[C] | EXACT | T | Direct supplied exact class point |
-| Class-point concrete ANY | S/[C] | ANY | T | Direct same-class ANY component |
-| Class-point concrete chain | S/[C] | STAR | T | Broad root projected to a class component |
+| Class-point concrete chain | S/[C] | STAR | T | Nonexact same-class supplier or broad root projected to class |
 
 E is empty in **every** row. Abstract marks have no mark exclusions. There is
-no ANY_TAINT initial, abstract class initial, abstract ANY initial, non-static
+no ANY or ANY_TAINT initial of any mark, abstract class initial, non-static
 field initial, concrete empty-S-root initial, or cleaner-temporary initial. A
 PremiseSet is a summary/rule support header, not an additional initial shape.
 Exact and chain alternatives for the same mark remain distinct.
@@ -120,8 +118,8 @@ only these rows, and no legal route needs an extra abstract/request shape.
 start chooses the base-root STAR abstract row; on S this is the special summary
 seed. The structural field emitter chooses only `[C,f]/STAR/abstract`. The
 request projector's non-static cases choose exact root or STAR root. Its static
-cases choose the field EXACT, ANY or STAR rows. The class direct projector chooses
-class EXACT, ANY or STAR, with broad choices starting as demand. All these
+cases choose the field EXACT or STAR rows. The class direct projector chooses
+class EXACT or STAR, with nonexact choices starting as demand. All these
 constructors explicitly use empty E. A fresh and a late answer use the same
 projector, so asynchronous delivery adds no family. Source/GEN and native model
 outputs are ordinary statement facts, not a separate direct initial route. A
@@ -150,10 +148,11 @@ The measured source supports the following narrower facts:
   and [StaticSupplierCursor](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/StaticSupplierCursor.kt)
   are historical measured constructors here: the current structural cursor can
   emit an abstract class slot, and a root cleaner question can emit a concrete
-  root answer. F78 removes those routes rather than claiming they never existed.
+  root answer. The current request cursor also emits static concrete ANY answers.
+  F78 removes those routes rather than claiming they never existed.
 - [RunMethodAnalyzer](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunMethodAnalyzer.kt)
-  `addInitial` currently rejects run-1 ANY_TAINT, but does not validate the entire
-  closed list. `addLink` and the current emitter do not perform a fresh field cut.
+  `addInitial` currently rejects run-1 ANY_TAINT but permits ANY, so it does not
+  enforce the corrected no-ANY inventory. `addLink` and the current emitter do not perform a fresh field cut.
   InitialAnswersIn must therefore contain validated projector outputs.
 - [IterationDriver](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/driver/IterationDriver.kt)
   starts run 1 with no demand and `SeedIndex.EMPTY`.
@@ -228,21 +227,22 @@ actual exact/ANY mark set. R membership alone supplies no mark. The answer is:
 | Non-static exact root | Exact root on the same base |
 | Other non-static leaf | STAR root on the same base |
 | Exact leaf at `[C,f]` | Exact `[C,f]` |
-| ANY leaf at `[C,f]` | ANY `[C,f]` |
+| ANY/must leaf at `[C,f]` | STAR `[C,f]` |
 | Broad ANY ancestor of `[C,f]` | STAR `[C,f]` |
 
-Every answer has empty E. There is no ANY_TAINT request answer; that input
-annotation is normalized to ANY by the adapter. The ordinary initial start rule
-still assigns the correct may/demand layer. In particular, the broad-ancestor
-row does not assert a NORMAL exact field fact.
+Every answer has empty E. No run-1 InitialAp has ANY or ANY_TAINT tail. An incoming
+ANY/must supplier produces a concrete STAR initial, which starts as an ANY fact
+in the DEMAND layer. InitialAp tail and starting/conclusion tail are separate
+notions. Exact suppliers retain their exact initial. No nonexact row asserts a
+NORMAL exact field fact.
 
 **Matcher theorem.** A request produces exactly the above answer alternatives
 for its slot and the concrete marks present in an input, independently of E,
 request role and FLOW exclusions.
 
 **Proof.** Case-split on the base and the three possible static path lengths.
-Different bases fail. At the same path, exact and ANY take their corresponding
-rows. At a proper prefix, only the broad leaf denotes a possible continuation;
+Different bases fail. At the same path, exact takes EXACT and ANY/must takes STAR.
+At a proper prefix, only the broad leaf denotes a possible continuation;
 an exact prefix has no descendant. At a sibling, neither prefix relation holds.
 The non-static slot has no path test beyond its base. Finally intersect the
 selected leaf's actual concrete marks with the requested set. This enumerates
@@ -257,6 +257,48 @@ its exact shape and layer; never project it onto a field. A broad supplier also
 has a possible class-point component. If an effective class-level operation can
 read that component, the direct class-component path must preserve its may layer.
 It must not invent NORMAL exact class taint. Section 6 includes both components.
+
+**Local STAR coverage law.** Replacing a supplied nonexact field/class answer by
+STAR keeps its base, projected position, concrete mark and empty E. Its startFact
+is still ANY/DEMAND. No actual supplied mark or required local analysis disappears;
+the abstract STAR analysis is emitted independently and remains additive. Here
+“always abstract” applies to a selected supplied structural slot, chosen by the
+closed plan or relevant wide activation. It does not enumerate all irrelevant
+incoming fields or change the untouched frame. Missing R(T) must never suppress
+that selected slot's abstract initial.
+
+**Proof.** Split on exact versus nonexact supplier. Exact retains EXACT. Every
+nonexact answer uses STAR and the existing concrete-STAR start row, hence starts
+ANY/DEMAND with the same concrete mark. Request admission and the successful
+supplier projection are still both required for a normal-slot concrete answer.
+This proves local output/request coverage and preserves uncertainty. It does not
+authorize an initial from legal shape or a request alone.
+
+This is not a global ANY/STAR summary-equivalence theorem. In the measured
+[Summary](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/Summary.kt)
+`applicablePart`, a concrete ANY premise selects only input ANY marks, while a
+concrete STAR premise can also select exact marks. Another exact C.f/T input can
+therefore satisfy the new STAR premise when it did not satisfy the old ANY one,
+despite the same initial starting fact. Premise identity, full ordinary guards,
+native/reversed record views, persisted summaries and hand-off/frontier behavior
+still require their own refinement and regression checks. Equal seeds alone do
+not prove those results or strict finding parity.
+
+For that selected field slot the executable witness has this exact form:
+
+```text
+incoming C.f ANY/must carrying T; R lacks (full Key, F(C,f), T):
+    [ abstract C.f STAR ]
+same supplier; R contains (full Key, F(C,f), T):
+    [ abstract C.f STAR, concrete C.f STAR/T ]
+```
+
+The second initial starts as ANY/T in DEMAND; neither list contains an ANY
+InitialAp. If the supplier lacks T or does not match, a request alone cannot add
+that concrete initial. Independent requested marks remain separate alternatives.
+The direct exact-class path is an explicit existing exception to normal-slot
+request gating; broad class handling requires its metadata need and actual
+supplier, without inventing a class request key.
 
 ## 3. Obligation 1: complete request-producer inventory
 
@@ -616,6 +658,9 @@ transient partition, uncertainty annotations and owner selection. In particular,
 old descendant-only summary candidate selection cannot silently exclude a projected
 broad ancestor. The read adapter must pass the matching component to the full AP
 guard. No new same-call confirmation theorem follows for pooled ND candidates.
+The ANY-to-STAR correction has not acquired whole summary/record compatibility
+from this frame theorem. Its local laws and the changed syntactic applicability
+case in section 2 remain separate from that implementation bridge.
 
 ## 7. Obligation 8: concrete-initial safety
 
@@ -769,6 +814,33 @@ a false COMPLETE state. A fresh run starts with fresh stores and reservations.
 
 ## 12. Executable witness matrix and formal scope
 
+**Current no-ANY correction: full validation passed on 15 October 2026.** The
+selected grammar has ten families and no ANY/ANY_TAINT InitialAp. `lake build`
+completed 125 jobs; `lake env lean audit.lean` checked 21,826 declarations with
+zero unexpected axioms. Only `propext` and `Quot.sound` were permitted. All
+executable audit groups passed, including ten-family supply/start checks and
+the nonexact field's abstract-only/requested-concrete-STAR cases. The immutable
+source/log-hashed receipt is under evidence root B from the performance report:
+
+```text
+report-preparation/run1-no-any-initials-20261015/
+  full-20261015T195138.576307Z/receipt.json
+SHA-256 47c0aeb30ad6ec36134e025d70aaf680c4e47d78232991a3e0351cdaa2d52abb
+```
+
+The selected build also passed (6 jobs), with an independent audit of 1,250
+declarations, zero unexpected axioms and the no-ANY/additive executable controls:
+
+```text
+report-preparation/run1-no-any-initials-20261015/
+  lean-20261015T195126.868112Z/receipt.json
+SHA-256 fe94157bfa9482e2b8133bcd5f2a7d59027722eb943696d4b516cb875f9d83c9
+```
+
+These checks validate the corrected finite models, not runtime implementation
+conformance. No analyzer run was made. The older receipts below bind earlier
+sources and remain historical evidence only.
+
 The constructive Lean work is split across
 [Run1Requests](lean/ApSpec/Run1Requests.lean) (slot/projector and form/graph closure),
 [Run1RequestsSafety](lean/ApSpec/Run1RequestsSafety.lean) (component ownership/frame
@@ -777,7 +849,7 @@ and cleaner counterexamples), and
 laws), with the selected extensions
 [Run1InitialShapes](lean/ApSpec/Run1InitialShapes.lean) and
 [Run1PrecomputedRequests](lean/ApSpec/Run1PrecomputedRequests.lean).
-The first two modules passed their selected build, declaration audit and
+The earlier versions of the first two modules passed their selected build, declaration audit and
 executable vectors on 15 October 2026:
 
 ```text
@@ -797,7 +869,7 @@ report-preparation/run1-request-proofs-20261015/
 SHA-256 d3109371a385bf6d47419cdd2a9db04377cb6e39459bc41060a541867bc98d09
 ```
 
-The full-library check also passed on 15 October 2026, including all three F78
+The earlier full-library check also passed on 15 October 2026, including the then-current three F78
 modules and their executable audit controls:
 
 ```bash
@@ -820,7 +892,7 @@ Both receipts are under evidence root B from the current performance report.
 They are proof-build evidence, not runtime tests or JVM conformance. The runtime
 diff against measured `27e22bb1e` is empty for `core` and `rules`.
 
-The shape extension also passed its selected build and audit:
+The superseded twelve-family shape extension passed its selected build and audit:
 
 ```text
 cd spec/lean && lake build ApSpec.Run1InitialShapes
@@ -838,7 +910,7 @@ report-preparation/run1-initial-shapes-20261015/
 SHA-256 db6afa4377f55b0b396b8b70eba4daa308d8dd6dab018271bc68e3d3be025b11
 ```
 
-The refreshed full-library check passed with both extensions: `lake build`
+The superseded twelve-family full-library check passed with both extensions: `lake build`
 completed 125 jobs, and `lake env lean audit.lean` checked 21,810 declarations
 with zero unexpected axioms. Only `propext` and `Quot.sound` were permitted.
 All executable audit groups passed, including the shared-base and twelve-family
@@ -851,17 +923,21 @@ SHA-256 1334f8b247c8e94cf52186517b4a799c2efbffbdef89effb74d80ee5b8b36fa1
 ```
 
 The statement map is below. Names are in the corresponding `ApSpec` namespace.
-The first two receipts precede the shape and shared-base extensions; the final
-receipt validates their combined sources. None of these checks proves current
-generic factories obey the F78 boundary. No analyzer run was made, and the
-runtime diff against measured `27e22bb1e` remains empty for `core` and `rules`.
+The first two receipts precede the shape and shared-base extensions; the later
+receipts validate their earlier twelve-family sources only. The fresh receipts
+at the start of this section validate the corrected ten-family/no-ANY sources.
+None of these checks proves
+current generic factories obey the F78 boundary. No analyzer run was made, and
+the runtime diff against measured `27e22bb1e` remains empty for `core` and `rules`.
 
 | Obligation | Lean statements and their actual scope |
 | --- | --- |
 | Exact slot matcher | `Run1Requests.project_exists_iff`, `projector_ignores_field_E`, `projector_keeps_mark`; finite leaf projector, not Kotlin tree traversal |
-| Complete initial grammar | `Run1InitialShapes.classification_exact`, `legal_empty_E`, `legal_no_must`, `legal_no_excluded_initial_mark`, `zero_base_canonical`, `no_concrete_empty_static_root`, `no_abstract_class`, `no_nonstatic_field_initial`, `no_static_deep_initial`, `no_abstract_any`; selected 12-family grammar, not current generic InitialAp validation |
-| Actual initial supply | `request_projector_legal`, `direct_class_legal`, `class_projector_legal`, `every_emitted_initial_legal`, `request_emission_exact`, `request_requires_matching_concrete_supplier`, `incoming_answers_legal`, `FLOW_never_answers`, `every_shape_has_supply_witness`; actual finite answer factories, not mere shape permission |
+| Complete initial grammar | `Run1InitialShapes.classification_exact`, `legal_empty_E`, `legal_no_any`, `legalAP_no_any`, `legal_no_must`, `legal_no_excluded_initial_mark`, `zero_base_canonical`, `no_concrete_empty_static_root`, `no_abstract_class`, `no_nonstatic_field_initial`, `no_static_deep_initial`; checked ten-family/no-ANY laws, not current generic InitialAp validation |
+| Actual initial supply | `request_projector_legal`, `request_projector_no_any`, `direct_class_legal`, `class_projector_legal`, `class_projector_no_any`, `every_emitted_initial_legal`, `every_emitted_no_any`, `request_emission_exact`, `request_requires_matching_concrete_supplier`, `incoming_answers_legal`, `FLOW_never_answers`, `every_shape_has_supply_witness`; actual finite answer factories, not mere shape permission |
+| Additive selected abstract slot and request-gated concrete mark | `supplier_starts_no_any`, `abstract_start_additive`, `no_request_abstract_only`, `nonexact_field_additive`, `nonexact_field_without_request`, `nonexact_field_with_request`; actual supplier and full logical Question membership; selected slot does not disappear when T is unrequested |
 | Start facts | `started_layer`, `started_tail`, `started_geometry`, `started_zero_is_reach`, `started_FLOW_exactly_abstract`; existing scalar AP start adapter, not the packed Facts codec |
+| Nonexact STAR answer coverage and limit | `Run1Requests.nonexact_field_chain`, `nonexact_class_chain`, `concrete_chain_any_start_equal`, `concrete_chain_any_same_coverage`, `concrete_chain_covers_exact_and_any`; local projection/start/coverage. `concrete_chain_any_same_summary_relation` and `concrete_chain_any_same_reversed_relation` are ordinary denotational location-pair equalities, not annotated native reader or driver refinement. `replacement_changes_syntactic_summary_guard` proves that the syntactic caller applicability can differ |
 | 1: producer inventory | `effective_leaf_collected`, `excluded_target_member_collected`, `zero_and_removeAll_not_mark_producers`, `generated_targets_keep_structure`; effective finite form grammar, with frontend extraction as a bridge |
 | 2: static plan | `closure_seed`, `closure_call`, `closure_least`, `recursive_call_coverage`, `unchanged_static_plan`, `wide_activation_complete`, `effective_static_dispatch`; executable finite graph/activation |
 | 3: dynamic residual | `static_dynamic_cover`, `changed_slot_retains_dynamic`, `changed_static_origin`; full logical owner and original slot |
@@ -905,7 +981,9 @@ Each executable control must test the actual result below, not assume coverage:
 | T answered, then a new caller/supplier U | R remains active; U independently answers if requested |
 | Request-only method; final flush; cancellation | Counted ownership prevents early COMPLETE; cancelled run makes no closure claim |
 | Native and opposite-direction persisted summary read | Same component ownership/frame, ordinary full guards preserved |
-| Every closed initial family, including T=ZERO on a nonzero base | Exactly the 12 rows in section 1.1; no extra initial from seeds, GEN or native results |
+| Every closed initial family, including T=ZERO on a nonzero base | Exactly the ten rows in section 1.1; no ANY/ANY_TAINT initial and no extra initial from seeds, GEN or native results |
+| Supplied field ANY/must with R lacking/containing T | Abstract field STAR in both cases; concrete field STAR only with actual matched T and admitted request; starts ANY/DEMAND |
+| Exact versus nonexact class supplier | Direct exact stays EXACT; metadata-gated nonexact class becomes STAR; no class request key |
 | First limit 1, class uncounted, field counted | Accepted cut route yields root/C/C.f; generic deeper/manual input is not silently truncated or certified |
 | Shared precomputed B before subscriber/input | No copy into P/D, no initial notification wave; both fresh input arms read effective R |
 | Unchanged versus changed caller origin for a B member | Unchanged route subtracts to empty; C.g→C.f and non-static origins retain missing residual interests |

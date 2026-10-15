@@ -284,12 +284,13 @@ only the forms that the analyzer reads: the forward forms of the interpreter, or
 The subscriptions are not in the analyzer. They are in the `SubscriptionManager` of the runner of the caller
 (`ap.md` §8.4; §5.3).
 
-THE PREMISE KEY HOLDS THE TAIL AND THE EXCLUSION. An `[any-taint]` premise (a MUST-PREMISE) with its exclusion `E` and
+THE PREMISE KEY HOLDS THE TAIL AND THE EXCLUSION. In a forward restricted run, an `[any-taint]` premise (a MUST-PREMISE) with its exclusion `E` and
 an `[any]` premise with the same base, path and mark are two different premise keys (`InitialAp` with the tail
 `ANY_TAINT` and the exclusion `E`, or with the tail `ANY`, `ap.md` §7.1). Two must-premises of one path with different
 exclusions are two premise keys too. Two added facts of one method (an `[any-taint]` one and an `[any]` one) can give
 them at one path. So `initials` holds both, and every store of the table that has the premise key in its key
-(`edges`, `summaries`, `conjunctions`) keeps them apart. A forward run only: the backward run has no `[any-taint]`.
+(`edges`, `summaries`, `conjunctions`) keeps them apart. F78 run 1 has neither ANY nor ANY_TAINT initials;
+its nonexact concrete STAR initial still starts an ANY fact. The backward run has no `[any-taint]`.
 Lean: the must flag and the exclusion of the objects `AnyTaintEx.XObj` (`init M j must jex`, `edge M j must jex n f`).
 
 ### 4.2 Handlers
@@ -411,8 +412,8 @@ read its records. Backward zero-premise seed paths can return to callers.
 
 F78 §1.1 gives the exhaustive selected run-1 admission domain: canonical Zero;
 abstract non-static base/root, special S/root and S/[C,f]; concrete non-static
-base/root EXACT/STAR, S/[C,f] EXACT/ANY/STAR and S/[C] EXACT/ANY/STAR. All have
-Empty E. No ANY_TAINT, abstract class/ANY, deeper initial or concrete empty S-root
+base/root EXACT/STAR, S/[C,f] EXACT/STAR and S/[C] EXACT/STAR: ten families. All have
+Empty E. No ANY/ANY_TAINT, abstract class, deeper initial or concrete empty S-root
 initial exists. T may be numeric ID 0 on a nonzero base; only the Zero base has the
 canonical Zero restriction. The JVM cut/layout/binding proof establishes the
 bounded incoming domain before emission at run-1 limit exactly 1; there is no new
@@ -423,7 +424,16 @@ Source/end-GEN outputs, source/sink seeds and joint-premise members are edge/pro
 work, not arbitrary additional run-1 initial constructors. Run 1 reads no native
 records and starts with empty hand-off seeds. F78 §1.3 specifies each starting
 fact: abstract STAR is NORMAL FLOW, concrete EXACT is NORMAL exact TAINT, concrete
-STAR/ANY is DEMAND ANY TAINT, and canonical Zero is NORMAL REACH.
+STAR is DEMAND ANY TAINT, and canonical Zero is NORMAL REACH. An incoming/starting
+fact can be ANY; an InitialAp cannot. Nonexact field/class suppliers become STAR
+initials, while exact ones remain EXACT. Supplied abstract field initials are
+always emitted for each supplied selected structural slot independently of R(T),
+using the closed plan and actual relevant wide activation, not all irrelevant
+incoming fields. Concrete field initials additionally require actual matching T
+and effective-R membership. The measured static answer code still emits ANY and
+does not yet conform. Prove no-ANY emission/admission and the whole-premise summary,
+native/opposite and reversal bridges separately; equal starting facts alone do
+not discharge those obligations.
 
 Start nodes, end nodes and their rules. The interpreter gives the forward ones; the backward ones are their reversal
 (§4.9):

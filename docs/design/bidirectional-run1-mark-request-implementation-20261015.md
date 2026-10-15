@@ -334,6 +334,7 @@ there is no new emitter cut.
 fun validateRun1Initial(i: InitialAp) {
     require(run.number == 1 && run.forward && run.limit == 1)
     require(i.exclusion.isEmpty && !i.base.isCleanerTemporary)
+    require(i.tail == EXACT || i.tail == STAR) // ANY/ANY_TAINT are never run-1 initials
 
     if (i.base.isZero) {
         require(i == canonicalZero) // exact root, canonical zero mark
@@ -350,13 +351,12 @@ fun validateRun1Initial(i: InitialAp) {
             }
         }
         is ConcreteMark -> when (val position = parseInitialPosition(i)) {
-            is NonStaticRoot -> require(i.tail == EXACT || i.tail == STAR)
-            is StaticField, is ClassPoint -> require(i.tail in setOf(EXACT, ANY, STAR))
+            is NonStaticRoot, is StaticField, is ClassPoint -> Unit
             else -> error("Invalid concrete run-1 initial") // includes empty S root
         }
     }
     // No T!=0 guard on nonzero bases; admitted concrete mark IDs can include 0.
-    // No ANY_TAINT, abstract ANY/class, deep static or nonstatic initial path.
+    // No ANY/ANY_TAINT, abstract class, deep static or nonstatic initial path.
 }
 
 fun admitRun1Initial(i: InitialAp) {
@@ -366,15 +366,15 @@ fun admitRun1Initial(i: InitialAp) {
 ```
 
 ```text
-Twelve cases and their first conclusion:
+Ten cases and their first conclusion:
     Zero                                   -> REACH, NORMAL
     abstract b/root, S/root, S/C.f          -> FLOW/STAR, NORMAL
     concrete b/root/EXACT                   -> exact TAINT, NORMAL
     concrete b/root/STAR                    -> ANY TAINT, DEMAND
     concrete S/C.f/EXACT                    -> exact TAINT, NORMAL
-    concrete S/C.f/ANY or STAR              -> ANY TAINT, DEMAND
+    concrete S/C.f/STAR                     -> ANY TAINT, DEMAND
     concrete S/C/EXACT                      -> exact TAINT, NORMAL
-    concrete S/C/ANY or STAR                -> ANY TAINT, DEMAND
+    concrete S/C/STAR                       -> ANY TAINT, DEMAND
 ```
 
 ```kotlin
@@ -392,12 +392,12 @@ onBroadClassNeed(need, supplier)      { projectClass(need, supplier)?.let(::admi
 
 // Source/end-GEN and sink/source seeds create edge work under their actual premise.
 // They do not admit arbitrary new run-1 method initials. ND members are not a
-// thirteenth shape. Later-run restricted emission/record readers have their own grammar.
+// eleventh shape. Later-run restricted emission/record readers have their own grammar.
 ```
 
 Validate static layout as class→static-field→ordinary suffix, with one counted
 accessor at run-1. Positivity alone does not prove the bound. Current generic
-factories, historical abstract-class starts and custom first limits above 1 do
+factories, historical static ANY/abstract-class starts and custom first limits above 1 do
 not yet conform to this proposed boundary.
 
 ## 6. Request projection and exclusion creators
@@ -423,7 +423,7 @@ fun projectConcrete(slot: Run1Slot, mark: Mark, supplier: Facts): Sequence<Initi
             }
             is Run1Slot.StaticField -> when {
                 leaf.isExactAt(slot) -> exactInitial(STATIC, slot.path, mark)
-                leaf.isAnyOrMustAt(slot) -> anyInitial(STATIC, slot.path, mark)
+                leaf.isAnyOrMustAt(slot) -> chainInitial(STATIC, slot.path, mark)
                 leaf.isBroadAncestorOf(slot) -> chainInitial(STATIC, slot.path, mark)
                 else -> null
             }
@@ -432,6 +432,24 @@ fun projectConcrete(slot: Run1Slot, mark: Mark, supplier: Facts): Sequence<Initi
     } // preserve both exact and chain alternatives; InitialFactStore deduplicates
     // Emitted E is empty; ordinary caller matching retains original E/layer.
 }
+
+// Incoming and starting facts can have ANY; InitialAp never does in run-1.
+// The separate direct class projector also uses STAR for every nonexact answer.
+// C.f is a selected supplied field slot. Inspect its initials here;
+// the separate special S-root seed remains present.
+checkFieldSlotInitials(
+    input = anyTaint(STATIC, path(C, f), T),
+    requested = emptyMarks(),
+    expectedInitials = setOf(abstractInitial(STATIC, path(C, f))),
+)
+checkFieldSlotInitials(
+    input = anyTaint(STATIC, path(C, f), T),
+    requested = marksOf(T),
+    expectedInitials = setOf(
+        abstractInitial(STATIC, path(C, f)),
+        chainInitial(STATIC, path(C, f), T),
+    ),
+)
 
 fun introduceExcludedMarks(origin: PremiseKey, input: FLOW, excluded: MarkSet) {
     validateExistingPremiseFactInvariant(origin, input) // K6 before eligibility guards
@@ -447,6 +465,12 @@ transfers retain their existing exclusion tests. Every generic excluded target,
 not just a named cleaner, uses the creator side effect. Legal hand-built edges
 stay legal. Concrete-origin inputs produce no upstream interest and still answer
 callee requests from actual concrete marks.
+
+The chain is the selected initial representation. It is not an ANY initial
+renamed after admission. Both start with an ANY/DEMAND concrete fact, but their
+stored premise matching differs; tests must cover summary application and later
+record views under the new STAR premise. Equal starting facts alone do not prove
+equivalence to the historical static ANY-answer implementation.
 
 ## 7. Late requests without an answer memo
 
@@ -515,7 +539,7 @@ metadata for later record readers. Neither stored IR nor the record format chang
 | Step | Components | Required control |
 | --- | --- | --- |
 | 1 | `Run1StaticProfiles`, `JIRStaticMetadata`, `JIRBidiAnalysis` | Effective forms, finite layout/domain, closed frozen rows and deferred wide scopes match the model |
-| 2 | Initial admission, `Demand.kt` adapters and independent request matcher | All twelve allowed cases have actual supply/start witnesses; forbidden shapes are rejected; no new emitter cut |
+| 2 | Initial admission, `Demand.kt` adapters and independent request matcher | All ten allowed cases have actual supply/start witnesses; ANY and other forbidden shapes are rejected; no new emitter cut |
 | 3 | `PublicationIndex`, `Summary.kt`, `RecordStore` and component reader | Root cleaner/write counterexamples, normal-return gate, broad projections and later/opposite reads |
 | 4 | New `RequestStorage`, `SummaryStorage`, `MarkQuestions` replacement | Shared B reference, disjoint residual D/P, no initial wave, no cumulative mirror |
 | 5 | `Run1Abstraction`, subscription/call services and handler ports | Bind/read ordering, concrete answers, changed-origin FLOW, late wide activation, counted queued effects |
@@ -531,7 +555,9 @@ retirement and a broad scheduler rewrite remain outside scope.
 
 ```kotlin
 // Independent scalar oracles use the checked model, not the old full-query cursor.
-checkAllTwelveInitialsAndSupplyGates()
+checkAllTenInitialsAndSupplyGates()
+checkNoAnyInitialIncludingStaticFieldAndClassAnswers()
+checkAnyOrMustSupplierKeepsAbstractAndAddsConcreteChainOnlyWhenRequested()
 checkNoConcreteStaticRootNoAbstractClassNoMustNoNonemptyE()
 checkSharedBaseHasNoPendingResidualOrInitialNotificationCopies()
 checkEveryNewTaintAndFlowInputReadsPrecomputedBase()

@@ -6,7 +6,7 @@ The selected contract is now [F78](../../spec/run1-requests.md), with the
 [implementation proposal](bidirectional-run1-mark-request-implementation-20261015.md).
 F78 includes the static-root composition and exclusion-creator clarifications
 found during proof review. It takes precedence over the initial obligations here.
-Its current section 1 pins all twelve run-1 initial families; section 4 defines
+Its current section 1 pins all ten run-1 initial families; section 4 defines
 the shared precomputed base and its complete input/routing workflow.
 
 This replaces the request protocol proposed in P5, P6 and P9 of the
@@ -100,12 +100,15 @@ before creating replay work. Tree breadth can still be large despite the depth l
 | Non-static exact leaf at base root | Base root, EXACT tail |
 | Other matching non-static leaf | Base root, STAR tail |
 | Static exact leaf at C.f | C.f, EXACT tail |
-| Static ANY leaf at C.f | C.f, ANY tail |
+| Static ANY/must leaf at C.f | C.f, STAR tail |
 | Static broad leaf strictly above C.f | Requested C.f, STAR tail |
 
-Each answer carries the matched concrete mark and empty E. Run-1 emits no ANY_TAINT
-initial. An adapter exposing must-taint must normalize it to ANY. Define and test this
-projector independently of scheduling.
+Each answer carries the matched concrete mark and empty E. Run-1 emits no ANY or
+ANY_TAINT initial. An adapter exposing an ANY/must supplier emits a STAR answer.
+Keep the supplied field's abstract STAR initial even without a request; add its
+concrete STAR/T answer only when T is requested and actually supplied. Incoming
+and starting TAINT facts may still have an ANY tail. Define and test this projector
+independently of scheduling.
 
 The special `(S, ., *, ..., *)` summary seed is separate from these slots. Keep its
 ordinary code transfer and summary role, skip its rule evaluation, and emit no requests
@@ -581,6 +584,12 @@ commit order; two FLOW routes with different excluded marks; request-only method
 Work; queued events after commit-and-replace; duplicate temporary unions; stale
 authoritative reads; local queued effects; cancellation/rejected sends; completion
 immediately after a final flush; and fresh-run isolation.
+
+Reject ANY initials, including static field/class answers. Check that an incoming
+ANY/must at C.f keeps the abstract field STAR and adds concrete STAR/T only for a
+matching admitted request. Incoming and starting ANY facts remain valid. Verify
+summary matching and record views with the STAR premise; an equal starting fact
+alone is not an equivalence proof for the historical ANY-premise behavior.
 
 Use a scalar oracle for the new policy. Request membership proves neither a rule
 condition nor candidate confirmation. Compare strict finding locations and actual

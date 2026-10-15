@@ -461,6 +461,19 @@ run_elab do
       ApSpec.Run1Requests.classAnswer 3 broad !=
       some (ApSpec.Run1Requests.concrete (.cls 3) (.star .empty) 7) then
     throw (IO.userError "F78 broad field/class projection certificate failed.")
+  let anyField : ApSpec.Run1Requests.Leaf := ⟨.field 3 2,.any,7,.empty,false⟩
+  let mustField : ApSpec.Run1Requests.Leaf := ⟨.field 3 2,.must,7,.empty,false⟩
+  let abstractField := (ApSpec.Run1Requests.Slot.field 3 2).initial
+  let concreteField := ApSpec.Run1Requests.concrete (.field 3 2) (.star .empty) 7
+  if ApSpec.Run1InitialShapes.supplierStarts (.field 3 2) anyField false != [abstractField] ||
+      ApSpec.Run1InitialShapes.supplierStarts (.field 3 2) anyField true !=
+        [abstractField,concreteField] ||
+      ApSpec.Run1InitialShapes.supplierStarts (.field 3 2) mustField false != [abstractField] ||
+      ApSpec.Run1InitialShapes.supplierStarts (.field 3 2) mustField true !=
+        [abstractField,concreteField] ||
+      ApSpec.Run1Requests.classAnswer 3 ⟨.cls 3,.any,7,.empty,false⟩ !=
+        some (ApSpec.Run1Requests.concrete (.cls 3) (.star .empty) 7) then
+    throw (IO.userError "F78 no-ANY/additive concrete STAR certificates failed.")
   let classPoint : ApSpec.Run1Requests.Leaf := ⟨.cls 3,.exact,7,.empty,false⟩
   if ApSpec.Run1Requests.directClass classPoint !=
       some (ApSpec.Run1Requests.concrete (.cls 3) .exact 7) then
@@ -484,7 +497,7 @@ run_elab do
       result.1.pending.baseKey.isSome || !result.1.pending.additions.isEmpty ||
       result.2 != [3] then
     throw (IO.userError "F78 shared precomputed request certificate failed.")
-  if ApSpec.Run1InitialShapes.Certificate.samples.length != 12 ||
+  if ApSpec.Run1InitialShapes.Certificate.samples.length != 10 ||
       !ApSpec.Run1InitialShapes.Certificate.checks then
     throw (IO.userError "F78 closed initial grammar/start-fact certificates failed.")
-  IO.println "Executable F78 shared-base and twelve-initial certificates passed."
+  IO.println "Executable F78 shared-base and ten-initial certificates passed."
