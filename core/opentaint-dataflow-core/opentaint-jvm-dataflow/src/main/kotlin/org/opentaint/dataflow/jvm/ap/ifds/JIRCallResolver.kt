@@ -55,14 +55,16 @@ class JIRCallResolver(
             .forEach { knownLocationIds.add(it.id) }
     }
 
-    private val methodOverridesCache = ConcurrentHashMap<JIRMethod, List<JIRMethod>>()
+    private data class MethodOverridesKey(val method: JIRMethod, val baseClass: JIRClassOrInterface)
+
+    private val methodOverridesCache = ConcurrentHashMap<MethodOverridesKey, List<JIRMethod>>()
 
     private fun methodOverrides(method: JIRMethod, baseClass: JIRClassOrInterface): List<JIRMethod> {
         if (method.isFinal || method.isConstructor || method.isStatic || method.isClassInitializer) {
             return emptyList()
         }
 
-        return methodOverridesCache.computeIfAbsent(method) {
+        return methodOverridesCache.computeIfAbsent(MethodOverridesKey(method, baseClass)) {
             val overrides = hierarchy.findOverrides(method, baseClass, knownLocationIds)
             val knownOverrides = overrides.filter { unitResolver.resolve(it) != UnknownUnit }
             knownOverrides.ifEmpty { emptyList() }
