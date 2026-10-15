@@ -1,14 +1,23 @@
 # Implementation plan: run-1 abstraction owns demands
 
-Date: 14 October 2026. Status: steps 1–6 implemented and validated; fixed-project retesting is pending.
+Date: 14 October 2026; updated 15 October 2026. Status: steps 1–6 implemented and validated; step 7 measurements complete.
+Step 7 scans, strict comparisons, recording reviews and four guard-heap analyses are complete.
+The supplementary container and initial census is complete; occupied statement cells remain
+unavailable. The command diagnostic identifies a specified source-rewriter cut and preserves
+its coverage limits; its final output comparison passes. Time and finding acceptance still fail.
 Use the [redesign](bidirectional-run1-abstraction-demands-20261014.md) as the behavior contract.
 This replaces the earlier request-management candidates for the next iteration.
 
-The baseline measurements are from `a23ad7fcd99553190c82557cff6076503959aec6`. Latest reached:
-OWASP run-3/forward/limit 3; Conductor run-2/backward/limit 2, OOM; ThingsBoard
-run-1/forward/limit 1, OOM; Stirling-PDF run-4/backward/limit 4, timeout. Last completed and
-accepted: run-3 for OWASP/PDF, run-1 for Conductor, none for ThingsBoard. These are not results
-for this plan. The target is complete run-1 engine time at most 60 seconds on each fixed project.
+The tested runtime is `85a7c0e367d9a2dc6360b03c2feb5e07b1583b66`: the selected implementation
+plus the designed receiver-class cache repair. The fresh corrected control is
+`77959b0d8ad870f2bc4fd2f8eaf38044bd302b3c`, with the same repair. The
+[current report](../reports/bidirectional-run1-abstraction-demands-performance-20261015.md)
+contains all twelve terminal main/control/optimized cases. Latest optimized reached:
+OWASP **run-3 / forward / limit 3**; Conductor **run-2 / backward / limit 2**, OOM;
+ThingsBoard **run-1 / forward / limit 1**, OOM; Stirling-PDF **run-4 / backward / limit 4**, timeout.
+Last completed and accepted: run-3 for OWASP/PDF, run-1 for Conductor, none for ThingsBoard.
+Control reaches the same iterations. The target is complete run-1 engine time at most
+60 seconds on each fixed project; only optimized Stirling-PDF meets it.
 
 ## Implementation notes
 
@@ -31,13 +40,17 @@ record an unresolved branch. Both costs must be visible in setup counters and la
 
 Rule selection occurs once, before metadata collection. The caller charges gathering against
 the total budget; `run` deducts remapping and closure from its remaining budget. The catalog and
-runtime coverage graph are released only after run-1 workers join. No current fixed-project
-performance result is available for this implementation. The reached/completed/accepted run-N
-values above are historical comparison evidence, not a claim about the current worktree.
+runtime coverage graph are released only after run-1 workers join. The report above gives the
+current fixed-project results, including setup, each engine and barrier, incomplete progress,
+strict main losses and the paired control measurements. Historical measurements do not replace
+the current evidence.
 
 ## Implementation validation
 
-The final common-core and JVM suites pass: 1,406 and 391 tests, with no failures, errors or skips.
+The latest common-core and JVM validation passes: 1,406 and 395 tests, with no failures, errors
+or skips. Common sources are unchanged and their results are up to date; the JVM suite executes
+with the receiver-class repair and four new regression tests. The current batch's
+`checks/validation.json` binds these results to the tested revision.
 Go, JVM SAST and root test sources compile; `:classes` passes. The catalog closure controls include
 chain, diamond, recursion, additive mark emission, source/sink NNF, complete witness support and
 run-1/run-2/run-3 handoffs. Restricted run-2/run-3 summaries use strict comparison. Run-1 eager
@@ -48,7 +61,12 @@ cover the scalar/local contracts, not the new full catalog closure. The benchmar
 36 tests. The preparation frame exits before engine execution, including duplicate lambda and
 rule-ID snapshots. IR storage and reference-manager internals are unchanged.
 
-Fresh fixed-project measurements and strict main comparisons remain required by step 7.
+Fresh fixed-project measurements and strict main/control comparisons are complete. The
+implementation does not pass the fixed-project completion and finding gates. Step 7 includes
+all twelve scans, profiles, four guard heaps, supplementary census and the isolated command
+diagnostic. The latter identifies a specified source-rewriter cut on the main URL receiver
+route, with capped-lane limits and exact final output parity. This completes the measurement
+work; it does not fix the strict losses or establish a successful optimization outcome.
 
 ## Step 1. Specify the new emission policy and oracle
 

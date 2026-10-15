@@ -1,7 +1,14 @@
 # Receiver class in the resolved-override cache key
 
-Date: 15 October 2026. Status: implemented; four focused regression tests pass.
-Broader validation and fresh fixed-project measurements are pending.
+Date: 15 October 2026. Status: implemented; four focused regression tests and broader validation pass.
+Fresh optimized scans on revision `85a7c0e367d9a2dc6360b03c2feb5e07b1583b66` are terminal:
+OWASP reached and accepted **run-3**; Conductor reached **run-2** with OOM after accepting run-1;
+ThingsBoard stopped with OOM in **run-1**, before completion or acceptance; Stirling-PDF reached
+**run-4** with timeout after accepting run-3. The current report below records the times and
+finding limits. Control comparisons, recording reviews and all four guard-heap analyses are
+complete. The command diagnostic identifies a specified source-rewriter cut on the main URL
+route; its coverage limits and unchanged final outputs are in the report. The failure evidence
+below concerns the prior revision's **run-1**, with no completion or acceptance.
 This repairs a prerequisite of the selected run-1 static-catalog design. It introduces no
 new cache type, reference manager, call-resolution algorithm or IR storage change.
 
@@ -65,3 +72,5 @@ increase must be measured after the repair with the fixed project settings.
 
 The [first measurement report](../reports/bidirectional-run1-abstraction-demands-performance-20261014.md)
 records the original run-1 failure and the other measured outcomes.
+The [repaired-revision report](../reports/bidirectional-run1-abstraction-demands-performance-20261015.md)
+records the passing broader checks and the status of the fresh fixed-project batch.
