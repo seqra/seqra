@@ -474,3 +474,17 @@ run_elab do
       ApSpec.Run1RequestsSafety.returnedComposition false [f,g] [.identity] sibling != [] then
     throw (IO.userError "F78 root-frame/normal-return certificate failed.")
   IO.println "Executable F78 static request and derived-frame certificates passed."
+
+-- F78 extension: shared precomputed rows never enter residual/pending state,
+-- and every allowed initial has a constructor witness and the stated start.
+#eval do
+  let result := ApSpec.Run1PrecomputedRequests.Examples.result
+  if result.1.authoritative.baseKey != some 0 ||
+      result.1.authoritative.additions != [3] ||
+      result.1.pending.baseKey.isSome || !result.1.pending.additions.isEmpty ||
+      result.2 != [3] then
+    throw (IO.userError "F78 shared precomputed request certificate failed.")
+  if ApSpec.Run1InitialShapes.Certificate.samples.length != 12 ||
+      !ApSpec.Run1InitialShapes.Certificate.checks then
+    throw (IO.userError "F78 closed initial grammar/start-fact certificates failed.")
+  IO.println "Executable F78 shared-base and twelve-initial certificates passed."

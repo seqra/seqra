@@ -6,6 +6,8 @@ The selected contract is now [F78](../../spec/run1-requests.md), with the
 [implementation proposal](bidirectional-run1-mark-request-implementation-20261015.md).
 F78 includes the static-root composition and exclusion-creator clarifications
 found during proof review. It takes precedence over the initial obligations here.
+Its current section 1 pins all twelve run-1 initial families; section 4 defines
+the shared precomputed base and its complete input/routing workflow.
 
 This replaces the request protocol proposed in P5, P6 and P9 of the
 [previous proposal](bidirectional-next-iteration-27e22bb1e-20261015.md). It also
@@ -165,11 +167,13 @@ ignore a wide need or broadcast every mark to every project field.
 ### 3.2 Install and use the plan
 
 After prescan, each method has a shared immutable structural/mark plan. When its
-SummaryStorage is created, seed its authoritative RequestStorage from the resolved
-field-slot part of that plan. Reuse immutable mark sets and plan structure where
-possible; do not eagerly create stores for every possible MethodKey.
-Initialize planned membership before exposing the storage to subscribers. Later
-field activation uses ordinary temporary collection and commit-before-notify.
+SummaryStorage is created, bind its RequestStorage to the same frozen precomputed
+map. Keep dynamic additions disjoint from that base. Do not copy precomputed rows
+into a second map or into the temporary collector; do not send an initial request
+notification wave. Bind the base before subscribers/inputs, and make every new
+concrete/FLOW input read effective admitted membership. Unchanged static rows are
+already inherited by caller plans; changed origins and fresh wide activation keep
+their normal routes. See F78 section 4 and the code-based implementation proposal.
 
 For needs whose field slot becomes relevant only when an input arrives, instantiate
 the already-known plan contribution into that method's temporary collector. Submit
@@ -349,8 +353,8 @@ summaryStorage.commit(temporary)
 temporary = new RequestStorage()
 
 commit(requests):
-    fresh[slot] = requests[slot] - authoritative[slot]
-    authoritative[slot] union= fresh[slot]
+    fresh[slot] = requests[slot] - (sharedBase[slot] union dynamicAdditions[slot])
+    dynamicAdditions[slot] union= fresh[slot]  // sharedBase unchanged
     enqueue notifications for nonempty fresh sets after releasing the lock
 ```
 

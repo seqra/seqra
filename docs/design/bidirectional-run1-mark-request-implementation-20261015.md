@@ -23,346 +23,535 @@ barrier are measured separately. The [performance report](../reports/bidirection
 defines the fixed workloads and measurement limits. These proofs establish no
 speedup or time bound.
 
-## 1. Behavior and scope
+## 1. Scope and proposed interfaces
 
-| Area | Current measured implementation | Proposed implementation | Reason |
-| --- | --- | --- | --- |
-| Request identity | Initial, full query pattern and operation role | Full method key, one normal slot and a mark set | Merge equal initial needs from sources, sinks, gates and cleaners |
-| Retained requests | Abstraction and publisher each retain cumulative interest | One cumulative store in SummaryStorage; one temporary method-owned store | Remove the duplicate cumulative relation |
-| Submission | Scalar/query publications plus intermediate request service | Commit the temporary store when the method fact queue is empty; replace it | Accumulate independent marks before replay |
-| FLOW routing | Per-mark callbacks and target accumulation | Abstract-origin guard, geometric match, set difference against admitted target marks, grouped send | Avoid repeated joins, callbacks and messages |
-| Exclusions in requests | Full query and supplier exclusion tests | Ignore field and FLOW mark exclusions in request joins | Requests ask for analysis; exclusion already requests the same original mark |
-| Concrete suppliers | Speculative answer scans and a deferred answer memo | Read admitted requests on arrival; replay late requests over retained caller inputs | Remove the callee memo and unrequested answer construction |
-| Static needs | Full-query static catalog and runtime special cases | Post-prescan field/mark plan plus dynamic changed-origin requests | Avoid repeated discovery of known static needs |
-| Static root | Existing root transfer and summary behavior | Keep the root seed, skip its rule evaluation; use explicit component ownership and an untouched frame at summary reads | Prevent root summaries from bypassing cleaning or losing untouched siblings |
+The snippets below are Kotlin-like design code, not a patch. The
+[F78 spec](../../spec/run1-requests.md) and its
+[proofs](../../spec/run1-request-proofs.md) define their contracts. Keep existing
+normal AP/summary/ND semantics except for the explicit F78 root-reader correction.
 
-There is no position-request transport, third abstract class slot, new caller
-input index, request-by-input seen table, unit barrier, pending quota, rescan
-fallback or scheduler replacement. Caller input storage, ordinary joint premises
-and normal summary matching remain required. IR storage, reference management,
-WeakIdentityCache and bound-rule retirement are outside this change.
+```kotlin
+sealed interface Run1Slot {
+    data class Base(val base: NonStaticBase) : Run1Slot
+    data class StaticField(val cls: ClassAccessor, val field: StaticFieldAccessor) : Run1Slot
+}
 
-## 2. Request types and ownership
+// Full MethodKey is the owner; it includes entry and context.
+typealias RequestRows = ImmutableMap<Run1Slot, ImmutableMarkSet>
+data class ChangedRequests(val rows: RequestRows)
 
-Introduce a value type for normal request slots:
-
-```text
-Run1RequestSlot = BaseSlot(nonStaticBase)
-               | StaticSlot(classAccessor, fieldAccessor)
-
-RequestStorage.addAll(slot, immutableMarks)
-RequestStorage.borrow(slot) -> immutableMarks
-SummaryStorage.commit(temporary: RequestStorage)
+// A borrowed selection, with no retained merged array/map.
+data class RequestRowView(
+    val precomputed: ImmutableMarkSet,
+    val dynamic: ImmutableMarkSet,
+) : MarkSelection { // precomputed and dynamic are disjoint
+    override fun contains(mark: Mark) = mark in precomputed || mark in dynamic
+    override fun forEach(visit: (Mark) -> Unit) {
+        precomputed.forEach(visit)
+        dynamic.forEach(visit)
+    }
+}
 ```
 
-A full MethodKey owns each SummaryStorage. It includes entry and context. Do not
-include caller identity, call site, rule role, pattern tail, E or mark exclusions
-in the request key. Preserve those dimensions in ordinary caller subscriptions
-and proof stores. Mark-set union is an OR of interests, not an AND condition.
+Requests carry no full pattern, tail, E, mark exclusion, rule role, caller or call
+site. Those ordinary rule and caller identities retain their current owners.
 
-Use the same RequestStorage class for both instances. Producers can only add to
-the temporary instance. They cannot query its membership. The authoritative
-instance supports immutable reads. Keep synchronization in SummaryStorage;
-temporary access belongs to its method actor. Reuse the existing packed mark-set
-operations where they meet this contract. There is no need to redesign interning.
+## 2. One shared base; the same storage class for admitted and temporary requests
 
-Start with a slot map of immutable packed mark sets. `addAll` computes the set
-union only for the touched row and reuses the old set when no mark is fresh.
-`borrow` returns that immutable row without rebuilding it. P and R use the same
-operations; a commit does not clone the whole map or reconstruct every old row.
-Batch incoming sets before these unions. This is a concrete initial layout, not
-a new persistent mirror or per-input cache; representation changes need measurements.
+```kotlin
+class RequestStorage(
+    private val sharedBase: RequestRows = RequestRows.EMPTY,
+) {
+    // Only residual memberships; never a copy of sharedBase.
+    private val additions = mutableMapOf<Run1Slot, ImmutableMarkSet>()
 
-Store only canonical slot descriptors and mark IDs. No store entry may retain a
-compiled rule, form, caller reference or incoming Facts tree. Existing source/sink
-occurrence and conjunction stores still own their semantic identities.
+    fun borrow(slot: Run1Slot): RequestRowView = RequestRowView(
+        precomputed = sharedBase[slot].orEmpty(),
+        dynamic = additions[slot].orEmpty(),
+    )
 
-## 3. Prescan plan and static components
+    fun addAll(slot: Run1Slot, offered: MarkSelection): ImmutableMarkSet {
+        val fresh = offered.minus(borrow(slot))
+        if (fresh.isEmpty()) return ImmutableMarkSet.EMPTY
+        additions[slot] = additions[slot].orEmpty().union(fresh)
+        return fresh
+    }
 
-Update `JIRStaticMetadataCollector`, its neutral metadata and `Run1StaticProfiles`:
+    // Only the owner flusher can read temporary rows; producers cannot query P.
+    fun pendingRowsForCommit(): Sequence<RequestRow> {
+        check(sharedBase.isEmpty())
+        return additions.asRequestRows()
+    }
 
-1. Read all effective entry, statement, call, exit, native and generated forms.
-   Read NNF leaves directly. Include source and sink conditions, concrete input
-   gates, selected cleaners, generated rewriters and all static action positions.
-   Include every excluded mark of a generic abstract microedge target as an
-   exclusion-creator need with the corresponding static scope.
-   A proved-false condition contributes nothing. Do not expand conditions into cubes.
-2. Collect the finite canonical class/field universe from the prescan program,
-   rules and models. Check that transfer and binding constructors use this universe.
-   This is an existing-program well-formedness condition, not a guessed list of
-   runtime leaves. Keep its descriptors immutable and share them.
-3. Build direct structural footprints and field/mark needs. Retain wide class/base
-   scope descriptors until they can be resolved against relevant fields. An empty
-   static root or bare class point is not a normal request slot.
-4. Compute the least transitive closure over the already resolved call graph,
-   including recursive components. Use the existing SCC infrastructure. Union
-   effective prescan contexts conservatively. Do not resolve calls again.
-5. Freeze the plan before run-1. Seed a SummaryStorage's resolved field requests
-   before exposing it to subscribers. Create stores lazily. A later activated wide
-   contribution enters the temporary store and follows the normal method barrier.
-
-Keep static suppression narrow: omit a dynamic request only when the actual
-original slot is the checked slot and its mark is already admitted. Metadata alone
-does not discharge a pending request. In `x=C.g; C.f=x; check(C.f,T)`, keep g/T.
-
-For normal field suppliers, resolve matching actual fields and the method's
-relevant structural slots. For broad root/class suppliers, partition using the
-complete finite field domain and the plan's scopes; preserve a compact untouched
-residual. Do not broadcast every concrete mark to every field. Only admitted needs
-select concrete field initials. Exact class-point taint uses its direct concrete
-path; a broad possible class-point contribution retains conservative MAY/DEMAND
-semantics. Neither case creates a class request key.
-
-Prescan metadata must not retain compiled forms or alias-analysis environments.
-Keep only the compact static footprint needed by later native/reversed root-record
-readers for the lifetime of the analysis. Release run-1 mark-interest state after
-run-1 joins. This does not change the stored IR or introduce a new IR cache.
-
-## 4. Slot matcher and initial emission
-
-Replace request-specific use of the general `RequestGroupCursor` with a two-slot
-matcher. Keep a scalar reference matcher in tests. It must be independent of the
-optimized trie walk and of the previous full-query matcher.
-
-The production matcher:
-
-- Rejects unrelated bases/classes/fields before scanning marks.
-- Treats a nonempty descendant or a broad ancestor as a positional match.
-- Rejects an exact ancestor as a supplier for a descendant field.
-- Ignores incoming E and FLOW mark exclusions for request work.
-- Requires an actual matching concrete leaf for a concrete answer.
-- Produces the F78 exact/STAR/ANY answer shape and preserves the required layer.
-
-`Run1Abstraction.emit` always emits the normal abstract initials selected by the
-structural plan, including the special static root. For concrete input, intersect
-its actual marks with admitted request sets and submit only matching concrete
-initials. Do not first collect all possible answer shapes or unrequested marks.
-InitialFactStore still deduplicates starts.
-
-An exact class point is preserved directly at its own position. Broad suppliers
-must use the conservative direct class-point case specified by F78; they cannot
-become exact/normal evidence just because a class-level rule exists.
-
-Remove `Run1Abstraction.questions`, the deferred `pending` answer map and their
-role/query-specific state after the replacement controls pass. The abstraction
-borrows authoritative requests from SummaryStorage. It retains no supplier history,
-answer memo or second cumulative request map.
-
-## 5. Commit and method barrier
-
-The method actor owns `temporary`. At its fact-queue-empty barrier:
-
-```text
-flushNormalSummaries()
-summaryStorage.commit(temporary)
-temporary = new RequestStorage()
+    fun isEmptyTemporary(): Boolean {
+        check(sharedBase.isEmpty())
+        return additions.isEmpty()
+    }
+}
 ```
 
-Within `commit`, under the existing storage lock, compute fresh marks per slot and
-union them into the authoritative store. After releasing the lock, queue one
-immutable changed-slot batch per subscribed caller runner. Empty differences need
-no notification. Read the submitted store synchronously; do not retain it.
-
-Notifications, including local notifications, use normal counted queued delivery.
-They must not call back into this method actor inline. Events that arrive during
-commit wait until the actor has replaced `temporary`, then write to the new store.
-No takeBatch, destructive drain or mutable batch alias is needed.
-
-Extend the existing `hasPendingRequests`/Work conditions to include a nonempty
-temporary collector and pending answer/notification transport. A request-only
-method schedules existing Work without a synthetic fact. Keep the Work reservation
-through commit, replacement and secured child sends. If normal summary handling
-created fact work, process it before completing the method. An interrupted or failed
-submission cannot certify completion.
-
-Keep quantum scheduling and cancellation. A quantum yield is not an extra request
-publication barrier. There is no hard request-delay or temporary-memory guarantee;
-measure delay and peak size before proposing another barrier policy.
-
-## 6. Caller replay and batched propagation
-
-Keep `CalleeSubscriptions` as the exact caller input owner. Keep its original
-admitted header, full CallerRef, call, layer and joint-premise semantics. Its
-existing candidate directory can select request candidates; change the exact
-predicate, not the caller-input identity. Do not add a second request index.
-
-`SubscriptionManager` handles two separate effects:
-
 ```text
-TAINT input + matching requested concrete mark -> concrete callee initial
-FLOW input + abstract original initial         -> upstream request mark set
+Frozen method/SCC plan       B = one immutable precomputed request map
+SummaryStorage(M).requests  R = reference to B + disjoint dynamic additions D
+MethodActor(M).temporary    P = empty base + pending additions
+Effective admitted membership: R(slot) = B(slot) union D(slot)
 ```
 
-Validate existing premise/fact invariants first. At both local collection and
-upstream routing, skip requests whose actual original initial is concrete. Do not
-infer the origin from the currently active method analysis. Concrete source and
-summary results keep their own zero/concrete/joint provenance. The special static
-root remains prohibited as a request target.
+R and P use the same class. SummaryStorage synchronizes R. The method actor owns
+P. Different full MethodKeys can reference the same B; their D/P remain separate.
+Neither the abstraction nor subscribers retain a cumulative copy or materialized
+B∪D view. Normalizing and freezing B happens once per shared plan.
 
-For an eligible abstract-origin FLOW input:
+## 3. Entire workflow for a precomputed request
 
-```text
-useful = offeredMarks - targetAuthoritativeRequests[originalSlot]
+### 3.1 Prescan, close and freeze
+
+```kotlin
+fun buildStaticPlans(joinedPrescan: PrescanResult): Map<Method, StaticPlan> {
+    val graph = joinedPrescan.resolvedCallGraph // already complete; no new resolution
+    val local = collectEffectiveForms(
+        entry = true, statements = true, calls = true, exits = true,
+        nativeModels = true, generatedRewriters = true,
+        sourceAndSinkNnfLeaves = true, concreteInputGates = true,
+        selectedCleaners = true, excludedTargetMarks = true,
+        structuralReadWriteAndGenerationTargets = true,
+    ) // FALSE contributes nothing; no NNF -> DNF expansion
+
+    val closed = existingSccUnionClosure(graph, local)
+    return closed.sharedPlans { needs ->
+        val frozenSlots = needs.structuralFieldSlots union needs.exactFieldMarkSlots
+        val rows = buildImmutableRows {
+            for (slot in frozenSlots) {
+                addAll(slot, needs.fieldMarks[slot])
+                addAll(slot, needs.classWideMarks[slot.cls])
+                addAll(slot, needs.allStaticMarks)
+            }
+        }
+        StaticPlan(
+            precomputedRequests = rows, // store these resolved rows once
+            wideNeeds = needs.sharedWideDescriptors,
+            classPointNeeds = needs.sharedClassPointDescriptors,
+            structuralSlots = frozenSlots,
+            footprint = needs.semanticFootprint,
+        )
+    }
+}
+
+// Kept separately for later native/reversed readers; this holds no request map.
+val stableStaticFootprints = frozenRun1Plans.mapValues { it.value.footprint }
+
+fun afterRun1Joined() {
+    releaseRun1ActorsAndSummaryStores()
+    frozenRun1Plans = null // releases B and wide/class mark interests after all work joined
+}
 ```
 
-Ignore E and FLOW mark exclusions. The exclusion-producing action already emitted
-the same original-slot request, so any later duplicate disappears by union. Cover
-all exclusion creators, including generic lowered targets, generated rewriters
-and inherited summary exclusions. Do not use exclusion provenance as a new runtime
-cache or request key.
+The field universe and JVM layout come from canonical prescan IR/rules/models.
+Only already resolved slots enter B. A wide descriptor alone does not create a
+field×mark product. Collector scratch data and old query/role request rows are
+released; wide/class/footprint descriptors are metadata, not another resolved
+request store.
 
-The measured generic MarkGate only updates the FLOW header for an abstract target
-with excluded marks. Add the F78 request side effect at the exclusion-producing
-operation, using the pre-operation actual origin, if lowering has not already
-provided it. Keep legal generic edges. The side effect must occur before the
-excluded output is published; it is not a later scan of all mx headers.
+### 3.2 Bind the shared map before the first subscriber or input
 
-Union effects for the same full destination MethodKey and slot before sending.
-Handle all changed slots from a callee in one replay visit where practical. Match
-each retained input group once per batch, then route mark sets. Do not call a scalar
-climb callback once per mark before grouping. A stale authoritative read can send
-an extra proposal; it cannot suppress an unadmitted need.
+```kotlin
+class SummaryStorage(val method: MethodKey, val plan: StaticPlan) {
+    private val lock = Any()
+    private val requests = RequestStorage(sharedBase = plan.precomputedRequests)
+    // Empty D. The constructor borrows B; it does not iterate/copy B.
 
-Keep concrete answers from concrete-initial suppliers, including late answers.
-The origin guard removes upstream interest, not the concrete-answer branch.
+    fun borrowRequest(slot: Run1Slot): RequestRowView = synchronized(lock) {
+        requests.borrow(slot) // captures immutable row values
+    }
+}
 
-## 7. Arrival ordering without an answer memo
+fun summaryStorage(method: MethodKey): SummaryStorage = registry.computeIfAbsent(method) {
+    SummaryStorage(method, frozenPlans[method.method])
+} // published only after its B reference is installed
 
-Enforce this order on every ordinary, native and manually delivered call input:
-
-```text
-register caller runner as a summary/request subscriber
-admit the input in the retained caller input store
-deliver that input to the callee abstraction
+class MethodActor(val method: MethodKey) {
+    val summaries = summaryStorage(method)
+    var temporary = RequestStorage() // empty base, empty additions
+}
 ```
 
-The callee abstraction reads authoritative requests on arrival. A fresh request
-commit notifies subscribed callers, which replay over current retained inputs.
-New FLOW inputs also read standing requests and route upstream needs. Concrete
-input arrival needs no duplicate caller-side request-answer replay because the
-callee abstraction supplies that arm.
+```text
+B is visible before registration, input admission and LinkIn.
+There is no initial MarkRequestsIn/ChangedRequests batch for B.
+There is no B -> P -> D copy and no initial notification wave.
+```
 
-The proof uses admission A, abstraction read E, request commit Q and replay V.
-With A<E and Q<V, either Q≤E and the abstraction sees the request, or E<Q and
-A<V so replay sees the input. Subscriber registration-before-read closes the
-registration race. Initial deduplication handles repeated answers.
+### 3.3 New inputs read the full admitted relation
 
-Check every direct/manual input path. A producer that bypasses retained caller
-admission cannot use this no-memo theorem; route it through the contract or prove
-its finite direct-emission case separately before removing the old memo.
+```kotlin
+fun submitCallInput(part: Subscription) {
+    val calleeStore = summaryStorage(part.callee) // binds B first
+    val inputs = callerDirectories.getOrPut(part.callee) {
+        calleeStore.registerSubscriber(callerRunner) // once per caller runner/callee
+        CallerInputDirectory()
+    }
+    inputs.admitOriginalHeaderAndFacts(part)
+    replayOrdinarySummaries(part)
+    if (part.added is FLOW) inspectNewFlowInput(part, calleeStore)
+    sendCounted(LinkIn(part)) // TAINT arm reads R at the callee
+}
 
-## 8. Static-root summary safety clarification
+fun onLinkIn(part: Subscription) {
+    emitPermittedAbstractInitials(part.added)
+    emitDirectClassComponents(part.added)
+    activateRelevantWideNeeds(part.added)
+    if (part.added is TAINT) {
+        for (row in summaries.requestsMatching(part.added)) {
+            emitActualConcreteAnswers(row.slot, row.marks, part.added)
+        }
+    }
+    // No supplier history, speculative answer scan or answer memo.
+}
+```
 
-The proof review found two counterexamples to treating raw root summaries as
-ordinary concrete-field summaries:
+Precomputed requests have been visible since storage construction, so every new
+input sees them. Fresh dynamic requests replay older retained caller inputs through
+the ordinary notification channel. Both arms are required; no extra fresh-TAINT
+request replay is added in the caller.
 
-1. Skipping root rule evaluation can publish an identity that restores cleaned f/T.
-2. A root strong-write summary can exclude an entire class C and drop untouched g/T.
+### 3.4 Unchanged and changed origins
 
-F78 therefore separates field ownership from the root's structural role. Fields
-in the transitive semantic footprint use their normal field analyses and summaries.
-The untouched complement has a proved identity frame. Its effect is defined by
-noninterference, not by an unrestricted root identity or a coarse root exclusion.
-Keep the special root seed and its structural summaries, as requested.
+```kotlin
+fun collectFlowEffects(part: Subscription, rows: Sequence<RequestedRow>, out: Effects) {
+    validateExistingPremiseFactInvariant(part.ref.premise, part.added) // K6
+    if (part.added !is FLOW) return // concrete answers have their own branch
+    val original = part.ref.premise.asNormalAbstractRun1SlotOrNull() ?: return
 
-Implement this as read-time selection/projection using immutable plan metadata.
-Partition the actual input into owned field components, direct class-point cases
-and the untouched residual. Apply normal field summaries to owned components;
-pass the untouched residual through the caller continuation as the frame requires.
-Gate this frame by the callee's actual normal-return/control derivation; do not
-invent a return for a non-returning call or apply it on an exceptional-only path.
-No raw root-derived nonidentity result may invent a flow from the untouched input.
-Preserve each input's ordinary spatial exclusions and layer in this partition;
-ignoring exclusions is specific to the request join.
+    for (row in rows) {
+        if (!slotMatches(row.slot, part.added)) continue // ignores request E/mx
 
-Apply the same domain guards to ordinary summary reads, native records, opposite-
-direction views, demand selection and persisted-record reuse. A root record must
-not escape the partition by being read in a later iteration. The stored record
-representation need not change: the reader derives root eligibility from its
-premise and the retained method footprint. Prove the reader refinement before
-enabling root rule suppression.
+        // Per queried slot, never per whole input or whole plan.
+        val baseOffer = if (original == row.slot && original is Run1Slot.StaticField) {
+            ImmutableMarkSet.EMPTY // closed B_callee(slot) is already in B_caller(slot)
+        } else {
+            row.marks.precomputed // changed origin must still receive these marks
+        }
+        val offered = baseOffer.union(row.marks.dynamic)
+        if (offered.isEmpty()) continue
+        val targetR = summaryStorage(part.ref.caller).borrowRequest(original)
+        val useful = offered.minus(targetR)
+        if (useful.isNotEmpty()) out.requests.merge(part.ref.caller, original, useful)
+    }
+}
+```
 
-Use the existing normal-exit publication path as the live return-evidence owner:
-`RunMethodAnalyzer.endAt(..., summary=true)` produces the special-root summary
-through `summaryDelta`, and SummaryStorage publishes it normally. A frame reader
-can recognize this publication as control evidence while rejecting its raw payload
-as unrestricted field semantics. Cache at most the resulting return-enabled state
-with that method's existing summary state. Notify/replay through the existing
-publication channel; method creation, a pending request and method completion are
-not return evidence. A no-return or exceptional-only fixture must produce no frame.
+```text
+N checks C.f/T; M calls N:
+    origin C.f -> input C.f:  skip inherited precomputed f/T row as a whole
+    origin C.g -> input C.f:  offer g/T; f/T does not discharge it
+    origin arg -> input C.f:  offer arg/T
 
-For persisted use, an eligible native root record already carries its full method,
-direction and reached normal publication. Recognize that provenance in the guarded
-record reader before constructing an opposite-direction view. An imported model
-must explicitly supply its normal-return contract. It cannot obtain frame evidence
-from an arbitrary synthetic identity. The implementation gate must also show that
-every permitted normal-return root execution exposes its control publication; the
-finite proof does not infer that property from today's publication index.
+One f-origin FLOW carrying both f and g:
+    queried f/T: skip unchanged inherited f/T
+    queried g/U: offer f/U; do not skip the whole input or the entire B map
+```
 
-This is a necessary correctness clarification discovered while proving the
-proposal. It is not an independent performance optimization or an implemented fix.
+The no-send proof applies only to resolved frozen B rows and an unchanged original
+slot. A runtime wide activation or future D addition is not retroactively B.
 
-## 9. Change sequence and controls
+### 3.5 Deferred wide activation and all other producers
 
-| Step | Proposed change | Required evidence before the next step |
+```kotlin
+fun MethodActor.collectRequests(slot: Run1Slot, offered: MarkSelection) {
+    val fresh = offered.minus(summaries.borrowRequest(slot)) // B union D; never read P
+    if (fresh.isEmpty()) return
+    temporary.addAll(slot, fresh) // repeated pending contributions merge
+    requestWork()                // existing counted Work, also for request-only actors
+}
+
+fun MethodActor.activateRelevantWideNeeds(input: Facts) {
+    for (slot in plan.relevantFieldSlots(input)) {
+        collectRequests(slot, plan.wideNeeds.marksFor(slot))
+    }
+}
+
+fun onMarkRequestsIn(event: MarkRequestsIn) {
+    actor(event.method).collectRequests(event.slot, event.marks)
+} // re-filter a queued/stale sender proposal against current R
+```
+
+A newly resolved wide request enters P once as a merged pending membership. Its
+fresh admission must notify callers so earlier inputs are handled. Repeated
+activation after admission produces no new P membership. No extra activation cache
+or per-input request matrix is needed.
+
+## 4. Commit-and-replace and method scheduling
+
+```kotlin
+fun SummaryStorage.commit(temporary: RequestStorage) {
+    val changed = synchronized(lock) {
+        immutableRows {
+            for ((slot, marks) in temporary.pendingRowsForCommit()) {
+                val fresh = requests.addAll(slot, marks) // subtracts B union D
+                if (fresh.isNotEmpty()) put(slot, fresh)
+            }
+        }
+    }
+    if (changed.isEmpty()) return
+    for (subscriber in subscribers) {
+        subscriber.sendCounted(ChangedRequests(changed)) // queued, including local delivery
+    }
+} // never retains temporary or invokes a solver/actor callback inline
+
+fun MethodActor.onFactQueueEmpty() {
+    flushNormalSummaries()
+    summaries.commit(temporary)
+    temporary = RequestStorage()
+    // Keep Work reserved through commit, replacement and secured child sends.
+    if (facts.isNotEmpty() || publications.isNotEmpty() || !temporary.isEmptyTemporary()) {
+        continueExistingWork()
+    } else {
+        completeExistingWork()
+    }
+}
+```
+
+```text
+fresh = P - (B union D)
+D'    = D union fresh
+B'    = B
+P'    = empty new RequestStorage
+```
+
+A quantum yield keeps its existing scheduling behavior but does not publish P.
+Arriving events wait until the owner completes replacement. Cancellation/rejected
+required delivery follows existing failure handling and cannot certify COMPLETE.
+There is no unit barrier, hard pending limit, rescan fallback or new scheduler.
+
+## 5. Pin every run-1 initial at the admission boundary
+
+The exhaustive table is [F78 §1.1](../../spec/run1-requests.md#11-closed-run-1-initial-grammar).
+The selected first config is forward run-1, limit 1, empty hand-off seeds/records.
+Incoming geometry already satisfies the existing selected cut/binding routes;
+there is no new emitter cut.
+
+```kotlin
+fun validateRun1Initial(i: InitialAp) {
+    require(run.number == 1 && run.forward && run.limit == 1)
+    require(i.exclusion.isEmpty && !i.base.isCleanerTemporary)
+
+    if (i.base.isZero) {
+        require(i == canonicalZero) // exact root, canonical zero mark
+        return
+    }
+    when (val mark = i.mark) {
+        is AbstractMark -> {
+            require(mark.excluded.isEmpty() && i.tail == STAR)
+            when (val position = parseInitialPosition(i)) {
+                is NonStaticRoot -> Unit
+                is StaticRoot -> Unit // special rule-free summary seed
+                is StaticField -> Unit
+                else -> error("Invalid abstract run-1 initial")
+            }
+        }
+        is ConcreteMark -> when (val position = parseInitialPosition(i)) {
+            is NonStaticRoot -> require(i.tail == EXACT || i.tail == STAR)
+            is StaticField, is ClassPoint -> require(i.tail in setOf(EXACT, ANY, STAR))
+            else -> error("Invalid concrete run-1 initial") // includes empty S root
+        }
+    }
+    // No T!=0 guard on nonzero bases; admitted concrete mark IDs can include 0.
+    // No ANY_TAINT, abstract ANY/class, deep static or nonstatic initial path.
+}
+
+fun admitRun1Initial(i: InitialAp) {
+    validateRun1Initial(i)
+    if (initialFactStore.add(i)) startAtMethodEntry(i, initialFacts(i))
+}
+```
+
+```text
+Twelve cases and their first conclusion:
+    Zero                                   -> REACH, NORMAL
+    abstract b/root, S/root, S/C.f          -> FLOW/STAR, NORMAL
+    concrete b/root/EXACT                   -> exact TAINT, NORMAL
+    concrete b/root/STAR                    -> ANY TAINT, DEMAND
+    concrete S/C.f/EXACT                    -> exact TAINT, NORMAL
+    concrete S/C.f/ANY or STAR              -> ANY TAINT, DEMAND
+    concrete S/C/EXACT                      -> exact TAINT, NORMAL
+    concrete S/C/ANY or STAR                -> ANY TAINT, DEMAND
+```
+
+```kotlin
+// All InitialFactStore admissions end in these constructors:
+onRootStart()                         { admitRun1Initial(canonicalZero) }
+onIncomingReach()                     { admitRun1Initial(canonicalZero) }
+onSuppliedNormalSlot(slot)            { admitRun1Initial(slot.abstractInitial()) }
+onStaticInput()                       { admitRun1Initial(specialStaticRoot) }
+onRequestedTaint(slot, mark, supplier) {
+    require(mark in summaries.borrowRequest(slot))
+    projectConcrete(slot, mark, supplier).forEach(::admitRun1Initial)
+}
+onExactClassInput(supplier)           { directClass(supplier)?.let(::admitRun1Initial) }
+onBroadClassNeed(need, supplier)      { projectClass(need, supplier)?.let(::admitRun1Initial) }
+
+// Source/end-GEN and sink/source seeds create edge work under their actual premise.
+// They do not admit arbitrary new run-1 method initials. ND members are not a
+// thirteenth shape. Later-run restricted emission/record readers have their own grammar.
+```
+
+Validate static layout as class→static-field→ordinary suffix, with one counted
+accessor at run-1. Positivity alone does not prove the bound. Current generic
+factories, historical abstract-class starts and custom first limits above 1 do
+not yet conform to this proposed boundary.
+
+## 6. Request projection and exclusion creators
+
+```kotlin
+fun TAINT.concreteLeaves(): Sequence<ConcreteBranch> = sequence {
+    for (node in positions()) {
+        if (node.exactMarks.isNotEmpty()) yield(exactBranch(node.path, node.exactMarks))
+        if (node.anyMarks.isNotEmpty()) yield(anyOrMustBranch(node.path, node.anyMarks))
+    }
+    // Keep branch-specific mark sets. Do not union exactMarks with anyMarks.
+}
+
+fun projectConcrete(slot: Run1Slot, mark: Mark, supplier: Facts): Sequence<InitialAp> = sequence {
+    if (supplier !is TAINT) return@sequence
+    for (leaf in supplier.concreteLeaves()) {
+        if (mark !in leaf.actualMarks || !slotMatches(slot, leaf)) continue
+        val initial = when (slot) {
+            is Run1Slot.Base -> if (leaf.isExactBaseRoot) {
+                exactInitial(slot.base, emptyPath, mark)
+            } else {
+                chainInitial(slot.base, emptyPath, mark)
+            }
+            is Run1Slot.StaticField -> when {
+                leaf.isExactAt(slot) -> exactInitial(STATIC, slot.path, mark)
+                leaf.isAnyOrMustAt(slot) -> anyInitial(STATIC, slot.path, mark)
+                leaf.isBroadAncestorOf(slot) -> chainInitial(STATIC, slot.path, mark)
+                else -> null
+            }
+        }
+        if (initial != null) yield(initial)
+    } // preserve both exact and chain alternatives; InitialFactStore deduplicates
+    // Emitted E is empty; ordinary caller matching retains original E/layer.
+}
+
+fun introduceExcludedMarks(origin: PremiseKey, input: FLOW, excluded: MarkSet) {
+    validateExistingPremiseFactInvariant(origin, input) // K6 before eligibility guards
+    origin.asNormalAbstractRun1SlotOrNull()?.let { slot ->
+        actor.collectRequests(slot, excluded) // before publishing excluded output
+    }
+    publishOrdinaryExcludedOutput(input, excluded)
+}
+```
+
+The request matcher ignores field E and FLOW mark exclusions. Ordinary rule/fact
+transfers retain their existing exclusion tests. Every generic excluded target,
+not just a named cleaner, uses the creator side effect. Legal hand-built edges
+stay legal. Concrete-origin inputs produce no upstream interest and still answer
+callee requests from actual concrete marks.
+
+## 7. Late requests without an answer memo
+
+```kotlin
+fun onChangedRequests(callee: MethodKey, delta: ChangedRequests) {
+    val effects = Effects() // transient packed answers and per-destination mark sets
+    callerInputs(callee).visitMatchingBatch(delta.rows) { input ->
+        validateExistingPremiseFactInvariant(input.ref.premise, input.added)
+        when (input.added) {
+            is TAINT -> collectActualConcreteAnswers(delta, input, effects)
+            is FLOW -> collectFlowEffects(input, dynamicOnlyRows(delta), effects)
+            is REACH -> Unit
+        }
+    }
+    effects.sendCountedAfterVisit() // no live-directory mutation or inline callbacks
+}
+```
+
+```text
+register subscriber < admit original caller input < deliver LinkIn
+commit R < notify/replay fresh request
+
+A = input admission; E = emitter's R read; Q = request commit; V = late replay
+Q <= E: emitter sees the request
+E < Q: A < E < Q < V, so replay sees the retained input
+```
+
+Keep R active after an answer. Preserve original CallerRef, group header, input
+layer and complete ND premise scope in caller storage. No callee supplier relation,
+request-by-input seen cache or subscriber copy of R is introduced.
+
+## 8. Static-root ownership and return-gated frame
+
+```kotlin
+fun readStaticResult(input: Facts, callee: MethodKey, evidence: ReturnEvidence): Effects {
+    val plan = stableStaticFootprints[callee.method]
+    val parts = projectOriginalStaticInput(input, plan) // transient; preserves E/marks/layer
+    val out = Effects()
+    for (part in parts.ownedFields) out += readNormalFieldSummaries(part, callee)
+    for (part in parts.classPoints) out += readDirectClassSummaries(part, callee)
+    if (evidence.provesNormalReturn(callee)) out += identityFrame(parts.untouched)
+    return out
+    // No raw root identity/coarse-E fallback while an owned field result is pending.
+}
+
+fun onNormalExit(premise: InitialAp, facts: Facts) {
+    endAt(premise, facts, summary = true) // existing normal-exit publication owner
+    // Special-root publication supplies return/control evidence, not unrestricted data semantics.
+}
+
+fun readNativeOrOppositeRootRecord(record: Record, input: Facts): Effects {
+    require(record.hasNativeReachedNormalExitProvenance)
+    return readStaticResult(input, record.method, returnEvidenceFrom(record))
+    // Apply the same ownership domain before/through native or opposite read views.
+}
+```
+
+The special root still has ordinary code/summary/control work and no rule/request
+evaluation. Frame only the footprint complement on an actual normal return. Do
+not restore cleaned f/T, lose untouched g/T through coarse root E{C}, invent a
+return or use method existence/completion as evidence. Keep compact footprint
+metadata for later record readers. Neither stored IR nor the record format changes.
+
+## 9. Source changes and order
+
+| Step | Components | Required control |
 | --- | --- | --- |
-| 1 | Add independent finite slot/projector and effective-form plan controls | F78 cases, recursive closure, broad suppliers, exact/direct class points and complete producer inventory agree with the checked model |
-| 2 | Add component-aware root readers and untouched frame | Both root counterexamples fail under the old read and pass under the new read; cleaned f/T disappears, g/T and f/U survive, later/reversed reads agree |
-| 3 | Introduce the same RequestStorage class at the authoritative and temporary owners | Union/difference, immutable reads, empty commit, repeated commit and commit-then-replace match the protocol model |
-| 4 | Wire method-empty commit and grouped counted delivery | Request-only work, local queued delivery, arrivals during commit, cancellation and final completion preserve reservations |
-| 5 | Enforce caller admission/delivery ordering; replace emitter memo with authoritative reads | Both arrival orders, late callers, input growth and direct/native paths produce the same supplier-backed answers |
-| 6 | Merge FLOW propagation before mark expansion | Concrete-origin guard, excluded-mark duplicates, stale target reads and batched changed slots preserve logical membership |
-| 7 | Remove old role/query/cumulative/memo code and obsolete counters | No completed request message or callee state retains caller inputs; normal summary and ND premises remain intact |
-| 8 | Run focused regressions, then the fixed project comparison | Strict finding locations, latest reached/completed/accepted runs, run-1 engine time and request-owner measurements are reported |
+| 1 | `Run1StaticProfiles`, `JIRStaticMetadata`, `JIRBidiAnalysis` | Effective forms, finite layout/domain, closed frozen rows and deferred wide scopes match the model |
+| 2 | Initial admission, `Demand.kt` adapters and independent request matcher | All twelve allowed cases have actual supply/start witnesses; forbidden shapes are rejected; no new emitter cut |
+| 3 | `PublicationIndex`, `Summary.kt`, `RecordStore` and component reader | Root cleaner/write counterexamples, normal-return gate, broad projections and later/opposite reads |
+| 4 | New `RequestStorage`, `SummaryStorage`, `MarkQuestions` replacement | Shared B reference, disjoint residual D/P, no initial wave, no cumulative mirror |
+| 5 | `Run1Abstraction`, subscription/call services and handler ports | Bind/read ordering, concrete answers, changed-origin FLOW, late wide activation, counted queued effects |
+| 6 | `RunMethodAnalyzer`, local services, `MarkGate`/`EdgeApplication`/`Clean` | R-only collection, every exclusion creator, method-empty commit/replacement, request-only completion |
+| 7 | Remove obsolete query/role/memo code; update request statistics | No retained supplier/answer memo or duplicate cumulative request table |
 
-Keep each step reviewable. Do not activate an incomplete combination: deleting
-memo state before ordering is enforced, or skipping root rules before guarded
-readers exist, would violate the new contract. This document does not authorize
-unrelated analyzer changes.
+Do not enable root rule suppression before guarded readers, or remove the memo
+before input ordering/read arms exist. These are review steps, not runtime changes
+made by this document. IR storage, reference managers, WeakIdentityCache, bound-rule
+retirement and a broad scheduler rewrite remain outside scope.
 
-Use existing tests such as `Run1AbstractionTest`, `SummaryStorageProtocolTest`,
-the static-profile/prescan fixtures and the request/scheduler fixtures. Add behavior
-controls for the cases above. Scalar oracles must use their own small set/slot model;
-do not compare the new matcher only with today's full-query implementation.
+## 10. Validation and measurement
 
-## 10. Measurement and acceptance
+```kotlin
+// Independent scalar oracles use the checked model, not the old full-query cursor.
+checkAllTwelveInitialsAndSupplyGates()
+checkNoConcreteStaticRootNoAbstractClassNoMustNoNonemptyE()
+checkSharedBaseHasNoPendingResidualOrInitialNotificationCopies()
+checkEveryNewTaintAndFlowInputReadsPrecomputedBase()
+checkUnchangedRowNoSendAndMixedChangedOriginStillSends()
+checkDeferredWideBeforeAfterCommitAndBothArrivalOrders()
+checkConcreteOriginStillAnswersButNeverClimbs()
+checkEveryExclusionCreatorAndOrdinaryCleanerOutputs()
+checkRootCleanerLeakSiblingWriteLossAndNoReturnFrame()
+checkNativeReversedAndLaterReadersKeepComponentGuards()
+checkCommitReplacementRequestOnlyWorkAndCancellation()
+```
 
-Report request mark memberships proposed/admitted, duplicate admissions, changed-
-slot batches, caller-input group visits, marks scanned, concrete-origin skips,
-concrete answers and initial starts. Record temporary peak slots/marks, submission
-delay, authoritative owner bytes and total request-related retained union. Separate
-the costs of prescan closure, root readers and ordinary summary application.
+Measure precomputed base bytes/references, D/P memberships, suppressed unchanged
+rows, fresh slot batches, duplicate proposals, input visits, marks scanned, concrete
+answers/starts, temporary peak size and submission delay. Count shared owners as a
+retained union; do not add overlapping base references as memory savings.
 
-Use the same OWASP, Conductor, ThingsBoard and Stirling-PDF configurations and a
-fresh main comparison. Run through `runProjectAnalyzer` with their configured
-memory/time limits. Do not substitute a smaller input, heap or timeout. Always
-state the latest reached run iteration and whether it completed or supplied the
-accepted report. An earlier OOM, fewer findings in an incomplete report or a
-smaller isolated owner does not establish improvement.
-
-Performance acceptance requires completed run-1 engine time and preserved strict
-findings. The checked finite proofs support the design; they do not certify future
-Kotlin code, the full alternating driver, pooled ND confirmation or a universal
-60-second guarantee.
-
-## 11. Proposed source changes
-
-The paths below are relative to the bidirectional packages in the dataflow/JVM
-modules. They name future changes; none is made by this documentation revision.
-
-| Component | Required change |
-| --- | --- |
-| `engine/MarkQuestions.kt`, new `store/RequestStorage.kt` | Replace role/full-query keys with normal slots and immutable slot/mark batches; implement the shared storage class |
-| `engine/SummaryStorage.kt` | Own R, seed resolved static needs, commit P synchronously, expose immutable rows and queue grouped fresh deliveries |
-| `engine/Run1Abstraction.kt` | Stream plan-selected abstract initials and actual R-backed answers; direct class cases; remove local cumulative questions and answer memo |
-| `engine/Run1StaticProfiles.kt`, JVM `interp/JIRStaticMetadata.kt` and `JIRBidiAnalysis.kt` | Complete effective-form producer/footprint extraction, generic exclusions, finite domain and SCC closure; share compact reader metadata |
-| `ap/RequestGroupCursor.kt` or its replacement | Implement the independent two-slot request matcher and packed answers; remove query role/E/mx request filtering |
-| `ap/MarkGate.kt`, `ap/EdgeApplication.kt`, `ap/Clean.kt` | Separate actual result guards from interest collection; issue same-origin requests for all exclusion creators; preserve ordinary cleaning |
-| `engine/RunMethodAnalyzer.kt`, `RunMethodLocalServices.kt` and `interp/FormApplier.kt` | Guard root rule evaluation and concrete-origin interest; own P; commit-and-replace at method empty; preserve normal-exit control publication |
-| `engine/SubscriptionManager.kt`, `CalleeSubscriptions.kt` and `RunMethodCallServices.kt` | Enforce admission-before-LinkIn, read/replay R in both orders, batch FLOW routes and preserve separate TAINT answers |
-| `engine/PublicationIndex.kt`, `ap/Summary.kt`, `store/RecordStore.kt` and a shared static-component reader | Project owned components, gate the untouched frame by normal-return evidence, and preserve domain guards through native/reversed/later reads |
-| `engine/RunEvent.kt`, handler/runner/subscription ports | Carry immutable grouped slot/mark changes using existing counted queued events, including local delivery |
-| `engine/Run1AbstractionStatistics.kt`, `RequestBatchStatistics.kt` | Replace obsolete query/memo counters with the acceptance measurements above |
-
-Use no direct compiler-form cache, alternate SoftReferenceManager, weak identity
-cache, stored-IR format change or broad scheduler refactor in these steps.
+Use only the fixed OWASP, Conductor, ThingsBoard and Stirling-PDF configurations
+with `runProjectAnalyzer` and a fresh main comparison. Report strict findings,
+completed run-1 engine time and latest reached/completed/accepted iterations.
+An earlier OOM or smaller incomplete report is not an improvement. The Lean proofs
+cover their stated finite semantics, not future Kotlin conformance, pooled ND
+confirmation, whole-driver correctness or a universal 60-second bound.

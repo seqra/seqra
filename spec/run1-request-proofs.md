@@ -47,7 +47,11 @@ grammar. Root/class ANY facts and exact concrete class-point facts remain legal.
 There are two instances of the same RequestStorage class per Key. `R` is the
 authoritative cumulative relation in SummaryStorage. `W` is the actor-owned
 write-only temporary relation. Both map a normal slot to a finite set of concrete
-marks. Producers union into W. At a method-queue-empty barrier, commit reads W
+marks. R borrows the method/SCC plan's frozen precomputed base `B` by reference
+and owns only a disjoint dynamic residual `D`; its effective value is `B union D`.
+W uses the same class with an empty base. It contains only pending contributions,
+not a copy of B. Producers subtract current effective R before unioning into W.
+At a method-queue-empty barrier, commit reads W
 synchronously, installs fresh memberships in R, reserves queued notifications,
 and returns. The actor then replaces W with an empty instance. No callback may
 reenter the actor during this operation. R remains active after an answer.
@@ -56,7 +60,8 @@ The proof uses these external construction assumptions, which are not request
 coverage hypotheses:
 
 1. Prescan includes every effective form and resolved target used by the run.
-2. The two normal shapes and the impossible exact STATIC empty-root case hold.
+2. The closed shape construction below, first field limit exactly 1, validated
+   JVM path layout, and the impossible exact STATIC empty-root input case hold.
 3. Each AP primitive uses the stated scalar reference semantics. Ordinary
    summary matching retains its original field E and full premise checks.
 4. Incoming call input admission precedes callee input delivery. Request commit
@@ -68,10 +73,139 @@ coverage hypotheses:
 The following sections construct coverage from the finite forms, graph and
 primitive cases. They do not assume a predicate called “the plan covers all needs”.
 
+### 1.1 All legal F78 run-1 initial shapes
+
+Write an initial as `(base, path, tail, E, mark)`. Here b is a non-static,
+nonzero, non-temporary base. T is any frontend-admitted concrete mark, **including
+numeric mark ZERO where that frontend admits it**. Do not add a T≠ZERO condition.
+Only the Zero **base** has a unique prescribed mark and shape.
+`ApManager.premiseOf` removes canonical Zero-base members when forming a joint
+premise; it does not remove a nonzero-base member merely because its mark ID is 0.
+
+| Family | Base/path | Tail | Mark | Initial role |
+| --- | --- | --- | --- | --- |
+| Canonical zero | Zero/root | EXACT | ZERO | Root/callee zero start |
+| Normal non-static abstract | b/root | STAR | abstract STAR | Normal BaseSlot analysis |
+| Special static abstract root | S/root | STAR | abstract STAR | Rule-free summary/control seed |
+| Normal static-field abstract | S/[C,f] | STAR | abstract STAR | Normal StaticSlot analysis |
+| Non-static concrete point | b/root | EXACT | T | Requested supplied exact root |
+| Non-static concrete chain | b/root | STAR | T | Requested supplied non-root/broad shape |
+| Static-field concrete point | S/[C,f] | EXACT | T | Supplied exact field |
+| Static-field concrete ANY | S/[C,f] | ANY | T | Supplied field ANY/must normalized to ANY |
+| Static-field concrete chain | S/[C,f] | STAR | T | Supplied broad ancestor projected to field |
+| Class-point concrete point | S/[C] | EXACT | T | Direct supplied exact class point |
+| Class-point concrete ANY | S/[C] | ANY | T | Direct same-class ANY component |
+| Class-point concrete chain | S/[C] | STAR | T | Broad root projected to a class component |
+
+E is empty in **every** row. Abstract marks have no mark exclusions. There is
+no ANY_TAINT initial, abstract class initial, abstract ANY initial, non-static
+field initial, concrete empty-S-root initial, or cleaner-temporary initial. A
+PremiseSet is a summary/rule support header, not an additional initial shape.
+Exact and chain alternatives for the same mark remain distinct.
+Legal shape is a necessary condition, not an emission command. A requested
+concrete initial additionally needs admitted membership and an actual matching
+concrete supplier carrying T. Class projections need their actual direct or
+metadata-selected supplier. A request-only actor does not start every legal
+initial, invent a supplier, or add a synthetic zero.
+
+This is the complete selected emitter grammar, not a claim that the measured
+generic constructor already enforces it. Broad concrete root/class ANY inputs
+remain legal even though no concrete empty-S-root **initial** is emitted. The
+separate impossible-input condition excludes only exact empty-S-root taint.
+
+**Closed-initial theorem.** The selected production initial-producing routes emit
+only these rows, and no legal route needs an extra abstract/request shape.
+
+**Proof.** Root Start and incoming Reach choose canonical zero. A nonzero policy
+start chooses the base-root STAR abstract row; on S this is the special summary
+seed. The structural field emitter chooses only `[C,f]/STAR/abstract`. The
+request projector's non-static cases choose exact root or STAR root. Its static
+cases choose the field EXACT, ANY or STAR rows. The class direct projector chooses
+class EXACT, ANY or STAR, with broad choices starting as demand. All these
+constructors explicitly use empty E. A fresh and a late answer use the same
+projector, so asynchronous delivery adds no family. Source/GEN and native model
+outputs are ordinary statement facts, not a separate direct initial route. A
+later call input goes through this same emitter. Restricted demand emission and
+native/opposite record reads do not supply run-1 initials. This enumerates the
+production route grammar; section 1.2 states its actual JVM boundary conditions.
+
+### 1.2 Source audit and the bounded-input bridge
+
+The measured source supports the following narrower facts:
+
+- [Premise](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/Premise.kt)
+  enforces canonical Zero base, no temporary base, no excluded premise mark, and
+  exact/must concrete marks. It permits other generic shapes. It does **not**
+  forbid ZERO on nonzero bases or establish the F78 closed list.
+- [AccessorTable](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/AccessorTable.kt)
+  reserves `<zero>` at ID 0; `mark("<zero>")` returns that ID. This is not a global
+  ban on that admitted mark elsewhere. Field and element accessors are counted;
+  class accessors are not. Arbitrary generic path factories do not prove the
+  selected JVM layout with a single leading class accessor.
+- [Demand](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/Demand.kt)
+  `policyInitial` chooses zero or abstract base root. `initialFacts` makes exact
+  concrete starts NORMAL, concrete STAR/ANY starts DEMAND, and zero Reach.NORMAL.
+  The supplier's real layer is still used by ordinary summary application.
+- [Run1Abstraction](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/Run1Abstraction.kt)
+  and [StaticSupplierCursor](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/StaticSupplierCursor.kt)
+  are historical measured constructors here: the current structural cursor can
+  emit an abstract class slot, and a root cleaner question can emit a concrete
+  root answer. F78 removes those routes rather than claiming they never existed.
+- [RunMethodAnalyzer](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunMethodAnalyzer.kt)
+  `addInitial` currently rejects run-1 ANY_TAINT, but does not validate the entire
+  closed list. `addLink` and the current emitter do not perform a fresh field cut.
+  InitialAnswersIn must therefore contain validated projector outputs.
+- [IterationDriver](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/driver/IterationDriver.kt)
+  starts run 1 with no demand and `SeedIndex.EMPTY`.
+  [IterationPolicy](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/driver/IterationPolicy.kt)
+  starts the default increasing policy at limit 1. Generic RunConfig/custom
+  policies only require a positive limit; that weaker API is not an F78 proof.
+
+For the selected JVM workflow the **first limit is exactly 1**, and incoming
+facts satisfy the validated JVM accessor grammar: a static class prefix occurs
+only at the front, followed first by a static field and then any ordinary
+field/element suffix; non-static paths contain counted accessors. An element
+directly under a class is not a substitute static-field slot. A one-counted-accessor bound then permits only root,
+class point and class/field static positions. A class accessor consumes no budget,
+so a cut retains C before the first field. Positivity alone would not give this
+bound, and a manual path containing repeated class accessors would violate the
+layout premise.
+
+The bound is established **before emission**, not by adding a new emitter cut:
+
+1. Statement and method entry/exit RuleWorklist results use the existing cut.
+2. In [RunMethodCallServices](../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunMethodCallServices.kt),
+   F74 field read and write steps each use `cut(Cut.STATEMENT)`. Root cleaners and
+   strong keeps do not grow an admitted input path.
+3. [JIRCallPlanBuilder](../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/bidi/interp/JIRCallPlanBuilder.kt)
+   BIND_IN uses base-root bindings and S identity, so it does not grow the count.
+   Source/end-GEN stages bypass CALLEES and reach the existing call-exit cut;
+   returned rewriters also precede that cut. They are not an uncut new callee-input
+   constructor. Native unresolved transfer returns through that same call path.
+4. The accepted LinkIn boundary validates the resulting bounded layout. Direct
+   manual inputs, custom deeper first limits and arbitrary custom growing call
+   bindings are not silently certified by this route induction.
+
+**Bounded-route proof.** Canonical zero starts have count 0. Each accepted initial
+has count at most 1. Every path-growing ordinary statement/lowered field step is
+cut before the next admitted input route; unchanged paths and BIND_IN preserve
+the bound. Induct on that instruction/call route. The selected class-prefix
+grammar plus count≤1 gives the three static input shapes. It does not bound the
+number of sibling fields or concrete marks. The concrete empty-S-root input
+assumption and finite field-universe completeness remain separate frontend checks.
+
+Entry/global sources, sink end-GEN, trigger seeds and native actions can still
+create ordinary facts. Do not confuse them with new initial constructors. The
+production run-1 driver has no hand-off source/sink seeds; later restricted runs
+use a different initial policy. A manual RunConfig that inserts such seeds is not
+evidence that the accepted first-run constructor list has been proved for it.
+
 ## 2. Exact two-slot request relation
 
-First cut an incoming leaf to the run-1 geometry. A valid static leaf has path
-`root`, `[C]` or `[C,f]`; a deeper accepted input is cut before this projector.
+Use the already bounded incoming leaf from section 1.2. A valid static leaf has
+path `root`, `[C]` or `[C,f]`. The earlier transfer cuts establish this input
+domain; the projector does not introduce a second cut or silently truncate an
+invalid incoming path.
 The original leaf annotation and layer are retained for ordinary AP matching.
 Only the request test erases field E and FLOW mark exclusions.
 
@@ -251,6 +385,105 @@ lemma propagates that entry through every resolved caller, including recursive
 paths. Storage creation installs resolved memberships before exposing subscribers.
 Later activation writes the same member to W and uses the late-request law in
 section 8. The proof constructs the member; it does not assume plan coverage.
+
+### 4.1 Full precomputed workflow without a duplicate store or initial propagation wave
+
+Use the closed normal-static slot→marks relation itself as the frozen base B of
+authoritative R. It is the same immutable map and mark-set objects owned by the
+method/SCC plan, borrowed by active full MethodKeys. Do not keep a separate
+full-query/role catalog containing another copy of those memberships, copy B into
+W, or populate D by repeatedly publishing B. Structural H and unresolved wide
+descriptors are different metadata; they are not a second admitted membership
+relation.
+
+Resolve the frozen base from actual closed descriptors, not from an arbitrary
+runtime-active field set:
+
+```text
+slotsOfNeed(structural(C,f))       = [F(C,f)]
+slotsOfNeed(marked(field(C,f),T))  = [F(C,f)]
+slotsOfNeed(other)                = []
+frozenSlots(needs) = flatMap(slotsOfNeed, needs)
+frozenBase(needs)  = deduplicate(activate(needs, frozenSlots(needs)))
+```
+
+Thus a wide descriptor may supply its mark on an already resolved frozen slot,
+but a wide descriptor alone does not enumerate new runtime fields. Class-point
+metadata does not invent a field slot. A later input-only activation remains a
+dynamic residual, not a mutation of B.
+
+The workflow is:
+
+1. Prescan enumerates effective needs and computes the least resolved-call closure.
+   Resolved normal static needs become the shared immutable B. Unresolved wide
+   activation rules stay compact metadata rather than an eager mark×field table.
+2. Before a SummaryStorage is exposed to any subscriber or input, bind that B and
+   create empty D. The actor's second same-class RequestStorage has an empty base
+   and empty temporary contents. Effective `R(slot) = B(slot) union D(slot)`.
+3. A new TAINT input is processed by the abstraction's current-R read. A new FLOW
+   input/growth is joined with current R in its caller input store. These two
+   existing input-arrival arms read B as well as D. No initial notification wave
+   is needed to make a not-yet-existing subscriber discover B.
+4. An ordinary producer or received proposal consults effective R first and adds
+   only residual marks to W. It never reads W for membership. A matching installed
+   B member therefore allocates no temporary request and creates no notification.
+5. A later wide activation or a changed-origin residual may add a genuinely new
+   member. It uses normal W→commit→fresh notification. B remains frozen; D stores
+   only members absent from B. Request persistence and the late-input theorem apply.
+
+**No initial-wave theorem.** Binding B before all subscriptions and input admissions
+preserves all answers and climbs without notifying the initial B memberships.
+
+**Proof.** Consider each actual input admission A. Its registration and input-read
+ordering follows section 8. Since B is already installed, the TAINT emitter or FLOW
+input arm reads its relevant B members. Thus no subscriber can predate B and wait
+for a publication that will never occur. A later dynamic commit still notifies its
+fresh marks. Input updates repeat their normal arrival arm. The proof fails if a
+storage is exposed before B is bound, or if fresh FLOW reads only notifications.
+It does not authorize removing either input-arrival arm.
+
+**Unchanged precomputed-route theorem.** Suppose m calls n, n's precomputed need is
+`F(C,f)/T`, and the matched caller FLOW has unchanged original normal slot F(C,f).
+No request message for that target membership is needed.
+
+**Proof.** A callee frozen-base member has two executable witnesses: its marked
+scope descriptor and a descriptor that contributes the slot to frozenSlots. The
+resolved edge m→n and the least-closure lemma carry both descriptors into m's
+closed plan. `slotsOfNeed` is pointwise, so frozenSlots is monotone under that
+inclusion. Scope membership then activates the same f/T member in frozen B[m].
+This proof has no premise that an arbitrary runtime field is already active.
+Full context/entry keys borrow that method's conservative B before use.
+The target effective R already contains it, so subtraction returns the empty
+contribution. Its permanence prevents a lost later answer. This proof is about
+the actual unchanged origin and membership, not merely a STATIC current base.
+For FLOW this can skip the entire precomputed **mark segment of that queried
+slot** before geometry or per-mark callbacks. It does not skip TAINT answers or
+other slots in the callee's base. For example, let a caller's original f analysis
+send a packed FLOW containing f and g after a copy f→g. With callee B[f]={T} and
+B[g]={U}, caller B inherits f/T and g/U, but need not contain f/U. The f/T segment
+is redundant; the matching g/U segment must still route to original f/U.
+
+The following routes still need ordinary matching or propagation:
+
+| Route | Why precomputation does not remove it |
+| --- | --- |
+| C.g→C.f, or a non-static origin copied into C.f | The caller's required slot is g or its original base, not literal f |
+| A precomputed callee f/T need matched by a FLOW with a changed original slot | CG closure contains the literal f/T; it need not contain the rewritten origin/T |
+| A dynamic callee g/T need discovered from an f/T check | Plain literal closure does not compute every runtime provenance transformation |
+| F75 selected cleaner or generic target exclusion on a different normal origin | The same-origin request is required for that origin; a plan declaration for the checked field is not its admission |
+| A previously unresolved wide need activated by a new input field | That concrete field membership was not in B and must enter D through commit |
+
+In each row, subtract the **actual destination's** effective R. If it already
+contains the rewritten membership, propagation becomes a duplicate and is omitted.
+Otherwise it remains required. Concrete suppliers answer directly; they do not
+propagate requests to concrete origins. This is why “no duplicate store and no
+initial propagation of B” does not mean “no request notifications or FLOW routing”.
+
+**Physical ownership obligation.** An implementation must preserve the shared B
+reference and disjoint residual representation. Logical set equality alone does
+not prove physical sharing: copying the same values into another catalog, actor
+map, W or D would satisfy membership laws but fail this optimization requirement.
+Test object/reference sharing and allocation/census counters separately.
 
 **Dynamic residual theorem.** A mark need under a normal abstract initial i is
 not lost when its current checked position differs from i.
@@ -475,17 +708,20 @@ the mx provenance lemma. Ordinary E and mx transfer semantics remain unchanged.
 
 ## 10. Merged marks, batching and early admitted-set subtraction
 
-All marks in one request row are independent. Let R be the admitted set and W
-the temporary contribution for a slot. Commit computes `D = W - R` and installs
-`R' = R union D = R union W` before notification. Replacement clears only W.
-No request is removed from R.
+All marks in one request row are independent. R consists of frozen B and residual
+D with `B intersect D = empty`. W has no borrowed base. Local and received
+contributions are filtered against current effective R before union into W; this
+is not a read of W. Commit computes `fresh = W - (B union D)` and installs
+`D' = D union fresh` before notification. Effective `R' = R union W`; replacement
+clears only W. B is never copied, replaced or notified as fresh. No request is
+removed from effective R.
 
 **Batch theorem.** Any finite grouping/order of contributions gives the same
 eventual R as immediate singleton admission.
 
 **Proof.** Expand every finite set into its members. Union is associative,
 commutative and idempotent, so the final relation is the initial R union all
-members offered. D notifications contain exactly first admitted memberships for
+members offered. Fresh notifications contain exactly first admitted memberships for
 that commit. A delayed batch can change when a concrete branch starts; the arrival
 theorem prevents loss. It does not prove equal scheduling or a time bound.
 
@@ -494,7 +730,9 @@ There is no mx filter in this selected request policy. A stale immutable R is a
 subset of current R and can only allow duplicates. Subtraction is safe because
 every removed membership remains persistent at that exact destination. A
 different MethodKey, slot, or callee's R is not a valid subtraction owner. Do not
-query W as a second membership oracle. Different matching inputs with the same
+query W as a second membership oracle. A receiver re-filters a queued stale
+proposal against its current R before writing W; sender filtering alone would
+not establish disjoint W/D after intervening commits. Different matching inputs with the same
 destination union their contributions. Do not subtract the union of exclusions,
 and do not turn multiple requested marks into an AND condition.
 
@@ -536,7 +774,10 @@ The constructive Lean work is split across
 [Run1RequestsSafety](lean/ApSpec/Run1RequestsSafety.lean) (component ownership/frame
 and cleaner counterexamples), and
 [Run1RequestProtocol](lean/ApSpec/Run1RequestProtocol.lean) (storage/arrival/protocol
-laws). The first two modules passed their selected build, declaration audit and
+laws), with the selected extensions
+[Run1InitialShapes](lean/ApSpec/Run1InitialShapes.lean) and
+[Run1PrecomputedRequests](lean/ApSpec/Run1PrecomputedRequests.lean).
+The first two modules passed their selected build, declaration audit and
 executable vectors on 15 October 2026:
 
 ```text
@@ -579,11 +820,48 @@ Both receipts are under evidence root B from the current performance report.
 They are proof-build evidence, not runtime tests or JVM conformance. The runtime
 diff against measured `27e22bb1e` is empty for `core` and `rules`.
 
+The shape extension also passed its selected build and audit:
+
+```text
+cd spec/lean && lake build ApSpec.Run1InitialShapes
+cd spec/lean && lake env lean <receipt-directory>/audit.lean
+```
+
+That build completed 5 jobs. Its audit checked 508 declarations, found zero
+unexpected axiom dependencies, and passed the twelve-family executable supply
+and existing AP start-fact certificates. Allowed dependencies were only `propext`
+and `Quot.sound`. Its source/log-hashed receipt is:
+
+```text
+report-preparation/run1-initial-shapes-20261015/
+  lean-20261015T192441.939809Z/receipt.json
+SHA-256 db6afa4377f55b0b396b8b70eba4daa308d8dd6dab018271bc68e3d3be025b11
+```
+
+The refreshed full-library check passed with both extensions: `lake build`
+completed 125 jobs, and `lake env lean audit.lean` checked 21,810 declarations
+with zero unexpected axioms. Only `propext` and `Quot.sound` were permitted.
+All executable audit groups passed, including the shared-base and twelve-family
+initial-supply controls. Its source/log-hashed receipt is under evidence root B:
+
+```text
+report-preparation/run1-request-shapes-precomputed-20261015/
+  full-20261015T193531.045382Z/receipt.json
+SHA-256 1334f8b247c8e94cf52186517b4a799c2efbffbdef89effb74d80ee5b8b36fa1
+```
+
 The statement map is below. Names are in the corresponding `ApSpec` namespace.
+The first two receipts precede the shape and shared-base extensions; the final
+receipt validates their combined sources. None of these checks proves current
+generic factories obey the F78 boundary. No analyzer run was made, and the
+runtime diff against measured `27e22bb1e` remains empty for `core` and `rules`.
 
 | Obligation | Lean statements and their actual scope |
 | --- | --- |
 | Exact slot matcher | `Run1Requests.project_exists_iff`, `projector_ignores_field_E`, `projector_keeps_mark`; finite leaf projector, not Kotlin tree traversal |
+| Complete initial grammar | `Run1InitialShapes.classification_exact`, `legal_empty_E`, `legal_no_must`, `legal_no_excluded_initial_mark`, `zero_base_canonical`, `no_concrete_empty_static_root`, `no_abstract_class`, `no_nonstatic_field_initial`, `no_static_deep_initial`, `no_abstract_any`; selected 12-family grammar, not current generic InitialAp validation |
+| Actual initial supply | `request_projector_legal`, `direct_class_legal`, `class_projector_legal`, `every_emitted_initial_legal`, `request_emission_exact`, `request_requires_matching_concrete_supplier`, `incoming_answers_legal`, `FLOW_never_answers`, `every_shape_has_supply_witness`; actual finite answer factories, not mere shape permission |
+| Start facts | `started_layer`, `started_tail`, `started_geometry`, `started_zero_is_reach`, `started_FLOW_exactly_abstract`; existing scalar AP start adapter, not the packed Facts codec |
 | 1: producer inventory | `effective_leaf_collected`, `excluded_target_member_collected`, `zero_and_removeAll_not_mark_producers`, `generated_targets_keep_structure`; effective finite form grammar, with frontend extraction as a bridge |
 | 2: static plan | `closure_seed`, `closure_call`, `closure_least`, `recursive_call_coverage`, `unchanged_static_plan`, `wide_activation_complete`, `effective_static_dispatch`; executable finite graph/activation |
 | 3: dynamic residual | `static_dynamic_cover`, `changed_slot_retains_dynamic`, `changed_static_origin`; full logical owner and original slot |
@@ -595,6 +873,10 @@ The statement map is below. Names are in the corresponding `ApSpec` namespace.
 | 9: exclusions | `Run1RequestProtocol.excluded_has_emitted_need`, `excludedNeedWitness`, `derived_flow_exclusion_erasure`, `excluded_forwarding_same_union`; executable normal-origin creator/transfer/call/join induction and resulting union law, not an assumed provenance predicate |
 | Batching | `collect_holds`, `commit_holds`, `commit_membership`, `commit_temporary_empty`, `fresh_not_admitted`, `second_commit_no_notification`, `filter_destination_safe`, `two_batches_one_barrier`, `barrier_placement_same_union`, `post_commit_collect_uses_new_temporary` |
 | Prefix/completion | `trace_encodes`, `every_prefix_retains`, `completed_admits_all`, `completion_empty_owners`; finite logical cells and explicit owner predicates, not runtime scheduler termination |
+| Shared precomputed base | `Run1PrecomputedRequests.build_base_exact`, `initialise_shares_base`, `initial_read_is_precomputed`, `initialise_no_base_copies`, `collect_no_base_copies`, `commit_preserves_base_reference`, `commit_no_base_copies`, `trace_no_base_copies`, `trace_preserves_base_reference`; immutable pool reference and derived disjoint logical residuals, not JVM object-layout proof |
+| No initial base notifications | `initial_commit_no_notification`, `notification_never_precomputed`, `new_input_sees_precomputed`, `every_input_after_binding_sees_base`, `no_precomputed_delivery_after_any_trace`; initialized-before-input lifecycle |
+| No unchanged precomputed FLOW propagation | `caller_plan_inherits`, `frozen_slots_monotone`, `caller_frozen_base_inherits`, `frozen_batch_no_send`; actual frozen descriptors construct both inherited slots and marks without an arbitrary runtime-active premise. Helpers `caller_activated_inherits`, `identical_static_route_already_admitted`, `unchanged_precomputed_batch_no_send` expose their additional slot premise. Neither case covers changed origins |
+| Residual collection | `precomputed_never_offered`, `entirely_precomputed_sends_nothing`, `fresh_never_precomputed`, `planned_membership_persists`, `commit_read_exact`, `changed_origin_not_suppressed`; effective B∪D read and current-R filter |
 
 The executable Lean witnesses include
 `Run1Requests.Examples.recursive_seed_reaches_caller`,
@@ -623,6 +905,11 @@ Each executable control must test the actual result below, not assume coverage:
 | T answered, then a new caller/supplier U | R remains active; U independently answers if requested |
 | Request-only method; final flush; cancellation | Counted ownership prevents early COMPLETE; cancelled run makes no closure claim |
 | Native and opposite-direction persisted summary read | Same component ownership/frame, ordinary full guards preserved |
+| Every closed initial family, including T=ZERO on a nonzero base | Exactly the 12 rows in section 1.1; no extra initial from seeds, GEN or native results |
+| First limit 1, class uncounted, field counted | Accepted cut route yields root/C/C.f; generic deeper/manual input is not silently truncated or certified |
+| Shared precomputed B before subscriber/input | No copy into P/D, no initial notification wave; both fresh input arms read effective R |
+| Unchanged versus changed caller origin for a B member | Unchanged route subtracts to empty; C.g→C.f and non-static origins retain missing residual interests |
+| One origin f sends packed FLOW f+g; callee B[f]={T}, B[g]={U} | Skip only f/T segment; g/U still routes f/U unless target effectiveR already contains it |
 
 The theorem family deliberately stops before physical AP tree/mask refinement,
 whole-driver source/seed equality, pooled ND confirmation, and fixed-project

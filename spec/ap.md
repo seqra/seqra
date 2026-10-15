@@ -58,7 +58,7 @@ them. Each proof uses only the conditions stated in [proof-status.md](proof-stat
 | S9 | Each conjunction literal names a concrete mark. | Interpreter |
 | S10 | A statement edge reads a touched base. Every call binding has `*` premise mark and `*` tails on both sides. A conjunctive target has a concrete mark and no `*` tail (W7). | Interpreter |
 | S11 | Backward construction: (a) binding target marks are `*`; (b) statement edges are mark-reversible (§1); (c) no forward back-binding targets zero; (d) each non-call keeps zero, no cleaner acts on zero, and a filter on zero accepts its empty path; (e) each node reachable from a root/callee entry can reach its virtual exit; (f) sink patterns have `$` or `[any]`; (g) statement edges and bindings have exact shape (§1): a `*` premise with a `$` or `[any]` target has empty field exclusion. Clause (g) is needed for generic reversed-edge exactness; the record views of §8.7 have their own shapes. | Interpreter and CFG |
-| S12 | Static construction: a static position is a read/sink path on `S`, cut to the class and field. An `S→S` edge is an identity restriction or reads and writes at/below a static field. An edge from another base to a bare class position has concrete `$` premise and target; each literal of a conjunctive edge has the same form. No pass rule reads/writes a bare class position. Calls bind `S.*→S.*`. Class accessors do not count and each limit is at least 1. A cleaner on `S` names its mark; removing all marks at a static position is a strong-write kill. The empty-path whole-base all-mark cleaner is the one exception: it drops each `S` fact whole. `S` differs from zero. Run 1 uses §6.2. Restricted runs require the edge/binding/limit conditions and records that preserve the static invariant. | Interpreter |
+| S12 | Static construction: a static position is a read/sink path on `S`, cut to the class and field. An `S→S` edge is an identity restriction or reads and writes at/below a static field. An edge from another base to a bare class position has concrete `$` premise and target; each literal of a conjunctive edge has the same form. No pass rule reads/writes a bare class position. Calls bind `S.*→S.*`. Class accessors do not count. F78 selects run-1 limit exactly 1; later limits are positive and nondecreasing. A cleaner on `S` names its mark; removing all marks at a static position is a strong-write kill. The empty-path whole-base all-mark cleaner is the one exception: it drops each `S` fact whole. `S` differs from zero. Run 1 uses §6.2 and its bounded-input grammar. Restricted runs require the edge/binding/limit conditions and records that preserve the static invariant. | Interpreter |
 | S13 | Validity for exactness: filters accept all valid locations; validity of an edge's end implies validity of its start, for statement edges and both call bindings. For conjunctions this holds for each literal. | Type-filter placement |
 | S14 | Input records are exact on valid end locations. Must records are end-exact on admitted locations, have concrete conclusions, and satisfy W8 normal form. Reversed backward records require the extra conditions of §8.7; dropping backward filters can break exactness (§11.1). | Record store |
 | S15 | Only sources and triggered end-fact actions use a `[any-taint]` target, with concrete premise/target marks. Pass rules with an AnyField target use may `[any]`; AnyField pass premises are rejected. No micro edge has a `[any-taint]` premise. The backward run has no `[any-taint]`; reversing a may target puts every result in the demand layer. | Interpreter |
@@ -94,7 +94,9 @@ A semantic history of admitted inputs/links is ghost state, not a callee runtime
 Caller N2 retains actual input Facts and full provenance (§8.4). The callee consumes each
 transport payload and releases it. Under F78 its request state is one owner-write-only
 pending RequestStorage P; SummaryStorage owns the one cumulative RequestStorage R.
-Both use the same class. There is no full-query/role table or deferred-answer memo.
+Both use the same class. R borrows the closed plan's immutable precomputed base B
+and keeps only disjoint dynamic residual D; P has an empty base. No seed copy or
+initial notification wave is implied. There is no full-query/role table or deferred-answer memo.
 [run1-requests.md](run1-requests.md) defines the exact commit-then-replace barrier.
 
 Preserve full source/sink NNF, F74/F75, D23, cleaner order, positive limits and hand-offs.
@@ -209,8 +211,10 @@ are not the zero fact (§4.6).
 * The policy facts and the chain answers of run 1 have the Empty exclusion (`Reverse.policy_premEmpty`,
   `Reverse.answerInit_premEmpty`). A catalog structural initial `(S, p, *, {}, *)` has the Empty exclusion by its definition
   (F78 §4.10; historical scalar position answers have the same Empty E). F78 static answers use the supplied field projector and direct class path. They have a concrete
-  mark, so by W2 it has the `$` or the `[any]` tail and the Empty exclusion (an `[any-taint]/E` added fact gives the
-  `[any]` answer, with no exclusion: W8 (c)). (The Lean theorems above do not cover these two static answers; the
+  mark and the `$`, `[any]` or chain `*` tail, all with Empty E. An actual field leaf gives `$`/`[any]`;
+  a broad ancestor's projected field gives the chain `*` answer. An `[any-taint]/E` field leaf gives the
+  `[any]` answer, with no exclusion: W8 (c). The exhaustive initial grammar is F78 §1.1.
+  (The Lean theorems above do not cover all these static answers; the
   statements follow from their definitions.) In a restricted run an emitted fact can have the exclusion of the demand.
   Before F72 it was the meet with a `*/E` entry pattern (§6.3), with a concrete mark, so it started in the demand
   layer (§6.5) and made no record. Since F72 a `*/E` entry pattern has the mark `*` (W2), so it gives its FLOW form
@@ -910,7 +914,7 @@ The statement transfer of one conclusion `c` of the edge `(i, layer) → c` in t
 2. If `c.base` is not touched: the result is `c` (`Sequent.Unchanged`).
 3. Apply the operand type filters of `c.base` (§4.8; `interpreter.md` §2.1 step 3). A rejected fact is dropped.
 4. Apply `concat(c, e)` (§4.1) for every micro edge `e` of the statement that is not conjunctive. The result is the
-   union of fact outcomes. F78 interest collection gives no result fact; it unions T into P for the actual normal abstract origin (§4.5). The static adapter uses the joined plan (§4.10).
+   union of fact outcomes. F78 interest collection gives no result fact; after effective-R filtering it unions T into P for the actual normal abstract origin (§4.5). The static adapter uses the joined plan (§4.10).
    `PositionRequest` is only a historical scalar-oracle outcome. A touched base keeps only what an edge gives again. That is the KILL.
 5. Apply the lhs type filter to the results on the lhs (§4.8; `interpreter.md` §2.1 step 5).
 6. Apply the field limit to each result (§4.4).
@@ -1099,7 +1103,9 @@ The cut:
   `AnyTaintEx.limitFX`; round 1:
   `AnyTaintCases.Cut.cut_transfer`, `limitF_cut_demand`).
 
-Run 1 starts at limit 1. Every later run also has a positive limit (S12 (d), §4.10). The class accessor
+The selected F78 JVM run 1 starts at limit exactly 1. The measured generic driver accepts a custom first limit
+greater than 1; that domain is not certified by F78's closed initial grammar. Every later run also has a positive,
+nondecreasing limit (S12, §4.10). The class accessor
 `<C>` is not counted, so a cut never stops strictly above a static position.
 
 The zero-limit vectors `AnyTaintEx.Vec.cut_drops` and `AnyTaintExCases.CUT` are historical Lean data. They remain
@@ -1129,15 +1135,18 @@ T; summary/call propagation preserves that obligation. Set union makes a later T
 redundant. Unconditional generation and all-mark cleaners collect no marks.
 
 Each actor owns write-only pending P; SummaryStorage owns authoritative R, both of
-class RequestStorage. Producers union into P and may filter only against R. At the
+class RequestStorage. R reads the shared immutable precomputed base B plus disjoint
+dynamic additions D. Bind B before any subscription/input; do not copy it into P/D
+or send an initial notification wave. Every producer filters effective R before
+merging into empty-base P; no producer queries P. At the
 method fact-queue-empty boundary execute `summaryStorage.commit(temporary)` and then
 `temporary = new RequestStorage()`. Commit synchronously reads P and queues immutable
 fresh notifications after publishing R. It does not retain P or reenter actor handlers.
 Keep method Work counted through replacement and all required sends. Requests remain
 admitted until joined release; an answer does not remove their late-supplier obligation.
 
-New TAINT input reads R at the callee. Newly admitted marks replay existing caller N2
-inputs; new FLOW input/growth joins current R and forwards set contributions to original
+New TAINT input reads full effective R at the callee. Newly admitted dynamic marks
+replay existing caller N2 inputs; new FLOW input/growth joins full R and forwards set contributions to original
 caller slots. Require subscriber registration and N2 input admission before LinkIn,
 and R commit before notification. This covers both arrival orders without a callee
 supplier store, deferred-answer memo or fresh-input TAINT question replay. All effects,
@@ -1145,8 +1154,8 @@ including local replay results, are queued before mutating the visited directory
 
 A concrete answer requires an actual TAINT leaf carrying T. Non-static exact-root
 answers keep EXACT; other non-static leaves give the base chain STAR answer. Static
-at/below-field answers retain the actual full leaf shape; broad ancestors give the
-requested field chain. Must becomes ANY, never a run-1 must initial. Exact class-point
+field answers retain the actual field leaf shape under the selected limit-1 input
+invariant; broad ancestors give the requested field chain. Must becomes ANY, never a run-1 must initial. Exact class-point
 input has a separate direct concrete path; broad class components remain MAY/DEMAND.
 No interest or FLOW supplier invents T. See F78 §2 for the complete projector.
 
@@ -1587,9 +1596,16 @@ location of it (`AnyTaintEx.checkX`), and a supported must-premise has all its a
 prescan exports its existing complete resolved call graph and all effective IR/rule/
 model forms. Collect static source AND target/read/write positions, source and sink
 NNF positive leaves, input gates and cleaner/rewriter interests. Compute finite union
-closure including recursion. Structural ownership and mark needs are separate; a
-metadata need is not admitted R membership. Resolve wide scopes lazily onto actual
+closure including recursion. Freeze resolved normal-static slot/mark rows as B,
+physically shared by the plan and each active SummaryStorage's effective R; do not
+copy them per context, into pending P or into a second cumulative store. Bind before
+the first subscription/input. There is no initial recursive notification wave;
+new FLOW/TAINT inputs read full R. Structural ownership and mark needs are separate;
+an unresolved wide metadata need is not admitted R membership. Resolve wide scopes lazily onto actual
 relevant fields and later inputs without a field-by-mark Cartesian product.
+When the actual original static FLOW slot equals the queried slot, resolved-call closure proves callee B(slot) subset caller B(slot), so skip
+that whole shared row before per-mark callbacks or transport. Dynamic D uses the target-R difference; a changed
+original C.g/argument slot still receives the necessary B contribution. This is not a request-role distinction.
 
 Normal abstract initials are only non-static base roots and static class/field slots.
 The special S-root summary seed is always additive, keeps ordinary code transfer, and
@@ -1784,8 +1800,16 @@ summary seed and supplied normal field abstract initials from the joined plan.
 Exact class-point input uses its direct concrete path. Broad field/class suppliers
 use the stated conservative projector, never a normal exact assumption.
 
+The exhaustive initial grammar is F78 §1.1: canonical Zero; abstract base/root,
+special S/root and S/class/field; concrete base/root EXACT/STAR, static field
+EXACT/ANY/STAR and direct class-point EXACT/ANY/STAR. All have Empty E; no ANY_TAINT,
+abstract class/ANY, deeper initial or concrete empty S-root exists. A concrete mark
+with numeric ID 0 on a nonzero base is not canonical Zero. The selected cut/input
+invariant, not the emitter or generic factory, proves the depth bound.
+
 Concrete answers are additional and require actual supplied marks. The abstraction
-reads only SummaryStorage R. It has no cumulative question mirror, query geometry/
+reads only effective SummaryStorage R, the shared frozen B plus dynamic residual D.
+No B rows are copied to P/D or recursively notified on startup. It has no cumulative question mirror, query geometry/
 role state, caller-separated inputs or deferred-answer memo. Its owner-only pending
 RequestStorage P merges interests and commits at method fact-queue-empty, then is
 replaced by a new instance of the same class. InitialFactStore deduplicates starts.
@@ -2569,16 +2593,21 @@ Rules:
 ### 8.8 RequestStorage R and P (RUN 1 only; F78)
 
 * SummaryStorage owns the sole cumulative R per full MethodKey. Keys are StaticSlot(C,f) and BaseSlot(b), values
-  independent mark sets. The actor owns write-only temporary P of the same RequestStorage class.
-* Producers always union into P; only R is a membership oracle. At method fact-queue-empty execute
+  independent mark sets. Its precomputed immutable B is physically shared with the closed plan; D stores only
+  dynamic residual additions. One effective membership API reads B union D. Bind before any subscription/input.
+  The actor owns write-only temporary P of the same RequestStorage class, with an empty base.
+* Every producer subtracts effective R before merging contributions into P; only R is a membership oracle.
+  Thus P and D stay disjoint from B; no initial copy or fresh notification of B occurs. At method fact-queue-empty execute
   `summaryStorage.commit(temporary)` then `temporary = new RequestStorage()`. Commit publishes immutable R and
   queues grouped immutable fresh notifications without retaining P or running actor callbacks inline.
 * Keep Work counted through commit/replacement and all required sends. Request-only arrivals schedule existing
   Work without a synthetic fact. Later queued arrivals write the replacement P. No takeBatch API, bespoke mailbox,
   unit barrier, new quantum, hard pending quota or overflow/rescan protocol is selected.
-* The abstraction reads R for new TAINT input. Fresh R batches replay original caller N2; new FLOW input reads R.
+* The abstraction reads full R for new TAINT input. Fresh dynamic batches replay original caller N2; new FLOW input reads full R.
   Only actual normal abstract origins forward requests. Concrete suppliers still answer. No callee answer memo,
   second cumulative query table, full-rule query, role, E/mx key or caller supplier table exists.
+* A resolved B row discharges only the same original slot. Changed C.g -> C.f or argument -> static origins still
+  propagate their own slot demands. Unresolved wide metadata is not B; fresh lazy activation takes P/commit/notify.
 * Ignore field E and FLOW mark exclusions in the request join. Keep exclusions in ordinary AP/summary matching.
   The same-origin exclusion-request invariant and set union justify redundant forwarding; interest is not proof.
 * R/P/input state releases after joined work; the temporary size/delay must be measured, not assumed capped.

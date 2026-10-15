@@ -120,3 +120,5 @@ import ApSpec.AddedFactsRemoval
 import ApSpec.AddedFactsRemovalMemo
 import ApSpec.Run1Requests
 import ApSpec.Run1RequestsSafety
+import ApSpec.Run1InitialShapes
+import ApSpec.Run1PrecomputedRequests

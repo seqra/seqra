@@ -11,21 +11,26 @@ theorem catalogs; F70/F71 concrete-run results do not prove current restricted r
 
 ## F78: merged run-1 requests
 
-Validation on 15 October 2026: `lake build` passed (123 jobs), and
-`lake env lean audit.lean` passed for 21,118 declarations with zero unexpected
-axioms. F78 executable controls passed. The
+Validation on 15 October 2026: `lake build` passed (125 jobs), and
+`lake env lean audit.lean` passed for 21,810 declarations with zero unexpected
+axioms. F78 executable controls, including the closed initial grammar and shared
+precomputed-base lifecycle, passed. The
 [proof dossier receipt](run1-request-proofs.md#12-executable-witness-matrix-and-formal-scope)
 binds the sources and logs. No analyzer run or runtime change was made.
 
 The [proof dossier](run1-request-proofs.md) gives the constructive arguments for
 all nine original obligations and the storage, arrival and completion laws.
-Its finite semantic domain includes the two normal abstract initial forms, the
-explicit impossible exact static-root assumption, a complete prescan field/form
-domain, broad suppliers and separate legal class points. The theorem statements
+Its finite semantic domain includes all twelve initial families for the selected
+JVM run-1 domain (forward, limit exactly 1, empty handoff seeds and previous-run
+records), the explicit impossible exact static-root supplier assumption, a complete
+prescan field/form domain, broad suppliers and separate legal class points. The theorem statements
 do not assume a predicate that already asserts request coverage.
 
 | Result | Checked evidence | Scope |
 | --- | --- | --- |
+| Exhaustive run-1 initial grammar, supplied answers and start facts | [Run1InitialShapes.lean](lean/ApSpec/Run1InitialShapes.lean): `classification_exact`, `every_emitted_initial_legal`, `request_emission_exact`, `every_shape_has_supply_witness`, `started_layer`, `started_tail`, `started_FLOW_exactly_abstract` | Twelve families in the selected limit-1 domain. Shape permission alone does not authorize emission. Generic runtime factories still need a conformance check. |
+| Shared precomputed base, no duplicate memberships or initial notification wave | [Run1PrecomputedRequests.lean](lean/ApSpec/Run1PrecomputedRequests.lean): `initialise_shares_base`, `trace_no_base_copies`, `trace_preserves_base_reference`, `every_input_after_binding_sees_base`, `no_precomputed_delivery_after_any_trace` | Immutable base reference plus disjoint dynamic residual; temporary requests have an empty base. Logical lifecycle proof, not JVM allocation measurement. |
+| Unchanged precomputed static routes need no propagation | `caller_frozen_base_inherits`, `frozen_batch_no_send`, `changed_origin_not_suppressed` | Actual frozen descriptors construct inherited slots and marks. Suppression is per queried slot and actual unchanged origin; changed-origin needs and late wide activations retain dynamic handling. |
 | Exact two-slot projector, exclusion-insensitive request matching and separate class points | [Run1Requests.lean](lean/ApSpec/Run1Requests.lean): `project_exists_iff`, `projector_ignores_field_E`, `direct_class_preserved` | Finite scalar leaves; actual concrete marks are required for answers. Broad suppliers do not prove an exact NORMAL class point. |
 | Effective producers, least finite graph closure and wide-scope activation | `effective_leaf_collected`, `closure_seed`, `closure_call`, `closure_least`, `recursive_call_coverage`, `wide_activation_complete` | Explicit effective-form vocabulary and complete canonical field domain. The finite oracle computes the least closure; SCC code must refine it. |
 | Static/dynamic coverage and original-slot routing | `unchanged_static_plan`, `effective_static_dispatch`, `static_dynamic_cover`, `changed_slot_retains_dynamic` | Installed membership discharges a need; all other normal-origin needs retain their dynamic route. |

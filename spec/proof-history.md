@@ -5,7 +5,8 @@ This file is supporting evidence, not a normative spec. The current rules are in
 [proof-status.md](proof-status.md) gives the current proof scope and open work.
 
 F78's current request proofs are in [run1-request-proofs.md](run1-request-proofs.md)
-and the Run1Requests/Run1RequestsSafety/Run1RequestProtocol modules. Earlier
+and the Run1Requests/Run1RequestsSafety/Run1RequestProtocol modules, with the
+Run1InitialShapes and Run1PrecomputedRequests extensions. Earlier
 full-query, request-exclusion and deferred-memo certificates below retain their
 historical policies; they do not define F78 or require those runtime owners.
 

@@ -8,11 +8,70 @@ is `27e22bb1ed871651143538783473cb0d4fcbcf3e`; its reports do not validate F78.
 Use this document with [ap.md](ap.md), [analyzer-core.md](analyzer-core.md) and
 [interpreter.md](interpreter.md). The constructive proof statements and checked
 scope are in [run1-request-proofs.md](run1-request-proofs.md). The formal modules
-are `lean/ApSpec/Run1Requests*.lean` and `lean/ApSpec/Run1RequestProtocol.lean`.
+are `lean/ApSpec/Run1Requests*.lean`, `lean/ApSpec/Run1RequestProtocol.lean`,
+[Run1InitialShapes.lean](lean/ApSpec/Run1InitialShapes.lean) and
+[Run1PrecomputedRequests.lean](lean/ApSpec/Run1PrecomputedRequests.lean).
 Only the proof receipt can establish which named statements are checked. Historical
 Position/full-query theorems keep their old hypotheses; they are not F78 proofs.
 
 ## 1. Domain and invariants
+
+### 1.1 Closed run-1 initial grammar
+
+An initial here means a method-entry fact admitted to InitialFactStore, not an
+arbitrary fact at a statement, a source seed, a record conclusion or a member of a
+packed incoming tree. F78 selects JVM run 1 with field limit **exactly 1**. Later
+limits remain positive and nondecreasing. The generic measured driver accepts a
+custom first limit greater than 1; that larger domain is not certified by this
+closed grammar. Nor does a generic AP factory enforce the grammar merely by
+constructing an InitialAp.
+
+Let b be an ordinary non-static, nonzero base, not a cleaner temporary; C a legal
+class accessor; f one counted static-field accessor; T a frontend-admitted concrete mark.
+T may have numeric ID 0 on a nonzero base: reserving that ID does not turn the base
+into Zero. All initials have Empty field exclusion, and a premise has no mark
+exclusion. The following table is exhaustive; a set of tails denotes separate
+legal initials, not one merged initial.
+
+| Family | Base | Path | Tail | Mark | Construction |
+| --- | --- | --- | --- | --- | --- |
+| Zero | zero | [] | EXACT | canonical zero mark | Root start or incoming Reach |
+| Normal non-static abstraction | b | [] | STAR | STAR | Incoming non-static input |
+| Special static summary seed | S | [] | STAR | STAR | Incoming static input; rule/request guard below |
+| Normal static field abstraction | S | [C,f] | STAR | STAR | Supplied structural field from the closed plan |
+| Concrete non-static answer | b | [] | EXACT or STAR | T | Actual requested supplier; exact root versus chain |
+| Concrete static field answer | S | [C,f] | EXACT, ANY or STAR | T | Actual requested field supplier or broad projection |
+| Direct concrete class component | S | [C] | EXACT, ANY or STAR | T | Direct class-point supplier or conservative broad projection |
+
+These are twelve families if each alternative tail is counted separately. The
+table is a legal envelope, not a requirement to emit all its rows for every input.
+InitialFactStore equality distinguishes the alternatives. There is no nonempty E,
+ANY_TAINT initial, abstract ANY, abstract class initial, non-static path below a
+base root, static path below [C,f], cleaner temporary, or concrete empty S-root
+initial of any tail. Only the canonical Zero row can have base zero. In particular,
+an incoming root/class ANY supplier is legal but is not itself admitted as a
+concrete empty-root initial.
+
+The bounded-input proof uses the selected JVM construction, not a cut hidden in
+the emitter. Validate class -> static field -> ordinary field/element suffix,
+not class -> arbitrary element. Every accepted incoming static path has layout
+[]/[C]/[C,f]; non-static input may retain one counted accessor, but its abstraction
+and concrete answer use the base root. Statement, entry-rule, exit-rule and call
+result cuts, the F74 cut after each lowered read/write, and non-growing root-only
+binding-in (including S identity) establish the bound before input delivery. Full
+microedge/rule paths remain uncut; their operation results take the specified cuts.
+An alternate frontend, direct-input adapter or custom run configuration must prove
+the same input invariant or reject that input before emission. Do not add an
+emitter cut to hide a violated invariant.
+
+The exact concrete empty S-root supplier `(S,[],EXACT,Empty,T)` is also outside the
+accepted input domain. This is an explicit frontend condition, not a storage
+theorem. Exact class-point `(S,[C],EXACT,Empty,T)` remains legal. Ordinary inputs
+and conclusions may have E, mark exclusions or must leaves; effective forms retain
+their deep paths until the specified result cut. The initial grammar does not
+erase those ordinary semantics.
+
+### 1.2 Request slots and actual origins
 
 A run-1 request is `(M,s,T)`: full method key M, normal abstract initial slot s,
 and concrete mark T. M includes the entry and context. There are exactly two slots:
@@ -33,16 +92,50 @@ Keep its ordinary code transfer. Do not evaluate rules or collect requests on it
 root component. A packed field branch is not that root component and keeps its
 ordinary processing. Section 5 defines the required summary composition.
 
-An exact concrete fact at the empty static base is outside the construction domain:
-`(S,[],EXACT,Empty,T)` cannot occur. This is an explicit frontend/domain condition,
-not a theorem inferred from request storage. An exact class-point fact
-`(S,[C],EXACT,Empty,T)` is legal and follows the direct concrete path below.
-Root/class ANY suppliers remain in scope.
-
 Validate K6 before request eligibility: a FLOW fact has one actual abstract-mark
 InitialAp premise; TAINT facts keep their actual zero/concrete/joint-concrete
 premise. An invalid pairing is an invariant failure. The currently processed
 method initial does not replace a source fact's actual premise.
+
+### 1.3 Constructors and starting facts
+
+Every path that admits a run-1 method initial must end in one of the table rows:
+
+1. Root start and incoming Reach create canonical Zero. A direct backward zero
+   entry is not a run-1 constructor.
+2. Incoming nonzero input creates its permitted abstraction, the special S-root
+   seed for static input, and supplied structural field abstractions. A plan row
+   or request alone creates no concrete initial and no synthetic Zero start.
+3. Current-R TAINT emission and old-TAINT/new-request replay use the same concrete
+   projector. A queued answer carries the already checked initial; receiver-side
+   admission validates the same grammar and deduplicates it.
+4. Exact class-point inputs and broad possible class components use the separate
+   direct constructor, not a class request slot. A broad ANY/must supplier cannot
+   justify an exact class-point initial.
+
+Source/end-GEN outputs and source/sink seeds are ordinary edge-work inputs under
+their actual premise, not a fifth way to admit arbitrary run-1 initials. Run 1
+starts with no hand-off source/sink seeds and reads no native records. Later-run
+record application and restricted demand emission keep their own larger grammar;
+they cannot inject a new run-1 constructor. JointPremiseKey is a set of concrete
+initial members for an ND proof, not an additional initial shape. Cleaner
+temporaries must be projected away before persistent state or input delivery.
+
+For a legal initial, startFact has exactly these results:
+
+| Initial | Starting fact |
+| --- | --- |
+| Canonical Zero | REACH, NORMAL |
+| Abstract STAR (normal slot or special S root) | FLOW at its path, NORMAL, Empty E/mx |
+| Concrete EXACT | singleton exact TAINT at its path, NORMAL, Empty E |
+| Concrete STAR or ANY | singleton ANY TAINT at its path, DEMAND, Empty E |
+
+The singleton describes the starting fact only. Later Facts may pack many concrete
+marks and many leaves, and method summaries keep each original premise. Supplier
+layer is retained by ordinary caller matching; a NORMAL exact starting assumption
+does not certify that the caller supplied NORMAL evidence. Prove closure over all
+constructors and delivery adapters above before claiming an implementation obeys
+the inventory. Factory permissiveness or a finite vector test alone is insufficient.
 
 ## 2. Slot matching and concrete answers
 
@@ -63,7 +156,7 @@ empty in the emitted initial:
 | --- | --- |
 | Exact non-static base-root leaf | same base, empty path, EXACT, T |
 | Other non-static matched leaf | same base, empty path, STAR, T |
-| Static leaf at/below C.f | actual full leaf path and EXACT/ANY tail, T |
+| Static leaf at C.f (the maximum accepted run-1 depth) | C.f, EXACT/ANY, T |
 | Broad static ancestor of C.f | C.f, STAR, T |
 
 A must supplier uses the ANY answer, not an ANY_TAINT initial. EXACT starts NORMAL;
@@ -143,14 +236,72 @@ Mark-free zero generation and remove-all operations still contribute target owne
 Merge marks across former roles. A deep static descriptor projects to its class/
 field slot; its full condition stays in the form.
 
-Seed the authoritative store when an active full MethodKey gets its SummaryStorage.
-Do not create every possible context or materialize a field-by-mark Cartesian
-product. A wide scope remains shared immutable metadata until the actual relevant
-field is known; instantiate its mark contribution into P and submit normally.
+Construct the resolved static request base from that same closed need vocabulary:
+
+```text
+slotsOfNeed(structural(C,f)) = [StaticSlot(C,f)]
+slotsOfNeed(marked(field(C,f),T)) = [StaticSlot(C,f)]
+slotsOfNeed(wide or classPoint need) = []
+frozenSlots(needs) = flatMap slotsOfNeed needs
+frozenBase(needs) = deduplicated activate(needs, frozenSlots(needs)).
+```
+
+Activation applies each marked scope only to matching supplied slots and unions its
+marks. Thus wide metadata can contribute marks to fields already resolved by
+structural/exact-field needs, but does not itself enumerate unknown fields. A bare
+class-point need uses the direct concrete route, not an abstract class slot. The
+construction is monotone in closed needs: an actual resolved caller edge implies
+callee frozen slots/base are included in the caller's frozen slots/base. No runtime
+`callerActive` assumption is needed for this precomputed inheritance.
+
+Freeze these already resolved normal-static slot/mark rows as immutable B.
+These are actual precomputed requests. A SummaryStorage for an active full MethodKey
+borrows its B from that method's conservative closed plan **before** any subscription
+or incoming input. Equal method/SCC plans may share the same immutable value; there
+is no per-context copy of the rows. Keep full MethodKeys for live ownership, dynamic
+admissions and caller effects even when immutable plan content is shared. Do not
+create every possible context or materialize a field-by-mark Cartesian product.
+
+R is one logical membership view, not two independently populated request tables:
+
+```text
+R_M(s) = B_M(s) union D_M(s)       // D contains only dynamic additions
+B_M(s) intersect D_M(s) = empty.
+```
+
+The immutable value used by the plan is the same value R reads as its base. Do not
+iterate B into P or copy it into D. Construct P with an empty base. No initial
+notification wave propagates B recursively through the call graph: the prescan
+already computed that closure. All fresh inputs still read the full effective R.
+Without that read or bind-before-subscribe, omitting the wave would lose answers
+or requests from an input already present when B became visible.
+
+A frozen wide descriptor is different from a resolved B row. Keep its scope metadata
+shared until the actual relevant field is known; its newly resolved slot/mark
+contribution passes the common R-only filter and enters P if not already in R.
 Actual/later incoming fields are included, not only literally named fields. A wide
 cleaner can require concrete analysis of an unrelated incoming field whose T would
-otherwise be excluded by whole-tree FLOW splitting. No unresolved wide descriptor
-counts as admitted membership or suppresses a dynamic request.
+otherwise be excluded by whole-tree FLOW splitting. No unresolved descriptor counts
+as R membership or suppresses a dynamic request. Delayed activation uses the ordinary
+method barrier and fresh notifications so retained older caller inputs are replayed.
+
+For example, a closed B row `(C.f,T)` is already visible in every relevant caller's
+R when its storage is constructed. An unchanged static supplier route to that same
+slot needs no recursive propagation. The resolved-call union closure gives
+`B_callee(C.f) subset B_caller(C.f) subset R_caller(C.f)`. After K6/origin validation,
+when the actual original caller slot equals this queried C.f slot, the FLOW join
+can skip the **whole shared B row** before enumerating marks, creating
+scalar climb callbacks or sending a batch. This is source-segment provenance, not
+a request role or a new key. Keep concrete answers independent. Callee dynamic D
+marks still take the ordinary target-R difference; B's inheritance theorem does
+not certify arbitrary future D additions.
+An actual C.g -> C.f transformation instead offers T on the original C.g slot;
+an argument -> C.f transformation offers it on that argument's base slot. Closure
+of the unchanged static row does not discharge those different-origin obligations.
+Their dynamic additions and all later caller/input routes keep the ordinary protocol.
+The skip is per queried slot, not per static input or per whole callee plan. If an
+input under original C.f has FLOW branches at both C.f and C.g, B[C.f] may skip,
+but B[C.g] can require a new mark on original C.f. Preserve that second join.
 
 The field universe Sigma is finite and complete for the selected program: resolved
 static fields in canonical prescan IR, rules, models and accessors, together with
@@ -227,12 +378,19 @@ evidence. No full pipeline/record exactness follows from the finite frame lemma.
 
 For each active full method key M, use the same class twice:
 
-* R_M in SummaryStorage is the sole cumulative admitted relation.
-* P_M in the owner actor contains merged contributions since its last submission.
+* R_M in SummaryStorage is the sole cumulative admitted relation: shared frozen
+  base B_M plus disjoint dynamic additions D_M, with one effective membership API.
+* P_M in the owner actor contains merged contributions since its last submission;
+  it uses the same RequestStorage class with an empty base.
 
-Producers always union into P; they do not read P for membership. Only the flusher
-reads it. The abstraction and early propagation filters borrow immutable R values.
-R synchronization belongs to SummaryStorage. P has one actor writer.
+Every producer, including local checks, remote batches and wide activation, first
+subtracts effective authoritative R and then unions the remaining marks into P.
+It does not read P for membership. Only the flusher reads P; contributions not yet
+in R always merge there. The abstraction and early propagation filters borrow
+immutable effective R values. R synchronization belongs to SummaryStorage. P has
+one actor writer. The immutable B is present in every R read, including an otherwise
+stale dynamic view; therefore P and D contain no B member. No second cumulative
+question table, per-subscriber copy or overlay materialization is permitted.
 
 At the method fact-queue-empty boundary, flush ordinary publications, then execute
 exactly this ownership sequence:
@@ -243,7 +401,8 @@ temporary = new RequestStorage()
 ```
 
 Commit reads P synchronously. Under the storage boundary, compute
-`fresh = P - R` pointwise and set `R = R union P`. After unlocking, queue immutable
+`fresh = P - (B union D)` pointwise and set `D = D union fresh`, with B unchanged.
+Thus effective `R' = R union P`. After unlocking, queue immutable
 grouped fresh slot/mark messages to subscribed caller runners. Empty fresh gives
 no notification. Commit neither retains mutable P nor calls solver/actor handlers
 inline, including for local delivery. The owner replaces P before handling its next
@@ -269,9 +428,11 @@ references). It is not an additional request or emitter store.
 
 Route request batches to the destination owner before writing P. Use normal counted
 events, including same-unit replay effects. Equal proposals before admission are
-allowed and union in P. A producer may subtract target R before scalar callbacks/
-transport; it cannot query target P. A stale R read can create extra work but cannot
-omit an unadmitted interest. Union contributions by full destination M and slot.
+allowed and union in P. A sender subtracts target effective R before scalar callbacks/
+transport; the receiving owner applies the same R-only filter before P insertion.
+Neither can query target P. A stale dynamic R read can create extra work but cannot
+omit an unadmitted interest, and it never loses the immutable B membership. Union
+contributions by full destination M and slot.
 
 After K6 validation, handle concrete answers independently. Only FLOW with an actual
 abstract normal InitialAp origin forwards requests. For matching offered marks:
@@ -296,12 +457,15 @@ protocol is added by F78.
 For each real incoming supplier, enforce:
 
 ```text
+bind immutable B / effective R < first subscription or incoming input
 register subscriber < insert/update exact caller input < deliver LinkIn
 commit R < notify/replay fresh request.
 ```
 
 New TAINT input is answered by the abstraction's current-R read. New request marks
 replay current retained TAINT and FLOW caller inputs. New FLOW input joins current R.
+These fresh-input reads include B; no B notification is needed. Only a later dynamic
+addition, including resolved wide activation, enters the new-request replay arm.
 No separate fresh-input TAINT request replay or callee deferred-answer memo is needed.
 If A is caller input admission, E the emitter read, Q commit and V late-request visit, both
 answer arms missing would require `A < E < Q < V < A`. Register-before-read and
@@ -323,8 +487,42 @@ The read-time packed AP adapter, complete JVM metadata extraction, recursive eng
 closure, native/opposite record readers and scheduling refinement need their own
 bridges; a finite scalar theorem is not a full implementation proof.
 
+The closed initial grammar and precomputed lifecycle additionally require these
+separate obligations; their checked model/domain must be reported in
+[run1-request-proofs.md](run1-request-proofs.md), not inferred from old factory tests:
+
+* Constructor closure: root/Reach, ordinary abstraction, requested TAINT answers,
+  direct class components and queued answers produce only §1.1 shapes from the
+  selected bounded input domain. The proof covers all exact/ANY/must and broad
+  ancestor cases, excludes an empty-root exact supplier, and keeps T independent
+  of the canonical Zero base.
+* Start preservation: each table row gives §1.3's typed starting fact, with the
+  stated layer, singleton mark and Empty E; K6 stays valid through ordinary work.
+  Seeds, generated edge facts, joint premises and later-run records do not add an
+  unproved run-1 initial constructor.
+* Physical/base identity: constructing R borrows B without copying its rows into
+  P or D; effective membership equals B union D. Prove every collection/commit
+  transition preserves `P intersect B = D intersect B = empty`, so no fresh
+  notification contains B. Mathematical extensional equality alone does not prove
+  an implementation physically shares immutable containers.
+* No initial wave: binding B before registration/input plus new-FLOW/current-R and
+  new-TAINT/current-R handling covers the precomputed case. Prove delayed wide
+  activation still takes the dynamic commit/notify arm and changed origins are not
+  mistaken for an unchanged precomputed slot. Do not assume all future dynamic
+  needs were closed by the prescan.
+* No unchanged-static B work: derive caller inclusion from the actual resolved
+  call-graph closure, then prove the whole B-row target difference is empty for
+  the same original static slot. Keep changed-origin B routing and dynamic D
+  filtering as separate cases. This establishes absence of B callbacks/messages,
+  not just eventual deduplication after transport.
+* Completeness of cuts and input layout: every selected JVM source/native/binding/
+  call route reaches the bounded-input domain before emission. The finite supply
+  codec is a separate theorem from this interpreter integration. Custom first
+  limits greater than 1 and measured abstract-class constructors remain outside
+  this new closed-grammar certificate.
+
 Keep F74/F75/D23 and actual cleaner order on ordinary facts; full source and sink NNF,
-positive limits from 1, original support/premise scope, candidate/confirmed distinction,
+selected run-1 limit 1 and later positive limits, original support/premise scope, candidate/confirmed distinction,
 and the zero-GEN end-action caveat remain. Request membership is not confirmation.
 Validate strict finding identities and reached/completed/accepted iterations. Historical
 full-query closure tests are references, not the semantic oracle of F78.

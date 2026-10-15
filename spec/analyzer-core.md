@@ -28,6 +28,9 @@ The selected F78 [run-1 request contract](run1-requests.md) takes precedence for
 request ownership, initial emission and static-root summary composition. Its constructive proof scope is
 [run1-request-proofs.md](run1-request-proofs.md). It retains caller N2, removes the callee input history and
 deferred-answer memo, and uses one authoritative R plus one temporary P of the same RequestStorage class.
+R borrows a physically shared immutable closed precomputed base B and stores only disjoint dynamic additions D;
+no seed copy or initial notification wave is implied. F78 also fixes the selected JVM run-1 limit to exactly 1
+and gives the complete initial grammar, distinct from the broader measured factories/driver.
 This is a normative target; measured runtime `27e22bb1ed871651143538783473cb0d4fcbcf3e` is unchanged.
 Historical pipeline/confirmation proofs keep their explicit scope; ghost input histories are not runtime stores.
 
@@ -191,7 +194,7 @@ Ownership rules:
 /** One run of ap.md §6.6. `Direction` is the enum of ap.md §8.7. */
 class RunConfig(
     val index: Int,                          // 1, 2, 3, ...; the direction is FORWARD for an odd index
-    val fieldLimit: Int,                     // ap.md §4.4; run 1 needs fieldLimit >= 1 (ap.md S12 (d))
+    val fieldLimit: Int,                     // ap.md §4.4; selected F78 JVM run 1: exactly 1; later positive/nondecreasing
     val demand: DemandStore?,                // null only in run 1
     val records: RecordStore,                // a read-only view; run 1 reads no record
     val seeds: SeedIndex,                    // after run 1: sink seeds (backward), source seeds (forward) (§4.7)
@@ -274,7 +277,7 @@ only the forms that the analyzer reads: the forward forms of the interpreter, or
 | predicate state | `RulePredicateStore` (`ap.md` §8.9) | forward only: scoped observed source/sink proofs, canonical binding headers and matched sink-fact versions, including evaluated exit `S` parts; no compiled topology |
 | `worklist` | `DeltaWorklist` (§4.3, §10) | the edge deltas to process: the `unchanged` queue with its set, and the `normal` queue |
 | `pendingPublications` | | the publications that the analyzer has not yet given to its `SummaryStorage` (§4.6) |
-| pending requests P | actor-owned RequestStorage, same class as R | producer writes always union; commit P then replace it at method fact-queue-empty. Only R is a membership oracle. No deferred-answer memo or old input snapshots (§4.6). |
+| pending requests P | actor-owned empty-base RequestStorage, same class as R | every producer first filters effective R, then unions remaining marks; commit P then replace it at method fact-queue-empty. Never read P for membership. No deferred-answer memo or old input snapshots (§4.6). |
 | `queued` | | true while the analyzer has a `Work` event in its runner (§6.2) |
 | `context` | `MethodContextCache` entry and run part | the method graph, the alias analysis, the lambda resolutions, the rule context of the run (§4.8) |
 
@@ -298,7 +301,7 @@ The runner calls these handlers. Each handler is part of one event (§5.1).
 | `addRootZero()` | the run starts at a root | the zero fact is an initial fact | §6.1 |
 | incoming-input handler | a caller binds a fact into this method | emit directly (§4.4): run-1 abstract/catalog and active concrete answers, or fixed-demand intersection after run 1. Read R for concrete answers; retain no unrequested answer rows. Release the input. N2 owns its original admitted header and full ref separately. Count DEMAND input contributions without storing them. Zero emits zero. | E1, E2 |
 | `addZeroEntry()` | backward: the zero fact of a caller reaches a call to this method | the zero fact is an initial fact (rule `zin`) | §9.2 |
-| `addMarkRequests(initial, marks)` | run 1: an eligible N2 FLOW supplier routes interest to this original caller initial | union independent marks into owner-only P; schedule existing Work; commit at method fact-queue-empty (§4.6) | E5 |
+| `addMarkRequests(initial, marks)` | run 1: an eligible N2 FLOW supplier routes interest to this original caller initial | filter effective R, union remaining independent marks into owner-only P; schedule existing Work for a nonempty contribution; commit at method fact-queue-empty (§4.6) | E5 |
 | `applySummary(sub, pub)` | the `SubscriptionManager` matched a publication with a subscription of this method | one premise: apply the summary to the added fact (`ap.md` §4.3), then the stages after the callees stage (§4.5). Several premises: the combination of §5.4. | §4.3, E2, E4, E6 |
 | `applyRecord(sub, record)` | a new subscription; a same-direction native record covers or contains the added fact | apply the record, then the stages after the callees stage (§4.5). Keep its `inside` and `applicable`-only results separate. The latter must-record results keep their exclusions through these stages; demote them immediately before the call field cut. Count one `recordCrossings` increment if either initial result batch is nonempty, before rewriting | AP §4.3, §8.7 R4 |
 | `applyRecordView(sub, view)` | a new subscription; an opposite-direction transient leaf view covers or contains the added fact | apply the view directly with its premise exclusion and result layer, then the stages after the callees stage. Do not emit, start, persist, or demote its premise through `InitialAp`. Count each application with a result as a record crossing | AP §8.7 R3 |
@@ -405,6 +408,22 @@ forward method key; root zero is initial. Backward `addZeroEntry` enters zero
 directly at each reached callee exit, without emission. A method whose only
 forward demand is `(zero,none)` has only zero initial facts; its callers can still
 read its records. Backward zero-premise seed paths can return to callers.
+
+F78 §1.1 gives the exhaustive selected run-1 admission domain: canonical Zero;
+abstract non-static base/root, special S/root and S/[C,f]; concrete non-static
+base/root EXACT/STAR, S/[C,f] EXACT/ANY/STAR and S/[C] EXACT/ANY/STAR. All have
+Empty E. No ANY_TAINT, abstract class/ANY, deeper initial or concrete empty S-root
+initial exists. T may be numeric ID 0 on a nonzero base; only the Zero base has the
+canonical Zero restriction. The JVM cut/layout/binding proof establishes the
+bounded incoming domain before emission at run-1 limit exactly 1; there is no new
+emitter cut. Generic factories/custom larger first limits are outside that
+certificate. Validate queued answer adapters as well as local constructors.
+
+Source/end-GEN outputs, source/sink seeds and joint-premise members are edge/proof
+work, not arbitrary additional run-1 initial constructors. Run 1 reads no native
+records and starts with empty hand-off seeds. F78 §1.3 specifies each starting
+fact: abstract STAR is NORMAL FLOW, concrete EXACT is NORMAL exact TAINT, concrete
+STAR/ANY is DEMAND ANY TAINT, and canonical Zero is NORMAL REACH.
 
 Start nodes, end nodes and their rules. The interpreter gives the forward ones; the backward ones are their reversal
 (§4.9):
@@ -619,9 +638,12 @@ Each actual origin is a normal abstract InitialAp: StaticSlot(C,f) or BaseSlot(b
 returns. A concrete current fact can answer a request under its actual concrete/zero premise, but cannot
 forward interest upstream. No root request, query role/full Pattern, E/mx key or deferred-answer memo exists.
 
-Use the same RequestStorage class twice per method. SummaryStorage owns cumulative R; the actor owns write-only
-pending P. Local producers union into P. Other-method requests are normal counted batches to that method's owner,
-including same-unit replay effects. Early filters and the abstraction read only R, never P. Equal pre-commit
+Use the same RequestStorage class twice per method. SummaryStorage owns effective cumulative R = B union D:
+B is the closed plan's physically shared immutable normal-static slot/mark rows, D only dynamic additions disjoint
+from B. Bind B before the first subscription/input. The actor owns write-only empty-base pending P. Every producer,
+local/remote/wide, subtracts effective R before union into P; no producer queries P. Other-method requests are normal
+counted batches to that method's owner, including same-unit replay effects. Sender filters and abstraction reads
+also use effective R. Equal pre-commit
 proposals are permitted and merge in P. At method fact-queue-empty, flush normal publications, then execute:
 
 ```text
@@ -629,7 +651,8 @@ summaryStorage.commit(temporary)
 temporary = new RequestStorage()
 ```
 
-Commit reads P synchronously, atomically admits `fresh = P - R`, unions R, and queues grouped immutable fresh
+Commit reads P synchronously, atomically admits `fresh = P - (B union D)`, sets `D = D union fresh` without changing
+B, and queues grouped immutable fresh
 notifications after releasing the lock. It retains no mutable P and invokes no solver/actor callback inline.
 Later queued events write the replacement P. Keep existing Work counted through commit/replacement and all sends;
 request-only actors schedule Work without a synthetic fact. There is no takeBatch API, unit barrier, bespoke
@@ -637,15 +660,22 @@ mailbox/latch, version cursor, pending quota, backpressure, overflow/rescan or n
 
 Static planning visits the joined complete resolved graph and every effective IR/rule/model form, including
 source AND sink NNF, input gates, generic excluded-mark targets and cleaners/rewriters. Compute finite recursive
-closure and instantiate wide scopes lazily from actual relevant inputs. Only R membership, not plan potential,
-suppresses a duplicate. Static copies preserve the original slot, such as C.g -> C.f or an argument -> static.
+closure. Already resolved rows are the shared B, not a second seed table. Do not copy B into P/D or notify it
+recursively at startup: new-input handling reads full R, including B. Instantiate unresolved wide scopes lazily from
+actual relevant inputs through the same R filter and P/commit/notify; metadata potential alone suppresses nothing.
+P and D stay disjoint from B, so no fresh notification contains B. Changed static copies preserve the original
+slot, such as C.g -> C.f or an argument -> static; precomputing a need on C.f does not discharge C.g/argument.
+When the actual original static FLOW slot equals the queried slot, actual call-graph closure gives callee B(slot) subset caller B(slot).
+Skip that whole B row before per-mark callbacks/transport. Dynamic D rows still use target-R difference;
+changed-origin rows still route to the original caller slot. No role is added to the request key.
 The special S-root keeps code/summary work but evaluates no rules. Normal fields always have abstract analyses;
 requested concrete analyses are additive. Exact class points use their direct concrete path; broad components
 remain MAY/DEMAND. F78's explicit structural ownership and untouched identity frame apply to all caller readers,
 including native and reversed rows. Raw root identity/coarse-E summaries are not an unrestricted fallback.
 
-For each real input, register the subscriber and admit its original N2 header before LinkIn. New TAINT input reads
-R; fresh R visits existing N2 TAINT/FLOW; fresh FLOW joins current R. This closes both arrival orders with no
+For each real input, bind B before registration, register the subscriber and admit its original N2 header before LinkIn.
+New TAINT input reads full R; fresh dynamic R additions visit existing N2 TAINT/FLOW; fresh FLOW joins full R.
+This closes both arrival orders, including the precomputed case without an initial wave, with no
 callee memo or redundant N2 fresh-TAINT request replay. Batched slot matching ignores field E and FLOW mark
 exclusions. Every exclusion creator collects its same-origin mark, and inherited summary/call exclusions retain
 that route. Set union absorbs duplicate interest. Ordinary AP/summary tests still enforce their exclusions.
@@ -963,7 +993,7 @@ Each runner has one channel and one local priority queue, as today. The events:
 | `Start(root)` | the runner of `root` (sent by the driver) | `addRootZero` | §6.1 | the `MethodWithContext` start event |
 | incoming added input | the runner of `callee` | direct initial emission, then release payload | E1, E2 | replaces retaining `LinkIn` payloads in a callee store |
 | `ZeroIn(callee)` | the runner of `callee` (backward) | `addZeroEntry` | §9.2 `zin` | `ExternalInputFact.InputZero` |
-| request batch `(method, slot -> marks)` | the runner of `method` (run 1) | union into method P and schedule Work; commit at its method barrier | E5, F78 | independent marks, no caller mutation on publisher thread |
+| request batch `(method, slot -> marks)` | the runner of `method` (run 1) | filter effective R, merge remaining marks into P and schedule Work if nonempty; commit at its method barrier | E5, F78 | independent marks, no caller mutation on publisher thread |
 | `Delivery(callee, publications)` | the SUBSCRIBED runner; the publisher's thread sends it | `SubscriptionManager.onDelivery` | E4 | `NewSummaryEdgeEvent` |
 | fresh request delivery (run 1) | the subscribed caller runner | batch two-slot matching over current N2; queue concrete answers/upstream sets | E5, F78 | no full query or callee input copy |
 | concrete answer delivery (run 1) | the callee emitter runner | emit the evaluated full initial; exact initial dedup | E3 | no supplier payload retained |
@@ -989,13 +1019,18 @@ Rules:
 
 ### 5.2 The storage with subscription (callee side)
 
-F78 REQUEST EXTENSION. One SummaryStorage per full method key owns authoritative RequestStorage R.
-The emitter borrows immutable R; it owns only write-only pending P of the same class. Commit P then replace it
+F78 REQUEST EXTENSION. One SummaryStorage per full method key owns authoritative RequestStorage R. Its initial
+view borrows the same frozen B as the conservative closed plan; only dynamic residual D is allocated for admissions.
+There is no copied precomputed map in P/D or per subscriber. Bind this view before any subscription/input; do not
+publish an initial B notification wave. The emitter borrows effective R; it owns only write-only empty-base pending
+P of the same class. Every producer filters effective R before P insertion. Commit P then replace it
 at the method queue-empty boundary (§4.6). Commit synchronizes union, computes fresh slot/mark sets and queues
 immutable grouped notifications outside its lock. It does not retain P or run handlers inline. Registration
 precedes N2 admission and current-R/input reads; commit precedes notification. Use one linearizable registry/read/
 admission boundary. A late subscriber's new input is covered by current-R/emitter handling; an earlier subscriber
-receives fresh notification. Initial/interest duplicates are harmless. Normal publication P1–P6 remain separate.
+receives fresh dynamic notification. New TAINT/FLOW handling reads all of R, so binding B needs no notification.
+Delayed wide activation remains a fresh dynamic contribution. Initial/interest duplicates are harmless.
+Normal publication P1–P6 remain separate.
 
 The following sketch illustrates the unchanged publication channel only; F78 R/commit and static reader guards are normative above.
 
@@ -1038,8 +1073,8 @@ its original-header/fresh-delta requirements below.
 
 | ID | Required request condition |
 |---|---|
-| QP1 | Register subscriber and insert N2 input before LinkIn; commit R before queued fresh notification. |
-| QP2 | New input/current R and new R/current N2 cover both arrival orders. Initial dedup never removes another caller's request route. |
+| QP1 | Bind shared B before any subscription/input; register subscriber and insert N2 input before LinkIn; commit R before queued fresh notification. |
+| QP2 | New input/full effective R and new dynamic R/current N2 cover both arrival orders, including B without an initial wave. Initial dedup never removes another caller's changed-origin request route. |
 | QP3 | Validate K6, answer TAINT independently, forward only actual normal abstract FLOW origins. Ignore E/mx for requests, not for ordinary summaries. |
 | QP4 | Use finite owner-local visits and grouped effects. Queue all results, including local results, before directory mutation. No new suspended traversal/history protocol. |
 | QP5 | Reserve all events/Work before visibility. Retain Work through commit(P), P replacement and sends; incomplete runs certify no closure. |
@@ -1351,7 +1386,7 @@ zero means quiescence (argued, §11).
 
 ```kotlin
 interface IterationPolicy {
-    fun fieldLimit(runIndex: Int): Int                               // not decreasing (ap.md W3); run 1: >= 1, checked
+    fun fieldLimit(runIndex: Int): Int                               // not decreasing (ap.md W3); selected F78 JVM run 1: 1
     /** Asked only after a complete FORWARD run that no stop rule ended. `frontiers`: the frontier of every complete run
      *  so far, in run order; the last one is that of `run` (§7.8). A practical stop strategy reads them (out of
      *  scope). */
@@ -1377,7 +1412,7 @@ class IterationDriver(private val policy: IterationPolicy, private val shared: S
         fun end(status: RunStatus, reason: EndReason) = report.build(AnalysisEnd(status, index,
             if (index % 2 == 1) Direction.FORWARD else Direction.BACKWARD, reason))
         try {                                                         // ONE GUARDED REGION: the whole loop body (§6.3)
-            require(policy.fieldLimit(1) >= 1) { "ap.md S12 (d): run 1 needs a field limit of at least 1" }
+            require(policy.fieldLimit(1) == 1) { "F78: selected JVM run 1 needs field limit exactly 1" }
             var config = RunConfig(1, policy.fieldLimit(1), demand = null, records = shared.records.view(),
                 seeds = SeedIndex.EMPTY, roots = roots)
             while (true) {
@@ -1471,9 +1506,11 @@ class IterationDriver(private val policy: IterationPolicy, private val shared: S
 * The driver applies the stop rules and asks `continueAfter` only after a complete FORWARD run. A complete backward run
   always goes on to the next forward run: its only output is the hand-off of that run (§7.4). So the iteration always
   ends after a forward run, or at an abnormal end (§7.7).
-* The driver checks the field limit of each run: run 1 has at least 1 (`ap.md` S12 (d)), and the limit does not
+* The selected F78 JVM driver checks the field limit of each run: run 1 is exactly 1 (`ap.md` S12), and the limit does not
   decrease (`ap.md` W3). A policy that breaks either is an error: the `require` fails, and the iteration ends as at a
   throw in the guarded region (`FAILED`; for run 1 the report has no entry).
+  The measured generic driver only requires a positive first limit; its custom larger-start domain is not an F78
+  closed-initial proof and remains unchanged by this specification edit.
 * THE BUDGET. The analysis has ONE budget (`budget`, a parameter of the driver, §0). THE TIMEOUT OF A RUN is
   `policy.timeout(config, remaining)`, where `remaining` is the budget minus the time so far: by default each run gets
   the whole rest of the budget. The `RunManager` gets it in `run(timeout)`. A run that its timeout ends is incomplete
