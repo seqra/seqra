@@ -1,8 +1,12 @@
 # Next analyzer-core optimizations
 
-Date: 15 October 2026. Status: candidate designs; none is selected or implemented.
+Date: 15 October 2026. Status: the added-fact-store removal redesign replaces the earlier
+callee-owned join design. Discarded normal-sink cache retirement remains selected.
+Implementation has not started. Use the
+[new emission design and plan](bidirectional-added-facts-removal-20261015.md) for the
+current storage-removal direction; the older join section below is historical design evidence.
 The measured runtime is `85a7c0e367d9a2dc6360b03c2feb5e07b1583b66`.
-Use these measurements to select the next iteration. Earlier measurement rankings are stale. The
+Use these measurements to design and validate the next iteration. Earlier measurement rankings are stale. The
 [current report](../reports/bidirectional-run1-abstraction-demands-performance-20261015.md)
 binds all twelve terminal main/control/optimized scans, complete recording reviews and four
 analyzed guard heaps. The supplementary container and initial census is complete; occupied
@@ -97,10 +101,10 @@ a representation change would otherwise optimize. Do not add the estimates.
 
 | Order | Candidate | Expected memory effect and evidence | Main uncertainty |
 | --- | --- | --- | --- |
-| 1 | [Move the run-1 join to the callee](#move-the-run-1-inputsummary-join-to-the-callee-owner) | Large algorithmic opportunity: caller input directories alone have a 1.247 GB retained union; necessary publication storage remains | Eligible route coverage, shared payloads and new ownership/event cost |
-| 2 | [Retire discarded bound sink lists](#stop-retaining-discarded-bound-sink-rules) | Large conditional lifetime opportunity: normal sink cache maps have a 1.092 GB retained union within the 1.327 GB provider footprint | Fraction discarded by the existing selection; a small fraction can move this below lazy buckets |
+| 1; superseded | [Move the run-1 join to the callee](#move-the-run-1-inputsummary-join-to-the-callee-owner) | Earlier way to remove duplicate inputs; now replaced by callee added-store removal | The old design's sole input history was the raw store that the new design removes |
+| 2; selected | [Retire discarded bound sink lists](#stop-retaining-discarded-bound-sink-rules) | Large conditional lifetime opportunity: normal sink cache maps have a 1.092 GB retained union within the 1.327 GB provider footprint | Fraction discarded by the existing selection; a small fraction can move this below lazy buckets |
 | 3 | [Allocate conclusion buckets on demand](#allocate-conclusion-buckets-only-when-needed) | Broad measured representation opportunity: 236.4 MB of empty kind-map shells, 111.2 MB of unused REACH arrays and large empty layer-list cohorts | Net owner layout, overlapping selections, live-layer capacity and promotion cost |
-| Conditional later | [Share concrete-initial transfers](#share-transfers-across-concrete-initials) | Could avoid repeated intermediate work across 532,543 admitted actor memberships; scalar boundary storage remains | Concrete-mark cohorts and common mark-neutral blocks are not measured |
+| Conditional later | [Share concrete-initial transfers](#share-transfers-across-concrete-initials) | Could avoid repeated intermediate work across 532,543 admitted actor memberships; scalar boundary storage remains | Global concrete-mark cohorts and common mark-neutral blocks remain unmeasured; the largest incoming store is mainly abstract FLOW |
 | Conditional later | [Avoid unused alias preparation](#avoid-unused-alias-stage-preparation) and [manage alias payloads](#possible-later-referencecache-work) | Could avoid or release strong alias state | Which preparation is unnecessary, strong-only bytes and stable timed rebuild behavior |
 | Smaller retained target | [FLOW interest guard](#skip-ordinary-flow-gates-when-interest-is-already-active), [catalog union](#union-catalog-marks-for-canonical-static-root-flow-climbs), [target coverage](#suppress-climbs-already-owned-by-the-exact-target-policy) | Can reduce scans or temporary outgoing work; required final policy/fact state remains | Eligible hits, placement, lookup overhead and simultaneous avoided frontier bytes |
 | Mainly temporary allocation/CPU | [Direct FLOW cleaner](#emit-selected-mark-flow-cleaner-results-directly), [cleaner intervals](#batch-eligible-selected-mark-cleaner-intervals), [single normalization](#normalize-each-bound-source-or-sink-condition-once) | Can avoid intermediate objects and repeated execution on measured hot paths | Actual selected-branch/interval frequency and attributable work; no large retained saving shown |
@@ -111,7 +115,16 @@ explicit uncertainty, not a promise that the first change saves more bytes in ev
 The sink-cache fraction and call-route coverage can change the order. The conditional candidates need
 stronger frequency or ownership evidence before selection. CPU options remain useful for the
 60-second goal, but sampled allocation weight does not promote them into the top retained-memory
-ranks. No candidate is selected by this ordering.
+ranks. The user initially selected the first two candidates, then proposed removing the
+callee added-fact store. That redesign replaces the first candidate's ownership protocol.
+Lazy conclusion buckets and the other candidates remain outside the implementation iteration.
+
+The selected sink change is the minimal normal call/entry/exit cache-lifetime change below.
+It keeps full cold resolution and retires obsolete unfiltered cache roots after joined prescan.
+Early filtering, borrowed streaming, managed caching and compact rule keys require separate
+selection. The [added-fact investigation](../reports/bidirectional-run1-fact-explosion-20261015.md)
+checks the existing mark packing and the growth of caller/premise/header relations before
+proposing another storage or transfer change.
 
 ## How to choose the next change
 
@@ -151,6 +164,11 @@ the command route has a measured rule-guided overwrite cut that needs a separate
 contract before any recall change. Neither issue can be dismissed to claim a run-1 saving.
 
 ## Move the run-1 input/summary join to the callee owner
+
+Superseded by [initial emission without an added-fact store](bidirectional-added-facts-removal-20261015.md).
+The old protocol below made raw callee links its sole input history. Implementing it unchanged
+would conflict with removing those links. The new proposal retains the existing caller N2
+summary join and removes the duplicate callee store instead.
 
 | Current | Proposed | Why it can help |
 | --- | --- | --- |
@@ -229,8 +247,8 @@ Matching moves from distributed caller units to the callee unit. Measure hot-cal
 publication/member fan-out, candidate selectivity, unit load, longest atomic match/cancellation
 delay and matched-event volume. Lower retained memory and fewer merges do not prove lower
 wall time or a 60-second run-1. The source-bound full design is
-`report-preparation/call-input-dual-accumulator-review/RUN1-CALLEE-JOIN.md`. This remains
-unselected and unimplemented.
+`report-preparation/call-input-dual-accumulator-review/RUN1-CALLEE-JOIN.md`. This older
+protocol is superseded; do not implement it in parallel with added-store removal.
 
 ## Stop retaining discarded bound sink rules
 
@@ -305,7 +323,8 @@ project gates with unchanged settings. Measure owner bytes, selected density, av
 objects, setup/engine time and attributable rebuilds separately.
 
 The full source/heap review is `report-preparation/spring-bound-rule-expansion-source-review`.
-This candidate has no claimed byte saving or run-1 time improvement yet.
+The minimal selected-view and old-root retirement change is selected. It has no claimed byte
+saving or run-1 time improvement yet. The optional extensions remain unselected.
 
 ## Allocate conclusion buckets only when needed
 
@@ -658,6 +677,13 @@ and method-edge premise rows also have different key domains: edge rows can incl
 `PremiseSet`. Do not derive concrete-initial count by subtracting REACH rows or compare those
 domains as if they were equal.
 
+The later [added-fact census](../reports/bidirectional-run1-fact-explosion-20261015.md)
+classifies the original caller premises of the largest incoming store, a different domain.
+It finds 86.30% FLOW rows with abstract premises. Its concrete static premises have at most
+five marks per equal path/tail/E geometry. This does not establish a dominant concrete-mark
+repetition problem there, or classify all actor-initial cohorts. Keep this candidate
+unselected; equal payload sharing and static origin fan-in require their own designs.
+
 Within one premise, method storage already subtracts known content and returns a new-leaf
 delta when its annotations are unchanged. Annotation changes can require the merged value
 under the existing T4 rule. The method worklist then keeps those deltas separately; unchanged
@@ -735,6 +761,8 @@ Use the memory order above with the actual container/initial/cache/input census 
 limits. Keep each
 result's reached, completed and accepted run, its OOM/timeout phase and its finding limits.
 Keep the named command-route cut, its overwrite contract and incomplete lane limits in the
-correctness review. Selection remains a separate next-iteration decision; this document does not authorize hidden cache,
-reference-manager, IR or queue changes. Every chosen implementation must retain the additive
-abstract/concrete emission rule and repeat the fixed-project checks.
+correctness review. The next iteration follows the new callee added-store removal design
+and the minimal discarded normal-sink cache retirement. Other choices need a separate selection. This
+document does not authorize hidden cache, reference-manager, IR or queue changes. Every chosen
+implementation must retain the additive abstract/concrete emission rule and repeat the
+fixed-project checks.

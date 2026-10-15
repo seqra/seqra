@@ -612,6 +612,19 @@ own 234,834 accumulators. Their 3,798,591 and 3,723,573 groups total 7,522,164 e
 7,059,775 current index postings. The two domains keep distinct owner progress and indexes;
 their counts do not prove duplicate payload bytes or permit deleting one store.
 
+The [added-fact growth investigation](bidirectional-run1-fact-explosion-20261015.md) now
+joins actor and store addresses in these saved exports. It separates 3,723,565 incoming
+groups from 75,026 unresolved-call observation groups. The raw/N2 incoming totals differ
+by eight at the active run-1 frontier. The busiest 1% of incoming stores hold 45.43% of
+their groups. Stored TAINT trees already merge concrete output marks; the follow-up
+finds 38,456 groups but only 918 distinct complete payload values in the largest store.
+That store is 90.46% static and 86.30% FLOW, with abstract original premises on every FLOW
+row. It distinguishes full caller-origin fan-in from separately allocated equal payloads;
+the selected maximum is not a global distribution. The subsequent
+[store-removal design](../design/bidirectional-added-facts-removal-20261015.md) replaces the
+earlier callee-owned join with removal of the callee input copy. Discarded normal-sink
+cache retirement remains selected.
+
 Catalog ownership is small: the shared catalog's default retained size is 4,923,696 bytes.
 There are 48,000 physical profiles for 51,953 methods, with 39 mark-directory roots and nine
 cleaner roots. Logical transitive memberships are not flattened physical copies. The 2,106
@@ -681,7 +694,7 @@ The new owner splits narrow the algorithmic targets:
 | Selected owner set | Default MAT retained union, bytes | Limit |
 | --- | --- | --- |
 | Caller cumulative-input directories alone | 1,247,295,120 | Eligible new-protocol fraction and shared payloads remain unknown |
-| Necessary summary storage and publication indexes | 369,966,024 | Must remain under a callee-owned input join |
+| Necessary summary storage and publication indexes | 369,966,024 | Summary replay/delivery still needs these owners |
 | Normal call/entry/exit sink cache maps | 1,092,011,616 | Selected/discarded binding density remains unknown |
 | AllRelevant call/entry/exit sink cache maps | 144 | This capture only |
 | Normal source/cleaner cache maps | 65,067,128 | Separate family; preserve its eligibility |
