@@ -1,6 +1,19 @@
 # AP, stores and IR interpreter — implementation proposal
 
-The selected [run-1 abstraction design](../docs/design/bidirectional-run1-abstraction-demands-20261014.md)
+CURRENT ADDED-FACT-REMOVAL CONTRACT. The
+[selected redesign](../docs/design/bidirectional-added-facts-removal-20261015.md) and its
+[detailed proposal](../docs/design/bidirectional-added-facts-removal-implementation-20261015.md) supersede raw
+emitter-store and captured-supplier sketches below. There is no callee AddedFactStore, supplier index or COW
+history. Caller N2 keeps its exact accumulator/original inputs. Restricted emission intersects each incoming input
+with fixed demand directly. Run 1 retains questions and query-specific packed unrequested answer shapes; late
+questions replay existing N2 in both arrival orders using full geometry/E/mx before projection. The selected
+finite owner-local visit queues effects without mutating callbacks; it is cancellable but has no fixed-quantum
+directory-latency claim. Unverified witnesses stay `confirmed=false`/DEMAND; old raw Support cannot run. Sections
+7.1, 7.5 and 7.9 give current ownership. Any remaining AddedFactStore/RequestStore/Position or snapshot sketches
+are historical reference code, not an instruction to restore those runtime owners. This document changes the
+target design only, not measured core 85.
+
+PREVIOUS IMPLEMENTATION POLICY (measured core 85). The earlier [run-1 abstraction design](../docs/design/bidirectional-run1-abstraction-demands-20261014.md)
 and its [plan](../docs/design/bidirectional-run1-abstraction-demands-plan-20261014.md) replace the
 standing-request implementation sketches below. Production uses `addMarkRequest(initial, mark)`
 and `MarkRequestsIn(method, initial, marks)`. It has no Position event or output API, no
@@ -35,7 +48,7 @@ Part II defines its path prefixes at §20. The package maps name new files; the 
 | DD1 | Add `bidi.ap`, `bidi.store`, `bidi.interp` in dataflow and `jvm.bidi.interp` in JVM. | §1, §20 |
 | DD2 | Keep per-path reference forms and three typed conclusion groups. | §4.1, §6 |
 | DD3 | Propagate `(premise, node, facts)`; `facts.layer` carries NORMAL/DEMAND. | §3.4, §4.1 |
-| DD4 | Merge added facts per caller, link layer and group key. Delivery and replay use the same satisfaction operation. | §5.4, §7.5 |
+| DD4 | Keep original admitted inputs per full caller/group key only in N2. Summary delivery/replay use the same satisfaction; question replay uses its complete geometry/E/mx operation. No emitter copy. | §5.4, §7.5, §7.9 |
 | DD5 | Intern AP keys. Use structural trie equality and a soft node cache per store. Cache loss changes sharing only. | §4.5, §5.1 |
 | DD6 | Use `AccessorIdx`; count fields and elements for the field limit. | §3.1 |
 | DD7 | Use an interned `TaintMark(id)`; reserve `ZERO`. | §3.1 |
@@ -90,7 +103,7 @@ The code sections below define all public signatures. This table gives ownership
 | `ApManager` (§5.1) | Canonical paths, marks, exclusions, premises, premise union, Facts factories and per-store interners. | AP, stores and interpreter builders |
 | `ApOps` (§5.3–§5.11) | `applyEdge`, `satisfying`, `applySummary`, `applyRecordLeaf`, `applyCombination`, `clean`, `filter`, `limit`, `checkMark`, `without`, `withoutMarks`, `targetTree`, `startFact`, `policy`, `emit`, `restrict`, `demandPart`, `requestAction`, `reverse`, `leaves`, `leavesNear`. | Analyzer runner and forms algebra |
 | `Reference.kt` (§6) | Per-path transfer, matching, emission, reduction, generic reversal and transient native record views. | Tree equivalence tests and closure oracle |
-| Run stores (§7.3–§7.7, §7.9–§7.10) | Delta edge/summary storage, added links, initial facts, requests, demands and standing joins. | One owning method runner; hand-off at the barrier |
+| Run stores (§7.3–§7.7, §7.9–§7.10) | Edges/summaries, initial deduplication, demand, run-1 questions/evaluated deferred answers and ND state. N2 owns actual input bindings. | Respective method/caller runner; permitted hand-off reads at barrier |
 | Persistent stores (§7.8, §7.11–§7.12) | Native records, source hits and vulnerability witnesses. `confirmableMember`/`supplies` define support membership. | Driver; read-only record view during runs |
 
 `ApOut` carries Facts results and run-1 requests. `ApMode` supplies direction, run-1 status and field limit.
@@ -132,11 +145,11 @@ core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/da
     ├ PathTrie.kt          the path index of ap.md §8 (§7.2)
     ├ MethodEdgeStore.kt   ap.md §8.1, per kind (§7.3)
     ├ InitialFactStore.kt  ap.md §8.2 (§7.4)
-    ├ AddedFactStore.kt    ap.md §8.3; CallerRef, Link (§7.5)
+    ├ AddedFacts.kt        N2 exact accumulator and CallerRef only; no callee AddedFactStore (§7.5)
     ├ RunSummaryStore.kt   ap.md §8.5 (§7.6)
     ├ DemandStore.kt       ap.md §8.6; DemandStore.Builder (§7.7)
     ├ RecordStore.kt       ap.md §8.7; Record, RecordStore, PersistentRecordStore (§7.8)
-    ├ RequestStore.kt      ap.md §8.8; RequestKind (§7.9)
+    ├ RequestMarkSet.kt    independent compact interests; questions/memo are emitter-owned (§7.9)
     ├ KaryJoin.kt          the standing joins: KaryJoin, StandingJoin (§7.10)
     ├ ConjunctionStore.kt  ap.md §8.9; NdSummaryJoin (§7.10)
     ├ SourceHitStore.kt    ap.md §8.11 (§7.11)
@@ -638,7 +651,7 @@ class TaintTree internal constructor(
 /** ap.md §8.1: the store key of a value without the statement and the premise. Two values with the same group key merge
  *  (T1, T4); two values with different group keys never merge (T3). REACH: the layer. FLOW: the base, the layer, the
  *  exclusion and the mark exclusion. TAINT: the base, the layer and the exclusion of the `[any-taint]` leaves (DD16).
- *  Users: AddedFactStore (Part I §7.5), the identity test of a summary (analyzer-impl.md `summaryParts`). */
+ *  Users: the N2 exact input accumulator (Part I §7.5), and summary identity tests. No emitter input store. */
 enum class FactsKind { REACH, FLOW, TAINT }
 data class GroupKey(val kind: FactsKind, val layer: Layer, val base: AccessPathBase,
                     val exclusion: ExclusionSet = ExclusionSet.Empty, val markExclusion: MarkSet = MarkSet.EMPTY)
@@ -750,7 +763,7 @@ T1 (`Tree.rule1_mem`): two values with the same key merge by `mergeAdd`. T4: `me
 The same rule on two `Facts` of one group key (§4.1), for the stores that merge exactly (no subsumption):
 
 ```kotlin
-/** T1, T4 on two values of one group key: (the merged value, the delta or null). Users: AddedFactStore.add (Part I §7.5),
+/** T1, T4 on two values of one group key: (the merged value, the delta or null). Users: the N2 exact input accumulator (Part I §7.5),
  *  ConcurrentVulnerabilityStore.union (Part I §7.12). */
 internal fun ApManager.mergeAddDelta(old: Facts, new: Facts): Pair<Facts, Facts?> {
     check(old.groupKey == new.groupKey)                                     // T3: never across keys
@@ -768,7 +781,7 @@ node and shares every child that it does not change; a map over a whole subtree 
 
 | Function | Result | Users | Code |
 |---|---|---|---|
-| `mergeAdd(a, b)`, `mergeAddDelta(a, b)` | T1, T4 | the groups (§4.3), `Results` (§5.2), `AddedFactStore` (§7.5), `VulnerabilityStore` (§7.12) | above |
+| `mergeAdd(a, b)`, `mergeAddDelta(a, b)` | T1, T4 | the groups (§4.3), `Results` (§5.2), the N2 exact input accumulator (§7.5), `VulnerabilityStore` (§7.12) | above |
 | `mapChildren(n, leaf, f)` | `n` with a new leaf and each child `c` at `a` replaced by `f(a, c)` (ADAPT of `transformAccessors`, `AccessTree.kt:1461`) | every map below | below |
 | `replaceChild(n, leaf, a, c)`, `withLeaf(n, leaf)` | one child replaced (a null `c` removes it); the leaf of `n` replaced (`n` may be null: a leaf node) | `clean`, `satisfying`, `restrict`, the mark policy | below |
 | `mapLeaves(n, f)` | every leaf of the subtree replaced by `f(leaf)` | the gate on a subtree, the mark filter of `satisfying`, `clean`, the mark test of `restrict` below `D-p` (F71) | below |
@@ -892,7 +905,7 @@ fun <P : TrieLeaf> LeafAlgebra<P>.forEachLeaf(n: TrieNode<P>, prefix: IntArray, 
 
 fun <P : TrieLeaf> LeafAlgebra<P>.forEachLeafPosition(n: TrieNode<P>, f: (IntArray) -> Unit) = forEachLeaf(n, EMPTY_PATH) { p, _ -> f(p) }
 
-/** The leaf positions of one Facts: `(Zero, [])` for REACH. Users: the indexes of AddedFactStore and PersistentRecordStore. */
+/** The leaf positions of one Facts: `(Zero, [])` for REACH. Users: N2 input and PersistentRecordStore indexes; no emitter supplier index. */
 fun ApManager.forEachLeafPosition(f: Facts, action: (AccessPathBase, IntArray) -> Unit) = when (f) {
     is Reach -> action(AccessPathBase.Zero, EMPTY_PATH)
     is FlowTree -> FlowAlgebra.forEachLeafPosition(f.root) { action(f.base, it) }
@@ -1059,7 +1072,7 @@ class StoreInterners(refs: SoftReferenceManager, cancellation: Cancellation) {
     val flow = TrieInterner<FlowLeaf>(refs, cancellation)
     val taint = TrieInterner<TaintLeaves>(refs, cancellation)
 
-    /** The policy of Part I §4.5 on the trie of one stored value; REACH has no trie. User: AddedFactStore (Part I §7.5). */
+    /** The policy of Part I §4.5 on the trie of one stored value; REACH has no trie. User: the N2 exact input accumulator (Part I §7.5). */
     fun internIfRequired(f: Facts): Facts = when (f) {
         is Reach -> f
         is FlowTree -> flow.internIfRequired(f.root).let { if (it === f.root) f else f.withRoot(it) }
@@ -1075,7 +1088,7 @@ uses `rest.exclusion`. Looking up the input E can append a second Empty-E tree. 
 `place_reads` checks that this destination merge preserves every annotated leaf. The computed regression is
 `Certificate.witness`. These results cover destination lookup and merge, not the full trie store.
 
-The subscriptions and the links do not use subsumption (`analyzer-core.md` §5.3): `AddedFactStore` and `RequestStore`
+The surviving N2 subscriptions do not use subsumption (`analyzer-core.md` §5.3). Historical `AddedFactStore` and `RequestStore`
 deduplicate exactly (§7.5, §7.9).
 
 ### 4.4 T5: the fold under `[any]` (generic)
@@ -2436,6 +2449,12 @@ reduction, packing and record application.
 
 ### 5.10 `requestAction` (`ap.md` §4.5, §4.10 items 2 to 4)
 
+HISTORICAL SCALAR ORACLE. This sketch's RequestKind/Position vocabulary is reference-only. Current runtime uses
+mark questions and RequestGroupCursor over original N2 values, with the full catalog Pattern where different from
+the initial slot. It has no scalar Position event or raw emitter store. The pure answer/climb relation remains a
+useful oracle; its storage wrappers are not runtime requirements.
+
+
 The analyzer joins a request with a link (`analyzer-core.md` §4.6, through `StandingJoin`, §7.10). The AP rule of the pair
 is here:
 
@@ -3117,8 +3136,8 @@ tests, and `asConclusions(f: Facts)`: the leaves of `f` (§5.11) with the layer 
 
 | Store | Lifetime | Writer | Readers | Concurrency |
 |---|---|---|---|---|
-| `MethodEdgeStore`, `InitialFactStore`, `RequestStore`, `ConjunctionStore` (with its `KaryJoin`s), the `StandingJoin` of the requests and links | RUN: garbage at the end of the run (`analyzer-core.md` §7.6; `freeze`, `analyzer-impl.md` §7.7) | the runner of the method (O1) | the same runner | none: single writer |
-| `AddedFactStore` (the links) | RUN; the links of a FORWARD run stay until the confirmation at its barrier (`analyzer-core.md` §7.6) | the runner of the method (O1) | the same runner; the driver at the barrier of a forward run (the support, O5) | none: single writer; the join of the runners (`analyzer-core.md` §6.3) orders the barrier reads |
+| Method edges, initial deduplication, run-1 questions/evaluated answer memo, conjunction/predicate state | RUN; release after accepted work joins | the method runner (O1) | the same runner; published immutable question root may be borrowed | single writer; no supplier-history/COW owner |
+| Existing N2 exact input accumulator and index | RUN; optional support read must precede release | caller runner | caller summary/question replay; optional joined validation | owner-local during run; no duplicated callee AddedFactStore |
 | `RunSummaryStore`, `SourceHitStore` | HAND-OFF | the runner of the method (O1) | the driver at the barrier (`RunSummaryStore.all()`: the records, R1; `demandEdges()`: the hand-off, F70 D3) | as above |
 | `DemandStore` | RUN, read-only | the driver, before the run (`Builder.build`) | any runner (`analyzer-core.md` A4) | immutable after `build`; the start of the run publishes it |
 | `RecordStore` | PERSISTENT | the driver, at a barrier (`persist`, inside the memory guard of the barrier, §7.8) | any runner, through `view()` (`analyzer-core.md` A4) | written only when no runner is alive; `view()` rejects writes |
@@ -3261,20 +3280,26 @@ class InitialFactStore {
 }
 ```
 
-The store keeps no supported premise sets. The confirmation (`ap.md` §4.9 condition 3) reads `Support`, which the
-driver computes at the barrier from the links (`analyzer-impl.md` §7.5).
+The store keeps no supported premise sets. Emission is not confirmation. Unverified witnesses remain DEMAND;
+optional exact support borrows existing joined N2 before release (`ap.md` §4.9, `analyzer-core.md` §7.5).
 
-### 7.5 `AddedFactStore`, `CallerRef`, `Link` (`ap.md` §8.3; DD4)
+### 7.5 N2 exact accumulator, `CallerRef` and historical link-store sketch
 
-N2 separates the exact accumulator from the positional link-store wrapper. `AddedFactAccumulator` keeps
-one immutable cumulative value per `(full CallerRef, admitted GroupKey)` and returns its stable handle,
-cumulative snapshot and fresh delta on growth. It has no path index. `AddedFactStore` wraps it with the
-position index needed by requests and Support. Its existing `add`, `overlapping` and `links` contracts remain.
-The following direct store form states those contracts; runtime accumulation is shared with subscriptions.
+CURRENT CONTRACT. Keep `AddedFactAccumulator` only where caller N2 requires it. Its key is
+`(full CallerRef, original admitted GroupKey)` and it keeps one cumulative immutable Facts value, stable handle
+and fresh delta. Preserve full method context/entry, premise, caller layer, call, independent link layer and E/mx.
+An exact-only fresh TAINT delta can clear E; it never changes the admitted key. Existing N2 summary matching and
+ND binding normalization remain unchanged.
 
-Take the key from the admitted input, not from a normalized delta. An exact-only delta can have Empty E
-even when it belongs to a normal must group with nonempty E. A fresh exact leaf stays in that full group.
-No added-link subsumption or E/mark-exclusion fold is introduced by this split.
+The emitter does not wrap this accumulator in another path index or value directory. It consumes incoming data
+for immediate initial emission. Questions replay existing N2 values with full-query prefix+extension candidates
+and the complete request predicate (§7.9); support, if selected, borrows joined N2 before release. No original
+supplier Fact, caller-keyed group, historical delta or captured COW root is retained by the emitter.
+
+HISTORICAL DIRECT STORE. The code below records the old raw-link relation and its equality/header rules. It is
+not a current runtime class/lifetime requirement. `CallerRef` remains the N2 binding; `Link` can be a transient
+reference/support view. The accumulator's exact merge rules survive in N2, but the old wrapper/index/links traversal
+do not. Pure oracles may retain ghost input histories to compare answers; production must not retain that oracle.
 
 ```kotlin
 /** E-2 of analyzer-core.md §5.1: the caller side of a link. */
@@ -3327,8 +3352,8 @@ class AddedFactStore(private val m: ApManager) {
 `forEachLeafPosition` of the algebra of the kind, and `(Zero, [])` for REACH. The analyzer computes the satisfying part
 of a stored value with `ApOps.satisfying` (P4); `satisfying` reads the value, not the per-leaf links.
 
-COST. A hot callee (for example a library method that 50 000 call sites reach) has one key per (call site, caller
-premise) at the same position. `PathTrie.add` walks the path then inserts in the node's hash set. A request reads, per
+HISTORICAL COST. The removed raw wrapper had one key per (call site, caller
+premise) at the same position. N2 still retains the input relation needed for return matching. `PathTrie.add` walks the path then inserts in the node's hash set. A request reads, per
 candidate key, the walk of its path and the leaves at or below it (`leavesNear`), not every leaf of the value.
 
 ### 7.6 `RunSummaryStore` (`ap.md` §8.5)
@@ -3553,74 +3578,80 @@ creates no SourceHit. Reversed conjunction results remain demand, so R1 does not
 Full annotated-closure and iteration coverage remain open. Earlier selectors and their
 loss diagnostics in Lean are historical; they do not define current demand selection.
 
-### 7.9 `RequestStore`, `RequestKind` (`ap.md` §8.8)
+### 7.9 Run-1 questions and query-specific deferred answers (`ap.md` §8.8)
 
-N1 stores the exact standing relation as grouped mark and position rows. A mark row owns one full origin
-InitialAp and its requested marks. A position row owns the full requested static path and each distinct
-origin. Index each row once. Preserve the raw pair relation and encounter order through the existing `add`
-and `overlapping` interfaces. The direct pair-store form below is a compatibility/reference specification.
-It is not a requirement to retain Pair/hash-entry objects in the grouped implementation.
+CURRENT CONTRACT. Replace runtime request/raw-supplier storage with one authoritative immutable map of full
+questions to independent RequestMarkSets. A question retains the original abstract initial, full Pattern and role
+when different. Profiles share potential metadata; no interest manufactures a concrete mark.
+
+For incoming input, always emit its abstract initial and eligible static structural slots. Execute the complete
+supplier eligibility/answer operation for known question geometries. Emit requested marks immediately; retain only
+`(question, emitted initial shape without concrete mark) -> packed still-unrequested marks`. Keep exact/ANY/STAR
+shapes separate. Consume a mark only in the matching question's rows; keep the question active for later answers.
+No CallerRef, input GroupKey, full Facts tree or seen-supplier identity is stored in this memo. New geometries replay
+actual old N2 inputs; they cannot infer E eligibility from an answer to an older broader question.
+
+For late FLOW/TAINT questions reuse caller N2. New question/current input and standing question/new subscription
+must cover the same semantic join. Register before replay, insert question view before notify, and reserve work
+before visibility. N2 request candidates use prefixes plus extensions around the FULL query path, deduplicate
+handles, then apply geometry/E/mx. Keep original admitted headers separate from normalized fresh deltas.
+
+Select a finite owner-local current-value visit: no candidate Facts snapshot list and no mutating callback during
+the visit. Queue answer/climb effects, including local effects. Check cancellation per traversal/member and keep
+positive-quantum service opportunities between visits. Do not claim a fixed bound on whole-visit latency or restore
+COW supplier history. A resumable visitor needs a separate horizon/version proof. See analyzer-core §§4.6,5.3 QP1–QP5.
+
+RequestMarkSet owns immutable primitive IDs and does not enter a strong AP interner. Target coalescing follows full
+eligibility and preserves original caller MethodKey/InitialAp. F75 remains unconditional for same-base selected-mark
+cleaners even when excluded/disjoint; source/sink NNF scopes, D23 and cleaner order remain unchanged. Restricted
+runs have no question/memo state and intersect each incoming input with fixed demand directly.
+
+HISTORICAL SCALAR ORACLE ONLY. The old store below and its Position cases can support comparison tests. They do
+not define production transport or authorize a second input history.
 
 ```kotlin
 /** A request of run 1 (ap.md §4.5, §4.10). */
-sealed interface RequestKind {
-    data class Mark(val mark: TaintMark) : RequestKind
-    data class Position(val path: PathNode) : RequestKind               // a static position, cut to <= 2 accessors
+sealed interface ReferenceRequestKind {
+    data class Mark(val mark: TaintMark) : ReferenceRequestKind
+    data class Position(val path: PathNode) : ReferenceRequestKind               // a static position, cut to <= 2 accessors
 }
 
 /** ap.md §8.8. RUN 1 only. A mark request is keyed by `base :: i.path`, a position request by `S :: p`. Every request
  *  comes from a FLOW fact (DD12), so its premise is a FLOW premise: one InitialAp with the mark `*` (K6). */
-class RequestStore {
-    private val seen = HashSet<Pair<InitialAp, RequestKind>>()
-    private val index = PathTrie<Pair<InitialAp, RequestKind>>()
+class ReferenceRequestStore {
+    private val seen = HashSet<Pair<InitialAp, ReferenceRequestKind>>()
+    private val index = PathTrie<Pair<InitialAp, ReferenceRequestKind>>()
 
-    fun add(premise: InitialAp, kind: RequestKind): Boolean {
+    fun add(premise: InitialAp, kind: ReferenceRequestKind): Boolean {
         check(premise.tail == Tail.STAR && premise.exclusion == ExclusionSet.Empty && premise.mark == MarkSlot.STAR)   // §4.5
         if (!seen.add(premise to kind)) return false                     // exact deduplication (E-3)
         when (kind) {
-            is RequestKind.Mark -> index.add(premise.base, premise.pathArray, premise to kind)
-            is RequestKind.Position -> index.add(STATIC, kind.path.toIntArray(), premise to kind)
+            is ReferenceRequestKind.Mark -> index.add(premise.base, premise.pathArray, premise to kind)
+            is ReferenceRequestKind.Position -> index.add(STATIC, kind.path.toIntArray(), premise to kind)
         }
         return true
     }
 
     /** Event E2: every standing request that overlaps the added fact `a` (`Store.standing_complete`). */
-    fun overlapping(a: Pattern): Sequence<Pair<InitialAp, RequestKind>> =
+    fun overlapping(a: Pattern): Sequence<Pair<InitialAp, ReferenceRequestKind>> =
         index.around(a.fact.base, a.fact.path.toIntArray()).asSequence().filter { (i, k) ->
             overlap(a, when (k) {
-                is RequestKind.Mark -> i.toPattern()
-                is RequestKind.Position -> Pattern(PathFact(STATIC, k.path.toList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty)
+                is ReferenceRequestKind.Mark -> i.toPattern()
+                is ReferenceRequestKind.Position -> Pattern(PathFact(STATIC, k.path.toList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty)
             })
         }
 }
 ```
 
-Event E5/E7 (a new request) reads `AddedFactStore.overlapping(base, path)`; event E2 (a new link) uses
-`RequestStore.visitActionCandidates(leaf, visit)` for each new leaf. For a concrete added mark T, probe T
-only; for an abstract added mark `*∖X`, skip requested marks in X. Position requests keep their separate
-geometry and are not filtered by the added mark. Every selected pair still passes full overlap and
-`ApOps.requestAction` (§5.10). Filtering may remove only pairs whose action is None. It is not a filter on
-F75 cleaner request production. Capture candidate buckets and insertion horizons before callbacks, so
-re-entry cannot add a request to an unvisited bucket in the same scan; the new-request path joins it independently.
-`ApOps.requestAction` (§5.10) gives the action of each pair. The runtime analyzer's local `RequestJoin`
-uses this visitor for new links and the selective existing-link scan for new requests. `StandingJoin`
-(§7.10) states the equivalent two-arrival-order rule; it is not a requirement to allocate request Pairs
-for the N1 hot path. Both stores remain actor-owned (`analyzer-impl.md` §4.8).
-
-The request-set implementation uses batched mark-row visitors and a separate position-only visitor.
-`RequestMarkSet` owns immutable primitive IDs; its builder is actor-owned. Temporary request sets do
-not enter the strong AP canonical table. A receiver admits each exact membership at once and keeps
-only fresh memberships in its pending frontier. The scalar interfaces remain the reference relation.
-Admission ordinals distinguish old and fresh request members without a second lifetime relation.
-
-`AddedFactStore.addUpdate` returns the stable raw group handle, complete caller reference, admitted
-header, cumulative Facts and fresh delta. Group visitors read one captured phase view. If an active
-phase spans a later update, it retains that group's previous immutable Facts until the phase ends;
-new groups beyond its horizon are not visible. This bounded phase ownership is not historical storage.
-Accumulate pending roots under the admitted group header, including when an exact-only delta clears E.
-The method barrier and two-sided join law are specified in `analyzer-core.md` §4.6.
+The historical two-sided StandingJoin uses the ghost request/input relation. Its indexed old-store theorem does
+not establish the new N2 publication/replay protocol. Current acceptance compares emitted answers/climbs and
+complete analysis results, not removed raw-store counts or historical callback multiplicity.
 
 ### 7.10 `KaryJoin`, `StandingJoin`, `ConjunctionStore`, `NdSummaryJoin` (`ap.md` §8.8, §8.9, `analyzer-core.md` §5.4)
+
+CURRENT SCOPE. KaryJoin/ND source and summary joins remain. The request × link StandingJoin sketch below is
+historical/reference only: current question replay uses N2 and queues its effects (§7.9). It does not own a
+RequestStore or AddedFactStore pair.
 
 THE STANDING JOINS. Two utilities for the rule "the input that arrives last completes the combination". `KaryJoin` has
 `k` slots of one input type and owns them; `StandingJoin` has two sides of two types that the Part I stores own:
@@ -3659,7 +3690,7 @@ class KaryJoin<T : Any>(val arity: Int) {
  *  element meets every stored element of the other side that `near` gives, so each pair meets once (one thread, O1).
  *  `near` must be symmetric: b is in nearB(a) if and only if a is in nearA(b). Users: the requests and the links of
  *  Direct/reference request join: nearB = AddedFactStore.overlapping, nearA = RequestStore.overlapping.
- *  Runtime N1 RequestJoin uses the selective visitor and preserves the same two-arrival-order effects.
+ *  Historical N1 RequestJoin used the selective visitor. Current N2 question replay has its own QP1–QP5 contract.
  *  (both path-index lookups, Part I §7.2), meet = ApOps.requestAction (Part I §5.10). */
 class StandingJoin<A, B>(private val nearB: (A) -> Sequence<B>, private val nearA: (B) -> Sequence<A>,
                          private val meet: (A, B) -> Unit) {
@@ -3670,7 +3701,8 @@ class StandingJoin<A, B>(private val nearB: (A) -> Sequence<B>, private val near
 
 | User | Join | Input |
 |---|---|---|
-| the request × link join (`analyzer-impl.md` §4.8, events E2, E5, E7) | `StandingJoin`: the requests (`RequestStore`) and the links (`AddedFactStore`) | a request, a link |
+| historical scalar request × link oracle | `StandingJoin` over reference questions and ghost inputs; not runtime stores | a reference request, a semantic link |
+| current mark-question replay | existing N2 plus authoritative query publication and queued effects (§7.9) | new question/current N2 input, or standing question/new input delta |
 
 WHY TWO FORMS. Both keep the invariant "the input that arrives last completes the combination, so each combination
 comes out once" (`Store.standing_complete`). They differ in what they own and in what a combination is:
@@ -3678,7 +3710,7 @@ comes out once" (`Store.standing_complete`). They differ in what they own and in
 | | `KaryJoin<T>` | `StandingJoin<A, B>` |
 |---|---|---|
 | sides | `k >= 2` slots, one type | 2 sides, two types (a request, a link) |
-| storage and deduplication | its own slots (`LinkedHashSet`) | none: the Part I stores (`RequestStore`, `AddedFactStore`) store and deduplicate, and the analyzer reads them at the barrier |
+| storage and deduplication | its own slots (`LinkedHashSet`) | none in the generic utility; historical test stores retain oracle inputs; current runtime N2/query owners are §7.9 |
 | partners of a new input | every stored input of every other slot: the full product (a literal input carries no position to index) | only the overlapping elements: the path-index lookups of the stores (`around`, Part I §7.2) |
 | result | the list of new combinations (the caller makes one conjunction result or one E6 application per combination) | a callback per pair (`requestAction`: answer, climb or nothing) |
 
@@ -3886,11 +3918,15 @@ Facts group key. It unions facts and end facts. Confirmation reads these preserv
 so all merged witnesses have the same confirmation result. A conjunctive witness's additional cross-combinations
 already occur in the standing literal product (§7.10). The merge does not cross contexts or alternatives.
 
-At a complete forward barrier, the driver confirms normal sink witnesses with joint support. It retains prior
-confirmed keys and DEMAND keys from the latest complete forward run. Incomplete runs add nothing. Phase 3 emits
-every report entry with its sink-only trace; full trace resolution is outside this proposal
-(`analyzer-impl.md` §7.6, §8.1). Must/E facts can confirm when the sink overlaps an admitted location and support
-supplies the premise. The defined demotions and interpreter precision gaps still apply.
+At a complete forward barrier, unverified witnesses retain `confirmed=false` and report as DEMAND, including
+all-NORMAL mixed-caller ND candidates. No raw-link Support scan remains. Optional exact confirmation would read
+joined N2 before release and require the full certificate in ap.md §4.9; emission and layer checks alone do not
+supply it. Preserve prior certified keys and latest complete-forward DEMAND replacement. Incomplete runs add nothing.
+
+Phase 3 emits every entry with its sink-only Simple trace, not a validated concrete trace. A mixed ND sink's
+end-GEN can produce a zero-premise summary, so caller ND matching cannot reject that derived candidate. Preserve
+zero-GEN semantics; later validation must check its original guard/derivation. This proposal implements no trace
+engine. The ordinary demotions, must/E tests and interpreter precision gaps remain.
 
 ---
 

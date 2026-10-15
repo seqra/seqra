@@ -1,11 +1,20 @@
 # Analyzer core — implementation proposal
 
+The selected [added-fact removal proposal](../docs/design/bidirectional-added-facts-removal-20261015.md)
+and its [implementation proposal](../docs/design/bidirectional-added-facts-removal-implementation-20261015.md)
+replace the callee input-store, supplier-snapshot and post-freeze raw-link Support designs here.
+The emitter streams inputs. Run-1 retains active questions and question-specific packed pending answers;
+late questions replay the existing caller-owned N2 input relation. N2 keeps original inputs and caller
+identities for return application and request routing. No second callee supplier relation remains.
+Unverified ND witnesses are DEMAND candidates. The current Simple exporter does not validate traces.
+
 The selected [run-1 abstraction design](../docs/design/bidirectional-run1-abstraction-demands-20261014.md)
 and its [plan](../docs/design/bidirectional-run1-abstraction-demands-plan-20261014.md) replace the
 standing-request implementation sketches below. Production uses `addMarkRequest(initial, mark)`
 and `MarkRequestsIn(method, initial, marks)`. It has no Position event or output API, no
 `RequestStore`, and no request-specific path index. Prescan profiles supply static refinement;
-`Run1Abstraction` owns compact mark interests and bounded supplier work. The scalar sketches and
+`Run1Abstraction` owns compact mark interests in the measured implementation. Its raw supplier phases
+are superseded by added-fact removal. The scalar sketches and
 old Position protocol remain independent reference material, with explicit `ReferenceRequestKind`
 and `ReferenceRequestAction` vocabulary. They do not describe production request storage.
 
@@ -14,7 +23,9 @@ This proposal implements phase 2 of [bidirectional-task.md](../bidirectional-tas
 [analyzer-core.md](analyzer-core.md), [ap.md](ap.md) and [interpreter.md](interpreter.md) define the behavior.
 [ap-impl.md](ap-impl.md) supplies the AP operations, stores and directed forms.
 
-The snippets show the production algorithms and interfaces. Sections 4.1–4.11 are members of one
+The snippets record the phase-2 algorithms and interfaces. Superseded input/request/Support sketches
+are historical reference, not instructions to retain their stores. The current contracts above take
+precedence; unaffected transfer and summary code remains reference material. Sections 4.1–4.11 are members of one
 `RunMethodAnalyzer`, except the named top-level types. They are proposal code, not existing Kotlin files.
 Use ASD-STE100 Simplified Technical English for new documentation.
 
@@ -54,7 +65,7 @@ These are implementation choices. The spec requirements appear in the right colu
 |---|---|---|
 | DD1 | Add `bidi.*` packages in the existing Gradle modules. | Reuse current utilities; preserve the prescan engine (`analyzer-core.md` §8). |
 | DD2 | Process `EdgeDelta(premise, node, facts)`; `Facts` holds the kind and layer. | Store and process premise sets, conclusions and layers (`analyzer-core.md` §4.3). |
-| DD3 | Carry a group of added facts per link key; return a delta on insertion. | Preserve each link, its added fact and caller reference; deduplicate exactly (`analyzer-core.md` §5.1). |
+| DD3 | Stream callee inputs; retain exact input accumulation only in caller N2. | Emit against fixed demand after run-1; in run-1 keep packed pending answers and replay late questions over N2 (`analyzer-core.md` §5.1). |
 | DD4 | Use structural equality for facts and work items. | Repeated items do not restart a boundary or conjunction; the unchanged path terminates. |
 | DD5 | Put E6 joins in the caller's `ConjunctionStore.ndJoin`. | One call must supply all premise members (`analyzer-core.md` §5.4). |
 | DD6 | Use the interpreter's `MethodForms` cache and make `DirectedForms` per run. | Call plans and entry rules use their method key's context (`analyzer-core.md` §4.8). |
@@ -84,7 +95,7 @@ CORE/bidi/engine/
 CORE/bidi/driver/
   IterationDriver.kt, IterationPolicy.kt         sequential runs and their barriers
   HandOff.kt, Seeds.kt                           next demand and seeds
-  Support.kt, Report.kt, Frontier.kt             confirmation, report and counters
+  Report.kt, Frontier.kt                         candidate/confirmed state and counters
   BidiEntry.kt                                   phase-3 hook
 JVM/bidi/
   JIRBidiAnalysis.kt, JIRMethodContextCache.kt    JVM integration
@@ -124,7 +135,7 @@ Import these contracts from `ap-impl.md`; do not copy their algorithms here.
 | `filter`, `clean`, `limit`, `checkMark`, `without`, `withoutMarks`, `targetTree` | §5.5–§5.8 |
 | `startFact`, `policy`, `emit`, `restrict`, `demandPart`, `requestAction`, `leaves` | §5.9–§5.11 |
 | `Pattern`, `Conclusion`, `DemandPattern`, `RecordLeafView`, `inside`, `recordDemand`, `reverseRecordLeaf`, `recordLeafIdentity` | §6 |
-| `PathTrie`, method/initial/link/summary/demand/record/request/conjunction/source-hit stores | §7.2–§7.11 |
+| `PathTrie`, method/initial/summary/demand/record/conjunction/source-hit stores | §7.2–§7.11; link/request store layouts are historical emitter representations |
 | `SinkEdge`, `SinkWitness`, vulnerability key/store, `confirmableMember`, `supplies` | §7.12 |
 | `Interpreter`, `MicroEdge`, statements, `FormApplier`, `FactAlgebra`, `Place`, boundary and sink rules | §23.1–§23.4 |
 | `StageKind.identityCandidateOf`, `Guard.MemoryEffect.admits`, `CallStage`, `CallPlan`, directed forms | §23.5–§23.7 |
@@ -496,15 +507,17 @@ class JIRMethodContextCache(private val interp: JIRInterpreter, private val entr
 For a call across two units, the required sequence is:
 
 ```
-Caller: bind in → sinks at BOUND → Actions → added facts
-        register subscription → insert its delta → replay current publications and records
-        send LinkIn(callee, caller reference, link layer, added delta)
-Callee: insert exact link delta → emit initials → process method
+Caller: bind in → sinks at BOUND → Actions → incoming facts
+        register N2 subscription → admit original header/input → replay publications, records and questions
+        send incoming facts to callee emission
+Callee: validate incoming facts → emit initials → discard payload → process method
         end rules → raw summary delta → reduced publication
         insert publication under lock → send Delivery
 Caller: read current subscriptions → the same matches test as replay
         apply summary or full E6 combination
         Actions → bind back → aliases → CALL cut → successor work
+Run-1 question: publish current interest before notification
+Caller N2 owner: visit current eligible inputs → enqueue initial answers or caller climbs
 ```
 
 A replay and delivery can apply the same publication. Exact stores and monotone joins absorb duplicates.
@@ -518,8 +531,9 @@ Keep raw summaries for R1 persistence and selected publications for hand-off as 
 A premise key includes each member's tail, mark and exclusion; distinct must exclusions are distinct keys.
 An ND edge has TAINT conclusions. Backward analysis has no conjunction or must initial fact.
 
-Count every new demand-layer edge delta, summary delta and added-link delta. A demand link can be the only reason
-that a normal sink witness lacks support, so it must prevent `NO_DEMAND_EDGE` from stopping the analysis.
+Count new demand-layer edge and summary deltas. Preserve the presence of DEMAND inputs for the
+`NO_DEMAND_EDGE` guard, without a callee input seen-set. Distinguish input arrivals from distinct N2 groups;
+the deleted raw-store delta count is no longer a storage metric. Duplicates must not alter stop decisions.
 `recordCrossings` counts record applications with a result. Optional cause counters do not affect behavior.
 
 The unchanged queue runs before stored deltas and uses structural equality. Its repeat set survives Work-event
@@ -543,13 +557,11 @@ class RunMethodAnalyzer(val key: MethodKey, port: RunnerPort) : SummaryApplier {
 
     private var edgeStore: MethodEdgeStore? = MethodEdgeStore(ap, key, port.shared.language, limit)
     private var initialStore: InitialFactStore? = InitialFactStore()
-    private var linkStore: AddedFactStore? = AddedFactStore(ap)
     val edges: MethodEdgeStore get() = edgeStore!!
     val initials: InitialFactStore get() = initialStore!!
-    val links: AddedFactStore get() = linkStore!!
     val summaries = RunSummaryStore(ap)
     val sourceHits: SourceHitStore? = if (forward) null else SourceHitStore()
-    private var requests: RequestStore? = if (config.run1) RequestStore(ap.cancellation) else null
+    // Run-1 question and pending-answer state: see the selected implementation proposal.
     private var conjunctions: ConjunctionStore? = if (forward) ConjunctionStore(ap) else null
     private val triggered = HashSet<Pair<CommonInst, SinkRule>>()
     private val applier = FormApplier(EngineAlgebra())
@@ -608,8 +620,10 @@ class DeltaWorklist {
 
 ### 4.2 Handlers (`analyzer-core.md` §4.2)
 
-Insert links, initials and requests with exact deduplication. In run 1, policy emission and the standing request
-join can add initials. Restricted emission queries comparable demand entry paths and applies the full `emit`:
+Retain initial deduplication. Validate each input before emission and discard its payload afterwards.
+In run-1, always emit the abstract initial, including the static root; add structural refinements and
+requested concrete answers. Use the caller-free question-specific memo and N2 replay from the selected
+proposal. Restricted emission queries comparable demand entry paths and applies the full `emit`:
 abstract patterns share a FLOW premise; concrete patterns reject abstract added marks and emit the intersection.
 No restricted operation creates a request.
 
@@ -618,21 +632,9 @@ No restricted operation creates a request.
 
     fun addZeroEntry() { check(!forward); addInitial(ap.zero) }
 
-    fun addLink(ref: CallerRef, linkLayer: Layer, added: Facts) {
-        val delta = links.add(ref, linkLayer, added) ?: return
-        if (delta.layer == Layer.DEMAND) demandLayerEdges++
-        emit(delta)
-        val join = requestJoin ?: return
-        for (leaf in ops.leaves(delta)) join.newB(Link(leaf, linkLayer, ref))
-    }
-
-    fun addRequest(premise: InitialAp, kind: RequestKind) {
-        val join = checkNotNull(requestJoin) { "a request in a restricted run (ap.md §6.1 rule 4)" }
-        if (requests!!.add(premise, kind)) join.newA(premise to kind)
-    }
-
-    private fun emit(delta: Facts) {
-        if (config.run1) { addInitial(ops.policy(delta)); return }
+    // Input validation and run-1 emission use the selected proposal, not a link store.
+    private fun emitRestricted(delta: Facts) {
+        check(!config.run1)
         if (delta is Reach) { addInitial(ap.zero); return }
         val demand = config.demand!!
         val found = LinkedHashSet<DemandPattern>()
@@ -954,18 +956,8 @@ observer does not select transfers. Release its delta cache with the service.
         cur.forEach(emit)
     }
 
-    private var unresolvedAdded: AddedFactStore? = if (config.run1) AddedFactStore(ap) else null
-
-    private fun observeUnresolved(ctx: CallCtx, facts: List<PlanFact>) {
-        val observer = r.shared.unresolvedObserver ?: return
-        if (ctx.plan.stagesAt(CallPoint.ADDED).none { it is CallStage.Edges && it.kind == StageKind.UNRESOLVED }) return
-        for (f in facts) {
-            if (f.facts !is TaintTree) continue
-            val ref = CallerRef(key, f.premise, ctx.callerLayer, ctx.node)
-            val delta = unresolvedAdded!!.add(ref, f.facts.layer, f.facts) ?: continue
-            observer.reached(ctx.call, delta.base, ctx.plan)
-        }
-    }
+    // Observation uses a delivered-observation identity set, not a supplier store.
+    // Its callback/rebuild oracle is required by the selected implementation proposal.
 
     private fun enterCallees(ctx: CallCtx, stage: CallStage.Callees, a: PlanFact) {
         val ref = CallerRef(key, a.premise, ctx.callerLayer, ctx.node)
@@ -1141,26 +1133,20 @@ fun restrictBy(ops: ApOps, demand: DemandStore, key: MethodKey, j: InitialAp, g:
 
 ### 4.8 Requests (`analyzer-core.md` §4.6; `ap.md` §4.5, §4.10)
 
-Requests and links form a standing join in run 1. Either arrival order executes every matching pair. The stores
-deduplicate the sides and their indexes return all candidates. `requestAction` decides answer, climb or no action.
-Freeze drops the join and request store.
+Run-1 questions remain active after their pending concrete answers are consumed. Initial emission
+has no raw link store or supplier snapshot. A new question replays original caller N2 inputs; a new
+input meets current questions. Register before replay and publish before notification.
 
-```kotlin
-    private var requestJoin: StandingJoin<Pair<InitialAp, RequestKind>, Link>? = if (!config.run1) null else StandingJoin(
-        nearB = { (i, kind) -> when (kind) {
-            is RequestKind.Mark -> links.overlapping(i.base, i.path)
-            is RequestKind.Position -> links.overlapping(AccessPathBase.ClassStatic, kind.path)
-        } },
-        nearA = { link -> requests!!.overlapping(link.addedFact) },
-        meet = { (i, kind), link -> act(i, kind, link.addedFact, link.caller) })
+The pending memo is keyed by full question geometry and exact emitted answer shape, with packed
+independent marks. Supplier eligibility precedes exclusion projection. A different question geometry
+uses N2 replay, not a broadened earlier answer. TAINT produces initial answers; FLOW produces climbs
+addressed to the original full caller MethodKey and singleton initial. Queue these effects, including
+local effects, so callbacks cannot mutate an active N2 visit. Request candidates include prefixes and
+extensions; the summary iterator's run-1 extensions-only search is insufficient.
 
-    private fun act(i: InitialAp, kind: RequestKind, a: Pattern, caller: CallerRef) =
-        when (val x = ops.requestAction(i, kind, a, caller)) {
-            is RequestAction.Answer -> addInitial(x.initial)
-            is RequestAction.Climb -> p.send(RunEvent.RequestIn(caller.caller, x.premise, x.request))
-            RequestAction.None -> Unit
-        }
-```
+Prescan static profiles replace Position requests. Always emit the abstract static root and add
+concrete requested facts. See the selected implementation proposal §§3–5 for state, arrival orders,
+publication, cancellation and counted-work contracts. The deleted standing-link join is historical.
 
 CURRENT NNF APPLICATION. The literal-list code below is the manual/reference adapter. Bound JVM occurrences use
 §4.12: one predicate, shared supported proofs and complete fact-group headers. Do not materialize cubes to call
@@ -1259,8 +1245,10 @@ A newly supplied part meets stored conclusions; a new conclusion meets every com
 Zero subscriptions cannot satisfy nonzero members. The full result uses the union of caller premises and joins
 all effective layers; it is cut at the plan exit.
 
-Freeze runs only after the join. Keep forward links until confirmation, raw summaries until persistence/hand-off
-and backward hits until source-seed construction. Drop all other run stores.
+Freeze runs only after all counted work joins. There are no forward links to preserve for confirmation.
+Keep raw summaries until persistence/hand-off and backward hits until source-seed construction.
+Release run-1 questions, pending answers and caller N2 state at joined teardown. Unproved witnesses
+remain candidates; post-freeze Support cannot scan deleted links or released N2.
 
 ```kotlin
     private fun ndMatch(part: Subscription, pub: Publication, premise: PremiseSet, m: Int) {
@@ -1281,8 +1269,9 @@ and backward hits until source-seed construction. Drop all other run stores.
 
     fun freeze() {
         port = null; rctx = null; worklist = DeltaWorklist(); pending = ArrayList()
-        requests = null; requestJoin = null; conjunctions = null; triggered.clear(); unresolvedAdded = null
-        edgeStore = null; initialStore = null; if (!forward) linkStore = null
+        // Release run-1 question/pending-answer state and the observation identity set.
+        conjunctions = null; triggered.clear()
+        edgeStore = null; initialStore = null
     }
 }
 ```
@@ -1523,39 +1512,11 @@ class SubscriptionManager(private val port: SubscriptionPort) {
 }
 ```
 
-```kotlin
-class CalleeSubscriptions(private val ops: ApOps) {
-    private val trees = AddedFactStore(ops.manager)
-    private val parts = ArrayList<Subscription>()
-    private val index = PathTrie<Int>()
-    private val zeroParts = LinkedHashMap<CallerRef, Int>()
-
-    fun add(sub: Subscription): Subscription? {
-        if (sub.zeroOnly) {
-            if (sub.ref in zeroParts) return null
-            zeroParts[sub.ref] = parts.size; parts += sub
-            return sub
-        }
-        val delta = trees.add(sub.ref, sub.linkLayer, sub.added) ?: return null
-        val part = sub.copy(added = delta)
-        val id = parts.size; parts += part
-        for (leaf in ops.leaves(delta)) index.add(leaf.fact.base, leaf.fact.path.toIntArray(), id)
-        return part
-    }
-
-    fun candidates(pub: Publication, m: Int, mode: ApMode): Sequence<Subscription> {
-        val j = pub.premise.member(m)
-        val ids = LinkedHashSet<Int>()
-        if (mode.run1) ids += index.lookupExtensions(j.base, j.pathArray)
-        else {
-            ids += index.lookupPrefixes(j.base, j.pathArray)
-            if (j.mark is MarkSlot.Star) ids += index.lookupExtensions(j.base, j.pathArray)
-        }
-        val zero = if (pub.premise.isZero) zeroParts.values else emptyList()
-        return (ids + zero).distinct().asSequence().map { parts[it] }
-    }
-}
-```
+`CalleeSubscriptions` retains its existing exact `AddedFactAccumulator`, original headers and caller
+references. It is the surviving input relation. Add the request-specific current-value visitor from
+the selected implementation proposal §5.2. Do not instantiate `AddedFactStore` here or add another
+callee copy. The earlier phase-2 snippet used historical subscription-delta arrays; it is superseded
+by the current accumulator and the new question-replay contract.
 
 ### 5.4 P1–P6 in the code
 
@@ -1567,7 +1528,7 @@ class CalleeSubscriptions(private val ops: ApOps) {
 | P4 | One match function and complete candidates on both paths. |
 | P5 | No removal during a run. |
 | P6 | Read current subscriptions at delivery. |
-| E-3 | Exact link/request/initial/subscription deduplication; only edges also use spec subsumption. |
+| E-3 | Initial, question-interest and N2 subscription deduplication; no callee input-history deduplication. Only edges also use spec subsumption. |
 
 The pipeline permits duplicate application. It must never omit an applicable part or join member.
 
@@ -1712,7 +1673,7 @@ returns, cap its result to the freshly computed remaining budget, so callback ti
 Only complete forward runs ask the stop policy; a complete backward
 run proceeds to its next forward run.
 
-At a complete barrier, after all runners join: confirm and update the forward report; persist raw R1 records;
+At a complete barrier, after all runners join: update the forward report using established evidence; persist raw R1 records;
 build demand and seeds; log the frontier; then check stop rules. After forward, stop for no demand vulnerability,
 no demand-layer objects, or policy. Run the barrier after the final complete run too.
 
@@ -1803,7 +1764,8 @@ class IterationDriver internal constructor(
     private fun barrier(config: RunConfig, result: RunResult<RunMethodAnalyzer>, report: ReportBuilder): Next {
         val forward = config.direction == Direction.FORWARD
         if (forward) {
-            Support(result, config.roots, config.mode, shared).confirm()
+            // Unproved witnesses remain confirmed=false (DEMAND); no raw-link Support scan.
+            // A future exact N2 confirmation path would have to run before N2 freeze.
             report.add(config, result)
         }
         shared.records.persist(config.direction, result.analyzers.asSequence().map { it.key to it.summaries })
@@ -2028,75 +1990,21 @@ class SeedIndex(byPlace: Map<Pair<MethodKey, CommonInst>, List<Seed>>) {
 }
 ```
 
-### 7.5 `Support` and the confirmation (`analyzer-core.md` §7.5)
+### 7.5 Confirmation evidence and candidates (`analyzer-core.md` §7.5)
 
-Support is the least fixed point over normal links at one call. Root zero is the only root base case. Every
-member must be confirmable and have a supplier whose caller premise set is already supported. All members use
-the same call site; they can use different caller edges at that site.
+The raw-link Support algorithm is superseded by added-fact removal. It must not retain links,
+expand all N2 inputs into another link list, or read N2 after freeze. The historical same-call
+support predicate remains a condition for valid confirmation, not a callee storage requirement.
 
-Use the AP's `confirmableMember` and `supplies` helpers for their local tests. They retain concrete-mark and
-restricted must-tail/exclusion guards. A normal link alone is insufficient: its caller edge must also be NORMAL.
-The direct list scan below is the concept. A per-site exact/must index is an optional optimization and requires
-an equivalence check; it does not belong in the transfer contract.
+Keep an unproved witness at `confirmed=false`; its new report entry is DEMAND. NORMAL layers
+and pooled initial availability do not establish joint support. Keep sticky confirmed keys and
+the existing handoff, seed and stop contracts. Simple export has no concrete trace validation.
 
-Confirm a witness only when all its sink-edge layers are NORMAL and its joint support is true. Support already
-checks member admissibility, so do not repeat that test at the final confirmation.
-
-```kotlin
-class Support(private val result: RunResult, roots: List<MethodKey>, private val mode: ApMode,
-              private val shared: SharedObjects) {
-    private data class Site(val callee: MethodKey, val caller: MethodKey, val call: CommonInst)
-    private val roots = roots.toHashSet()
-    private val ap = shared.ap
-    private val atSite = HashMap<Site, MutableList<Link>>()
-    private val sitesOf = HashMap<MethodKey, MutableSet<Site>>()
-    private val fedBy = HashMap<Pair<MethodKey, PremiseKey>, MutableSet<Site>>()
-    private val questions = HashMap<MethodKey, MutableSet<PremiseKey>>()
-    private val supported = HashSet<Pair<MethodKey, PremiseKey>>()
-
-    init {
-        check(result.direction == Direction.FORWARD)
-        for (callee in result.analyzers) {
-            shared.cancellation.checkpoint()
-            for (link in callee.links.links()) {
-                val ref = link.caller
-                if (link.linkLayer != Layer.NORMAL || ref.callerLayer != Layer.NORMAL) continue
-                val site = Site(callee.key, ref.caller, ref.call)
-                atSite.getOrPut(site, ::ArrayList) += link
-                sitesOf.getOrPut(callee.key, ::HashSet) += site
-                fedBy.getOrPut(ref.caller to ref.premise, ::HashSet) += site
-                questions.getOrPut(ref.caller, ::HashSet) += ref.premise
-            }
-        }
-        val work = ArrayDeque<Pair<MethodKey, PremiseKey>>()
-        for (root in this.roots) if (supported.add(root to ap.zero)) work += root to ap.zero
-        while (work.isNotEmpty()) {
-            shared.cancellation.checkpoint()
-            val known = work.removeFirst()
-            for (site in fedBy[known].orEmpty()) for (premise in questions[site.callee].orEmpty())
-                if ((site.callee to premise) !in supported && suppliedAt(site, premise.members)) {
-                    supported += site.callee to premise
-                    work += site.callee to premise
-                }
-        }
-    }
-
-    private fun suppliedAt(site: Site, members: Collection<InitialAp>): Boolean =
-        members.all { j -> confirmableMember(j, mode) && atSite[site].orEmpty().any { link ->
-            supplies(j, link, mode) && (site.caller to link.caller.premise) in supported
-        } }
-
-    fun isSupported(method: MethodKey, members: Collection<InitialAp>): Boolean =
-        (method in roots && members.all { it.isZero }) ||
-            sitesOf[method].orEmpty().any { suppliedAt(it, members) }
-
-    fun confirm() {
-        for ((_, witness) in result.vulnerabilities.witnessesOf(result.runIndex))
-            witness.confirmed = witness.edges.all { it.layer == Layer.NORMAL } &&
-                isSupported(witness.methodKey, witness.supportPremise(ap).members)
-    }
-}
-```
+An optional exact confirmation path would need targeted read-only N2 queries after all runners
+join and before N2 release. This is separate from the minimal candidate-preserving implementation.
+Full joint ND premises remain required at caller summary application. A pooled ND sink may also
+generate a zero-premise end fact; later trace validation must check that guard's derivation.
+Do not change zero-GEN semantics or label those derived candidates as validated executions.
 
 ### 7.6 `Report`
 
@@ -2141,8 +2049,7 @@ class ReportBuilder {
 
 | Data | Release point |
 |---|---|
-| Edges, initials, backward links, requests, conjunctions, work queues, ports and run context | `freeze`, after every runner joined. |
-| Forward links | After confirmation at the barrier. |
+| Edges, initials, run-1 questions/pending answers, N2 inputs, observation identities, conjunctions, work queues, ports and run context | `freeze`, after every runner joined. No callee input store exists. |
 | Raw summaries, stored demand publications and backward source hits | After persistence and hand-off. |
 | Incomplete run stores | End of the run; never expose them to a barrier. |
 | Runner maps, shared run storages and subscription managers | End of the run. |
@@ -2467,11 +2374,11 @@ only finding counts. Lowered JVM field actions use read/clean/write; multi-field
 | 11 | `FactKindsTest` | FLOW/TAINT matching, ND TAINT, drop-zero premise union and backward REACH. |
 | 12 | `ExitRulesTest` | Both exits, boundary termination, evaluated static scope and removal of all entry-mark leaves. |
 | 13 | `CutPointTest` | Every required cut, filtered results, W3 and lowered field actions. |
-| 14 | `RequestJoinTest` | Request-first/link-first, answer, climb and later new caller link. |
+| 14 | Request replay and pending-answer tests | Both arrival orders, new geometry, query-specific consumption, full N2 eligibility, later caller origin and persistent interest. |
 | 15 | `NaiveClosureTest` | Context-local sink/conjunction joins and reference finite-program vectors. |
 | 16 | `ScheduleFuzzerTest` | Quiescent engine observations equal direct per-path closure (§9.2). |
 | 17 | `HandOffTest` | Both reversals, zero cases, mark normalization and seed origin. |
-| 18 | `SupportTest` | Same-call joint support; no mixing sites or contexts; unsupported cycles do not confirm. |
+| 18 | Confirmation/candidate tests | Unproved pooled witnesses stay DEMAND; same-call support certificates remain historical semantic controls; no post-freeze raw read. |
 | 19 | `ReportTest` | Confirmed final; latest complete demand replaces earlier demand; incomplete run changes nothing. |
 | 20 | `DriverTest` | Run sequence, limit/budget guards, barrier ordering and all stop reasons. |
 | 21 | `DemandLinkTest` (DLINK) | A demand link alone prevents the stop; precise later descendants can become supported. |
@@ -2480,7 +2387,7 @@ only finding counts. Lowered JVM field actions use read/clean/write; multi-field
 | 24 | `AnyTaintTest` | Must source/transfer exclusions, cleaner/cut/may demotions and no normal TAINT absorption. |
 | 25 | `MustPremiseTest` | Concrete restricted emission, exclusions, must starts; run1/backward reject must initials. |
 | 26 | `RecordDemotionTest` | Inside/applicable-only batches; preserve exclusions through rewriter/bindings; aliases admit pending results; demote before call cut; one crossing per application; view guards and no synthetic hits. |
-| 27 | `AnyTaintSupportTest` | Normal must links supply admitted precise members with the same concrete mark; demand links do not. |
+| 27 | AP eligibility and support-certificate tests | Retain must/exclusion/mark guards on N2 inputs; NORMAL alone cannot confirm a pooled candidate. |
 | 28 | `AnyTaintIterationTest` | Getter/source/identity/setter finite programs with current engine expectations. |
 | 29 | `DemandEdgeTest` | Raw R1 persistence independent of selection; eligible normal singletons omitted; backward zero selected; NORMAL ND preserved. |
 | 30 | `FrontierPropertyTest` | Accepted Builder insertion counts, implicit-zero exclusion, complete-only logs. |
@@ -2552,7 +2459,8 @@ guards, even when its common case has a shorter algorithm.
 | Must records and views | `ap.md` §4.3, §8.7 R3–R4 | `CurrentMustReverse`, `CurrentSimplifications.MustViews`; `CurrentRecordTiming.LateReturn.pending_pipeline_data`, `split_eq_tagged`, `pending_pipeline_admitted`, `pending_finish` verify the local late adapter. Full F74 and plan integration require §9 tests. |
 | Forward conjunctions and independent reversal | `ap.md` §4.6, §9.2 | `CurrentConjunction`; full restricted annotated ND integration remains open. |
 | Ordered Actions and candidate flag | `interpreter.md` §4.5, AC3/AC4 | `CurrentSimplifications.Analyzer`; keep stage endpoints and current-layer alias guard. |
-| Support and confirmation | `ap.md` §4.9 | `CurrentSimplifications.Confirmation`; global support fixed-point integration remains open. |
+| Confirmation evidence and candidates | `ap.md` §4.9 | `CurrentSimplifications.Confirmation` gives a local historical supplier predicate, not confirmation from pooled initials. No complete trace proof. |
+| Emitter input-store removal | Selected added-fact removal contract | `AddedFactsRemoval`; see `proof-status.md` for finite protocol refinement, replay premises, AP adapters and exclusions. No Kotlin or concurrency verification. |
 | Sink context isolation | `ap.md` §8.9–§8.10 | `CurrentSinkJoin`; engine/oracle context regression required. |
 | Demand links and frontier counts | `analyzer-core.md` §4.1, §7.8 | `CurrentDemandLink`, `CurrentDemandFrontier`; full program/driver checks required. |
 | Publication protocol and completion | `analyzer-core.md` §5–§6 | `PipelineProofs`, `PipelineStore` verify local protocol models; current combined pipeline remains open. |

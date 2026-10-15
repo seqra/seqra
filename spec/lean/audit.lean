@@ -408,3 +408,37 @@ run_elab do
   if !ApSpec.CurrentRecordTiming.LateReturn.Certificate.check then
     throw (IO.userError "Executable late-return record demotion failed.")
   IO.println "Executable late-return record demotion passed."
+
+
+-- Store removal: executable question-specific consumption, actual AP guards,
+-- immediate emission and a mixed-caller distinguishing witness. This observes
+-- output values; it does not retain the emitted oracle relation at runtime.
+#eval do
+  let s := ApSpec.AddedFactsRemoval.Certificate.memoTrace
+  if s.pending.length != 2 || s.emitted.length != 2 || s.questions.length != 1 then
+    throw (IO.userError "Executable store-removal state certificate failed.")
+  let qf := ApSpec.AddedFactsRemoval.Certificate.q [4]
+  let qg := ApSpec.AddedFactsRemoval.Certificate.q [5]
+  let original := ApSpec.AddedFactsRemoval.Certificate.excludedRoot
+  let projected := ApSpec.AddedFactsRemoval.Certificate.projectedRoot
+  let exactG := ApSpec.AddedFactsRemoval.Certificate.exactG
+  if !(ApSpec.AddedFactsRemoval.checkedAnswer 3 qf exactG).isNone ||
+      (ApSpec.AddedFactsRemoval.checkedAnswer 3 qg exactG).isNone ||
+      !(ApSpec.AddedFactsRemoval.checkedAnswer 3 qf original).isNone ||
+      (ApSpec.AddedFactsRemoval.checkedAnswer 3 qf projected).isNone then
+    throw (IO.userError "Executable store-removal geometry/exclusion certificate failed.")
+  let packed := ApSpec.AddedFactsRemoval.Certificate.rows
+  let consumed := ApSpec.AddedFactsRemoval.consumeMark qf.1 7 packed
+  if packed.length != 2 || consumed.length != 2 ||
+      (ApSpec.AddedFactsRemoval.expandRows consumed).length != 2 ||
+      !ApSpec.AddedFactsRemoval.Certificate.pooledLiterals ||
+      ApSpec.AddedFactsRemoval.Certificate.sameCallerLiterals then
+    throw (IO.userError "Executable packed memo/candidate certificate failed.")
+  let expected : List ApSpec.PFact :=
+    [⟨3, [], .star ApSpec.Excl.empty, .star⟩, ⟨3, [5], .exact, .conc 7⟩]
+  if ApSpec.AddedFactsRemoval.restrictedEmit
+      ApSpec.AddedFactsRemoval.Certificate.fixedDemand exactG.af.fact != expected ||
+      ApSpec.AddedFactsRemoval.run1Admission 10 exactG.af.fact []
+        [(qg, ⟨3, [5], .exact⟩)] != expected then
+    throw (IO.userError "Executable immediate/additive abstract certificate failed.")
+  IO.println "Executable added-fact-store elimination certificates passed."

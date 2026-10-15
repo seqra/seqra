@@ -5,7 +5,9 @@ The normative rules are [ap.md](ap.md), [interpreter.md](interpreter.md), and
 F75 base-dependent cleaner splitting, F76 must-summary read views, and F77
 structural summary demand selection. This file
 states proof scope and evidence.
-It adds no analysis rule. [proof-history.md](proof-history.md) retains earlier
+It adds no analysis rule. The selected emitter contract removes the callee added-fact store, retains caller N2,
+and permits unverified pooled ND candidates. Its proof and implementation limits are stated below.
+[proof-history.md](proof-history.md) retains earlier
 theorem catalogs; F70/F71 concrete-run results do not prove current restricted runs.
 
 The current general closure model has three tails: exact, star with field exclusion,
@@ -14,6 +16,8 @@ must-tail/X, static, conjunction, end-fact, interpreter, and pipeline extensions
 `CurrentDefs.lean` defines run 1 `RC`, restricted forward `FC`, and backward `BC`.
 All use `BaseCleaner.cleanRes`; only `RC` has request rules. `FW` and `BW` select
 the current `emitW`, `satW`, and mark-aware `restrictI` operations.
+These closures quantify over semantic input histories. They do not prove the selected emitter representation,
+and their exact joint-support predicate does not validate a pooled candidate.
 These generalized closures do not implement every W6 layer refinement. The
 tail/mark shape proofs alone do not prove the typed FLOW any-demand/star-normal
 flags of the full spec. These closures use the generic record reader. Their
@@ -53,7 +57,7 @@ they are not an integrated current closure/iteration theorem.
 | Must-record demotion commutes with root mappings, filters, cuts and primitive root cleaners | [CurrentRecordTiming.lean](lean/ApSpec/CurrentRecordTiming.lean): `mapping_commutes`, `filter_commutes`, `cut_commutes`, `root_cleaner_commutes`, `Certificate.checked` | Concrete exact/any inputs with arbitrary annotations and layers for mappings and cleaners; arbitrary target prefixes cover forward alias application. Filters read the same location/mark fact, not its layer or annotation. No full F74 action-chain, alias-selection, optimized trie or call-plan theorem. No valid whole JVM timing counterexample is established. |
 | Native must-record pending demotion preserves operation data and finishes after return mappings, before the call cut | `CurrentRecordTiming.LateReturn.pending_pipeline_data`, `split_eq_tagged`, `ordinary_finish`, `pending_finish`, `already_demand_finish`, `pending_pipeline_admitted`, `Certificate.checked` | Arbitrary sequences of per-leaf output operations. Separate inside/pending batches equal a per-member tagged reference; false pending candidates admit aliases before finalization. Surviving pending facts end DEMAND with Empty E; legal already-demand facts receive only the cut. Actual annotated summary/read, binding and alias witnesses check the local order. No early-demotion equivalence, request/premise handling, full F74/DAG, optimized trie or iteration theorem. |
 | Below-case correlation-loss test can be removed without changing facts or requests | [CurrentSimplifications.lean](lean/ApSpec/CurrentSimplifications.lean): `LostCorr.applySimple_eq`, `applySimple_may_eq` | Legal STAR conclusions have abstract marks (W2); exact and must targets require concrete premise marks. Such a gate cannot propagate STAR. May-any targets already force DEMAND. Geometry before requests and the above case are unchanged. Local base transfer equality, not full annotated closure equivalence. |
-| Confirmation's separate member-admissibility check is implied by joint support | `CurrentSimplifications.Confirmation.confirm_equiv` | Keep admissibility inside the support's supplier test and zero-only root support. Supplier predicates stand for already computed normal links and caller support at one call. No new fixed-point or vulnerability theorem. |
+| Historical raw-link confirmation: its separate member-admissibility check is implied by joint support | `CurrentSimplifications.Confirmation.confirm_equiv` | Keep admissibility inside the support's supplier test and zero-only root support. Supplier predicates stand for already computed normal links and caller support at one call. This remains a theorem of that historical support predicate; it does not confirm a pooled ND candidate after raw-store removal. No new fixed-point or vulnerability theorem. |
 | Two side conversions equal the three current must-record view branches | `CurrentSimplifications.MustViews.readView_factored_equiv` | Equality for every `NativeRecord`, including rejected shapes. Preserve concrete marks, exact-side empty annotations, conclusion E, input-exclusion weakening and result layers. Generic reversal remains separate. |
 | Canonical FLOW satisfaction is annotated location overlap | `CurrentSimplifications.Flow.canonical_flow_satisfaction_X` | Premise STAR with empty field exclusion and mark `*`. Equality uses existing `satX`, `applicable`, and `overlapX` for arbitrary added fact and added exclusion. Keep general matching for excluded or concrete reader premises. Per-leaf equality only; no new optimized tree/trie walk or iteration guard-preservation theorem. |
 | One action-list stage and an identity-candidate flag preserve the local plan rules | `CurrentSimplifications.Analyzer.action_stage_merge`, `merge_reverse`, `origin_quotient`, `update_commutes` | Arbitrary ordered actions; reversal swaps endpoints and reverses actions. The alias guard observes identity candidacy and current layer only. Retain unset candidacy before initialization and independent `StageKind`. No whole call-plan, runtime benchmark or iteration claim. |
@@ -66,7 +70,68 @@ they are not an integrated current closure/iteration theorem.
 | Alias selection accepts every demand-layer result and skips only normal identity results | [CurrentAliasGuard.lean](lean/ApSpec/CurrentAliasGuard.lean): `demand_passes`, `normal_identity_skips`, `selection_iff` | Local origin/layer guard used by the engine and form reference. Computed regression retains demand default identity and constructor results. Does not prove alias analysis or the whole call plan. |
 | Restricted runs have no request objects | `Current.FC_no_req`, `BC_no_req` | By closure definition, not by concreteness. Abstract facts can occur. |
 | Cumulative subscription storage preserves logical P5 and the checked E6 binding quotient | [CumulativeSubscriptions.lean](lean/ApSpec/CumulativeSubscriptions.lean): `grow_encodes`, `growth_trace_encodes`, `accepted_persists`, `fresh_delta_union`, `index_refines`, `effects_refine`, `projected_choices`, `combination_root_insensitive`, `combination_effects_quotient`, `normal_result` | Constructive exact accepted-leaf encoding per full admitted key, finite growth and position/effect lifting; proof history is ghost data, not a retained runtime list. Ordered E6 member projection preserves full references/link layers and every result descriptor after matching. Target denotes the pre-factory conclusion root; equal joined layers give equal canonical factory results. Does not prove the full current AP matcher/transfer distribution, protocol implementation simulation or whole-engine closure. |
-| Request-set phase includes crossed arrivals; a uniform FLOW group needs one geometric match | [RequestSets.lean](lean/ApSpec/RequestSets.lean): `frontier_pairs`, `frontier_arms_disjoint`, `flow_group_effects`, `work_complete_iff` | Exact-delta logical set laws and the extended Work completion predicate. Request and link types stand for full admitted keys. FLOW collapse requires a uniform target and mx in one raw group. These results do not prove the Kotlin path cursor, captured-view ownership, runner simulation, full NNF support or whole-engine closure. Independent scalar and schedule tests must cover those implementation obligations. |
+| Historical raw-link request phase includes crossed arrivals; a uniform FLOW group needs one geometric match | [RequestSets.lean](lean/ApSpec/RequestSets.lean): `frontier_pairs`, `frontier_arms_disjoint`, `flow_group_effects`, `work_complete_iff` | Exact-delta logical set laws and the extended Work completion predicate. Request and link types stand for full admitted keys. FLOW collapse requires a uniform target and mx in one raw group. The emitter now uses N2 query replay; this theorem does not certify that replacement or require a runtime raw store. These results do not prove the Kotlin path cursor, captured-view ownership, runner simulation, full NNF support or whole-engine closure. Independent scalar and schedule tests must cover those implementation obligations. |
+
+## Added-fact-store removal: proof scope
+
+The current design is [initial emission without an added-fact store](../docs/design/bidirectional-added-facts-removal-20261015.md).
+Caller N2 remains the input relation used for summary application and late mark queries. No theorem about an
+input relation requires a second callee copy of that relation. Historical raw-link objects can be ghost inputs
+in an independent reference model; they are not a runtime representation requirement.
+
+The proof obligations are deliberately separate:
+
+1. **Emitter refinement.** Run 1 always emits the abstract STAR initial, also for `S`. Concrete initials are
+   additive supplier-backed answers. The deferred memo has only question-specific answer shapes and marks,
+   with no CallerRef or raw supplier history. Full geometry, E and mx determine eligibility before projection.
+   Requesting T clears T only from the matching question's memo rows; the question stays active for later inputs.
+   Later runs emit directly against the fixed demand and retain no emitter input history.
+2. **Two-sided replay.** Old input/new question and old question/new input produce the same answer/climb relation
+   as a full logical supplier join. Subscriber registration also replays standing questions. N2's existing
+   run-1 summary index is not sufficient: request queries include prefixes and extensions and then the full AP
+   predicate. Persistent question state, admitted N2 headers and counted pending work are part of this contract.
+3. **ND scope.** Source and summary results keep full joint premises. Caller application still requires all
+   members at one caller/call scope. A pooled ND sink may remain a candidate even when different callers supplied
+   its members. It is not confirmed by normal layers or pooled availability alone: without a valid support or
+   concrete validation result, `confirmed=false` and a new report entry is DEMAND.
+4. **End effects and reports.** Sink end actions still generate zero-premise facts. A pooled candidate can thus
+   create derived candidates that ordinary full-ND-premise return matching does not reject. Later trace validation
+   must check this trigger dependency too; a complete trace engine is deferred. `Simple` output is not a trace
+   certificate. Sticky previously confirmed entries, hand-off selection and stop rules remain explicit driver
+   contracts. Source-hit/seed identities stay separate from witness proof identities.
+5. **Lifecycle.** Optional exact confirmation through N2 needs a successfully joined read-only window before
+   subscriptions are released. Current frozen actor edges and released N2 are not usable after that release.
+   Cancellation must not commit an incomplete report or retain a replacement raw-input history.
+
+[AddedFactsRemoval.lean](lean/ApSpec/AddedFactsRemoval.lean) and
+[AddedFactsRemovalMemo.lean](lean/ApSpec/AddedFactsRemovalMemo.lean) supply the constructive local models below.
+Checked on 15 October 2026 from `spec/lean`: `lake build` passed all 120 jobs, and
+`lake env lean audit.lean` audited 19,879 declarations with zero unexpected axiom dependencies. The executable
+certificates passed. The 45 explicit new `#print axioms` entries use only `propext`, `Quot.sound`, or no axioms.
+Both modules are imported by `ApSpec.lean` and included in the audit. The
+[external receipt](/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012/run1-abstraction-demands-v2/20261015T004517.956676Z/report-preparation/added-facts-removal-proof-validation/receipt.json)
+binds the commands, source and logs; its SHA256 is `e6ce0433ab8abbb719af359faebc104e3f1f5daf5c9e0b6c90d477aff4286364`.
+These are local proof gates, not completed Kotlin/runtime or fixed-project acceptance gates.
+
+| Local result | Declarations in `ApSpec.AddedFactsRemoval` | Scope and limits |
+|---|---|---|
+| Finite question/answer transitions equal the ghost full-history output relation | `trace_refines`, `trace_outputs`, `output_iff`, `pending_iff`, `request_preserves_other_pending`, `request_is_persistent`, `late_supplier_emits`, `both_arrival_orders`, `duplicate_offer`, `origin_multiplicity_storage` | Offers are already eligible for the exact question, including its mark. Question-specific consumption and persistent interest hold for finite event sequences. This does not prove that Kotlin computes every eligible offer or bound the number of distinct answers. |
+| Retained runtime state needs no supplier field or completed-output history | `Runtime`, `advance`, `erase_observation_step`, `advance_output_set`, `projected_output_iff` | `State.emitted` is logical observer output. The runtime erases it and sends transient outputs to ordinary projected-initial deduplication. It must not retain answered pairs merely to mirror the proof. No optimized packed-map implementation or heap-size result follows. |
+| Packed answer rows refine scalar question/mark memberships | `memoCells_iff`, `packed_insert_refines`, `packed_consume_refines`, `putMark_idempotent`, `one_row_many_marks`; `Certificate.packed_consumption` in `AddedFactsRemovalMemo` | The decoder expands logical `(geometry, answer shape) -> marks` rows. Insertion and consumption preserve the exact scalar cell relation; consuming one geometry/mark leaves other marks and geometries. One fixed row can pack many marks. These are list/set laws, not a JVM persistent-map, primitive MarkSet, padding, allocation or byte-cost proof. |
+| Run-1 admission always includes the abstract root and adds ready concrete answers | `run1_abstract_always`, `run1_abstract_shape`, `run1_concrete_additive`, `rc_unconditional_abstract`; `Certificate.run1_static_root_with_concrete` | Uses actual `policy1`; nonzero inputs have root STAR/Empty/*, including `S`. The structural list and ready concrete answers are supplied to this local adapter. Catalog completeness and concrete-answer eligibility are separate obligations, not inferred from interest membership. |
+| A finite pooled ND candidate does not establish one-call confirmation | `Certificate.mixed_caller_is_not_confirmation` | Executable two-origin Boolean witness: pooled literals true, same-caller conjunction false. This is a distinguishing precision control, not a whole-engine ND sink, end-GEN or confirmation theorem. |
+| Exact N2 replay and two-sided deltas lift the same effect relation | `exact_replay_refinement`, `n2_history_replay`, `n2_two_sided_frontier` | Conditional on exact replay/current cumulative N2 encoding; full origin/admitted keys remain until the effect test. The frontier identity covers crossed input/question arrivals before projection. No Kotlin prefix+extension index, registration race, concurrency or accounting simulation is proved. |
+| Immediate restricted emission equals a ghost demand/input scan and instantiates the existing init rules | `restricted_immediate_exact`, `forward_immediate_init`, `backward_immediate_init`; `Certificate.immediate_emitW_values` | Uses actual base `emitW` and the current FC/BC init constructors. This is local membership/constructor coverage, not whole annotated-tree, record or iteration equivalence. |
+| Historical per-leaf geometry checks precede answer projection | `checkedAnswer_iff`, `checkedAnswer_initial`, `rc_answer_from_checked`; `Certificate.geometry_distinguishes`, `projected_initial_is_not_supplier`, `exact_consumption_and_late_supplier`, `question_key_distinctions`, `original_slot_and_query_E_distinguish` | Annotated historical same-slot answer kernel. The RC bridge requires equal initial/pattern, empty query E and a nonstatic base. Distinct-slot static catalog geometry, current layer/ANY normalization, full typed trees and FLOW climb routing remain replay/AP obligations. |
+
+Local finite emitter/replay proofs do not prove the Kotlin AP geometry kernel, N2 candidate-index completeness,
+callback isolation, pending-work accounting, full NNF closure, source-seeded iteration or concrete trace validity.
+No exact current pooled-ND confirmation or whole-engine no-loss theorem is claimed. A local emitter equivalence
+uses fixed run inputs; a full iteration comparison must use the same candidate/confirmation policy on both sides.
+Replacing raw Support with unverified DEMAND can add seeds and change later run configurations, so unchanged old
+support-enabled frontiers are not a consequence of this local theorem. The strict project/main finding gate remains.
+
+## Preserved N2 and local-operation evidence
 
 For N2, P5 means that accepted logical leaves remain under their full caller/group keys, even when transient
 replay delta objects are released. The admitted group is not reconstructed from a delta's normalized E.
@@ -115,7 +180,7 @@ The remaining current obligations are:
 
 1. L1–L4 mode coverage: abstract forward/backward coverage, run-1 mode selection,
    and contract B through F74 lowered actions and F75 cleaners.
-2. Full current no-loss iteration with F77 selection, source-seeded confirmation, method exclusion,
+2. Full current no-loss iteration with F77 selection, source-seeded emission, the selected candidate/confirmation policy, method exclusion,
    and round-to-round narrowing. Mark normalization and AP §6.4 exceptions limit
    exact narrowing claims.
 3. Combined must-tail/X and F76 read-view integration, statics, restricted conjunction support, aliases,
@@ -125,6 +190,10 @@ The remaining current obligations are:
    historical concrete AP/driver instances do not supply the current instance.
 5. Tree shortcuts beyond the proved per-leaf rebuild and candidate index. The
    old `restrictS/U` tree theorem does not prove the current mark-aware tail meet.
+6. Connect emitter/memo refinement and two-sided N2 replay to the actual AP eligibility/answer kernel, full
+   query identity, pure snapshot visitors and counted work. Prove the required effects without restoring a
+   callee caller-separated input relation. Concrete verification of pooled ND and zero-GEN derived candidates
+   remains a separate deferred task, not an established runtime guarantee.
 
 These obligations are explicit limits, not established invariants of every
 implementation run. The proposals use the checked demand reference and enforce

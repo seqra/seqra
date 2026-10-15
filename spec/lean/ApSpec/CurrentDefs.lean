@@ -2,6 +2,12 @@
   F75 closures. RC answers requests in run 1. FC and BC omit all request
   rules. Each closure uses the same base-relevant selected-mark cleaner.
   Parameters expose the program, limits, records, demand policy and seeds.
+
+  `.added` below denotes semantic/ghost supplier reachability, NOT membership
+  in a required runtime callee input store. Removing AddedFactStore leaves these
+  mathematical objects available for induction. AddedFactsRemoval proves a local
+  finite replay refinement, conditional on exact retained caller-N2 effects; it
+  does not by itself reprove this whole closure, ND confirmation or scheduling.
 -/
 import ApSpec.BaseCleaner
 import ApSpec.AbsDefs
@@ -25,6 +31,7 @@ inductive RC : Obj → Prop where
   | pass {M i n f n' c} :
       RC (.edge M i n f) → (M, n, Instr.call c, n') ∈ P.edges →
       memB f.fact.base c.touched = false → RC (.edge M i n' f)
+  /-- Ghost reachability of an actual call input; no runtime retention obligation. -/
   | added {M i n f n' c e a} :
       RC (.edge M i n f) → (M, n, Instr.call c, n') ∈ P.edges →
       e ∈ c.toCallee → a ∈ (applyEdge f e.1 e.2).facts →
@@ -85,6 +92,7 @@ inductive FC : Obj → Prop where
   | pass {M i n f n' c} :
       FC (.edge M i n f) → (M, n, Instr.call c, n') ∈ P.edges →
       memB f.fact.base c.touched = false → FC (.edge M i n' f)
+  /-- Ghost reachability of an actual call input; no runtime retention obligation. -/
   | added {M i n f n' c e a} :
       FC (.edge M i n f) → (M, n, Instr.call c, n') ∈ P.edges →
       e ∈ c.toCallee → a ∈ (applyEdge f e.1 e.2).facts →
@@ -137,6 +145,7 @@ inductive BC : Obj → Prop where
   | pass {M i n f n' c} :
       BC (.edge M i n f) → (M, n, Instr.call c, n') ∈ Pb.edges →
       memB f.fact.base c.touched = false → BC (.edge M i n' f)
+  /-- Ghost reachability of an actual call input; no runtime retention obligation. -/
   | added {M i n f n' c e a} :
       BC (.edge M i n f) → (M, n, Instr.call c, n') ∈ Pb.edges →
       e ∈ c.toCallee → a ∈ (applyEdge f e.1 e.2).facts →

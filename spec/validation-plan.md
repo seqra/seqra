@@ -24,17 +24,75 @@ the current normative rules before implementation. Check these boundaries:
    exact-target suffix dropping and same-direction must-record demotion. Preserve pending results' exclusions
    through the returned rewriter and mappings; demote them immediately before the call field cut.
 4. Keep F74 read/clean/write order and its cut points. F75 selects same-base
-   abstract marks before the spatial test; only run 1 stores its request.
+   abstract marks before the spatial test; only run 1 retains the active question and its pending answer work.
 5. Join forward literal contributions; split backward conjunctions into independent
    DEMAND edges. On a matched TAINT literal, check the layer-only equivalence in
    `CurrentProposal.LiteralLayer`; no second coverage walk is needed.
-6. Preserve joint support, action order, current-layer alias selection, reliable
-   replay/delivery, immutable run inputs and barrier/report rules.
+6. Preserve full caller-side ND application, action order, current-layer alias selection, reliable
+   replay/delivery, immutable run inputs and barrier/report rules. A pooled ND candidate is not a support proof;
+   use the current candidate policy below instead of historical raw-link confirmation assertions.
 
 Use the local proofs listed in [proof-status.md](proof-status.md) for each
 behavioral simplification. Historical closure results do not prove the current
 iteration. Check local links, section references and public signatures after a
 proposal rewrite. The tests below remain the implementation acceptance plan.
+
+## Added-fact-store removal acceptance (current contract)
+
+These requirements describe the selected emitter redesign. They are not evidence of an implementation or a
+completed test gate. They take precedence over historical raw-store, runtime Position and exact-confirmation
+requirements in the numbered inventory below. Keep the case IDs and independent scalar models, but label each
+comparison by its protocol version. Do not weaken output/premise/AP assertions merely because raw handles vanish.
+Caller N2 remains; removal of its input relation and a full trace engine are outside this iteration.
+An older example that names CONFIRMED keeps that state only with its valid support/validation proof; normal
+AP facts alone are not that proof. Otherwise AF8 requires DEMAND while preserving the finding and complete
+operation/premise assertions. Historical theorem vectors keep the closure and support predicate they name.
+
+| ID | Required independent control | What must be checked |
+|---|---|---|
+| AF1 | Always-abstract plus concrete answers | Every supplied nonzero base has its abstract STAR initial, also `S`; structural static profile initials and requested concrete answers are additive. Cover no request, request-first, supplier-first, two independent marks and later suppliers. An active mark alone cannot invent a concrete fact. |
+| AF2 | Consume memo marks without deleting questions | Store answer shape/marks under the exact question geometry. Requesting T removes T only from that question's pending rows. Unrelated U, another geometry and the standing T question remain. A later T supplier answers immediately. |
+| AF3 | Match before projection | Compare the pure scalar AP answer relation with memo/N2 answers for every tail, full path, normal/demand layer, E and mx. Include exact `C.g:T` versus `C.f:T`, excluded ancestors, and a root question followed by a narrower f question. Never use a projected root answer as proof for the new geometry. |
+| AF4 | Two-sided N2 query replay | All crossed arrival orders: old input/new question, old question/new input, subscriber after question, duplicate deliveries, new caller/context and same/remote units. Prefix and extension candidates must pass the full AP predicate. Capture admitted headers before fresh delta E normalization. |
+| AF5 | Finite visits and reentry | A finite current-value visitor may enqueue immutable answers/climbs but must not mutate the directory it is visiting. Callback-created work belongs to a later visit. Check cancellation throughout traversal and measure the largest visit/delay; no fixed leaf-work quantum is assumed. Test exception release, zero work and reservation/continuation accounting; completion requires no pending question/replay/emission work. |
+| AF6 | Restricted direct emission | With the same fixed RunConfig at positive limits 1, 2 and 3 and in both directions, direct input/demand intersection gives the same emitted initials, summaries and records as the independent relation. Duplicate arrivals do not start an initial twice. No raw supplier/group/index/COW history remains after emission. |
+| AF7 | Ordinary ND effects versus pooled sink candidates | Keep source AND/OR proof scope and full source/summary joint premises. A same-call complete input applies the ND return; split call sites or contexts do not create an ordinary ND return. A pooled sink candidate may exist under the selected policy and remains unverified. |
+| AF8 | Candidate/report state | An unverified witness has `confirmed=false`; a new entry is DEMAND even if every edge is NORMAL. Do not promote from pooled availability. Pin hand-off seeds, sticky earlier CONFIRMED entries, STOP_RULE, NO_DEMAND_EDGE and policy termination. A DEMAND input counts as demand presence even if it emits no new initial; test that this prevents NO_DEMAND_EDGE without a retained input store. STOP_RULE requires no DEMAND report entries. A completed run can return an explicitly unverified report; do not force unbounded refinement for a deferred trace filter. |
+| AF9 | Zero-GEN derived candidates | Split-site `x:T AND y:U` with an end target `Return:V` or `S.flag:V` can generate a zero-premise candidate effect. Test the later sink/source that reads V, not only the first sink. Preserve specified zero-GEN and reversed full-predicate trigger seeds. Do not claim full caller-ND matching validates this effect. |
+| AF10 | Source hits and complete hand-offs | For engine equality use fixed RunConfigs; for complete F1/B2/F3 iteration compare with a history oracle using the same new candidate/confirmation policy. Compare complete demands, seeds, source hits, normal raw records and selected publications. A successful reversed source output records the original forward edge before result filtering; denied/no-output sources do not. Retain full method/context/entry/statement identity and equal-result distinct sources. |
+| AF11 | Optional support lifetime | If exact confirmation uses N2, query only after successful join and before subscriptions are released, without a copied global raw-link list or live actor callbacks. Frozen MethodEdgeStore/N2 is not an available proof source. An incomplete run leaves the last accepted report intact. |
+| AF12 | Memory and callback audit | Retained emitter state is questions plus question-specific pending answer shapes/marks. No CallerRef dimension, raw Fact history, positional supplier index, COW roots or captured callbacks recreate the deleted store. Existing caller N2 remains measured. Unresolved-observer dedup uses only its proven observation identity. |
+
+For AF1–AF6, build a finite independent full supplier/question relation as ghost test data. It must compute full
+eligibility before reducing to answer shapes, and it must not call the production memo, N2 index or selector for
+expected results. Compare logical expansion and complete stored denotation where canonical packing changes.
+Legacy scalar Position controls remain a reference to static effects; runtime tests use shared transitive static
+profiles and assert no Position event/store. Do not require equality of obsolete raw-link/request transports.
+
+For AF7–AF11, compare exact source/summary premises, ordered literal support, proof occurrence, layers, full contexts,
+call stages, records and hand-off identities under the same inputs and candidate policy. Engine/AP/record equality
+uses the same fixed RunConfig: demand, records, seeds, roots, mode and limit. A full-driver oracle must use the
+same new candidate/confirmation policy as production. Removing old raw Support can leave more DEMAND entries,
+which add sink seeds and change the actual B2/F3 configurations. Do not require equality with the old
+support-enabled driver's frontiers or hand-offs. State/policy differences do not justify weaker AP assertions
+at a fixed config. Keep nonstatic and restricted strict comparisons under those conditions. Explicitly identify
+allowed pooled/derived candidate differences. `Simple` exports are not proof that false candidates were filtered.
+A complete concrete trace verifier is future work and is not a new gate here. The strict fixed-project comparison
+to main, including the no-missed-finding target and every removed location, remains required.
+
+Migration starts from Run1AbstractionTest/Run1StaticProfilesTest and the static catalog closure/iteration controls;
+RequestJoinTest and schedule fuzzing cover both arrival directions and ownership. Keep the cumulative subscription
+reference for N2 and the PredicateClosureTest/NormalizedHandOffTest source/record/seed controls. Existing raw-store
+SupportTest/SupportIntegrationTest vectors remain explicit reference predicates or must acquire the optional joined
+N2 proof. They are not proof that an unverified pooled candidate is confirmed. Passing the old suite alone does
+not discharge AF1–AF12.
+
+Run focused tests first, then common/JVM/Go consumers and existing application/query suites. New integration controls
+must use real engines in both unit layouts and positive limits 1, 2 and 3. Retest only the prescribed four project
+configurations after implementation. Report strict locations and multiplicities, latest reached/complete/accepted
+run, engine time, status, profiles and actual guard-heap owners. The target is a completed run-1 engine within 60 seconds;
+a faster failed or incomplete run does not pass. Captures and failed-END counters have different scopes; owner
+unions overlap and do not sum to a savings claim.
 
 ## O1/O2/O3 acceptance additions (existing case IDs retained)
 
@@ -167,9 +225,10 @@ Write the tests first. Each test names the spec item that it checks. The interpr
    demand-layer result, unless it is a
    normal `[any-taint]` fact (§4.6); an `[any]`
    literal (`ContainsMarkOnAnyField`) accepts a fact below its position; a summary with several premises needs one
-   link per premise; ND conclusions have no `*` tail; a vulnerability through a conjunction is confirmed only if its
-   premise members are admissible and its premise set is supported jointly at one call statement (§4.9 condition 3);
-   the negative test `NDConfirmed.CexSites`: two premises supplied at two different calls are not confirmed. A
+   matching caller subscription per premise; ND conclusions have no `*` tail. For historical exact confirmation,
+   the premise members are admissible and supported jointly at one call statement; `NDConfirmed.CexSites` rejects
+   two premises from different calls. Current pooled candidates follow AF7–AF9 and are not confirmed by that
+   historical theorem. A
    conjunction of a zero-premise fact and a fact of the premise `i` gives the premise set `{i}` (the zero fact is
    dropped), and two zero-premise facts give `{zero}`. Today's `ExampleTest.test nd rule` as an analysis test. The
    `[any-taint]` rule of §4.6: a normal `[any-taint]` input that overlaps a `$` literal gives a NORMAL result, and the
@@ -187,9 +246,9 @@ Write the tests first. Each test names the spec item that it checks. The interpr
    premise is a policy fact `(x, [], *, {}, *)` or a static position answer `(S, p, *, {}, *)`. A restricted run has
    NO request rule (F72, §4.5): on a fact with the mark `*` (a fact of a FLOW premise), the mark gate of a concrete
    premise mark gives nothing, a literal stores nothing, a sink has no effect and a cleaner of `T` gives `*∖{T}`, each
-   with no request; the request store of a restricted run stays empty. (Before F72 the test asserted that a
+   with no request; a restricted run has no question or deferred-answer state. (Before F72 the test asserted that a
    restricted run never makes a request.)
-   Position request tests (§4.10): on an identity static `*` edge at the root `[]` or a class, a static read, a Go global
+   Historical scalar Position reference tests (§4.10; current runtime equivalents use shared static profiles, AF1–AF4): on an identity static `*` edge at the root `[]` or a class, a static read, a Go global
    read, the class keep edge of a write, a pass rule between static fields and a conditional exit source whose literal
    is on a static field raise the position request (cut to the static field) and give no fact; a sink on `S` raises the ordinary mark request; a deep read below a static field is
    the ordinary case `above`; the root keep edge adds
@@ -284,7 +343,8 @@ Write the tests first. Each test names the spec item that it checks. The interpr
     backward summary (§8.7 R1). The method edge store (§8.1): the TAINT key holds the exclusion of the `[any-taint]`
     leaves, so two results with different exclusions are two trees; `[any-taint]/E` subsumes only the `[any-taint]` facts
     that it covers, and never a `$` fact. The
-    added fact store keeps an `[any-taint]/E` added fact with its exclusion (§8.3). The vulnerability store (§8.10):
+    historical added fact store kept `[any-taint]/E` with its exclusion. Current AF3/AF4 checks preserve it in
+    the N2 input relation until full eligibility; AF6/AF12 assert there is no emitter added-fact store (§8.3). The vulnerability store (§8.10):
     one sink statement in two contexts is one key; two sink witnesses of two alternatives or of two method keys stay apart; after an incomplete forward run the report has
     the DEMAND entries of the latest complete forward run; after an incomplete run 1 the report has no entry and the
     output is empty. The output holds every entry of the report, the DEMAND entries too, each with a simple trace and
@@ -331,7 +391,8 @@ Write the tests first. Each test names the spec item that it checks. The interpr
     `sink(x.f.h)`, `sink(x.k)` CONFIRMED (`validation-plan.md` → Interpreter tests → §7.2 item 30). A weak update of the object (an alias
     write, the default identity of an unresolved callee) gives an expected CONFIRMED false positive (§11.1). A lost finding is a test whose message
     says that no vulnerability reached the sink; read the message, do not count failures.
-17. Confirmation tests of the `[any-taint]` tail (§4.9): a normal `[any-taint]/E` sink edge is confirmed when the sink
+17. Exact-support reference tests of the `[any-taint]` tail (§4.9; historical support or the optional joined N2
+    proof; current report states follow AF8): a normal `[any-taint]/E` sink edge is confirmed when the sink
     pattern meets an admitted location, and does not trigger on an excluded one (`AnyTaintEx.Vec.check_vectors`); the
     support link of an `[any-taint]/E` added fact accepts a `$` or a must-premise inside it (with the exclusions) with
     the same mark, also the emission `a ∩ D-c = a`, and rejects a premise with the mark `*`
@@ -394,7 +455,7 @@ and §13 refer to this part.
    application is checked separately from callee demand selection.
 8. MODES. A restricted run (forward and backward) raises no request (F72 R4): on a `*` fact the mark gate of a micro
    edge with a concrete premise mark gives no result, the sink check gives no witness, and a partial cleaner of `T`
-   gives the fact `*∖{T}`; the run has no request store, and its request counter is 0. Run 1 raises the requests of
+   gives the fact `*∖{T}`; the run has no question/deferred-answer state, and its request counter is 0. Run 1 raises the requests of
    the same program. A backward run has no sink check. The zero fact enters every
    callee in the backward run. The reversed plan of a JVM call gives the steps of `interpreter.md` §4.9 in its order
    (the table of §4.5), with the reversed source results and the seeds at the rule point `BOUND`. The reversed alias

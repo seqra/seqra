@@ -1,5 +1,11 @@
 # Implementation background
 
+The selected [added-fact removal redesign](../docs/design/bidirectional-added-facts-removal-20261015.md)
+removes the callee input store and its post-freeze Support consumer. Descriptions of those
+components below are migration history. Caller-owned N2 remains. Use the
+[new implementation proposal](../docs/design/bidirectional-added-facts-removal-implementation-20261015.md)
+for the target input, request and candidate-report lifetimes.
+
 This file describes existing code and migration context. It is not normative.
 The current specs define the required behavior. Code here is historical unless
 the current implementation proposals explicitly adopt it. In particular, the

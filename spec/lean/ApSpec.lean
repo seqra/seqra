@@ -114,3 +114,6 @@ import ApSpec.CurrentSummaryApplication
 import ApSpec.CurrentRecordTiming
 import ApSpec.CumulativeSubscriptions
 import ApSpec.RequestSets
+
+import ApSpec.AddedFactsRemoval
+import ApSpec.AddedFactsRemovalMemo

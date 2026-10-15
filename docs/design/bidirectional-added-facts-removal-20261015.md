@@ -4,6 +4,13 @@ Date: 15 October 2026. Status: detailed redesign and implementation plan; no cor
 Scope assumption: remove the callee/emitter `AddedFactStore`; retain the existing caller-side
 N2 summary join. Removing N2's input storage too is a separate, larger design.
 
+The target contracts are now written in [ap.md](../../spec/ap.md),
+[analyzer-core.md](../../spec/analyzer-core.md) and [interpreter.md](../../spec/interpreter.md).
+The [proof status](../../spec/proof-status.md) separates constructive local refinement from
+the remaining engine obligations. The [implementation proposal](bidirectional-added-facts-removal-implementation-20261015.md)
+defines the next steps and their test gates. These specification and proof changes do not
+change the measured analyzer implementation.
+
 This replaces the earlier raw-store-based callee-owned join proposal. Removing the callee
 copy eliminates that duplication without moving the surviving summary join. Discarded
 normal-sink cache retirement remains selected. IR storage and the reference manager remain
@@ -11,7 +18,7 @@ unchanged; no weak-identity cache is introduced.
 
 ## Measurements and target
 
-Measured core: `85a7c0e367d9a2dc6360b03c2feb5e07b1583b66`. Documentation HEAD
+Measured core: `85a7c0e367d9a2dc6360b03c2feb5e07b1583b66`. The earlier documentation commit
 `c4e82f63677e72af72ddb2db9f5f8133dd725b9f` has the same core tree. No new engine scan
 ran for this proposal. The target is a completed run-1 engine within 60 seconds. Limits
 start at 1.
@@ -211,6 +218,11 @@ checking callback timing/rebuild semantics. This is not a supplier store and nee
 marks, CallerRefs or full Facts values.
 
 ## Implementation plan
+
+Use a history-based reference with the same candidate/confirmation policy. Compare AP and
+record results under fixed run configurations. Removing raw Support may leave more DEMAND
+entries and thus change later seeds/frontiers under the existing handoff rules; equality to
+the old support-enabled whole-driver sequence is not an emission-equivalence claim.
 
 1. **Define contracts and independent oracles.** Specify query identity, answer-shape
    equality, consume-on-request, the permitted ND candidate state and joined-query lifetime.

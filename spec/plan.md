@@ -5,6 +5,12 @@ implementation work, and a validation gate. Use Lean only to clarify unclear spe
 as described below. Complete the validation gate before the next dependent step. This document
 records the completed work and its validation evidence. All phase-1–3 steps are complete.
 
+The [added-fact removal implementation proposal](../docs/design/bidirectional-added-facts-removal-implementation-20261015.md)
+defines the next optimization sequence. Its steps are pending. The revised current specs replace
+the historical callee `AddedFactStore`, standing supplier join and post-freeze raw-link Support
+requirements below. Keep caller N2 input storage and full ND summary premises. Past phase gates
+remain evidence for their measured implementation; they do not validate this redesign.
+
 The behavior is defined by [ap.md](ap.md), [interpreter.md](interpreter.md), and
 [analyzer-core.md](analyzer-core.md). Follow the interfaces and algorithms in
 [ap-impl.md](ap-impl.md) and [analyzer-impl.md](analyzer-impl.md).

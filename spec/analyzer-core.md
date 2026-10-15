@@ -24,6 +24,12 @@ protocol proofs, and remaining current pipeline/driver obligations are listed in
 [proof-status.md](proof-status.md). This spec defines the required behavior; it
 does not claim a full current iteration proof.
 
+The selected [added-fact-removal redesign](../docs/design/bidirectional-added-facts-removal-20261015.md) is
+normative here. It removes the callee/emitter input history and reuses the existing caller N2 relation for late
+questions. It does not remove N2, implement trace resolution, or claim that measured core
+`85a7c0e367d9a2dc6360b03c2feb5e07b1583b66` already has this behavior. Historical pipeline and confirmation models
+retain their explicit scope; their logical input histories are not runtime storage requirements.
+
 Language: ASD-STE100 Simplified Technical English.
 
 ---
@@ -64,7 +70,7 @@ Out of scope:
 | # | Assumption |
 |---|---|
 | A1 | AP operations and stores satisfy [ap.md](ap.md), including its explicit construction and demand guards. The interpreter satisfies I1–I14 in [interpreter.md](interpreter.md). The proof scope is [proof-status.md](proof-status.md). |
-| A2 | LINEARIZABLE SHARED ACTIONS. Each shared action of §5.2 and §5.3 is atomic: register a handler, insert a publication, read the storage, read the handler list. All of them have one total order. This order agrees with the program order of each thread. The Lean model is an interleaving model with these actions as steps. P3 (§5.3) is the implementation rule. |
+| A2 | LINEARIZABLE SHARED ACTIONS. Registration, publication/question insertion, replay-view reads and subscriber-list reads have one order consistent with thread order. A question is visible before its notification; registration precedes replay. Historical summary-only Lean models do not by themselves prove the added question channel. P3 (§5.3) is the implementation rule. |
 | A3 | RELIABLE EVENTS. An event that a thread sends to the channel of a runner arrives exactly once, unless the run is cancelled. The send happens before the receive (Kotlin `Channel`). |
 | A4 | READ-ONLY INPUTS. These inputs do not change during a run: the program, the rules, the lambda resolutions, the demand store, the record store and the seeds. The driver makes them before the run starts. The start of the run publishes them to every runner. |
 | A5 | A handler (the code of one event) ends. Only the end of a run needs this (§6). The no-loss theorem does not need it (§5.5). |
@@ -96,8 +102,8 @@ Compact owned vectors/maps/indexes preserve order, mutation safety, rule footpri
 Backward hand-off and reversed end actions visit the whole active positive predicate at each matching witnessed
 context/place, including unobserved OR branches. Trigger once per full method key, statement and occurrence,
 also for CONFIRMED findings; do not limit it to one proof. TRUE needs no mark seed, FALSE none, and backward has no
-AND join. All existing AP exclusions, report rules and iteration limits still apply. O1/O2/O3 correctness and
-resource gates remain pending until authoritative tests; historical proofs do not prove this integration.
+AND join. All existing AP exclusions and iteration limits still apply. The new emitter/question/candidate
+integration requires its own gates; historical O1/O2/O3 proofs do not prove that integration.
 
 ## 1. Terms
 
@@ -116,16 +122,16 @@ document adds:
 | actor | The owner of a set of objects. Each method analyzer is an actor. Its runner runs it. |
 | method analyzer | The actor of one method key in one run (§4). It owns the intra-procedural edges and every RUN store of its method. |
 | event | One message in the channel of a runner (§5.1). Its HANDLER is the code that the runner runs for it. |
-| subscription | A caller-side record `(caller edge, call statement, added fact)` (`ap.md` §8.4). |
+| subscription | The existing caller N2 input relation `(full caller edge/reference, call statement, original added input and admitted header)` (`ap.md` §8.4). It remains retained; the emitter has no second copy. |
 | publication | A summary edge that the callee gives to its subscribers. In a restricted run it is the result of the restriction (`ap.md` §6.4): the INTERSECTION of the summary edge with one demand pattern, in the locations AND the marks (`ap-history.md` F71): the premise lies inside `D-c` with its mark, and the mark of the conclusion meets the mark of `D-p` (§4.6). It carries its premise key with the tail of each member and the exclusion of an `[any-taint]` member (§4.1, §4.6). The hand-off reads the publications, not the summary edges before the restriction (§7.3, §7.4). |
 | summary selected for demand; demand edge (hand-off) | A stored publication selected by AP §8.5 for next-run demand construction. Selection preserves the layer: a selected normal multi-premise summary remains normal. Each publication gives a pattern per premise member. Other native normal singleton summaries supply records only. Zero demand is implicit. A demand-layer read-view result in the caller does not request reanalysis of the summarized callee. |
 | DEMAND vulnerability | A vulnerability key whose state in the report is DEMAND after a complete forward run (§7.5): the latest complete forward run reports it, and NO complete forward run so far confirmed it. A key that an earlier run confirmed is CONFIRMED (final), also when the latest run reports it only in the demand layer. Only the sink witnesses of the DEMAND vulnerabilities are sink seeds of the hand-off (§7.3). The backward run also fires the sink seeds of a sink whose end fact a requirement reaches, also of a CONFIRMED vulnerability (§4.5 THE TRIGGER OF AN END FACT). |
 | frontier | The part of the program that the later runs still analyse after a complete run: the method keys with a non-zero initial fact in the run, and the demand edges that the run hands off, per method key (§7.8). The driver logs the frontier of each complete run (THE FRONTIER LOG, §7.8). |
-| storage with subscription | The callee-side store of the publications, with the list of the subscribed runners (§5.2). |
-| replay | The read of the storage when a subscription is new (§5.3). |
+| storage with subscription | Publications and the authoritative run-1 question view, with subscribed caller runners (§5.2). It holds no caller-keyed added payloads. |
+| replay | The read of existing publications/questions for a new subscription; run-1 query replay also joins a new question to existing caller N2 inputs (§5.3). |
 | notification | The send of a new publication to every subscribed runner (§5.2). |
 | delivery | The event that carries a notification to one runner (§5.3). |
-| quiescence | The state of a run with no event in a channel or a local queue, no running handler, no worklist item and no pending publication (§6.2). |
+| quiescence | No event, running handler, worklist item, pending publication, question replay, answer/climb delivery or unfinished local frontier (§6.2). |
 | barrier | The point between two runs: the first run is quiescent, and the next run has not started (§7.2). |
 | hand-off | What one run gives to the next run: demand edges and seeds (`ap.md` §8, §9.2; §7.3, §7.4). Records persist separately (`ap.md` §8.7). An R1-eligible native normal singleton summary gives no callee demand. |
 | complete run | A run that ended at quiescence. A run that ended by a timeout, its memory guard or an exception (every `Throwable`, §6.3) is INCOMPLETE. An incomplete run adds nothing to the report and refutes nothing (§7.5). |
@@ -158,14 +164,14 @@ IterationDriver                                   lifetime: the analysis
 | `RunManager` | one run | the caller thread and the runners | unit routing, runner spawn, the map of the `SummaryStorage`s, the in-flight counter, the run status (§6) | `TaintAnalysisUnitRunnerManager` |
 | `UnitRunner` | one run | its coroutine | the event loop, its analyzers, its `SubscriptionManager` | `TaintAnalysisUnitRunner` |
 | `RunMethodAnalyzer` | one run | the runner of its unit | the RUN stores of its method (§4.1) | replaces `NormalMethodAnalyzer`; `EmptyMethodAnalyzer` goes (an empty method is never analysed, §4.4) |
-| `SummaryStorage` | one run | the runner of its method inserts; each subscribing runner registers and reads | the publications of one method key and the subscribed runners (§5.2) | `SummaryEdgeStorageWithSubscribers` |
+| `SummaryStorage` | one run | the runner of its method inserts; subscribing runners register and read | publications, one authoritative immutable run-1 question view and subscribed runners (§5.2); no supplier history | `SummaryEdgeStorageWithSubscribers` plus the question protocol |
 | `SubscriptionManager` | one run | the runner of its unit | the subscriptions of the unit, per callee (§5.3) | `SummaryEdgeSubscriptionManager` (today two per runner, internal and external; one is enough) |
 | `DemandStore` | one run, read-only | any | the demand patterns of the run (`ap.md` §8.6) | new |
 
 Ownership rules:
 
 * O1. A method analyzer is the only writer of its RUN stores. Only its runner calls it.
-* O2. A `SummaryStorage` has one INSERTING thread: the runner of its method. A subscribing runner only registers its
+* O2. A `SummaryStorage` has one INSERTING thread for publications/questions: the runner of its method. A subscribing runner only registers its
   handler and reads (§5.3). `RunManager.summaryStorage(key)` makes exactly one storage per method key and run. It
   makes it atomically, on the first access by any thread (a `computeIfAbsent` on a concurrent map). The storage can
   exist before the runner of the method exists.
@@ -258,16 +264,16 @@ only the forms that the analyzer reads: the forward forms of the interpreter, or
 |---|---|---|
 | `edges` | method edge store (`ap.md` §8.1) | the edges, keyed per kind (`ap.md` §7.2): REACH per (statement, premise key, layer); FLOW per (statement, premise key, layer, base, exclusion, mark exclusion); TAINT per (statement, premise key, layer, base), and a normal TAINT tree also per the one exclusion of its `[any-taint]` leaves (`ap.md` §7.2) |
 | `initials` | initial fact store (`ap.md` §8.2) | the initial facts of the run: zero, emissions, answers |
-| `links` | added fact store (`ap.md` §8.3) | each added fact with its links: the caller reference and the layer of the added fact on the link |
+| incoming input | transient handler argument (`ap.md` §8.3) | consume for direct emission, then release; no `links`/AddedFactStore, supplier index or historical payload seen-set |
 | `summaries` | run summary store (`ap.md` §8.5) | Raw summaries per premise key and layer supply R1 records. Selected publications supply demand edges (§4.6; `ap-impl.md` DD17, `RunSummaryStore.addDemand`, `demandEdges()`). The hand-off reads only the stored demand edges (§7.3, §7.4). |
-| `counters` | | Frontier and stop-rule counts (§7.1, §7.8): demand-layer edge and summary deltas, new demand links (§4.2), record applications at a call, nonzero initial-fact presence, and zero-premise edges. Demand links have a demand-layer added fact (AP §8.3). Optional counts record demand results per demotion (§4.3). |
-| `abstraction` | `Run1Abstraction` (§4.6) | run 1 only: compact mark policies per original initial and shared static profiles; no standing request store or Position transport |
+| `counters` | | Frontier/stop counts (§7.1, §7.8): demand-layer edges, summaries and admitted incoming contributions, record applications, nonzero initials and zero-premise edges. Incoming counts need no retained link; distinguish transport arrivals, N2 fresh deltas and new starts. Optional demotion counts retain their units. |
+| `abstraction` | run-1 initial emitter (§4.6) | shared profiles, active query identities/mark interests and compact query-specific deferred concrete answer shapes; no caller dimension, raw suppliers or Position transport |
 | `sourceHits` | source hit store (`ap.md` §8.11) | backward run only: the unconditional sources of this method that a requirement reached |
 | `conjunctions` | conjunction store (`ap.md` §8.9) | manual fixed-literal inputs and the E6 combinations of callee summaries with several premises (§5.4) |
 | predicate state | `RulePredicateStore` (`ap.md` §8.9) | forward only: scoped observed source/sink proofs, canonical binding headers and matched sink-fact versions, including evaluated exit `S` parts; no compiled topology |
 | `worklist` | `DeltaWorklist` (§4.3, §10) | the edge deltas to process: the `unchanged` queue with its set, and the `normal` queue |
 | `pendingPublications` | | the publications that the analyzer has not yet given to its `SummaryStorage` (§4.6) |
-| pending abstraction phase | actor-owned bounded cursor | Run 1 only: fresh mark interests, one fresh delta per raw link group, a captured raw-link view, a partial join and outgoing mark sets. One counted Work token covers these owners. |
+| pending question work | actor/runner-owned transient work | fresh query/answer/climb batches and outgoing mark sets; no captured raw supplier/COW history. Count it until deliveries finish. N2 current-value visits are finite and cancellable, not asserted fixed-quantum (§4.6). |
 | `queued` | | true while the analyzer has a `Work` event in its runner (§6.2) |
 | `context` | `MethodContextCache` entry and run part | the method graph, the alias analysis, the lambda resolutions, the rule context of the run (§4.8) |
 
@@ -289,9 +295,9 @@ The runner calls these handlers. Each handler is part of one event (§5.1).
 | Handler | When | Actions | `ap.md` |
 |---|---|---|---|
 | `addRootZero()` | the run starts at a root | the zero fact is an initial fact | §6.1 |
-| `addLink(link)` | a caller binds a fact into this method | add the link (exact deduplication). A new added fact: emit its initial facts (§4.4). A new link: notify the run-1 abstraction of its raw delta for bounded supplier processing (§4.6). A new link whose added fact is in the demand layer (a DEMAND LINK, `ap.md` §8.3) adds one to the demand-layer objects of `counters` (§4.1; the stop rule `NO_DEMAND_EDGE`, §7.1). The zero added fact emits the zero fact. No request matches it. Its link serves the support (§7.5). | E1, E2 |
+| incoming-input handler | a caller binds a fact into this method | emit directly (§4.4): run-1 abstract/catalog and active concrete answers, or fixed-demand intersection after run 1. Retain only still-unrequested evaluated answer rows. Release the input. N2 owns its original admitted header and full ref separately. Count DEMAND input contributions without storing them. Zero emits zero. | E1, E2 |
 | `addZeroEntry()` | backward: the zero fact of a caller reaches a call to this method | the zero fact is an initial fact (rule `zin`) | §9.2 |
-| `addMarkRequests(initial, marks)` | run 1: a callee delivers mark interest through a link of this method | update the original initial abstraction policy (exact deduplication); join fresh interest with existing raw links at the bounded barrier (§4.6) | E5, E7 |
+| `addMarkRequests(initial, marks)` | run 1: an eligible N2 FLOW supplier routes interest to this original caller initial | admit independent fresh interests; consume matching deferred answer rows and publish query deltas for N2 replay (§4.6) | E5 |
 | `applySummary(sub, pub)` | the `SubscriptionManager` matched a publication with a subscription of this method | one premise: apply the summary to the added fact (`ap.md` §4.3), then the stages after the callees stage (§4.5). Several premises: the combination of §5.4. | §4.3, E2, E4, E6 |
 | `applyRecord(sub, record)` | a new subscription; a same-direction native record covers or contains the added fact | apply the record, then the stages after the callees stage (§4.5). Keep its `inside` and `applicable`-only results separate. The latter must-record results keep their exclusions through these stages; demote them immediately before the call field cut. Count one `recordCrossings` increment if either initial result batch is nonempty, before rewriting | AP §4.3, §8.7 R4 |
 | `applyRecordView(sub, view)` | a new subscription; an opposite-direction transient leaf view covers or contains the added fact | apply the view directly with its premise exclusion and result layer, then the stages after the callees stage. Do not emit, start, persist, or demote its premise through `InitialAp`. Count each application with a result as a record crossing | AP §8.7 R3 |
@@ -383,7 +389,9 @@ A new initial fact `j` (from any handler) is event E3: the analyzer adds the sta
 
 ### 4.4 Initial facts, start nodes and start rules
 
-For each new added fact, run 1 uses AP §6.2 and later runs use AP §6.3.
+For each incoming added fact, run 1 uses AP §6.2 and later runs use AP §6.3 directly.
+No emitter input history or exact payload seen-set is created. Repeated arrivals may repeat matching work;
+`initials.add` still deduplicates starts. N2 fresh deltas may control transport only with original-header correctness.
 The restricted emission query is `near(base::path)` (AP §8.6); run the full
 emission test on every candidate. A `*` pattern shares one FLOW premise; a
 concrete pattern emits only a concrete matching added mark. No restricted request
@@ -467,6 +475,10 @@ The forward stages of a JVM call `r = m(o, a1, …, an)` (the step numbers of `i
 | rewriter | `RETURNED → REWRITTEN` | the summary rewriter (`interpreter.md` §5.2) | 6 |
 | binding back | `REWRITTEN → AFTER` | the binding edges back, with the result-side type filters | 6 |
 | aliases | `REWRITTEN → AFTER` | the alias edges `P.* → b.q.*` (`interpreter.md` §3.8 AC2); GUARD: the selection of AC3 and AC4 (THE ALIAS GUARD, below) | 6 |
+
+At the CALLEES stage, retain the original bound/cleaned input and its full caller reference in existing N2,
+then deliver a transient input to each selected callee. The callee consumes it for initial emission and releases
+its transport payload; “link” in call equations denotes that semantic relation, not a second callee store.
 
 The plan also has its TOUCHED caller bases (`S`, `o`, every `ai`, `r`; step 1) and the SINKS of the call at `BOUND`
 (step 3).
@@ -590,8 +602,8 @@ After end rules, handle each raw summary delta `j→g` (event E4) in this order:
    summaries, and normal backward zero-premise summaries. Selection is uniform
    within the premise-key/layer group. If selected, pass step 3's publications to
    `addDemand`. No second reduction or selection of narrowed pieces is needed.
-5. Enqueue publications and flush them to `SummaryStorage` before the `Work`
-   handler ends (§6.2 W3).
+5. Enqueue publications and flush them at the method-fact-queue-empty boundary before servicing deferred
+   question work (§6.2 W3). A quantum yield may retain pending publications under the same counted Work token.
 
 Publications retain the complete premise key, including each tail, must flag, and
 field exclusion. Reduction reads the whole premise, conclusion marks, and field
@@ -602,73 +614,59 @@ union of candidates for each member. Apply AP §6.4's member-wise restriction,
 testing each selected whole member, and retain the complete premise set. The
 query never replaces that test.
 
-Mark demands exist only in run 1. They use the pre-operation incoming initial,
-including cleaner requests (AP §4.7). Each supplier/interest pair gives an ANSWER,
-CLIMB to the original caller initial, or nothing under the AP geometry rules.
-AP §§4.5,4.10,8.8 also retain the scalar standing-request model as the migration
-reference; production uses the abstraction-owned policy below.
+Mark questions exist only in run 1. They use the pre-operation original initial, including F75 cleaner requests.
+Each actual supplier/question relation yields ANSWER, CLIMB or nothing under AP §§4.5,4.10. Semantic equations may
+quantify over all admitted inputs; the runtime does not retain that ghost history in the callee.
 
-The selected catalog-enabled policy moves these interests into the run-1 initial
-abstraction (AP §§4.5,4.10). Copy the existing complete resolved prescan call graph
-after joining, and share its transitive static profiles across method contexts.
-Keep the STATIC root and add catalog slot initials only from raw suppliers at or
-below their slots. Mark interests emit supplied concrete answers in addition to
-the eligible abstract initials. Exact/may/must start rules, raw layers and full
-caller support remain unchanged. The scalar position join is the independent
-migration reference; installed profiles replace its transport.
+The emitter always starts zero for zero input or an abstract root for every other base, including STATIC. Copy the
+existing complete resolved prescan graph after join and share transitive static profiles across contexts. Add a
+catalog slot only for an actual supplier at/below that slot. Declared mark interests retain complete Patterns and
+roles, independently of structural activation. Catalog potential never supplies a concrete mark or a proof.
 
-An ordinary static mark check can suppress its dynamic request only with installed
-catalog coverage, and only when every eligible FLOW leaf equals its original
-started STATIC initial, including path/tail/E/mx/layer. Consumers carry the matched
-input scope; a generic collector lacks it. The exception never gives a predicate
-proof or concrete fact. Copies to another static position or a local base still
-register interest on their original chain. F75 bypasses this exception, including
-disjoint and already-excluded selected-mark cleaners. A completed delivery closes
-bounded processing of one captured frontier; the abstraction continues to observe
-late suppliers and new callers until the joined run ends.
+Ordinary static checks suppress a dynamic request only with installed coverage and only when all eligible FLOW
+leaves equal the original started STATIC initial, including path/tail/E/mx/layer. Copies to another static position
+or a local base still request on the original chain. F75 bypasses this exception, including disjoint/already-excluded
+same-base selected-mark cleaners. D23, cleaner order, full NNF support and positive cuts remain unchanged.
 
-The abstraction admits compact mark interests and raw-link changes promptly. It
-defers supplier joins until the method's fact work and publications drain. One
-target `(full MethodKey, canonical requesting InitialAp)` carries an immutable
-set of independent marks. Each answer creates its own concrete-mark initial in
-addition to the abstract initial. A completed delivery is released. Its policy
-remains active for late suppliers and callers; there is no retained request row,
-request path index or Position event.
+For concrete input, use the complete AP eligibility/answer operation before forgetting E. Emit requested answers
+immediately. Otherwise retain only `(request geometry, emitted initial shape without concrete mark) -> MarkSet`.
+Consume a mark only for the matching question; exact, ANY and chain answers remain distinct. A completed answer
+does not close the question. New geometries replay older N2 inputs rather than reading a widened previous answer
+or retaining a supplier trie. Source/sink marks packed into a set remain independent interests, not an AND premise.
 
-A request phase captures both admission horizons before callbacks. It computes
-`(fresh interests × captured current links) ∪ (old interests × fresh links)` with the
-ordinary overlap/action relation. Crossed fresh arrivals are in the first arm.
-Retain each raw link's full caller reference, independent link layer and admitted
-group header. An exact-only TAINT delta can have empty E without changing that
-header. Keep one pending delta per group and release a consumed frontier. Partial
-phases retain their captured views; reentrant arrivals belong to the next phase.
-No historical delta list or lifetime sent-pair cache is required.
+Late questions use the existing caller N2 inputs (§5.3). Maintain one authoritative immutable question view per
+callee MethodKey. New questions replay existing inputs; new subscriptions replay standing questions. Register
+before replay and insert the question before notify. No subscriber owns a full copied question/mark relation.
+Its request-specific visitor selects prefixes plus extensions around the FULL query path, deduplicates handles,
+and executes the actual geometry/E/mx predicate. The summary-only run-1 extension scan is insufficient.
 
-For one FLOW group, all overlapping leaves have the same climb target and mark
-exclusion. Test geometry once and climb with `requested marks minus mx`. A STAR
-request admits descendants. An excluded ancestor cannot hide explicit admitted
-descendants. TAINT groups can give several exact, chain or static answer shapes;
-retain all distinct full initials. Combine climb targets only after checking each
-raw binding. Source and sink proof scopes and support links remain distinct.
+FLOW geometry is existential per common-header raw group; only requested marks outside its mx can climb. Preserve
+normal ancestor E versus DEMAND behavior and explicit descendants below an excluded ancestor. Project the eligible
+action to `(full caller MethodKey, original singleton InitialAp, mark)` only after that test. TAINT can emit several
+exact, chain or actual-static-path answers for one mark. Caller/call/layer dimensions remain in N2 for summary and
+ND application; the emitter answer memo has none of them.
 
-The request cursor uses a positive quantum and checks cancellation. Bound group
-visits and mark scans, with a continuation for an unfinished group. A selected
-nonzero Work quantum also services one bounded request chunk while facts remain.
-This is a method barrier with a local progress opportunity. It does not wait for
-unit emptiness or global quiescence. It preserves completed logical closure, not
-the event trace, duplicate witness count or an incomplete prefix.
+The selected visitor is a finite OWNER-LOCAL CURRENT-VALUE VISIT. It may hold ordinary candidate handle dedup state,
+but it does not allocate a list of Facts snapshots or invoke callbacks that mutate the visited directory. Queue
+answers/climbs, including local ones, before the visit ends. Check cancellation per traversal/member and retain the
+existing positive-quantum request service opportunities BETWEEN visits. A whole directory replay has no fixed-quantum
+latency claim. Suspending within a visit would need a separate horizon/version proof; do not add COW history silently.
 
-A restricted analyzer has no request store or request events. An operation needing
-a concrete mark gives no concrete branch for an abstract input. The F75 cleaner
-still propagates the same-base abstract residual with the selected mark excluded.
-Preserving the needed concrete branch is the mode obligation in AP §6.6.
+Batch query deltas and outgoing marks. Registration/replay, question, answer and climb work reserve accounting
+before visibility, and reserve successor work before releasing the parent. Reentrant delivery enters later work;
+empty method queues cannot hide replay or yield false COMPLETE (§6.2). Retain no lifetime sent-pair product.
+
+Restricted analyzers have no questions or deferred answer memo. Input intersects fixed demand immediately; a
+concrete-only operation gives no concrete result on FLOW. F75 retains the same-base abstract residual with the
+selected mark excluded, without requests. AP §6.6's mode-coverage obligation remains open.
 
 ### 4.7 Sinks, vulnerabilities, seeds and source hits
 
 * A triggered sink adds its WITNESS under `(rule, method, statement)` in `VulnerabilityStore` (`ap.md` §8.10).
   The method has no context, so several contexts of one sink statement have one vulnerability key. Each witness
   retains its bound occurrence/proof scope, full method key, run and ordered sink-edge support headers.
-  Confirmation reads joint premise support in that method key (§7.5).
+  Optional confirmation reads certified joint premise support in that method key (§7.5). Unverified candidates,
+  including all-NORMAL mixed-caller ND witnesses, retain `confirmed=false` and report as DEMAND.
 * The store merges matched sink facts only within the same vulnerability key, occurrence/proof scope, method key,
   run and ordered premise/effective-layer/complete-fact-group shape. Different scopes or headers never merge.
   Structural proof equality does not suppress new matched-fact versions. Legacy/manual forms retain their
@@ -962,10 +960,12 @@ Each runner has one channel and one local priority queue, as today. The events:
 | Event | Goes to the channel of | Handler | `ap.md` | From today |
 |---|---|---|---|---|
 | `Start(root)` | the runner of `root` (sent by the driver) | `addRootZero` | §6.1 | the `MethodWithContext` start event |
-| `LinkIn(callee, link)` | the runner of `callee` | `addLink` | E1, E2 | `ExternalInputFact.InputFact` |
+| incoming added input | the runner of `callee` | direct initial emission, then release payload | E1, E2 | replaces retaining `LinkIn` payloads in a callee store |
 | `ZeroIn(callee)` | the runner of `callee` (backward) | `addZeroEntry` | §9.2 `zin` | `ExternalInputFact.InputZero` |
 | `MarkRequestsIn(method, premise, marks)` | the runner of `method` (the caller; run 1) | `addMarkRequests` | Set expansion of E5 | update the original abstraction with independent mark interests |
 | `Delivery(callee, publications)` | the SUBSCRIBED runner; the publisher's thread sends it | `SubscriptionManager.onDelivery` | E4 | `NewSummaryEdgeEvent` |
+| question delivery (run 1) | the subscribed caller runner | visit current N2 inputs with full query; enqueue answers/climbs | E5 | no callee input copy |
+| concrete answer delivery (run 1) | the callee emitter runner | emit the evaluated full initial; exact initial dedup | E3 | no supplier payload retained |
 | `Work(analyzer)` | the runner of the analyzer (its local queue) | `step` | | the `MethodAnalyzer` event |
 
 Removed:
@@ -979,12 +979,22 @@ Removed:
 Rules:
 
 * E-1. A handler sends events only through the channels, or by the direct calls that §6.1 permits.
-* E-2. Every link carries its caller reference `(caller method key, caller premise key, caller layer, call statement)`.
-  The callee needs it to climb a request (§4.6) and to compute the support (§7.5).
-* E-3. Duplicates are permitted. `links.add`, `requests.add`, `initials.add` and the subscription insert drop only an
-  equal item. `edges.add` also drops a conclusion that a stored conclusion subsumes (`ap.md` §8.1).
+* E-2. N2 retains the original caller reference `(full method key, premise key, caller layer, call statement)`
+  and independent input/link layer. Initial emission has no caller dimension. Eligible climbs carry the original
+  caller method/initial, not a reconstructed abstraction of the final bound value.
+* E-3. Duplicate arrivals are permitted. Interest, initial and N2 logical deduplication drop only equal obligations
+  under their full keys. Removing emitter admission can repeat matching work, not starts. `edges.add` keeps AP §8.1's
+  subsumption contract. No full callee input seen-set may be introduced to recover the removed gate.
 
 ### 5.2 The storage with subscription (callee side)
+
+QUESTION EXTENSION. In run 1 the storage also exposes one authoritative immutable question view, shared with the
+emitter. It contains full query identities/roles and requested marks, never input Facts or CallerRef groups.
+Publish a new view before reading subscribers; register the subscriber before it reads the current view. Use one
+linearizable publication/read boundary and reliable counted deliveries. A subscriber registering after a question
+must replay it; one registering before the question must receive replay or notification (duplicates are harmless).
+The summary protocol below retains its meaning. It is not already a proof of this new channel.
+
 
 One `SummaryStorage` per method key of the run (O2). It keeps the publications in a path trie keyed by
 `base :: premise path`, one entry per member of a premise set, and the list of the subscribed runners. An entry keeps
@@ -1016,6 +1026,26 @@ P3 asks for the lock on the read (Appendix A gives the defect of today). An impl
 immutable snapshot that the writer publishes with a volatile write.
 
 ### 5.3 The subscription manager (caller side)
+
+RUN-1 QUESTION REPLAY. The existing N2 input directory remains authoritative for return application and late
+question handling. Admit ORIGINAL input Facts and header before forming a fresh delta: exact-only TAINT deltas
+can have Empty E without changing the admitted key. A new subscription replays current questions, and a new
+question visits current subscriptions. The request visitor uses full-query prefix AND extension candidates and
+AP's complete request relation, not `matches` for summary satisfaction. It queues answer initials and projected
+climbs only after eligibility; full N2 refs remain distinct for ND application.
+
+The finite owner-local visit and cancellation contract is §4.6. It cannot hold historical supplier roots or snapshot
+lists to avoid handling reentry. Question/answer/replay events are part of completion accounting (§6.2). Existing
+P1–P6 apply to the surviving summary input relation; the question extension additionally requires the following:
+
+| ID | Required question condition |
+|---|---|
+| QP1 | Registration precedes replay; the current question view is inserted before notify. Their read/insert order is linearizable. |
+| QP2 | New questions/current inputs and standing questions/new input deltas jointly cover every admitted supplier/question action. A new caller origin is not hidden by emitter initial dedup. |
+| QP3 | Both paths use the same full query geometry/E/mx and answer relation. Keep catalog Pattern separate from its short initial slot. |
+| QP4 | Visit owner-local current values without mutating callbacks; queue effects. Resumable within-visit reads need their own snapshot/horizon proof. |
+| QP5 | Question/answer/climb work is reserved before visibility, including replay for registration. Release only after join; interrupted work does not certify a complete closure. |
+
 
 One `SubscriptionManager` per runner. Per callee, it keeps the subscriptions of the unit in a path trie keyed by
 `base :: added fact path` (`ap.md` §8.4).
@@ -1132,7 +1162,7 @@ candidate queries stay unchanged.
 
 The subscription insert deduplicates exactly. It never drops an accepted logical leaf because a stored leaf subsumes it.
 Reason: the run-1 test is not monotone in the added fact (a fact above `j` does not satisfy `j`). So a subsumed
-subscription can match a publication that the stored one does not match. The same holds for the links.
+subscription can match a publication that the stored one does not match. The same holds for the semantic supplier relation retained in N2; no emitter link store is implied.
 Cumulative storage is an exact leaf union inside one full admitted key; it does not use spatial subsumption
 or annotation folding to remove a subscription.
 
@@ -1203,8 +1233,8 @@ local rule has fired. Replay and notification can race; their union must cover
 every pair. Exact duplicate suppression can process a pair once.
 
 The constructive generic protocol proof and its encoding conditions are in
-[proof-status.md](proof-status.md). The current F72/F75 pipeline instance remains
-open; generic protocol completeness alone does not prove AP closure coverage.
+[proof-status.md](proof-status.md). The current F72/F75 pipeline instance and the added QP1–QP5 question channel remain
+open; generic summary protocol completeness alone does not prove AP closure coverage or emitter-store removal.
 
 ---
 
@@ -1219,8 +1249,9 @@ The loop of today stays: an unlimited channel, a local priority queue, a quantum
 * Two direct calls are permitted, as today:
   1. the analyzer calls `subscribe` of its own `SubscriptionManager`. The replay then calls `applySummary` and
      `applyRecord` of the SAME analyzer. These only add to its edge store and its worklist;
-  2. the analyzer calls `addLink` of a callee in the same unit (§4.5). `addLink` only changes the stores of the callee
-     and sends events. A recursive call calls `addLink` of the same analyzer, which is permitted for the same reason.
+  2. the analyzer may consume an added input in a callee of the same unit (§4.5). This performs initial/memo
+     admission and queues work/events; it does not retain a caller-separated supplier or run the callee to closure.
+     A recursive input to the same analyzer is permitted under the same ownership and no-mutating-visit rules.
 
   Every other interaction between two analyzers is an event.
 * The priority keys must not change while the event is in the queue. Today `EventComparator` reads `analyzerSteps` and
@@ -1261,9 +1292,11 @@ Local work is inside an event:
   answer. A request-only arrival reserves Work before its parent event releases its reservation.
 * W2. When the quantum ends and work is left, the runner puts the analyzer back into its local queue. The `Work`
   event stays counted.
-* W3. The `Work` event ends (Q2) only when the worklist is empty, pending publications are in the storage,
-  and request frontiers, continuations and outgoing batches are empty. Recheck after callbacks: an answer can
-  add facts while the same Work token is active. Then `queued = false`.
+* W3. When the method fact queue is empty, flush pending summary publications to the storage before servicing
+  deferred question work. A quantum yield may retain pending publications while the same Work token stays counted.
+  The Work event ends (Q2) only when the worklist, pending publications, local question work and outgoing batches
+  are empty. Recheck after callbacks/deliveries: an answer can add facts while that token is active. Then set
+  `queued = false`. Count cross-runner question/replay/answer events independently before visibility.
 
 THEOREM (`Pipeline.Quiesce.creach_inv`, `cnt_zero_iff`, `done_iff`, `done_final`). With Q1 to Q3, the counter equals
 the number of events in the channels and the local queues plus the number of running handlers. So it is zero exactly
@@ -1382,8 +1415,8 @@ class IterationDriver(private val policy: IterationPolicy, private val shared: S
                         frontiers: MutableList<Frontier>): Next {
         val forward = config.direction == Direction.FORWARD
         if (forward) {
-            confirm(result)                                           // §7.5 steps 1, 2: the support, the witnesses
-            report.add(config, result)                                // §7.5 step 3
+            validateIfConfigured(result)                               // §7.5: absent evidence leaves confirmed=false
+            report.add(config, result)                                // §7.5: unverified candidates are DEMAND
         }
         shared.records.persist(config, result)                        // ap.md §8.7 R1: eligible raw normal singleton summaries
         val handOff = handOffOf(config, result, report)               // §7.3, §7.4: the demand edges and the seeds
@@ -1392,7 +1425,7 @@ class IterationDriver(private val policy: IterationPolicy, private val shared: S
         logger.info { frontier.toString() }                           // THE FRONTIER LOG (§7.8), every complete run
         if (forward && !report.hasDemandVulnerability())              // no DEMAND vulnerability, so no seed
             return Next.End(RunStatus.COMPLETE, EndReason.STOP_RULE)
-        if (forward && result.demandLayerEdges == 0L)                 // no demand-layer edge, summary or link (argued)
+        if (forward && result.demandLayerEdges == 0L)                 // includes incoming DEMAND contribution counters; no stored links
             return Next.End(RunStatus.COMPLETE, EndReason.NO_DEMAND_EDGE)
         if (forward && !policy.continueAfter(config, result, frontiers))
             return Next.End(RunStatus.COMPLETE, EndReason.POLICY)
@@ -1422,13 +1455,10 @@ class IterationDriver(private val policy: IterationPolicy, private val shared: S
      vulnerability is confirmed at this stop. The full F77 contract and the
      claim that later runs repeat only zero work and records remain open (§7.7).
   2. `NO_DEMAND_EDGE` (the user's rule, `task.md`): the run has NO DEMAND-LAYER OBJECT: no demand-layer edge delta,
-     no demand-layer summary delta and no DEMAND LINK (a link whose added fact is in the demand layer, `ap.md` §8.3)
-     (`RunResult.demandLayerEdges == 0`, the `counters` of §4.1). Then every sink witness and every link of the run is
-     normal, so each sink witness satisfies conditions 1 and 2 of `ap.md` §4.9 and the condition on the layer of the
-     link, and a DEMAND entry fails only the JOINT support of a premise set with several members (a conjunction,
-     `ap.md` §4.6): no one call supplies all its members. That a later forward run cannot supply them at one call
-     either is ARGUED, not proved, and it is an open question (§7.1 `NO_DEMAND_EDGE`). Keeping every real vulnerability in the
-     report requires AP §6.6's no-loss contract (§7.7);
+     no demand-layer summary delta and no admitted DEMAND input contribution (`ap.md` §8.3), under the
+     counter definition of §4.1. No retained input table is required. An unverified candidate can remain DEMAND
+     even when all its observed edges are normal. This stop does not validate same-call support, an ND guard, or a
+     trace. Keep the candidate in the output. Full later-refinement/no-loss claims remain open (§7.7);
   3. `POLICY`: `continueAfter(config, result, frontiers)` gave false (a practical stop strategy that reads the
      frontier log, §7.8; out of scope).
 
@@ -1454,7 +1484,7 @@ class IterationDriver(private val policy: IterationPolicy, private val shared: S
   `direction` are those of the last run. The reasons:
   * `STOP_RULE`: a complete forward run with no DEMAND vulnerability; `status` is `COMPLETE`;
   * `NO_DEMAND_EDGE`: a complete forward run with a DEMAND vulnerability and no demand-layer object (edge delta,
-    summary delta, link); `status` is `COMPLETE`;
+    summary delta, incoming input contribution); `status` is `COMPLETE`;
   * `POLICY`: `continueAfter` gave false after a complete forward run; `status` is `COMPLETE`;
   * `ABNORMAL`: an incomplete run (`status` is its status: `TIMEOUT`, `OOM` or `FAILED`), a throw in the guarded
     region of the driver (`status` is `FAILED`), or a hit of the memory guard of the barrier (`status` is `OOM`).
@@ -1519,58 +1549,61 @@ no separate static input between runs.
 
 ### 7.5 Confirmation and the report
 
-After each complete forward run, at its barrier:
+After each COMPLETE forward run, commit its reached witnesses atomically to the report. A local ND sink can
+combine emitted initials from different callers; keep its scoped proof, complete premise members, layers,
+matched fact headers. Preserve source-hit and hand-off seed identities separately; SinkWitness has no
+witness-to-source-hit map. Such an unverified witness has `confirmed=false` and state DEMAND,
+even if every edge is NORMAL. Caller-free initial admission is not a support certificate.
 
-1. Compute supported premise sets as the least fixed point of AP §4.9 condition
-   3 over the run's links, per method key. Start with each root's `{zero}`. One
-   call must supply the whole set through normal caller edges with supported
-   premise sets. Read the added tails, marks, and exclusions for must support.
-2. Test each sink witness for NORMAL edges (AP §4.9 condition 1) and joint support (condition 3).
-   Support includes member admissibility (condition 2), so there is no repeated member test. A conjunctive edge set
-   is tested jointly. A FLOW premise cannot confirm a sink.
-3. Update the vulnerability store and report atomically (AP §8.10).
+This iteration need not implement a concrete trace engine. Its Simple output is explicitly candidate output.
+Deleting the callee input history must remove the old unconditional `Support` scan. Do not set `confirmed=true`
+merely to retain the former number of confirmed findings or to make a stop rule fire.
 
-The support can change until quiescence, so compute it only at this barrier.
-No support cache from an incomplete run is used. A key is confirmed if any witness
-in any context/alternative is confirmed. Confirmation is final.
+If exact analysis confirmation is selected, query the EXISTING joined N2 input relation before subscription
+release. Establish AP §4.9's admissible members, NORMAL sink edges and least same-call support from root zero.
+Every member must be supplied at one caller/call scope by normal inputs with supported caller premises. Preserve
+must E and independent caller/input layers. Use targeted borrowed reads, not another global supplier collection.
+If the certificate is not available, retain the DEMAND candidate. Historical confirmation theorems cover only
+their explicit support hypotheses, not validation-free emission.
 
-The report keeps all previously confirmed keys and every other key reported by
-the latest complete forward run as DEMAND. An older unconfirmed key absent from
-that run leaves the report. Output every report entry with its simple trace.
-No-loss refutation depends on the mode/iteration contract in AP §6.6, whose full
-current proof is open; the report mechanics alone do not establish it.
+END-GEN LIMIT. A mixed local `x:T AND y:U` sink can generate `Return:V` under zero; a caller's full-ND return check
+cannot reject a zero-premise generated summary. Preserve that zero-GEN semantics. Its derived candidate also
+needs later validation of the generating guard at one caller, or an explicit derivation obligation. Normal zero
+alone does not discharge it. No trace filtering is claimed to have happened now.
 
-An incomplete forward or backward run adds no evidence and refutes nothing.
-Keep the report from earlier complete forward runs and set `Report.end` to the
-cause. If run 1 is incomplete, the report and output are empty. A memory-guard
-abort is OOM; any `Throwable` is FAILED. Cancellation always has a known cause
-set before cancel (§6.3).
+A validated key is final and CONFIRMED if any witness has the required certificate. Every other key from the
+latest complete forward run is DEMAND. An older unconfirmed key absent from that run leaves the report. Output
+every report entry with its state and Simple trace. Mechanically removing an older candidate is not a theorem
+that every concrete flow was refuted; current no-loss/mode/iteration proof obligations remain open.
+
+An incomplete run adds no evidence and refutes nothing. Keep earlier complete forward report state and set
+`Report.end` to the cause. If run 1 is incomplete, the report/output are empty. Memory-guard abort is OOM; any
+`Throwable` is FAILED. Cancellation has a known cause set before cancel (§6.3).
 
 ### 7.6 What stays after a run
 
 | Data | Stays until | Read by |
 |---|---|---|
-| the run summary stores of a run (the summaries before the restriction and the stored demand edges, §4.1, §4.6) and the `sourceHits` of a backward run | its hand-off is computed (the end of its barrier) | §7.3, §7.4 (the demand edges, the source hits); `persist` (the summaries, `ap.md` §8.7 R1) |
-| the `counters` of every analyzer of a run (§4.1) | its frontier is logged (the end of its barrier) | §7.1 (`NO_DEMAND_EDGE`), §7.8 |
-| the frontier of a run (counts and method keys, no edge) | the end of the analysis | §7.8; `continueAfter` |
-| the links of a forward run | its confirmation is computed | §7.5 |
-| the edge stores, the initial fact stores, and the links of a backward run | the end of the run | — (the barrier never reads them) |
-| `SummaryStorage`, `SubscriptionManager`, the runners, the backward analyzers | the end of the run, or its hand-off | — |
-| `RecordStore`, `VulnerabilityStore`, `MethodContextCache`, `ApManager` | the end of the analysis | every run |
+| raw summaries, selected demand publications and backward source hits | end of the barrier | persist, hand-off and frontier (§§7.3–7.4) |
+| run counters | frontier is logged | stop rules and frontier |
+| N2 subscriptions | joined end of run; optional exact support may extend release through its targeted barrier read | summary/record matching, run-1 question replay, optional support |
+| active question view, deferred answer memo and pending query work | all accepted work joins, then release | run-1 emitter and N2 question channel only |
+| method edges and initial deduplication | joined end of run | no barrier consumer after counters are captured |
+| frontier counts/method keys | end of the analysis | policy |
+| RecordStore, VulnerabilityStore, method context and AP managers | end of analysis | subsequent runs and report |
 
-THE BARRIER READS ONLY: the links of a forward run (the support), the summaries before the restriction (`persist`),
-the stored demand edges (the hand-off, §4.6), the `sourceHits` of a backward run (the hand-off), the `counters` (the
-stop rule `NO_DEMAND_EDGE`, the frontier), the `VulnerabilityStore` and the report (the confirmation,
-the report, the stop rule `STOP_RULE`, the sink seeds of the DEMAND vulnerabilities) and the forms of the
-`MethodContextCache` (the seed patterns). So the `RunManager` keeps of a complete run only what the barrier reads: at
-the end of the run it drops the edge stores, the initial fact stores and the links of a backward run. Before it drops
-an initial fact store, it sets the `counters` that the frontier reads (a non-zero initial fact exists or not). The
-barrier holds the stores that it reads under its own memory guard (§7.2 B4). The driver keeps the result of a run
-only in the frame of its barrier (`runOnce`, §7.1), so no live slot keeps it during the next run.
-Every other object of a run is garbage after the run: the edge stores too. No store of a run stays for a trace resolver
-(the trace resolution is out of scope, §9). An incomplete run keeps no store after it ends (§7.5). The engine of a run
-is never used again (§2), so no state of one run can leak into the next run. This removes the leaks of today's reuse
-(Appendix A).
+No callee added-fact history exists in any run. A semantic admitted-input relation in an equation is ghost state,
+not a runtime owner. The unresolved-call observer uses a minimal observation-identity memo with checked callback
+timing/rebuild semantics; it retains no Facts, supplier roots or CallerRefs.
+
+The barrier reads only retained summaries, demand edges, source hits, counters, vulnerabilities/report and seed
+form descriptors. Optional exact confirmation additionally borrows joined N2 before its release. A subscription
+already frozen/released is not readable. Complete the support read before dropping its data; cancellation cannot
+publish a partial certificate. The barrier has its memory guard (§7.2).
+
+The driver retains a RunResult only in the barrier frame. All request/policy state and caller input relations are
+released before the next run. No store survives for a future trace resolver; later trace work needs a separate
+explicit evidence/lifetime design. An incomplete run releases its state and adds no report evidence.
 
 ### 7.7 The driver theorems
 
@@ -1671,7 +1704,8 @@ integration, confirmation support, localization, and the pipeline/driver instanc
 remain open. F75 repairs the checked root-EXACT loss; the old root example is not
 an unresolved behavior decision.
 
-The runner retains exact subscriptions and links. Tree publications must denote
+The runner retains exact N2 subscriptions; the emitter retains no links. Question replay must satisfy QP1–QP5.
+Tree publications must denote
 the union of their path deltas. Every implementation shortcut must preserve the
 event joins, raw-summary persistence and crossing tests, barriers, and per-leaf AP operations. A
 generic quiescence theorem or historical tree proof is insufficient to establish

@@ -13,6 +13,11 @@ summary demand selection. [ap-history.md](ap-history.md) records the decisions.
 proofs and open obligations. Local proof results do not establish the full current
 iteration. A Lean name is evidence; the rules and their conditions are stated here.
 
+The selected added-fact-removal contract is specified here and in
+[the redesign](../docs/design/bidirectional-added-facts-removal-20261015.md). It is a target contract, not a claim
+that measured core `85a7c0e367d9a2dc6360b03c2feb5e07b1583b66` implements it. The emitter retains no
+`AddedFactStore`; the existing caller N2 subscription input relation remains.
+
 Language: ASD-STE100 Simplified Technical English.
 
 ---
@@ -80,6 +85,19 @@ Managed form reclamation must change only allocation addresses and build counts.
 keys and callback pins preserve effects. Actor support records and persistent witnesses retain owned descriptors,
 not compiled graphs or form caches. See `interpreter.md` §0.2 and `analyzer-core.md` §4.8 for the owner lifetimes.
 
+### 0.3 Input history and runtime storage
+
+Equations and historical closure rules can quantify over all admitted inputs and their caller links. This is a
+SEMANTIC HISTORY (ghost state), not a required callee runtime store. The runtime keeps actual bound inputs with
+full caller provenance only in the existing caller-side N2 relation (§8.4). The callee consumes each input for
+initial emission and discards that transport payload. Its run-1 state is the shared static profile, active
+questions, packed query-specific deferred concrete answers, and bounded in-flight work (§§6.2,8.8).
+
+Preserve the AP relation, full source/sink NNF support, F75, D23, cleaner order, hand-offs and positive limits.
+Removing storage does not permit replacing a raw supplier by its abstract policy initial before eligibility.
+Normal-layer candidates are not automatically CONFIRMED. Section 4.9 defines the validation boundary and the
+zero-GEN end-action caveat; historical exact-confirmation theorems keep their original hypotheses.
+
 ## 1. Terms
 
 | Term | Meaning |
@@ -105,10 +123,10 @@ not compiled graphs or form caches. See `interpreter.md` §0.2 and `analyzer-cor
 | record; must record; read view | A persisted normal single-premise raw summary (§8.7); a record whose premise is a must-premise; a transient premise pattern and conclusion used to read one record leaf from the other direction. A read view is not persisted or started as an initial fact. |
 | summary selected for demand; demand edge (hand-off) | A published piece selected by §8.5 for next-run demand construction. Selection does not change its layer: a normal multi-premise summary remains normal. It gives the next run a pattern per premise member (§9.2). Other native normal singleton summaries supply records only. Lean's `DemandEdge` names a demand pattern. |
 | caller fact; bound fact; added fact | A caller edge's conclusion; its value after binding into callee coordinates; its value after call cleaners. Callee summaries apply to added facts. |
-| link | An added fact paired with its caller edge. |
+| link | A semantic added input paired with its caller edge and independent added-input layer. N2 retains that relation; emission does not retain a second copy. |
 | summary rewriter | A call-rule override that cleans selected marks/positions on summary and unresolved results. It is not a summary edge. |
 | abstraction; policy | Selection of initial facts from added facts; specifically the run-1 selection in §6.2. Interpreter mark policy is a different filter rule. |
-| request; chain answer | A run-1 mark or static-position request. A mark answer uses the requesting premise's base/path, the request chain (§4.5). |
+| request; question; chain answer | A run-1 mark interest on an original abstract initial, with its full query geometry when different. A chain answer uses that initial's base/path (§4.5). Position requests occur only in the historical scalar reference (§4.10). |
 | static position | A statement-read or sink path on `S` cut to class and field (S12). |
 | standing | A request, subscription, or conjunction fact remains active and matches later events until its run ends. |
 | run; restricted run | A pass with one direction and field limit. Every run after run 1 is restricted to demand; it can use abstract facts and has no request rules. |
@@ -119,7 +137,7 @@ not compiled graphs or form caches. See `interpreter.md` §0.2 and `analyzer-cor
 | concrete flow; witness; real | A chain of §3.5 steps; a root-zero-to-sink chain through calls; present in that reference semantics. |
 | demanded/recorded witness | Each returning call has one pattern covering entry and exit with marks, or a permitted record/read view preserving the required pair. Each downward entry is demanded. F72 adds the mode conditions of §6.6. |
 | vulnerability; sink condition/proof; sink witness | A `(rule,method,statement)` key; a stable bound positive condition and one observed proof in that scope (legacy/manual forms can use a numbered alternative); the reached sink edge/set with its proof, method key and run. A sink witness is distinct from a concrete witness. |
-| support | One call supplies every member of a premise set through normal edges whose own premise sets are supported, down from root zero (§4.9). It is a property of the whole set. |
+| support; candidate | Support is the semantic same-call predicate of §4.9 over full N2 supplier provenance. A reached sink witness is a candidate until the chosen validation establishes confirmation; emitting its initials is not support evidence. |
 | DEMAND entry | Reported by the latest complete forward run and never confirmed so far. Confirmation is final, even if a later run only has a demand witness. |
 | frontier | Method keys with nonzero initial facts and their outgoing demand edges. The driver logs these and record/seed/work counts. Full current narrowing is open (§6.6). |
 | ND edge; taint edge | An edge with at least two nonzero premises; a source edge with `[any-taint]` target (S15). |
@@ -143,7 +161,7 @@ NOTATION. `ap.md` and `interpreter.md` use these forms. The interpreter-only for
 | `S`, `zero`, `ret`, `this`, `argi` or `arg(i)` | The static base, the zero base, the return value, the receiver, the argument `i`. |
 | `{x, y}` | The touched bases of a statement. |
 | `*∖X` | The abstract mark except the marks of the set `X` (§2.2). |
-| `(m, i, T)`, `(m, i, p)` | A mark request for the mark `T`, and a position request for the path `p`, on the premise `i` in the method `m` (§4.5, §4.10). |
+| `(m, i, T)`; `(m, i, p)` | A current mark request on original initial `i`; a historical scalar position request (not runtime transport), respectively (§4.5, §4.10). A catalog query also keeps its full Pattern and operation role. |
 | §4.2; `interpreter.md` §2.1 | A section of this spec; a section of `interpreter.md`. A list of sections after `interpreter.md` (for example `interpreter.md` §4.4, §4.7) is a list of sections of `interpreter.md`. |
 
 ---
@@ -183,8 +201,8 @@ are not the zero fact (§4.6).
   conclusion location only if its mark is not in `X`. It belongs to the edge, as the exclusion does; a cleaner makes it
   (§4.7). A premise never has one.
 * The policy facts and the chain answers of run 1 have the Empty exclusion (`Reverse.policy_premEmpty`,
-  `Reverse.answerInit_premEmpty`). A position answer `(S, p, *, {}, *)` has the Empty exclusion by its definition
-  (§4.10 item 2). The mark answer on a static premise is the added fact itself (§4.10 item 4). It has a concrete
+  `Reverse.answerInit_premEmpty`). A catalog structural initial `(S, p, *, {}, *)` has the Empty exclusion by its definition
+  (§4.10; the historical scalar answer is item 2 there). The mark answer on a static premise is the added fact itself (§4.10 item 4). It has a concrete
   mark, so by W2 it has the `$` or the `[any]` tail and the Empty exclusion (an `[any-taint]/E` added fact gives the
   `[any]` answer, with no exclusion: W8 (c)). (The Lean theorems above do not cover these two static answers; the
   statements follow from their definitions.) In a restricted run an emitted fact can have the exclusion of the demand.
@@ -634,8 +652,9 @@ these conditions are true:
 3. The premise `from` of the micro edge is on `S`, in the case `above r` (`from.path = q ++ r`, `r ≠ []`).
 4. `Ec` admits `r`.
 
-Then the result is no fact and no mark request. The step raises the position request `(m, i, p')`, where `p'` is
-`from.path` cut to at most two accessors. A restricted run, a call binding and a summary edge have no exception. A
+Then the result is no fact and no mark request. The installed static profile supplies the class/field refinements
+of §4.10; the runtime emits no Position request and no wide DEMAND fallback in this branch. The historical scalar
+reference raises `(m, i, p')` with `from.path` cut to two accessors. A restricted run, a call binding and a summary edge have no exception. A
 statement micro edge at a call (a source of the rule statement of the call, a pass rule of an unresolved callee, the
 `RemoveAllMarks` kill on `S`) acts on the bound fact or on the added fact. Its edge is then the caller edge, so `m` is
 the caller (§5.3 steps 3 and 4).
@@ -798,6 +817,7 @@ private fun above(c: Conclusion, edge: PathEdge, r: List<Accessor>): Shape? {
     }
 }
 
+// Historical scalar-oracle vocabulary; PositionRequest has no current runtime output/event counterpart.
 sealed interface EdgeOutcome {
     data object None : EdgeOutcome
     data class Fact(val conclusion: Conclusion) : EdgeOutcome
@@ -891,8 +911,8 @@ The statement transfer of one conclusion `c` of the edge `(i, layer) → c` in t
 3. Apply the operand type filters of `c.base` (§4.8; `interpreter.md` §2.1 step 3). A rejected fact is dropped.
 4. Apply `concat(c, e)` (§4.1) for every micro edge `e` of the statement that is not conjunctive. The result is the
    union of the outcomes. A `Fact` outcome is a result fact. A `Request` outcome gives no fact; it raises the request
-   `(m, i, T)` (run 1, §4.5). A `PositionRequest` outcome gives no fact; it raises the position request `(m, i, p)`
-   (run 1, §4.10). A touched base keeps only what an edge gives again. That is the KILL.
+   `(m, i, T)` (run 1, §4.5). The static exception gives no fact and uses the installed profile (§4.10).
+   `PositionRequest` is only a historical scalar-oracle outcome. A touched base keeps only what an edge gives again. That is the KILL.
 5. Apply the lhs type filter to the results on the lhs (§4.8; `interpreter.md` §2.1 step 5).
 6. Apply the field limit to each result (§4.4).
 
@@ -903,7 +923,8 @@ The special cases of the transfer:
 * RUN 1 ON THE STATIC BASE (the rule is §4.10 item 1; the test is §4.1, static exception). Run 1 only, statement micro
   edges only: when the edge of `c` is an identity static `*` edge at the root `[]` or at a class `[<C>]`, a micro edge
   whose premise path `p` lies strictly below `c` (the exclusion of `c` admits the rest) gives no fact and no mark
-  request; it raises the position request for `p` cut to at most two accessors. Below a static field the ordinary rules
+  request; the installed profile supplies structural refinements without Position transport. The historical scalar
+  reference raises a position request for `p` cut to two accessors. Below a static field the ordinary rules
   apply. The kill stays: the touched bases keep only what the other micro edges give. See the last two rows of the
   table below.
 * THE ZERO FACT. A statement that does not touch the zero base passes the zero fact unchanged (step 2). A statement
@@ -943,8 +964,8 @@ row (`Statics.gen_read_DS`, `gen_read_sreq`); the write row follows from §4.10 
 | `a.f = b` | `(b, .g, *, E, *)` | `(a, .f.g, *, E, *)`; under `L = 1`: `(a, .f, [any], {}, *)` | normal; under the cut: demand |
 | `a.f = b` | `(a, .f, *, E, *)` | nothing (strong update) | |
 | `a.f = b` | `(a, ., *, E, *)` | `(a, ., *, E ∪ {f}, *)`, no request | normal |
-| `x = C.s` (run 1) | the identity static `*` edge to `(S, ., *, E, *)`, `<C> ∉ E` | `(S, ., *, E, *)`; nothing for `x`; the position request `[<C>, s]` | normal |
-| `C.s = x` (run 1) | the identity static `*` edge to `(S, ., *, E, *)`, `<C> ∉ E` | `(S, ., *, E ∪ {<C>}, *)`; the class keep edge gives the position request `[<C>]` | normal |
+| `x = C.s` (run 1) | the identity static `*` edge to `(S, ., *, E, *)`, `<C> ∉ E` | `(S, ., *, E, *)`; nothing for `x`; catalog slot `[<C>, s]` observes actual suppliers (§4.10) | normal |
+| `C.s = x` (run 1) | the identity static `*` edge to `(S, ., *, E, *)`, `<C> ∉ E` | `(S, ., *, E ∪ {<C>}, *)`; the class keep branch gives no result; catalog slot `[<C>]` supplies refinements | normal |
 
 The premise of the edge does not change in any case. Only its layer can change, from normal to demand. (`Cases.lean`
 checks the fifth row with the mark `*`, which no `$` fact of the AP has, §7.2; with a concrete mark the result is the
@@ -1042,7 +1063,7 @@ The special cases of the summary application:
 * THE BACKWARD RUN. The zero-premise summary of a callee applies to the zero fact of each caller with no restriction
   and no satisfaction test (§9.2, the balanced return).
 * STATICS. A static initial fact is an ordinary premise: run 1 applies its summaries by `applicable`. An added fact
-  above a static initial fact does not read its summaries; the position request (§4.10) makes the precise initial fact
+  above a static initial fact does not read its summaries; the catalog supplier rule (§4.10) makes the precise initial fact
   instead.
 * FIELD LIMIT. The caller applies it after the binding back (§5.3 step 5, §4.4).
 
@@ -1118,13 +1139,16 @@ F75 bypasses the ordinary unchanged-static exception. A shared installed cleaner
 but it must retain this base-wide interest and its current/future supplier processing.
 
 A request is always on a premise with an abstract mark (`Coverage.req_initial_star`). In run 1 the policy (§6.2) and
-the position answers (§4.10 item 2) make such premises. So a request premise of run 1 is a policy fact
-`(x, [], *, {}, *)` or a static position answer `(S, p, *, {}, *)`.
+the structural catalog emissions (§4.10) make such premises. So a request premise of run 1 is a policy fact
+`(x, [], *, {}, *)` or a static structural initial `(S, p, *, {}, *)`.
 
-A request STANDS for the whole run. The callee `m` checks it against every LINK (added fact `a`, caller edge) of its
-added fact store (§8.3) where `a` overlaps `i` (§3.2). It checks the links that exist when the request arrives, and
-every link that arrives later. A new caller edge of an existing added fact is a new link too (§5.3, events E2 and E5).
-For each link:
+A request STANDS for the whole run. Its logical meaning is a join with every eligible admitted input, including
+inputs that preceded the request and inputs from later caller origins. This does not require a callee input
+history. Existing N2 subscriptions retain the actual inputs and full caller references (§8.4); two-sided query
+replay evaluates old inputs/new questions and old questions/new inputs (§5.3 E2/E5, §8.8). Use prefixes AND
+extensions around the full query path, deduplicate candidate handles, then perform the complete geometry test.
+A catalog question keeps its original initial slot AND full literal path, tail, query E and role. The slot alone
+is not the query. For each eligible semantic link:
 
 * If `a.mark = T`: ANSWER. Emit the initial fact `answer(i, a, T)`, the CHAIN ANSWER. It has the base and the path
   of the request premise `i` (the REQUEST CHAIN):
@@ -1181,8 +1205,8 @@ restricted run was concrete, so no request rule could fire: `RCov.no_reqR`, `REx
 (the emission `emitM` that copies the mark); the implementation asserted the absence of a request. F72 replaces this
 reason (decision F35; `ap-history.md` F35, F72).
 
-A position request (§4.10) works in the same way: it stands, it uses the request store (§8.8), and the events E2 and
-E7 of §5.3 check it per link. Its answer and its climb are §4.10 items 2 and 3.
+Position-request rules in §4.10 items 1–3 are historical scalar-reference rules only. Runtime profiles replace
+that transport. The current question/answer state is §8.8; it is not the old request/path index or an added-fact store.
 
 ### 4.6 Mark conjunction: ND edges
 
@@ -1211,9 +1235,8 @@ alternative has two or more positive literals is a conjunctive micro edge of the
   §4.2) are two conjunctive micro edges, and they never share an entry, also not for an equal literal pattern.
 * If the mark gate gives the request `Tj` (a fact with the mark `*`, or `*∖X` with `Tj ∉ X`), the store keeps nothing
   and raises the request (run 1, §4.5; Lean: rule `reqConj`). In a restricted run the store keeps nothing and raises
-  no request (F72, §4.5; before F72 every fact was concrete, so this never occurred). A literal has no static
-  exception: on the static base it uses the mark request (§4.10 covers
-  only the statement micro edges and the sinks).
+  no request (F72, §4.5; before F72 every fact was concrete, so this never occurred). An ordinary literal uses
+  the mark-request rule with the installed-catalog unchanged-static gate of §4.5. It never raises Position transport.
 * When a fact arrives, the store combines it with the stored facts of the other literals: one fact per literal, every
   combination. The result `z.π.t(T)` has the UNION of the premise sets WITHOUT THE ZERO FACT; if every input has the
   premise set `{zero}`, the result has `{zero}`. The zero fact adds no condition: it is at every node that an edge
@@ -1308,7 +1331,7 @@ PRIMITIVE DISPATCH (F75). Apply the first matching case in the current AP coordi
 1. If `c.base ≠ cleaner.base`, keep `c`.
 2. If the cleaner selects T and `c.mark` is `*` or `*∖X`, give the same fact with mark `*∖(X ∪ {T})`, before any
    path or reach test. Preserve its path, tail, field exclusion and layer. Run 1 also requests T on the incoming
-   edge's premise, including when T is already in X. The request stands in the request store (§4.5); repeated
+   edge's premise, including when T is already in X. The interest remains active in the question view (§4.5, §8.8); repeated
    requests have the same key. A restricted run, forward or backward, raises no request.
 3. Otherwise apply the spatial table below: concrete-mark facts and all-marks cleaners use it.
 
@@ -1481,13 +1504,30 @@ END FACTS. A sink rule can have end-fact actions (`interpreter.md` §4.1, END FA
 zero-to-fact edge `Zero → (sink statement, P.$ (T))` (`P.[any-taint] (T)` for an `AnyField` position, `interpreter.md` I14). It takes no input fact: when a sink edge triggers, or when a
 conjunctive sink completes a combination, it applies to the zero fact in the layer of that sink edge or of that
 combination (§2.2). Its premise set is `{zero}`, whatever the premise set of the sink edge: an end fact is
-context-insensitive (§11.1).
+context-insensitive (§11.1). In particular, caller A can supply only x:T and caller B only y:U; a mixed local
+`x:T AND y:U` candidate can then generate `Return:V` under zero. Caller-side full-ND matching does not reject
+that zero-premise result. Preserve this specified zero-GEN operation. Its derived candidate is unverified too;
+a later validator must check the original guard at one concrete caller or discharge an explicit derivation
+obligation. A normal zero premise alone is not that evidence.
 
 THE BACKWARD RUN has no sink check. Its sink rule is the seed (§9.2). An end fact exists only after its sink
 triggers, so the reversed end-fact edge of a sink alternative also fires the sink seeds of that alternative (§9.2, THE
 TRIGGER OF AN END FACT).
 
-A sink witness (§1) is CONFIRMED exactly when both checks pass:
+CANDIDATES AND VALIDATION. Emission is caller-free. A local ND condition may complete from members supplied by
+different callers; retain that sink witness as an unverified candidate. Its `confirmed` flag remains false and
+its report state is DEMAND (§8.10), also when all of its edges are NORMAL. Caller-side ND summary application
+still checks the complete premise set at one caller/call scope (§4.3, §5.3 E6). That check does not validate a local
+sink or an end-GEN derivation. No concrete trace engine is required by this iteration, and Simple output is not
+trace validation. Removing the emitter history must explicitly remove its old Support traversal.
+
+An optional validation can retain exact analysis confirmation by reading joined N2 inputs before their release;
+it must not reconstruct a second callee supplier store. It checks NORMAL edges and joint support below, and must
+not certify a mixed-caller ND generation without its guard. If such evidence is unavailable, leave the candidate
+unconfirmed. The following support predicate is semantic: its quantification over input links is ghost history,
+not a runtime storage requirement. Historical confirmation theorems assume this predicate, not candidate emission.
+
+The NORMAL-edge and JOINT-support checks for an exact-support certificate are:
 
 * NORMAL EDGES (condition 1). Every sink edge of the witness is normal. The test reads the layer only, including
   `[any-taint]/E` facts (Lean: `AnyTaintEx.Confirmed6X`, `ConfirmedX`; round 1 `AnyTaint.ConfirmedT6`,
@@ -1530,17 +1570,19 @@ must meet at one call (`NDConfirmed.CexSites.cex_sites`).
 
 A conjunctive sink is a conjunction to a fresh target with a sink on it: it is confirmed if every sink edge of its set
 is normal and the UNION of their premise sets (without the zero fact, §4.6; `{zero}` if every edge has `{zero}`)
-is supported jointly (condition 3). A conjunction is the expected
+is supported jointly (condition 3), if that certificate is established. An unverified local combination stays a
+DEMAND candidate. In the historical exact-support semantics, a conjunction is the expected
 over-approximation of a path-insensitive engine (§4.6), so a vulnerability through a normal conjunction result can be
 confirmed: it is real for the path-insensitive support semantics `ND.TaintN` (`NDConfirmed.confirmed_real_N`,
 `confirmed_real_N_valid`; for a program without conjunctions the rule is the one of `Confirmed.confirmed_real`,
 `NDConfirmed.confirmedN_iff`).
 
-The analyzer computes the support and the confirmation only for a COMPLETE run (§1), at its fixed point (S6), after
+If exact support is selected, the analyzer computes its certificate only for a COMPLETE run (§1), at its fixed point (S6), after
 the last event: condition 3 is a least fixed point over the caller edges, and it can change until the run ends. An
 incomplete run confirms nothing (§8.10).
 
-A vulnerability (§1) is confirmed in a run if one of its sink witnesses of that run is confirmed; otherwise it is a
+The examples and theorem names below describe the exact-support reference, not confirmation by the new caller-free
+emitter. A vulnerability (§1) is confirmed in a run only if one of its witnesses has the required certificate; otherwise it is a
 demand vulnerability of that run (§1). Its state in the report is DEMAND (a DEMAND vulnerability, §1) if no complete
 forward run confirmed it so far (§8.10). A result of an `[any]`-target source is `[any-taint]` (W8), so a
 vulnerability whose taint comes from such a source CAN be confirmed. In run 1: when the sink reads the tainted object
@@ -1591,7 +1633,19 @@ exclusion: both are argued, §11.2). The sink edge can be `[any-taint]/E`: the s
 location of it (`AnyTaintEx.checkX`), and a supported must-premise has all its admitted locations entry-reachable
 (`AnyTaintExExact.sup_entryX`).
 
-### 4.10 Statics in run 1: the position request
+### 4.10 Statics in run 1: catalogs and the historical scalar reference
+
+CURRENT CONTRACT. Static profiles come from the joined prescan and its existing complete resolved call graph.
+Run 1 always emits the abstract STATIC root; structural slots and mark answers are additive (§6.2).
+There is no Position event, output, runtime request store, or caller-separated callee supplier store. Current
+mark interests query actual N2 inputs with their full geometry/E/mx before answer construction or caller projection.
+The catalog-enabled rules after the historical block below define structural and marked emission.
+
+HISTORICAL SCALAR REFERENCE. The next definition and numbered items 1–4 retain the old Position model for AP
+oracles and historical Lean results. They do not require runtime Position transport, a request path index, or a
+retained callee input history. Item 4's marked-answer relation is still the current answer relation; its supplier
+is now obtained through N2 or a query-specific evaluated answer memo.
+
 
 The static base `S` holds every static field at the path `[<C>, f]`: the class accessor `<C>` (not counted by the field
 limit) and the field `f`. A Go global `G` is at the path `[<G>]`. A rule can also put a concrete mark on a class
@@ -1677,15 +1731,15 @@ Declared static mark interests retain their full literal paths/tails and operati
 base-wide and separate. Install both independently of structural-initial activation; a static root check can need
 a field's mark before that field initial exists. Catalogs do not create a position-by-mark Cartesian product.
 Keep every eligible abstract initial. Precomputed or dynamic interest adds separate concrete answers supplied by
-actual raw links. At/below a STATIC mark-request chain, use the actual full raw path and its tail: EXACT starts in
+actual N2 inputs. At/below a STATIC mark-request chain, use the actual full raw path and its tail: EXACT starts in
 NORMAL; ANY starts in DEMAND; ANY_TAINT becomes ANY/Empty and starts in DEMAND because run 1 has no must initial.
-For an admitted proper ancestor, retain the original chain answer from §4.5. Keep the raw supplier's E, independent
-layers and full caller reference for matching and joint support. Catalog interest alone never creates a mark,
+For an admitted proper ancestor, retain the original chain answer from §4.5. Keep the original supplier geometry/E/mx through matching. Full caller references and independent layers stay
+in N2 for summary application and optional joint support, not in an emitter copy. Catalog interest alone never creates a mark,
 a zero-premise source, or a source/sink proof. An accessed field without mark interest does not imply a concrete
 mark. Marked answers never replace the original abstract initial.
 
 Dynamic demands update the original initial abstraction, including copies from `C.g` to `C.f` or a local base.
-It joins current and future raw links. Suppress outgoing transport only if that exact caller abstraction, mark
+It joins current and future N2 inputs by two-sided replay. Suppress outgoing transport only if that exact caller abstraction, mark
 and activation are already covered by its installed policy. A static fact derived from an argument can still
 need a demand at the caller's argument. Completion closes a captured processing frontier, not the interest's
 lifetime. Preserve NNF occurrence/support scopes, F75, D23, cleaner order and positive field cuts. Restricted-run
@@ -1739,7 +1793,7 @@ bindings of each call kind (`interpreter.md` §3).
 | Side | Owns | Does |
 |---|---|---|
 | CALLER (the method that contains the call) | the subscriptions: (caller edge, call statement, added fact) | binds each caller fact into the callee (micro edges); applies every published summary edge of the callee whose premise its added fact satisfies, and every record that applies to it (§8.7 R4); binds back; applies the field limit |
-| CALLEE (the called method) | the added facts (with the caller edges that made each added fact), the demand patterns of the method, the emission, its initial facts, its edges and summaries, its requests (run 1) | emits the initial facts for each added fact (§6); analyses them; restricts each new summary edge by its demand patterns (restricted runs, §6.4) and then PUBLISHES it to the subscribers; answers and propagates its mark requests (§4.5) and its position requests (§4.10) |
+| CALLEE (the called method) | fixed demand, initial emission, initial facts, edges and summaries; run-1 questions and query-specific deferred concrete answers | consumes incoming facts without retaining a supplier history (§6); analyses new initials; restricts and publishes summaries; publishes run-1 questions and receives answers from existing caller N2 inputs (§4.5) |
 
 ### 5.3 Call processing
 
@@ -1756,8 +1810,8 @@ at the call statement:
    the layer of the sink edge or of the completed combination (§2.2, §4.9; `interpreter.md` §4.1, END FACTS). The
    sources of the call apply to `b`: they are the rule statement of the call (`interpreter.md` §4.1), with statement
    micro edges (§4.2) and conjunctions (§4.6). The fact `b` has the premise set and the layer of
-   the caller edge `(i → c)`, so in run 1 the static exception (§4.1, §4.10 item 1) tests the caller edge, and a
-   position request goes to `(caller, i, p')`. A source result goes back to the caller through the binding back and
+   the caller edge `(i → c)`, so in run 1 the static exception (§4.1, §4.10) tests the caller edge and gives no
+   result; installed catalogs supply the required static refinements without Position transport. A source result goes back to the caller through the binding back and
    the aliases, with NO summary rewriter (the rewriter removes the mark of a user-defined source at its own
    position), then the field limit (§4.4; `interpreter.md` §4.5 step 4). The end facts go the same way.
 4. PER CALLEE POSITION. The cleaners of the call clean `b` (§4.7), chained in the rule order. A `RemoveAllMarks` rule on
@@ -1804,13 +1858,14 @@ The order of the events does not change the fixed point (S6). An implementation 
 
 | # | Event | Actions |
 |---|---|---|
-| E1 | A new added fact `a` of the callee | The callee adds `a` to its added fact store (§8.3). It EMITS the initial facts for `a` (§6): in run 1 the policy fact (§6.2), in a restricted run the emission for each demand pattern of the callee (§6.3): `a ∩ D-c` for a concrete pattern, the FLOW form of `D-c` for a `*` pattern (F72; one initial fact for every added fact under it). Each new initial fact is event E3. |
-| E2 | A new link (added fact `a`, caller edge), also a new caller edge of an existing added fact | The callee stores the caller edge with `a` (§8.3). It checks every standing mark request and position request that overlaps `a`, and answers it or propagates it through THIS caller edge (§4.5; §4.10 items 2 and 3). The caller SUBSCRIBES `(caller edge, call statement, a)` (§8.4). It applies every published summary edge with one premise whose premise `a` satisfies (§4.3), and every record that applies to `a` (§8.7 R4), then step 5. For a summary with several premises the new link is event E6. |
-| E3 | A new initial fact `j` of the callee (an emission, an answer or a position answer) | The callee analyses `j` from its start fact (§6.5). (The interpreter filters the start fact by the context type, `interpreter.md` §4.3.) Each summary edge of `j` is event E4. |
-| E4 | A new summary delta `j → g` of the callee: an exit fact after the exit order of `interpreter.md` §4.7 (exit sources, exit sinks, the removals of that section; no summary for a local base) | In a restricted run the callee restricts it by each demand pattern of the callee (§6.4); a zero-premise summary of the backward run is not restricted (§9.2, the balanced return). It PUBLISHES each result. For a summary with one premise: for each subscription whose added fact satisfies `j`, the caller applies the result (§4.3), then step 5. A summary with several premises goes to event E6. |
-| E5 | A new mark request `(m, i, T)` in the callee `m` (run 1) | The callee stores it (§8.8). For each added fact `a` of `m` that overlaps `i`, and each caller edge of `a`: answer or propagate, as in E2 (§4.5). |
-| E6 | A new link at the call statement whose added fact satisfies one premise of a callee summary with several premises (§4.6), or a new such summary | The caller combines the link with the stored links of the other premises of that summary (§4.6, §8.9). A full combination (one link per premise) applies the summary, then step 5. |
-| E7 | A new position request `(m, i, p)` in the callee `m` (run 1) | The callee stores it (§8.8). For each added fact `a` of `m` that overlaps `(S, p)`, and each caller edge of `a`: answer it if `a` is at or below `p`, or climb through the caller edge if `a` is above `p` and the caller premise is on `S` (§4.10 items 2 and 3). |
+| E1 | An incoming added input `a` of the callee | Consume `a` and emit initials directly (§6). Run 1 emits the abstract root plus eligible static/catalog and requested concrete answers. Restricted runs intersect `a` with fixed demand. Initial deduplication suppresses repeated starts; no callee input history is created. |
+| E2 | A caller admits an original input and its full reference into N2, including a new caller origin for equal data | Register the N2 subscription before replay. Apply current publications and records; join its fresh delta with standing run-1 questions. Preserve its admitted header even if an exact-only delta clears E. No callee caller-keyed copy is made. |
+| E3 | A new initial fact `j` (direct emission or answer) | Analyse `j` from §6.5's start fact. Summary deltas are E4. |
+| E4 | A new summary delta `j → g` after end rules | Restrict and publish by §6.4 when required; backward zero-premise balanced return is §9.2's exception. Match caller N2 inputs by §4.3; several premises use E6. |
+| E5 | A new question or fresh requested marks on `(m,i,Q)` (run 1) | Retain the authoritative immutable question view (§8.8). Consume only matching deferred answer rows; replay the question over existing N2 inputs. Notify registered caller runners. Every later N2 input must replay standing questions. Use the full Q, not only initial slot i. |
+| E6 | A matching N2 input for one member of a multi-premise summary, or a new such summary | Join full checked bindings at one caller/call scope (§4.6, §8.9). A complete combination applies the summary, then step 5. Removing the emitter store does not change E6. |
+| E7 (historical) | A scalar Position request | Historical §4.10 items 1–3 only; no runtime event or store. |
+
 
 The result of a summary application is in the demand layer if the added fact is in the demand layer on its link
 (§8.3), if the summary edge is, or if the application itself moves it there (§4.1). The result of a must record that
@@ -1829,8 +1884,9 @@ A complete run is the least fixed point of these rules:
   the interpreter's order (§4).
 * A call uses §5.3 and the summary application of §4.3.
 * An added fact gives initial facts by §6.2 in run 1 and §6.3 in later runs.
-* Run 1 raises, answers, and climbs mark requests (§4.5), and applies static
-  position requests (§4.10). It has no input records.
+* Run 1 raises, answers, and climbs mark questions (§4.5) through N2. Static catalogs replace Position transport
+  (§4.10). It has no input records. The full admitted-input relation in closure equations is ghost history, not
+  a retained emitter store (§0.3).
 
 A restricted run is every run after run 1, forward or backward. It:
 
@@ -1882,33 +1938,44 @@ that ignore marks do not satisfy C5.
 
 ### 6.2 Run 1
 
-The run-1 abstraction gives:
+Always emit zero for an incoming zero; otherwise emit `(a.base, [], *, {}, *)`, including the STATIC root even
+with an empty catalog. InitialFactStore deduplicates starts. This root is abstract: interest membership alone
+never supplies a concrete mark. The historical `policy1`/`policy_applicable` relation establishes local C1, not the
+new query protocol.
 
-* for the zero fact: the zero fact;
-* for every other added fact `a`: the most abstract fact `(a.base, [], *, {}, *)`.
+For STATIC input, also emit catalog structural slots at or above an actual supplier leaf (§4.10). A root/proper
+ancestor does not emit a deeper structural slot. Preserve the ordinary keep/kill/exclusion processing. Static
+mark interests retain their full query Patterns and roles independently of structural-initial activation.
 
-Lean: `policy1`, `policy_applicable` (C1). The caller gets the marks back through the summary application: a `*`-mark
-premise passes the mark of the added fact through. A sink, a mark-specific rule or a cleaner inside the callee gets the
-mark through a request (§4.5). A statement micro edge below the policy fact `(S, [], *, {}, *)` gets the precise
-static fact through a position request (§4.10 items 1 to 3); a sink, a cleaner or a literal uses the mark request with
-the answer of §4.10 item 4. Run 1 is the ONLY run with requests. The answers of the requests (§4.5, §4.10)
-are the other initial facts of run 1.
+A requested concrete mark uses §4.5's complete supplier test and answer operation. Exact, chain and static answers
+are separate additions; an exact answer starts NORMAL, and a concrete STAR/ANY answer starts DEMAND (§6.5).
+Demote a must supplier to the specified run-1 answer rather than starting a must initial (W8 (c)). Every answer
+keeps the original abstract initial active.
 
-An `[any-taint]/E` added fact gets the policy fact too: run 1 has no `[any-taint]` premise (W8 (c)). Its chain answer
-is `(i.base, i.path, i.kind, T)` (§4.5), which starts as `[any]` in the demand layer (§6.5). So run 1 confirms an
-`[any-taint]` finding only through a premise set `{zero}` or an exact answer, for example when the sink reads the
-tainted object in the method of the source (`AnyTaintExCases2.PassRule.source_confirmed`), or through a callee whose
-FLOW summary keeps the whole object (§4.1, row 1 or row `*`, `[]`, `[any-taint]/Ec`; program I,
-`AnyTaintExCases2.I.run1_flow`, `app_normal`, `run1_confirmed`), also a callee that overwrites a field of it: the
-field goes into the exclusion (the setter of program S, `AnyTaintExCases.S.run1_email_confirmed`; a setter one call
-deeper, program SD, `AnyTaintExCases.SD.run1_email_confirmed`, `same_result`). Through a callee that reads below the
-object (a getter `ret = p.f`) it does not: the FLOW summary of the policy fact is the case `above`, a demand edge
-(`AnyTaintExCases2.G.run1_flow_above`, `run1_not_confirmed`). The demand of a later run gives the must-premise that
-confirms it (§6.3).
+The emitter has no retained incoming Facts, CallerRef groups, positional supplier index, or captured supplier
+history. Its concrete memo is `(request geometry, emitted initial shape without its concrete mark) -> MarkSet`.
+For eligible T, emit immediately if that matching question requests T; otherwise retain its possible answer shape
+and T. Consume T only from rows for that question when requested. Keep the question standing for later answers,
+shapes and caller origins. A source interest and a sink interest use the same mechanism; a packed mark set does
+not assert their conjunction.
+
+Compute eligibility before forgetting supplier E. An exact `C.g:T` cannot answer `C.f:T`; an ancestor excluding f
+cannot answer f merely because another question emitted a wider initial. A query includes its full Pattern when
+it differs from its initial slot. New question geometries replay older original inputs from N2 (§8.4); do not
+retain raw suppliers or build a question-by-mark-by-supplier product in the memo. Its size must be measured, not
+assumed bounded by a universal grammar rule.
+
+N2 evaluates FLOW suppliers using full path, normal-E versus DEMAND rules, and mx. Only then project a climb to
+`(full caller MethodKey, original singleton InitialAp, mark)` and coalesce equal targets. A prior answer does not
+end the question. F75 still registers same-base selected-mark interests for excluded/disjoint inputs; source/sink
+NNF support and D23 cleaner order are unchanged.
+
+Historical must-tail programs and exact-support results in §4.9 retain their stated scope. They do not prove
+confirmation for caller-free ND candidates or the new two-sided query replay.
 
 ### 6.3 Restricted run: the emission
 
-For each added fact `a` and demand pattern of its method, test common locations
+Consume each incoming added fact `a` directly; do not admit it to a callee history. For each demand pattern of its method, test common locations
 and marks with the tables below. No common part means no emission. A concrete
 pattern emits `a∩D-c`. A `*` pattern emits its FLOW form:
 
@@ -2043,7 +2110,7 @@ are listed in [proof-status.md](proof-status.md).
 | `(x, p, [any-taint], E, T)` (a must-premise; forward restricted runs only) | `(x, p, [any-taint], E, T)` (itself, with its exclusion) | normal |
 | `(x, p, $, m)` | `(x, p, $, {}, m)` | normal |
 
-A premise never has the mark `*∖X` (§2.2). The row `(x, p, */E, *)` is the policy fact and the position answer of run 1
+A premise never has the mark `*∖X` (§2.2). The row `(x, p, */E, *)` is the policy fact and catalog structural initial of run 1
 and, since F72, the FLOW premise of a restricted run (the FLOW form of a `*` pattern, §6.3): it starts with the
 identity, in the normal layer, so its edges are FLOW (§7.2) and its normal summaries can be records (§8.7 R1). Before
 F72 a restricted run had no such premise. Lean: `startFact`, `startFact_sound`; the must-premise with its exclusion:
@@ -2057,7 +2124,7 @@ none: the policy fact, the chain
 answers and the mark answer on a static premise are not `[any-taint]` (§4.5, §4.10 item 4, §6.2). The start fact of a
 must-premise relates every admitted premise continuation to every admitted continuation of the conclusion, as if a
 source fired at the method entry: its edges are end-exact, not exact pair by pair (§1). The zero fact starts as
-itself, in the normal layer. A position answer `(S, p, *, {}, *)` starts with the identity, in the normal layer
+itself, in the normal layer. A catalog structural initial `(S, p, *, {}, *)` starts with the identity, in the normal layer
 (§4.10). The interpreter adds the start rules of a method: the filter of the start fact by the context type, and the JVM entry rules
 of the zero fact (`interpreter.md` §4.3).
 
@@ -2111,7 +2178,7 @@ After a complete forward run the driver applies these stop rules:
 | Reason | Condition and effect |
 |---|---|
 | `STOP_RULE` | The report has no DEMAND entry. There is no next backward sink seed. The confirmed report is final. |
-| `NO_DEMAND_EDGE` | No demand-layer edge, summary, or added-fact link remains. A DEMAND report entry can still lack joint conjunction support; keep it in the output. |
+| `NO_DEMAND_EDGE` | No demand-layer edge, summary, or admitted input contribution was observed under the run counters. No retained link is required. An unvalidated/unsupported candidate can remain DEMAND; keep it in the output. This stop does not validate it. |
 | `POLICY` | The configured iteration policy stops. Keep the last complete report. |
 | `ABNORMAL` | Timeout, memory guard, or exception. Discard the incomplete run and keep the last complete report. |
 
@@ -2179,7 +2246,7 @@ groups: for example `{zero}` has the zero fact (REACH) and the result of a sourc
 | Kind | Premise set | Conclusions | Normal layer | Demand layer |
 |---|---|---|---|---|
 | REACH | `{zero}` (a zero-to-zero edge); in the backward run also a concrete requirement `{jb}` that reached an unconditional source or an end-fact action (§9.2) | the zero fact | one bit | one bit |
-| FLOW | one initial fact with the mark `*`: a policy fact or a position answer (run 1), or, since F72, the FLOW premise of a `*` pattern (a restricted run, §6.3) | abstract marks only: `*∖X`, with `X` the mark exclusion of the tree | `*` leaves, with the exclusion of the tree | `[any]` leaves, no exclusion |
+| FLOW | one initial fact with the mark `*`: a policy fact or catalog structural initial (run 1), or, since F72, the FLOW premise of a `*` pattern (a restricted run, §6.3) | abstract marks only: `*∖X`, with `X` the mark exclusion of the tree | `*` leaves, with the exclusion of the tree | `[any]` leaves, no exclusion |
 | TAINT | `{zero}` (a source), concrete initial facts (also a must-premise `[any-taint]/E`, forward restricted runs only), or a set of them: EVERY premise set with two or more members (an ND edge, §4.6) | concrete marks only | `$` and `[any-taint]` leaves, with ONE exclusion of the tree for its `[any-taint]` leaves | `$` and `[any]` leaves, no exclusion |
 
 S7 keeps abstract premises abstract and concrete premises concrete. S8 and the
@@ -2272,7 +2339,8 @@ edge gives REACH, a source gives TAINT).
    target) `[any-taint]/E` with the edge exclusion, in the layer of the tree; or `[any]` in the demand layer (a may
    `[any]` target). Apply the mark gate to each leaf mark (step 4). Lean: `Tree.contribB`. STATIC EXCEPTION (run 1,
    a statement micro edge with its premise on `S`; the rule is §4.10 item 1, the test §4.1): a `*` leaf of an identity static `*` edge at the root path or at a class gives
-   no result; it raises the position request for `from.path` cut to at most two accessors.
+   no result and no runtime Position request; installed catalogs supply static refinements. The historical scalar
+   oracle raises the position request for `from.path` cut to two accessors.
 2. At the node of `from.path` take the subtree `U`. Filter its root by the premise tail (with the exclusion of a
    must-premise) and the edge exclusion.
 3. Transform `U` by the target tail:
@@ -2352,12 +2420,13 @@ The prescan (§1) still runs the current core. So the new AP lives beside the cu
 
 ## 8. Storages
 
-Every store has a CONCEPT (a list of entries with a filter) and an INDEX. `Store.lean`, `RestrictedStore.lean` and
-`PipelineStore.lean` prove that the index returns every entry that the filter returns (the first two also give the
-cost of the lookup), for these stores: the subscription store (§8.4), the demand store (§8.6), the record store
-(§8.7) and the mark requests of the request store (§8.8). The position requests, the conjunction store, the
-vulnerability store and the source hit store have no index theorem. The OWNER of each store is the method that §5.2
-names. Lifetimes:
+Every retained store has a CONCEPT (entries with a filter) and, where needed, an INDEX. A semantic input history
+is not a retained store (§0.3). The emitter AddedFactStore and request/path index are removed. Historical
+`Store.lean`, `RestrictedStore.lean` and `PipelineStore.lean` prove indexed-candidate completeness in their stated
+encodings, including the old request store. They do not certify the new question channel or require that old
+store. The surviving subscription/demand/record indexes keep their full AP filters. Conjunction, vulnerability
+and source-hit encodings have only the proof scope stated in [proof-status.md](proof-status.md). Owners are §5.2.
+Lifetimes:
 
 * RUN: one run (one direction, one field limit).
 * HAND-OFF: from the end of one run until the next run has read it. This is what one run passes to the next: the
@@ -2403,26 +2472,24 @@ candidates; the store then applies the exact test that the section names (`overl
 * `initials: Set<InitialAp>`: the initial facts of the method in this run (the zero fact, the emissions and the
   answers).
 * The store keeps no support. The support of a premise set (§4.9 condition 3) is a property of the whole run: the
-  confirmation computes it after a complete run, at the barrier, over the links of the added fact stores (§8.3;
-  `analyzer-core.md` §7.5). Support is a property of a premise SET, not of one initial fact: two premises that are each
+  optional exact validation computes it after a complete run over joined N2 inputs (§8.4;
+  `analyzer-core.md` §7.5), before their release. Emission itself establishes no certificate. Support is a property of a premise SET, not of one initial fact: two premises that are each
   supported at a different call do not make their set supported (`NDConfirmed.CexSites`).
 
-### 8.3 Added fact store (RUN, per method; callee)
+### 8.3 No runtime emitter added-fact store
 
-* A path trie keyed by `base :: path`. Each added fact keeps the set of its caller edges
-  `(caller method, caller premise key, layer of the caller edge, call statement)`. One (added fact, caller edge) pair
-  is a LINK.
-* Each link also keeps the LAYER OF THE ADDED FACT on that link. It can differ from the layer of the caller edge: a
-  cleaner `part` row can move the added fact to the demand layer (§4.7). Condition 3.2 of the confirmation (§4.9) reads
-  it: only a link with a normal added fact supports a premise. An added fact with an any tail is `[any-taint]` on a
-  normal link and `[any]` on a demand link (W8); the emission reads it (§6.3). A normal `[any-taint]` added fact has
-  its exclusion `E`, and the store keeps it with `E` (an `[any-taint]/E` and an `[any-taint]/E'` added fact at one
-  path are two added facts); an `[any]` added fact has none (W8 (b)). Lean: the flag `am` and the exclusion `aex` of
-  `AnyTaintEx.XObj.added` (round 1: `AnyTaint.TObj.added`).
-* A new link is event E2 of §5.3, also when the added fact exists already. The store gives the request store (§8.8)
-  every new link.
-* The standing request match (§4.5, §4.10) reads the store with OVERLAP queries (§8): the key is `base :: path` of
-  the request premise (mark request) or `S :: p` of the requested position (position request).
+`AddedFactStore` is not an emitter owner. Each arriving input is consumed by §6.2 or §6.3, and its transport
+payload is released. Do not replace the removed store with a caller-keyed memo, full Facts seen-set, supplier
+path index, historical delta list, or callback capture. InitialFactStore may deduplicate starts.
+
+The semantic link is `(original bound input, full caller reference, independent input/link layer)`. The full
+reference is `(caller MethodKey, caller premise key, caller layer, call statement)`. These values still exist in
+caller N2 (§8.4) for summary/record application and late question replay. Normal must inputs retain their E;
+DEMAND any inputs obey W8. An exact-only fresh delta can clear E without changing its admitted N2 group header.
+
+Ghost closure rules can quantify over the complete admitted relation to state emission, request replay or support.
+That quantifier does not require a callee runtime copy. Any optional confirmation must read N2 within its joined
+lifetime (§4.9), not a deleted or released store.
 
 ### 8.4 Subscription store (RUN; caller)
 
@@ -2437,7 +2504,16 @@ candidates; the store then applies the exact test that the section names (`overl
   X-tail/tree pipeline integration remains open, §11.2).
 * On a new subscription: apply every published summary edge of every initial fact that `a` satisfies, and every record
   that applies to `a` (§8.7 R4).
-* Only this store answers the "satisfies" query.
+* Only this retained input relation answers the caller "satisfies" query. It keeps full caller references and
+  original admitted headers; caller-free emitter answer deduplication does not merge these bindings.
+* Run-1 questions additionally use an OVERLAP candidate visitor: prefixes and extensions around the full query path,
+  with handle deduplication and the complete §4.5 geometry/E/mx predicate. The summary descendant-only run-1 query
+  above is not sufficient for proper-ancestor FLOW or wide TAINT suppliers.
+* New questions replay existing N2 inputs, and new subscriptions replay standing questions. Register before replay;
+  publish the authoritative immutable question view before notification. No processed-pair product is retained.
+  Bound visits without invoking mutating callbacks; a resumable visit needs a finite snapshot contract. One shared
+  immutable question root is enough; subscribers must not copy the full question/mark relation.
+* Optional exact support reads this relation after join and before release. No callee supplier table is created.
 
 ### 8.5 Run summary store (HAND-OFF, per method; callee)
 
@@ -2648,18 +2724,26 @@ Rules:
   internal sources are not next-run seeds. Full current no-loss iteration,
   including the F77 selection, remains open (§11.2).
 
-### 8.8 Request store (RUN 1 only, per method; callee)
+### 8.8 Questions and deferred concrete answers (RUN 1 only)
 
-* Entries: `(method, initial fact, mark)` for a mark request (§4.5) and `(method, initial fact, position)` for a
-  position request (§4.10), plus the answers already emitted. A request stands for the whole run.
-* Index: per method, a path trie (§8). A mark request is keyed by `base :: path` of its premise `i`. A position
-  request is keyed by `S :: p`, the requested position, because the match reads `(S, p)` and not the premise.
-* On every new link (added fact, caller edge) of the method (§8.3), find ALL standing requests that overlap the added
-  fact (`Store.standing_complete`, for the mark requests): for a mark request the premise `i`, for a position request
-  the position `(S, p)`. Answer each one, or propagate it through THIS caller edge (§4.5; §4.10 items 2 and 3; §5.3
-  event E2).
-* On a new request, read every existing link of the added fact store whose added fact overlaps it (§5.3 events E5 and
-  E7).
+* Keep one authoritative active question view per full callee MethodKey. A question retains its original abstract
+  InitialAp and complete query geometry/role where different; its packed marks are independent requested interests.
+  Profiles may share immutable catalog metadata. There is no runtime Position transport or request path store.
+* Keep only query-specific evaluated answer shapes with still-unrequested concrete marks (§6.2). Equal answer
+  shapes merge marks, not caller premises. Consume only the requested marks for the matching query. An answered
+  question remains active until the run joins.
+* Two-sided replay uses existing caller N2 (§8.4). Both arrival orders, new caller origins, new geometries and late
+  supplier growth must produce the same answer/climb relation as the semantic admitted history. Preserve original
+  admitted headers; run full geometry/E/mx tests before projecting an eligible climb to the caller initial.
+* Registration/replay, query delivery, answer and climb work reserve completion accounting before visibility. Bound
+  local service opportunities by a positive quantum and check cancellation per traversal/member. The selected N2
+  directory visit is finite and owner-local, queues effects and invokes no mutating callbacks. It has no fixed-quantum
+  replay latency claim; suspension within a visit needs a separate horizon/version proof. Reentrant deliveries enter
+  later work. No input Facts or historical COW supplier roots are retained by this state.
+* A restricted run has none of this question/memo state. Its input-to-demand emission is immediate (§6.3).
+
+The old indexed RequestStore/AddedFactStore proofs remain historical reference results. Their equations may use
+semantic histories; they do not require recreating those owners and do not prove the new N2 query protocol.
 
 ### 8.9 Conjunction store (RUN, per method)
 
@@ -2706,7 +2790,7 @@ A sink witness (Kotlin: `SinkWitness`) has these fields:
 | method key | The method key of its sink edges, with the context. The confirmation reads the support of the premise sets in this method key (§4.9 condition 3). |
 | pattern | DERIVED: the canonical active leaf requirements of the bound predicate and its observed proof. The requirement values are stable across rebuilds (`interpreter.md` I5); an unconditional sink uses zero. |
 | sink edges | One sink edge (its premise key, its layer and its sink fact), or, for a conjunctive sink, one sink edge set (one edge per literal, §4.9) with the set of the sink facts. |
-| confirmed | Whether the witness is confirmed (§4.9). Only a complete forward run confirms a witness. |
+| confirmed | False for an unverified candidate, including a mixed-caller ND witness. Only explicit validation of a complete forward run can set it true (§4.9); NORMAL layers alone do not. |
 | end facts | The end facts of the witness, if the sink rule has end-fact actions (§4.9; `interpreter.md` §4.1, END FACTS). |
 | run | The run that reported the witness. |
 
@@ -2715,8 +2799,9 @@ A sink witness (Kotlin: `SinkWitness`) has these fields:
 * Each witness keeps its occurrence/proof scope, method key, run and ordered premise/layer/checked-fact-group
   headers. Different scopes or headers never merge. Exact matched-fact union and new versions remain separate
   from structural proof identity. A legacy numbered alternative is a compatibility representation of that scope.
-* A CONFIRMED vulnerability persists. It is real for the reference semantics (§3.5), modulo the expected
-  false-positive sources of §11.1.
+* A CONFIRMED vulnerability persists and requires §4.9's explicit certificate. A caller-free candidate remains
+  DEMAND until validated; Simple output is not a validation. Historical realness theorems apply only under their
+  support hypotheses and the expected false-positive sources of §11.1.
 * At every complete FORWARD run, every real vulnerability is reported by that run or was confirmed by an earlier
   complete forward run (§6.6). A DEMAND entry after complete forward run `n` (reported by run `n`, confirmed by no
   complete forward run so far) is seeded (§9.2). If complete forward run `n + 2` does not report it (no vulnerability
@@ -2744,7 +2829,8 @@ A sink witness (Kotlin: `SinkWitness`) has these fields:
   also when a later run reports it only in the demand layer. Only THE TRIGGER OF AN END FACT (§9.2) fires the sink
   seeds of an alternative of a CONFIRMED vulnerability: a requirement that reaches its reversed end-fact edge needs the
   witness of the trigger. A backward run reports no vulnerability (§9.2, the backward sink role).
-* THE `[any-taint]` TAIL (F69). A vulnerability whose taint comes from an `[any]`-target source (for example the
+* HISTORICAL EXACT-SUPPORT EXAMPLES, THE `[any-taint]` TAIL (F69). These examples assume the explicit support
+  certificate of §4.9; an unverified candidate remains DEMAND regardless of its normal layer. A vulnerability whose taint comes from an `[any]`-target source (for example the
   whole-object DTO source of a Spring entry point) can be CONFIRMED (§4.9; a field read after a setter of another
   field, confirmed in run 1: `AnyTaintExCases.S.run1_email_confirmed`; a getter in a callee, confirmed in forward run
   3: `AnyTaintExCases2.G.run3_confirmed`). Its entry is CONFIRMED, and the state is final. A field that a setter or a
@@ -2993,7 +3079,9 @@ See [proof-status.md](proof-status.md) for current scope and
 The theorems say that a confirmed vulnerability is real for the reference semantics (§3.5): the program that the
 micro edges describe. On the JVM the micro edges over-approximate the real program at the points below. There a
 confirmed vulnerability (and a normal edge, and a record) can be false. These are EXPECTED false-positive sources: the
-analysis keeps their results in the normal layer and does not refine them.
+analysis keeps their results in the normal layer and does not refine them. The confirmation examples in this
+section assume the stated exact-support certificate. Without that validation, the new caller-free emission
+policy keeps reached findings as DEMAND candidates even when their edges are normal.
 
 * A type filter on a `*`, `[any]` or `[any-taint]` fact. The filter checks the concrete path only, so the fact keeps
   the locations below its path that a real value cannot have (§4.8). A normal `[any-taint]/E` fact claims EVERY
@@ -3038,12 +3126,11 @@ analysis keeps their results in the normal layer and does not refine them.
   out of scope with the trace resolution (§8.10 THE TRACES). So every vulnerability of such a rule that the report
   holds is in the output, also one whose end facts never reach the end of the analysis (`ap-history.md` F67, F68).
 
-THE DEMAND ENTRIES OF THE OUTPUT. The output holds the DEMAND vulnerabilities of the latest complete forward run too
-(§8.10; `ap-history.md` F68). They are not confirmed: a DEMAND entry rests on a demand-layer edge, an
-over-approximation of §2.2 (the case `above`, a lost correlation, the field limit cut, W2, W6, and the other
-demand-layer operations of §2.2, whose `[any-taint]` results W8 (b) names `[any]`), so it can be false also for the
-reference semantics. Only a later complete forward run that does not report it
-refutes it (§8.10). The historical soundness theorems cover the output of their
+THE DEMAND ENTRIES OF THE OUTPUT. Output includes unconfirmed candidates from the latest complete forward run
+(§8.10; `ap-history.md` F68). An entry may rest on a demand-layer approximation of §2.2, or lack validation of
+caller/guard support even when its edges are NORMAL. It can be false for the reference semantics. Its absence
+from a later complete forward run removes it from the report; semantic refutation additionally needs the open
+mode/iteration coverage contract (§6.6). The historical soundness theorems cover the output of their
 versions: at every complete forward run, every real vulnerability
 is reported by that run, in some layer, or was confirmed by an earlier complete forward run, and the report keeps
 every confirmed vulnerability (`HandoffMain.iteration_generalN`; with the `[any-taint]` tail and its exclusion
@@ -3097,6 +3184,8 @@ normal with `f` in its exclusion, §4.1.)
 The current rules are defined, but a local demand contract is not a full iteration
 proof. The remaining obligations are:
 
+* caller-free initial emission, query-specific consume-on-request answers, two-sided N2 question replay,
+  optional joined N2 confirmation, and guarded zero-GEN candidate validation;
 * mode coverage and contract B for F72/F75, including F74 lowering, F76 read views,
   and F77 structural selection;
 * the combined `[any-taint]`/field-exclusion closures, entry guard, static rule,
@@ -3106,7 +3195,7 @@ proof. The remaining obligations are:
 * optimized tree shortcuts beyond the checked per-leaf reference, dominance under
   store subsumption, and integration of aliases, end facts, and call rule forms.
 
-The checked base results cover emission with the §6.1 guards, mark-aware summary
+The checked base results cover local emission with the §6.1 guards, mark-aware summary
 restriction, normalization, candidate indexes, normal-edge exactness, and the
 stated reversed-record conditions. [proof-status.md](proof-status.md) gives the
 exact scope. The F75 cleaner always requests its selected mark in run 1 for a
@@ -3119,7 +3208,8 @@ read `exc` (interpreter gap G1). The model does not implement rule conditions,
 the interpreter, or trace resolution. Interpreter gaps are in
 [interpreter.md](interpreter.md) §0.1. Expected false positives are in §11.1.
 
-Subscriptions and links use exact deduplication. Subsumption of stored objects
+N2 subscriptions retain full admitted keys and exact logical deduplication. The emitter has no link history.
+Subsumption of stored objects
 must not be used to justify FLOW join completeness without its own proof.
 Current tree reduction must agree with §6.4 per leaf; the old `restrictS/U` tree
 proof does not prove the mark-aware meet. Local merging, interning, and candidate
