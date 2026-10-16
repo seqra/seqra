@@ -1,5 +1,14 @@
 # Analyzer core — specification
 
+The selected [static-handling contract](static-handling.md) takes precedence
+for static planning, the run-1 initial grammar/stores/calls, the F1→B2
+boundary and later strong query/response behavior. In particular, all F1
+publications become guidance only, including NORMAL singleton hints; they
+are not executable records. Actual later queries authorize both start and
+response independently of old guidance. This is an unimplemented design
+target. [Static proofs](static-handling-proofs.md) separates design arguments,
+checked local laws and engine refinement obligations.
+
 Status: design spec of the new analyzer core (phase 2 of [bidirectional-task.md](../bidirectional-task.md)). This
 document is normative. It uses two other specs and does not repeat them:
 

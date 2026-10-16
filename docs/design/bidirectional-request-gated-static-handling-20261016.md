@@ -1,22 +1,26 @@
-# Request-gated static handling on run-1
+# Request-gated static handling
 
 Date: 16 October 2026. Status: proposal; no implementation or new analyzer run.
 This is the current proposal for static handling. It replaces the earlier
 control-root, return-watcher and pending-frame candidates in the
 [ThingsBoard investigation](../reports/bidirectional-thingsboard-static-workload-20261016.md).
-It does not change the current normative specs or implementation.
+The selected [static contract](../../spec/static-handling.md) and
+[proof dossier](../../spec/static-handling-proofs.md) now specify run-1 and
+the strong run-2/later boundary. Implementation remains unchanged.
 
 Latest reached: **run-1, forward, limit 1; OOM**. No engine completes and no
 forward report is accepted. Measurements execute `4acde739b`, captured at
-`05cf9ad62`; current `aa844367d` has the same core tree.
+`05cf9ad62`; current `64f5e3db4` has the same core tree.
 
 ## 1. Selected rules and goal
 
 Reduce redundant static-field analyses, call deliveries, subscriptions and
 retained facts. The user-selected rules are:
 
-1. Collect static-field requests from **field reads and condition checks only**.
-   Do not add requests for aliases or static-field write targets.
+1. Collect static-field requests from **actual field reads**, including
+   effective non-mark checks that read a value. `ContainsMark(C.f,T)` in a
+   source or sink condition adds **only a static-mark request**, never a field
+   request. Do not add field requests for aliases or static-field write targets.
 2. Emit abstract `C.f.* (*)` only when C.f has a field request.
 3. Emit a concrete field answer only when its actual supplied mark has a
    static-mark request. The field and mark gates are separate.
@@ -25,9 +29,12 @@ retained facts. The user-selected rules are:
 5. Do not propagate the special abstract `(S, ., *)` fact on run-1. A static
    fact passes through a call without waiting for a callee summary.
 6. Do not carry run-1 `(S, ., *) -> (S, ., *)` summaries into later iterations.
+7. Use run-1 publications only as later guidance. Later actual queries start
+   strong callee analysis independently of run-1 field needs or summaries.
 
-These changes apply to run-1. Later iterations keep their existing strong
-store and call/return semantics. Explicit cleaners remain cleaners.
+Later iterations use strong stores and normal-return call semantics. Their
+admission/response and persistence paths need the changes in §8 to preserve
+those semantics after root removal. Explicit cleaners remain cleaners.
 
 The parts below are ordered by expected effect on the repeated state:
 
@@ -35,7 +42,7 @@ The parts below are ordered by expected effect on the repeated state:
 | --- | --- | --- | --- |
 | Stop root-driven field expansion | Special S-root travels through calls and can start the whole owned field basis | No special root input/fact; start only requested fields from supplied data | Avoid first field analyses and their downstream states |
 | Limit callee data delivery | Every static fact reaching CALLEES is subscribed and linked to each target | Pass statics through locally; deliver only fields/marks requested by that target | Avoid irrelevant deliveries, exact input groups and index entries |
-| Separate read requests from effects | Writes/aliases and global mark needs can enlarge structural selection | Reads/checks alone seed field requests; retain write/alias information in its proper role | Avoid demand created by write targets or alias inventories |
+| Separate field reads from mark checks and effects | Writes/aliases and global mark needs can enlarge structural selection | Actual reads seed field requests; mark predicates seed mark interests only | Avoid abstract analyses created by mark-only checks, write targets or alias inventories |
 | Use weak run-1 static stores | Strong static stores remove old destination data | Keep old data and add new data; local call-to-return provides preservation | Avoid a static preservation-summary protocol on run-1 |
 
 Weak stores can retain more data at a requested field. Their purpose here is
@@ -61,7 +68,7 @@ multiplicity. At least 54.42% of structural initial attempts also create no
 new initial. Counts do not establish static CPU share, exact unchanged-field
 identity or removable bytes. No speedup is measured for this proposal.
 
-## 3. Field requests: reads and condition checks only
+## 3. Field requests: actual reads only
 
 Keep a shared immutable plan per CommonMethod. Full MethodKey contexts borrow
 it. It contains field scopes, with mark identities erased:
@@ -77,7 +84,7 @@ data class StaticFieldRequests(
 }
 ```
 
-Only actual read/check geometry seeds the plan:
+Only actual value-read geometry seeds the plan:
 
 | Operation | Field-request contribution |
 | --- | --- |
@@ -85,10 +92,10 @@ Only actual read/check geometry seeds the plan:
 | `C.g = C.f` | C.f, because it is read; not the write target C.g |
 | `C.f = x`, including constant writes | None from the target |
 | Alias endpoint or persisted alias path | None |
-| `ContainsMark(C.f, T)` in a source or sink condition | C.f |
-| Other effective condition/input check that reads C.f | C.f |
+| `ContainsMark(C.f, T)` in a source or sink condition | None; only a static-mark request for C.f/T |
+| Other effective non-mark condition/input check that reads the value of C.f | C.f |
 | Cleaner, removal or generation target alone | None |
-| Genuine class/root-descendant read/check | Symbolic class/all-field scope |
+| Genuine class/root-descendant value read | Symbolic class/all-field scope |
 | Exact class-point check only | Separate class-point need, not all fields |
 | Coordinate exists in the global universe | None |
 
@@ -96,10 +103,10 @@ Do not scan alias endpoints to add field requests. Alias handling stays in
 ordinary transfer/resolution logic. Its coverage without alias-request seeds
 is a proof obligation, not a reason to add those seeds back silently.
 
-Compute transitive read/check needs on the complete prescan call graph:
+Compute transitive value-read needs on the complete prescan call graph:
 
 ```text
-fieldRequests[M] = localReadAndCheckRequests[M]
+fieldRequests[M] = localValueReadRequests[M]
                   union union(fieldRequests[C] for resolved callees C of M)
 ```
 
@@ -113,7 +120,7 @@ For example, a constant weak PUTSTATIC may lower to a keep edge only; its LHS
 must still be collected for legality independently of that lowered edge.
 
 Do not derive `wholeStatics` from a nonempty mark set. A T-to-U mark change at
-the same read/check must not enlarge field scope. Genuine global read/check
+the same condition must not enlarge field scope. Genuine global value-read
 geometry can remain global; preserve effective NNF, false-rule elimination,
 source/sink roles and the selected condition policy.
 
@@ -183,6 +190,10 @@ universe into dynamic wide offers, copy B into P/D, or create another cumulative
 request store. Frozen lookup must cover genuine wide needs outside the old
 explicit selected set when removing that old dynamic wide-offer path.
 
+For generic excluded-mark copies use source geometry: `g -> f (* except T)`
+reads g and needs source g/T, not a target-created field request for f. The
+actual original input can lie farther upstream and retains its dynamic route.
+
 Preserve changed-origin request discovery:
 
 ```text
@@ -191,7 +202,7 @@ A: C.g = C.f; call B
 B: check ContainsMark(C.g, T)
 
 read C.f seeds A's field request
-B's check seeds g and propagates that read/check need to callers
+B's check seeds ONLY mark interest g/T, inherited unchanged by callers
 abstract f execution derives g FLOW
 B's g/T interest requests T on A's ORIGINAL f slot
 ```
@@ -199,6 +210,13 @@ B's g/T interest requests T on A's ORIGINAL f slot
 The write target g is not a request seed. Derived output g does not need an
 abstract g initial merely because it is written. Keep both request/input
 arrival orders, original-slot routing, set union and concrete propagation skips.
+
+For a mark-only method `check ContainsMark(C.f,T)`, F(f) is empty. Actual
+supplied T plus R(f,T) starts concrete-only analysis; FLOW does not create T.
+Signed folding runs before collection. Under the current eligible call/exit
+policy residual negative literals project to true, so a pure negative source
+can become ZERO generation. It does not need an abstract f carrier. Entry
+eligibility stays stricter. Never infer a negative literal from missing state.
 
 ## 5. Weak ordinary static stores on run-1
 
@@ -232,7 +250,7 @@ Direction alone is insufficient. Select an explicit run-1 store flavor in the
 form recipe/cache key, or an equivalent immutable execution mode. Preserve the
 current managed-reference mechanism; no reference-manager or identity-cache
 rewrite is part of this proposal. The independent metadata builder must use
-the same semantics while collecting only read/check requests.
+the same semantics while collecting only value-read field requests.
 
 ## 6. Static facts pass through calls on run-1
 
@@ -353,14 +371,14 @@ actual T can still start concrete-only analysis. True source/GEN output keeps
 its ZERO or actual input origin; no request or removed root creates a source.
 Do not infer a negative mark condition from missing lazy state.
 
-## 8. Do not export run-1 static-root identity
+## 8. Strong run-2 and later static handling
 
 The user-selected boundary is:
 
 ```text
 run-1 live state: no special abstract (S, ., *) propagation
 run-1 handoff:    no (S, ., *) -> (S, ., *) summary or reversal
-later runs:      normal strong-store and call/return semantics
+later runs:      query-led strong stores and normal-return call semantics
 ```
 
 The removed root summary must not survive through SummaryStorage snapshots,
@@ -369,30 +387,91 @@ views. Apply the filter to the barrier's summary snapshot before BOTH native
 record persistence and handoff construction. The current driver persists
 records before `HandOff.of`; filtering only inside HandOff is too late.
 Build reversal/closure views from the filtered snapshot. Assert the forbidden family,
-including packed root components. Do not drop ordinary field summaries, ZERO
-source output or concrete class points under this rule.
+including packed root components. Keep ordinary field summaries, ZERO source
+output and concrete class points as guidance under the phase rule below.
 
 ```kotlin
-val exported = run1Snapshot.withoutSpecialStaticRootIdentity()
-assertNoSpecialStaticRootIdentity(exported)
-nativeRecords.persist(exported)
-val handoff = HandOff.of(exported)
+val guideInput = run1Snapshot.withoutSpecialStaticRootIdentity()
+assertNoSpecialStaticRootIdentity(guideInput)
+val handoff = HandOff.guidanceOnly(guideInput, includeNormalSingletons = true)
+// Do not persist run-1 as executable native/opposite records.
 ```
 
 This filter applies to method-summary instances, not compiled `keep(S)`
 microedges. Those operators still preserve an actual C.f fact during weak
 stores and binding; they do not require a special S-root initial or fact.
 
-A root-only export filter is not by itself a proof for all weak-write results.
-Run-1 field summaries and bypass-derived outputs are may facts. Current records
-have no run/store-flavor provenance, and the persistent store accepts NORMAL
-singletons; guidance-only use is not an established property. Audit the
-handoff so these results cannot certify later strong survival or normal return.
-Prove the necessary refinement or specify restricted/provenance-aware reuse
-before implementation. This is a required spec-stage decision, not a claim
-that the current record path is already safe for the new semantics.
-Do not assume later strong execution automatically removes an earlier weak
-alternative. Diagnostic trace data must not be a reusable transfer edge.
+A root-only filter is insufficient. Weak `f=constant` can publish f/T→f/T;
+a following read can even publish f/T→Return/T. The run-1 bypass can cross a
+nonreturning helper. These records can have nonstatic endpoints and remain
+NORMAL singletons. The current record has no semantic-phase provenance.
+
+Therefore **all run-1 publications are guidance only**, not executable native
+or opposite records. This is the safe selected phase boundary; it does not
+add a new cache or IR representation. Preserve coarse entry/exit hints and
+candidate seeds, including NORMAL singletons omitted by the current
+`demandEdges()` path. Reusable strong records begin with completed run-2.
+Diagnostic run-1 evidence cannot certify a later edge or normal return.
+
+This includes sink matches: retain NORMAL and DEMAND F1 matches as candidates
+and seed B2 from both. The existing demand-only seed extraction and stop
+checks cannot skip strong refinement merely because all F1 matches/edges are
+NORMAL. Keep rule/action occurrence IDs stable; semantic cache flavor must
+not rename the source or sink that a later seed refers to.
+Use `confirmed=false` report witnesses so the existing DEMAND candidate
+path can supply seeds. Keep the raw fact layers unchanged. Replace the
+`demandLayerEdges == 0` stop shortcut while such candidates need B2.
+
+### Actual queries recover missing S→S edges
+
+Consider `GEN f/T; call helper; check f/T`. Run-1 can skip a pure helper,
+so its summaries contain no f→f. Run-2 must nevertheless analyze its actual
+f/T output demand. Adding identity for every missing summary would be wrong
+for `helper { f=constant }` or a helper with no normal return.
+
+```kotlin
+fun queryLater(call: Call, actualRequirement: Facts) {
+    val q = subscriptions.register(call, actualRequirement, fullPremise)
+    callee.startStrongRestricted(q.requiredEntry, oldGuide.hintsFor(q))
+    callee.allowResponseFor(q) // guide absence vetoes neither start nor response
+    // Subscribe; only a proven normal-return response crosses the call.
+}
+```
+
+Apply this to all actual nested bindings, including static→local→argument→
+return→static paths. It is ordinary restricted analysis, not run-1 requests.
+Use existing N2/subscriptions and fact/summary deduplication where possible.
+Do not add a universal S-root seed. Do not apply F1 field-ownership or
+footprint-complement identity shortcuts to later strong queries. An unread
+field can still be overwritten; F is not a preservation mask.
+
+### Strong relation within the selected AP semantics
+
+| Current-query callee behavior | Run-2 relation to infer in reverse |
+| --- | --- |
+| Pure helper that returns | f/T←f/T |
+| `g=f`, f≠g | f/T←f/T and f/T←g/T; old g does not survive |
+| `f=untainted` | No f/T←old-f/T; disjoint fields survive |
+| Actual `source(T)` into f | ZERO←f/T, a source hit rather than S identity |
+| No modeled normal return | No normal-return static continuation |
+
+The table writes `input preimage ← output requirement`. Forward run-3 uses
+the corresponding strong forward relation. Preserve full
+residual geometry: killing f retains both other classes and siblings in C,
+not just `S.* except C`. Exact class points are separate from field descendants.
+Ordinary E/mx and full-premise guards remain effective. Unknown queries stay
+pending; recursive analysis computes the least query/response fixed point.
+Strong summary reuse is optional acceleration, with ordinary AP read views;
+missing records fall back to current-query execution.
+Keep actual modeled-return evidence distinct from the synthetic virtual exits
+used for backward CFG reachability. A synthetic exit alone cannot authorize
+a strong return response, including ZERO/generated and ND outputs. Local
+source/sink work before a nonreturning exit remains valid on its own path.
+
+The [static specification](../../spec/static-handling.md#6-strong-static-handling-on-run-2-and-later)
+pins admission, response, reversal, return and persistence behavior. The
+[proof dossier](../../spec/static-handling-proofs.md) gives constructive
+coverage, soundness and completeness arguments and the Lean/local scope.
 
 ## 9. Proof obligations and validation
 
@@ -401,7 +480,7 @@ before runtime work. The current F75/F78 proofs do not certify these changes.
 
 | Obligation | Required checks |
 | --- | --- |
-| Read/check coverage | Only actual static reads and effective source/sink/other condition checks seed field requests; no alias/write/cleaner target seeds; transitive cycles and genuine broad checks covered |
+| Read/mark separation | Only actual value reads seed F; effective source/sink ContainsMark checks seed only mark interests; no alias/write/cleaner target seeds; transitive cycles and genuine broad scopes covered |
 | Legality separation | Keep write/alias/model producer coordinates in the accepted domain without turning them into field requests |
 | Two emission gates | All four field/mark cases; actual supplier required; mark-only cleaner case; no invented mark or ANY/empty-static-root initial |
 | Discovery coverage | Empty R(f), f-to-g copy, downstream g/T, nonstatic/static crossings and both request/input orders still work |
@@ -410,7 +489,8 @@ before runtime work. The current F75/F78 proofs do not certify these changes.
 | Target delivery | Unrequested fields create no input groups/LinkIn; frozen domain covers late marks; full caller/premise/layer correlation retained |
 | Root removal | No special abstract root initial/queue item/subscription; no root field expansion or root-return data route |
 | Spatial mark effects | Disjoint/mixed fields, source-to-target excluded-mark copies, within-field exact/below, class points and ZERO generation |
-| Iteration handoff | No root identity export/reversal; weak/bypass outputs cannot certify later strong transfer or normal return |
+| Iteration handoff | No root identity export/reversal and no executable F1 records of any endpoint base; NORMAL singleton guidance retained |
+| Later S→S | Actual-query start and response independent of F1 inventory/summary availability; strong keep/copy/kill/source; complete nested bindings; modeled return; residual E and exact converse |
 | Observables | Preserve real source-to-sink derivations and main finding recall; quantify any added run-1 FP and later refinement |
 
 Use finite-derivation induction and fair monotone replay for cycles. Count every
@@ -432,15 +512,16 @@ late mark after earlier FLOW   // retain requested input for replay
 
 ## 10. Implementation order and measurement gates
 
-1. Specify the selected read-only request plan, weak stores, root-free call
-   bypass, emission gates and handoff filter. Prove the reference laws and
-   update the initial grammar and native/record contract.
-2. Separate metadata read/check needs from legality, mark interests and
+1. Use the new static specification and proofs to pin the read/mark split,
+   weak run-1 behavior and strong later query/record boundary. Keep checked
+   local laws distinct from Kotlin refinement and complete-engine proofs.
+2. Separate metadata value-read needs from legality, mark interests and
    write/alias effects. Keep the existing shared request storage and barriers.
 3. Add phase-safe weak static stores, remove root construction/propagation,
    add local static call continuation and request-gated target delivery.
-4. Add the scoped cleaner/mark changes and forbidden-root export checks as
-   part of the same coherent implementation; do not enable partial semantics.
+4. Add scoped cleaner/mark changes, guidance-only F1 export, all-base later
+   query admission/response and strong record separation as one coherent
+   implementation; do not enable partial semantics.
 5. Run core/JVM/application checks, OWASP and the selected real projects with
    their fixed configurations. Use fresh main for finding comparison and the
    source-bound current runtime for the performance control.
@@ -455,6 +536,8 @@ static mark requests: frozen logical / offered / fresh D / outgoing batches
 static calls: local bypasses / requested deliveries / skipped target fields
 method rows / occupied buckets / N2 groups / index nodes by origin/current base
 handoff root-identity summaries and reversals: must be zero
+executable F1 native/opposite records after handoff: must be zero
+later actual queries / missing-guide starts / delivered strong responses
 ```
 
 Compare processed steps, new analyses, deliveries, subscriptions and retained

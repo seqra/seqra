@@ -4,10 +4,13 @@ Date: 16 October 2026. Status: heap census and independent review complete.
 Analyzer implementation is unchanged.
 
 The follow-up [request-gated static-handling proposal](../design/bidirectional-request-gated-static-handling-20261016.md)
-uses read/check field requests, a separate concrete-mark gate, weak run-1
+uses value-read field requests, a separate concrete-mark gate, weak run-1
 static stores and a root-free static call-to-return path. It removes the
 special abstract S-root propagation and excludes its identity summaries from
-later handoff. It replaces the earlier control-root/frame candidates below.
+later handoff. ContainsMark contributes mark interest only. The selected
+[static specification](../../spec/static-handling.md) also makes all F1
+publications guidance-only and uses actual strong queries on run-2/later.
+It replaces the earlier control-root/frame candidates below.
 It is unimplemented; the measurements describe the current runtime.
 
 Latest reached: **run-1, forward, limit 1; OOM**. No engine completes and no
@@ -15,7 +18,7 @@ forward report is accepted. The logged failed engine duration is 109.891609201
 seconds; it is not a completed run-1 time or pure solver CPU time.
 
 The measured runtime is `4acde739b`, captured at `05cf9ad62`. Current HEAD
-`aa844367d` adds documentation only. Use the
+`64f5e3db4` has the same core tree. Use the
 [closed project measurements](bidirectional-static-domain-frozen-requests-performance-20261016.md).
 The existing evidence root, called B below, is:
 
@@ -328,7 +331,7 @@ actual supplied T + static mark request for C.f/T
 
 The field request is a separate mark-neutral geometric need. It is not a test
 for nonempty R, nor the current H flag widened by root mark needs. Only static
-reads and condition checks seed it; aliases and write targets do not. In the
+value reads seed it; mark checks, aliases and write targets do not. In the
 new proposal, ordinary run-1 static stores are weak, static facts bypass calls
 without waiting, and the special root is removed rather than retained as a
 control protocol. The measured source behavior below remains the explanation
@@ -478,11 +481,12 @@ contract caveats and root-origin local-data path are bound in
 Use the new [request-gated static-handling proposal](../design/bidirectional-request-gated-static-handling-20261016.md)
 for the next design. Its main target is avoiding first field analyses and
 callee inputs, rather than compressing the resulting standing relation.
-It collects field requests only for reads/checks, gates concrete answers by
+It collects field requests only for value reads, gates concrete answers by
 actual marks, and uses weak static stores and direct call-to-return static
 propagation on run-1. It needs no special static-root control, return watcher
-or pending frame store. Later iterations retain their normal semantics;
-run-1 root identity is not exported as a reusable summary.
+or pending frame store. Mark predicates add only mark interests. Later
+iterations compute strong S→S relations from actual queries, even without
+an F1 summary. F1 publications are guidance only, not reusable transfer edges.
 
 These are new abstraction rules, not a proven speedup. Weak writes and static
 bypass can increase run-1 may-taint; the proposal requires finding and handoff

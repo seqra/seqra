@@ -1,5 +1,13 @@
 # Access paths and storages — specification
 
+The selected [static-handling contract](static-handling.md) takes precedence
+over the static rules below: separate value-read/mark gates, nine run-1
+initial families, weak run-1 stores and root-free call bypass, guidance-only
+run-1 export, and actual-query strong run-2/later analysis. It is a design
+target; runtime is unchanged. [Static proofs](static-handling-proofs.md)
+state the new laws and the local checked scope. Historical root/frame
+theorems retain their original assumptions.
+
 This document defines facts, edges, AP operations, runs, and stores for
 [bidirectional-task.md](../bidirectional-task.md). It is normative.
 [interpreter.md](interpreter.md) defines IR construction and rule order.

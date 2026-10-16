@@ -1,7 +1,15 @@
 # Current proof status
 
+The selected [static-handling contract](static-handling.md) supersedes F78's
+static root/frame and ten-initial policy. Its new [proof dossier](static-handling-proofs.md)
+separates constructive design proofs from the checked local module. The
+earlier F78 receipts below remain valid evidence for their historical
+ten-family/root-frame models, not for the new nine-family contract or the
+new run-2 query/persistence boundary. Runtime implementation is unchanged.
+
 The normative rules are [ap.md](ap.md), [interpreter.md](interpreter.md),
-[analyzer-core.md](analyzer-core.md) and [F78 run-1 requests](run1-requests.md).
+[analyzer-core.md](analyzer-core.md), [run-1 requests](run1-requests.md) and
+the overriding [static contract](static-handling.md).
 F78 replaces full-query/role requests, request exclusion tests and the callee
 deferred-answer memo. It retains the exact caller input relation for summary
 application and late requests. This file states proof scope and evidence; it adds
@@ -9,12 +17,47 @@ no analysis rule and makes no claim that the measured runtime implements F78.
 [proof-history.md](proof-history.md) retains earlier
 theorem catalogs; F70/F71 concrete-run results do not prove current restricted runs.
 
-## F78: merged run-1 requests
+## Request-gated statics and strong later queries
+
+Validation on 16 October 2026 passed: `lake build` completed 126 jobs;
+`lake env lean -M2048 audit.lean` checked **22,798 declarations**, with zero
+unexpected axioms. The new module contributes 972 declarations, including
+private/generated declarations. Only `propext` and `Quot.sound` are allowed;
+no Classical.choice, sorryAx or new axiom is permitted. All executable
+certificates passed, including the new backward helper/kill/nonreturn cases.
+The [receipt](../docs/reports/bidirectional-static-handling-proof-validation-20261016.md)
+binds sources, logs, commands and the repaired initial certificate attempt.
+
+Latest measured iteration remains **run-1, FORWARD, limit 1; OOM**. No completed
+iteration or accepted forward report. There is no analyzer implementation
+change, new runtime measurement or full-engine correctness claim.
+
+| Result | New checked scope |
+| --- | --- |
+| Read versus mark-only prescan needs | Effective positive inventory and inherited call paths; ContainsMark adds no field need |
+| Nine initial families | Executable classifier/witnesses, exactly old grammar minus special root, Empty E, no ANY/must, unchanged start facts |
+| Independent field/mark gates | Supplied normal static-field oracle; actual concrete leaf plus requested mark for concrete answers |
+| Weak versus strong transfers | Scalar keep/copy/kill/generation with explicit cleaners retained strong; sequence/body inclusion |
+| Strong S→S and converse | Finite returned bodies, ordinary spatial E, ZERO origin and actual modeled-return witnesses |
+| Actual later queries | Admission independent of F1 hints, exact finite-candidate answers, pending distinct from empty/identity |
+| Recursive balanced calls | Executable generic-state approximants sound/complete for finite balanced derivations, least relation, mixed-state and unproductive-recursion controls |
+| Phase isolation | No F1 executable record, weak/strong cache separation, compatible later strong records may cross runs |
+
+[Static proofs](static-handling-proofs.md) gives the constructive proofs for
+closure, request/observation coverage, safe handoff, strong call discovery and
+backward preimages. The module does not prove packed AP encoding, JVM producer
+coverage, actual concurrent scheduling/publisher refinement, ND confirmation,
+synthetic-exit classification or the full source-hit/iteration driver. Those
+implementation bridges retain their explicit obligations. Historical root/frame
+proofs cannot discharge them. Strong normal-return claims concern the selected
+model and must not be inferred from virtual-exit reachability alone.
+
+## Historical F78: merged run-1 requests
 
 Validation on 15 October 2026 passed for the corrected no-ANY initial policy:
 `lake build` completed 125 jobs; `lake env lean audit.lean` checked 21,826
 declarations with zero unexpected axioms. All executable audit groups passed.
-Run-1 InitialAp now has EXACT or STAR tail only, with ten initial families.
+That model has EXACT or STAR tail only, with ten initial families.
 An incoming ANY/must field supplier projects to concrete STAR; that initial
 starts as an ANY fact in DEMAND. The same rule applies to nonexact class
 projections. Exact suppliers keep EXACT. Abstract initials remain independently

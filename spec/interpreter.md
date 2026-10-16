@@ -1,5 +1,13 @@
 # IR interpreter — specification
 
+The selected [static-handling contract](static-handling.md) overrides the
+static behavior below where it conflicts. In particular, ContainsMark adds
+only mark interest; run-1 has weak ordinary static stores and immediate
+static call continuation without a special root. Run-2/later uses strong
+actual-query analysis and modeled normal returns, without F1 footprint
+identity shortcuts or executable F1 records. Logical rule/action occurrence
+IDs stay stable across semantic cache flavors. Runtime is unchanged.
+
 Status: design spec, the companion of [ap.md](ap.md). This document is normative. `ap.md` defines the access path (AP),
 its operations and its primitives. This document defines how the analyzer interprets the IR of the JVM (JIR) and of Go
 (GoIR) with these primitives. The two documents together define the analysis. The names of today's code in this

@@ -501,3 +501,51 @@ run_elab do
       !ApSpec.Run1InitialShapes.Certificate.checks then
     throw (IO.userError "F78 closed initial grammar/start-fact certificates failed.")
   IO.println "Executable F78 shared-base and ten-initial certificates passed."
+
+-- Selected static contract: F78 certificates above retain their historical
+-- ten-family/root-frame scope. The new module has nine families and no root.
+#eval do
+  let families := ApSpec.RequestGatedStatics.InitialGrammar.samples
+  if families.length != 9 ||
+      !families.all (fun s => (ApSpec.RequestGatedStatics.InitialGrammar.classify
+        (ApSpec.RequestGatedStatics.InitialGrammar.encode s)).isSome) then
+    throw (IO.userError "Selected nine-family static initial certificate failed.")
+  let f : ApSpec.RequestGatedStatics.Field := (0,1)
+  let p : ApSpec.RequestGatedStatics.Component := ⟨f,[],7,false⟩
+  let input : ApSpec.Run1Requests.Leaf := ⟨.field 0 1,.any,7,.empty,false⟩
+  if ApSpec.RequestGatedStatics.fieldReads
+      (ApSpec.RequestGatedStatics.inventory [.containsMark (.field 0 1) 7]) != [] ||
+      ApSpec.RequestGatedStatics.f1Starts [] [(.field 0 1,7)] f input !=
+        [ApSpec.Run1Requests.concrete (.field 0 1) (.star .empty) 7] ||
+      ApSpec.RequestGatedStatics.f1Starts [f] [] f input !=
+        [(ApSpec.Run1Requests.Slot.field 0 1).initial] then
+    throw (IO.userError "Independent field/mark gate certificates failed.")
+  let point : ApSpec.RequestGatedStatics.Point := .fact p
+  let q : ApSpec.RequestGatedStatics.Query := ⟨⟨0,0,[]⟩,2,true,point,none⟩
+  if !(ApSpec.RequestGatedStatics.admitActualQuery [] [] q).contains q ||
+      ApSpec.RequestGatedStatics.queryAnswers [point] .ret q != [point] ||
+      ApSpec.RequestGatedStatics.queryAnswers [point] (.step (.kill f) .ret) q != [] ||
+      ApSpec.RequestGatedStatics.queryAnswers [point] .abort q != [] then
+    throw (IO.userError "Strong backward helper/kill/nonreturn certificates failed.")
+  if ApSpec.RequestGatedStatics.strongRecordReadable 1 2 .strongLater ||
+      ApSpec.RequestGatedStatics.strongRecordReadable 1 3 .weakRun1 ||
+      !ApSpec.RequestGatedStatics.strongRecordReadable 2 3 .strongLater then
+    throw (IO.userError "F1 quarantine/strong record certificates failed.")
+  let loop : Fin 1 → ApSpec.RequestGatedStatics.BalancedCalls.Code 1 Nat :=
+    ApSpec.RequestGatedStatics.BalancedCalls.loop
+  if ApSpec.RequestGatedStatics.BalancedCalls.eval 8 loop (loop ⟨0,by decide⟩) 0 != [] then
+    throw (IO.userError "Unproductive recursive call created a return.")
+  IO.println "Executable request-gated statics and strong run-2 certificates passed."
+
+#print axioms ApSpec.RequestGatedStatics.InitialGrammar.classification_exact
+#print axioms ApSpec.RequestGatedStatics.InitialGrammar.exactly_old_grammar_minus_root
+#print axioms ApSpec.RequestGatedStatics.containsMark_does_not_add_field
+#print axioms ApSpec.RequestGatedStatics.strong_step_in_weak
+#print axioms ApSpec.RequestGatedStatics.weak_clean_is_strong
+#print axioms ApSpec.RequestGatedStatics.output_iff_actual_return
+#print axioms ApSpec.RequestGatedStatics.backward_answers_exact
+#print axioms ApSpec.RequestGatedStatics.BalancedCalls.balanced_query_exact
+#print axioms ApSpec.RequestGatedStatics.BalancedCalls.least_closed_relation
+#print axioms ApSpec.RequestGatedStatics.BalancedCalls.unproductive_recursion_has_no_return
+#print axioms ApSpec.RequestGatedStatics.BalancedCalls.mixed_static_local_nested_call
+#print axioms ApSpec.RequestGatedStatics.F1_record_never_executable

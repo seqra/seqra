@@ -1,5 +1,14 @@
 # F78: run-1 mark requests
 
+The selected [static-handling contract](static-handling.md) replaces the
+static initial, field-selection, root/frame, store/call and later-handoff
+parts of F78. It removes the special abstract S-root and permits nine run-1
+initial families. ContainsMark contributes only mark interest, never F.
+The shared B/D/P request ownership and commit/replacement protocol below
+remain. Old ten-family/root-frame proofs keep their historical scope; use
+[static-handling-proofs.md](static-handling-proofs.md) for the new contract.
+Runtime is unchanged.
+
 This document is normative for the selected JVM analyzer. It replaces the run-1
 full-query/role request protocol, deferred-answer memo, and request exclusion tests
 in the earlier specifications. The [implementation validation](../docs/reports/bidirectional-run1-mark-request-validation-20261015.md)
@@ -47,13 +56,12 @@ legal initials, not one merged initial.
 | --- | --- | --- | --- | --- | --- |
 | Zero | zero | [] | EXACT | canonical zero mark | Root start or incoming Reach |
 | Normal non-static abstraction | b | [] | STAR | STAR | Incoming non-static input |
-| Special static summary seed | S | [] | STAR | STAR | Incoming static input; rule/request guard below |
-| Normal static field abstraction | S | [C,f] | STAR | STAR | Supplied selected structural field from the closed plan or relevant wide activation |
+| Normal static field abstraction | S | [C,f] | STAR | STAR | Supplied geometry and value-read field request F; a mark check alone does not authorize it |
 | Concrete non-static answer | b | [] | EXACT or STAR | T | Actual requested supplier; exact root versus chain |
 | Concrete static field answer | S | [C,f] | EXACT or STAR | T | Actual requested field supplier or broad projection |
 | Direct concrete class component | S | [C] | EXACT or STAR | T | Direct class-point supplier or conservative broad projection |
 
-These are ten families if each alternative tail is counted separately. The
+These are nine families if each alternative tail is counted separately. The
 table is a legal envelope, not a requirement to emit all its rows for every input.
 InitialFactStore equality distinguishes the alternatives. There is no nonempty E,
 ANY or ANY_TAINT initial, abstract class initial, non-static path below a
@@ -97,10 +105,10 @@ rule role, caller or call statement in the key. A set of marks is a set of separ
 interests, never a conjunctive premise. Rule conditions keep their full geometry,
 signed normalization, action order, occurrence identity and proof support.
 
-The special abstract `(S,[],STAR,Empty,STAR)` is a summary seed, not a request slot.
-Keep its ordinary code transfer. Do not evaluate rules or collect requests on its
-root component. A packed field branch is not that root component and keeps its
-ordinary processing. Section 5 defines the required summary composition.
+The special abstract `(S,[],STAR,Empty,STAR)` is neither an admitted initial
+nor a request slot under the new static contract. Its old summary-seed
+transfer and root-frame composition are historical. Actual supplied field
+branches and broad concrete data retain their specified ordinary processing.
 
 Validate K6 before request eligibility: a FLOW fact has one actual abstract-mark
 InitialAp premise; TAINT facts keep their actual zero/concrete/joint-concrete
@@ -451,6 +459,12 @@ Measure physical descriptors, selected sets, sparse entries, views and query wor
 separately. Zero expanded map rows is not zero requests or a measured net saving.
 
 ## 5. Static ownership and the untouched frame
+
+This section records the earlier F78 root/frame contract. The selected
+[static contract](static-handling.md#4-run-1-stores-and-calls) supersedes it:
+run-1 bypass supplies preservation without a root/frame protocol; strong
+later queries compute their actual relation independently of F1 ownership.
+Do not implement this historical section as the selected static behavior.
 
 This section is an explicit proof-driven refinement of the accepted proposal. The
 old root summary cannot be applied unrestrictedly beside normal field analyses:

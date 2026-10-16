@@ -122,3 +122,4 @@ import ApSpec.Run1Requests
 import ApSpec.Run1RequestsSafety
 import ApSpec.Run1InitialShapes
 import ApSpec.Run1PrecomputedRequests
+import ApSpec.RequestGatedStatics
