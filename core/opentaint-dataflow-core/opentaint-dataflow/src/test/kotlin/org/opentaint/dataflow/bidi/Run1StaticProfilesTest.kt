@@ -26,6 +26,12 @@ class Run1StaticProfilesTest {
     private fun members(rows: RequestRows): Map<Run1Slot, Set<Int>> = rows.mapValues { (_, marks) ->
         buildSet { marks.forEachId { add(it) } }
     }
+    private fun members(base: FrozenRequestBase): Map<Run1Slot, Set<Int>> = buildMap {
+        base.forEachStaticRow({}) { slot ->
+            val ids = buildSet { val cursor = base.borrow(slot).cursor(); while (!cursor.isComplete) cursor.step(256) { add(it.id) } }
+            put(slot, ids)
+        }
+    }
     private fun expected(raw: Raw): Map<Run1Slot, Set<Int>> {
         val slots = (raw.fields + raw.needs.filter { it.path.size >= 2 }.map { it.path.take(2) })
             .filter { it.size == 2 }.map { Run1Slot.StaticField(it[0], it[1]) }.toSet()
@@ -91,10 +97,12 @@ class Run1StaticProfilesTest {
         assertEquals(mapOf<Run1Slot, Set<Int>>(sx to setOf(t.id)), members(last.precomputedRequests))
         val lazy = last.wideRequests(f.fact(STATIC, listOf(c, y), Tail.EXACT))
         assertEquals(mapOf<Run1Slot, Set<Int>>(sy to setOf(t.id)), members(lazy))
-        assertFalse(sy in last.precomputedRequests, "Input activation must not mutate frozen B")
+        assertFalse(last.precomputedRequests.hasRow(sy), "Input activation must not mutate frozen B")
         assertSame(last.footprint.fieldUniverse, profiles[extra].footprint.fieldUniverse)
         assertEquals(2, profiles.statistics.precomputedBaseRoots) // one inherited B plus the shared empty base
-        assertEquals(1L, profiles.statistics.physicalPrecomputedRows)
+        assertEquals(0L, profiles.statistics.physicalPrecomputedRows)
+        assertEquals(1L, profiles.statistics.uniqueBaseLogicalRows)
+        assertEquals(0L, profiles.statistics.sparseFieldRows)
         assertEquals(1024L, profiles.statistics.logicalMethodRequestRows)
         assertEquals(1024L, profiles.statistics.logicalMethodRequestMembers)
         assertEquals(1L, profiles.statistics.ownedMarkPrimitiveCells)
@@ -122,7 +130,7 @@ class Run1StaticProfilesTest {
         val interest = StaticMarkInterest(f.pattern(STATIC, listOf(c), Tail.EXACT, MarkSlot.Concrete(t)),
             StaticMarkRole.SINK, RequestMarkSet.of(t))
         val p = Run1StaticProfiles.build(f.manager, emptyMap(), mapOf(m to Run1StaticLocalProfile(marks = listOf(interest))))[m]
-        assertTrue(p.precomputedRequests.isEmpty()); assertTrue(p.structuralFieldSlots.isEmpty())
+        assertTrue(p.precomputedRequests.isEmpty); assertTrue(p.structuralFieldSlots.isEmpty())
         assertEquals(setOf(c), p.classPointClasses)
         assertTrue(t in p.classPointMarks(c))
     }
@@ -138,7 +146,7 @@ class Run1StaticProfilesTest {
         assertTrue(profile.structuralFieldSlots.isEmpty())
         assertFalse(profile.footprint.owns(c,x.field)); assertFalse(profile.footprint.owns(c,y.field))
         assertEquals(setOf(c),profile.classPointClasses)
-        assertTrue(profile.precomputedRequests.isEmpty())
+        assertTrue(profile.precomputedRequests.isEmpty)
     }
 
     @Test fun `metadata snapshots and graph bindings remain stable after caller mutation`() {
@@ -152,7 +160,7 @@ class Run1StaticProfilesTest {
         val profiles = Run1StaticProfiles.build(f.manager, mapOf(caller to edges), mapOf(a to local, b to Run1StaticLocalProfile.EMPTY))
         edges.clear()
         assertEquals(mapOf<Run1Slot, Set<Int>>(Run1Slot.StaticField(c, x) to setOf(t.id)), members(profiles[caller].precomputedRequests))
-        assertTrue(profiles[b].precomputedRequests.isEmpty())
+        assertTrue(profiles[b].precomputedRequests.isEmpty)
         assertTrue(profiles.containsTarget(caller, a)); assertFalse(profiles.containsTarget(caller, b))
         assertFailsWith<IllegalStateException> { profiles[method("unknown")] }
     }

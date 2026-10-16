@@ -30,8 +30,8 @@ class CatalogMarkAnswerTest {
         val profiles = Run1StaticProfiles.build(ap, mapOf(method to emptyList()),
             mapOf(method to Run1StaticLocalProfile(marks = interests)))
         val profile = profiles[method]
-        assertEquals(1, profile.precomputedRequests.size)
-        assertEquals(RequestMarkSet.fromIds(intArrayOf(t.id, u.id)), profile.precomputedRequests[slot])
+        assertEquals(1L, profile.precomputedRequests.logicalRows)
+        assertEquals(RequestMarkSet.fromIds(intArrayOf(t.id, u.id)), profile.precomputedRequests.borrow(slot).toRequestMarkSet {})
         assertTrue(profile.markInterests.isEmpty(), "Prescan query/role scratch must not remain in the runtime plan")
         val input = ap.factsOf(PathFact(STATIC, listOf(c, g), Tail.EXACT, MarkSlot.Concrete(t)),
             ExclusionSet.Empty, Layer.NORMAL)

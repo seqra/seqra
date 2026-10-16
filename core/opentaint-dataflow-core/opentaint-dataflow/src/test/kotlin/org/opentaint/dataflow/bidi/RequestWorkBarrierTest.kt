@@ -28,7 +28,7 @@ class RequestWorkBarrierTest {
             assertTrue(f.requestRow(actor, slot).isEmpty)
             assertFails { actor.freeze() }
             assertTrue(actor.work(1), "With no facts, the method-empty boundary commits the entire merged P")
-            assertEquals(3, f.requestRow(actor, slot).size)
+            assertEquals(3, f.requestRow(actor, slot).countMarks {})
             assertEquals(0L, actor.steps, "Request commits are not fact steps")
             actor.freeze()
         }

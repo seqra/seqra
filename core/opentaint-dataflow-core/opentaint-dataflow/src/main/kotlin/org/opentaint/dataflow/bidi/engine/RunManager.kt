@@ -67,7 +67,7 @@ class RunManager<A : RunActor>(
         check(!ended) { "The run has ended" }
         shared.cancellation.checkpoint()
         storages.computeIfAbsent(key) { SummaryStorage(it, shared.ap, shared.ops, steps,
-            if (config.run1) shared.run1StaticProfiles?.get(it.method)?.precomputedRequests.orEmpty() else emptyMap(),
+            if (config.run1) shared.run1StaticProfiles?.get(it.method)?.precomputedRequests ?: EmptyFrozenRequestBase else EmptyFrozenRequestBase,
             shared.abstractionStatistics) }
     }
 

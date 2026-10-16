@@ -12,12 +12,13 @@ interface RequestMarkSelection {
 
 interface RequestMarkCursor {
     val isComplete: Boolean
+    /** Return source cells consumed, at most budget; deduplicating cursors can invoke fewer callbacks. */
     fun step(budget: Int, visit: (TaintMark) -> Unit): Int
 }
 
-class RequestMarkSet private constructor(private val data: IntArray, private val hash: Int = data.contentHashCode()) : RequestMarkSelection {
+class RequestMarkSet private constructor(private val data: IntArray, private val hash: Int = data.contentHashCode()) : ImmutableRequestMarks {
     val size: Int get() = data.size
-    val isEmpty: Boolean get() = data.isEmpty()
+    override val isEmpty: Boolean get() = data.isEmpty()
     val primitiveCapacity: Int get() = data.size
 
     fun idAt(index: Int): Int = data[index]

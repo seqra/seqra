@@ -126,7 +126,7 @@ class Run1StaticProfile internal constructor(
     internal val selectedClassPoints: PersistentSet<Int> = persistentHashSetOf(),
 ) {
     private var frozen = false
-    lateinit var precomputedRequests: RequestRows
+    lateinit var precomputedRequests: FrozenRequestBase
         private set
     lateinit var footprint: Run1StaticFootprint
         private set
@@ -157,7 +157,7 @@ class Run1StaticProfile internal constructor(
             cancellation.checkpoint()
             if (path.size == 2) slots += Run1Slot.StaticField(path[0], path[1])
         }
-        val fieldMarks = LinkedHashMap<Run1Slot, org.opentaint.dataflow.bidi.store.RequestMarkSet>()
+        val fieldMarks = LinkedHashMap<Run1Slot.StaticField, org.opentaint.dataflow.bidi.store.RequestMarkSet>()
         val wide = LinkedHashMap<Int, org.opentaint.dataflow.bidi.store.RequestMarkSet>()
         val points = LinkedHashMap<Int, org.opentaint.dataflow.bidi.store.RequestMarkSet>()
         var root = cleanerMarks.toRequestMarkSet(cancellation::checkpoint)
@@ -197,19 +197,12 @@ class Run1StaticProfile internal constructor(
             if (!marks.isEmpty) points[cls] = marks
         }
         directClassMarks = ownedMap(points)
-        val rows = LinkedHashMap<Run1Slot, org.opentaint.dataflow.bidi.store.RequestMarkSet>()
-        for (slot in slots) {
-            cancellation.checkpoint()
-            val common = commonByClass[slot.cls] ?: root
-            val marks = unionRequestMarks(common,
-                fieldMarks[slot] ?: org.opentaint.dataflow.bidi.store.RequestMarkSet.EMPTY, cancellation::checkpoint)
-            if (!marks.isEmpty) rows[slot] = marks
-        }
-        precomputedRequests = freezeRequestRows(rows)
         footprint = Run1StaticFootprint(slots, !root.isEmpty || effectAllStatic,
             wide.keys + effectWideClasses, universe,
             classPoints = if (effectAllStatic) classes else selectedClassPoints + points.keys + effectWideClasses,
             classUniverse = classes)
+        precomputedRequests = FrozenStaticRequests.freeze(footprint, root, classWideMarks, fieldMarks,
+            cancellation::checkpoint)
         ownedClassPoints = if (footprint.allStatic) classes else ownedSet(footprint.classPoints + footprint.wideClasses)
         bySlot = persistentHashMapOf()
         cleanerIds = persistentHashSetOf()
@@ -217,7 +210,7 @@ class Run1StaticProfile internal constructor(
     }
 
     internal fun visitOwnedRequestMarks(visit: (RequestMarkSet) -> Unit) {
-        precomputedRequests.values.forEach(visit)
+        (precomputedRequests as? FrozenStaticRequests)?.visitOwnedMarks(visit)
         visit(allWideMarks)
         classWideMarks.values.forEach(visit)
         directClassMarks.values.forEach(visit)
@@ -262,15 +255,16 @@ class Run1StaticProfile internal constructor(
     fun covers(initial: InitialAp, mark: TaintMark): Boolean {
         cancellation.checkpoint()
         val slot = Run1Slot.fromInitial(initial) ?: return false
-        return precomputedRequests[slot]?.contains(mark) == true
+        return precomputedRequests.borrow(slot).containsId(mark.id)
     }
 
     internal fun directory(): StaticDirectory = bySlot
 }
 
 /** Direct/transitive query counts describe closure construction scratch, which is released at freeze.
- *  Frozen-base rows/cells are logical memberships; base/mark-set roots and owned primitive cells
- *  count object identity after freeze. These are not retained-byte estimates. */
+ *  Logical rows/memberships are cached without expanding B. PhysicalPrecomputedRows counts
+ *  materialized B entries (zero for factored production); sparseFieldRows counts retained overlays.
+ *  Base/descriptor/mark roots and primitive cells count identity after freeze, not retained bytes. */
 data class Run1StaticProfileStatistics(
     val methods: Int,
     val callEdges: Long,
@@ -305,6 +299,14 @@ data class Run1StaticProfileStatistics(
     val logicalMethodRequestRows: Long = 0,
     val logicalMethodRequestMembers: Long = 0,
     val runtimeMarkSetRoots: Int = 0,
+    val uniqueBaseLogicalRows: Long = 0,
+    val uniqueBaseLogicalMembers: Long = 0,
+    val sparseFieldRows: Long = 0,
+    val selectedSetRoots: Int = 0,
+    val selectedFieldSlots: Long = 0,
+    val commonClassMapRoots: Int = 0,
+    val commonClassRows: Long = 0,
+    val sparseFieldMapRoots: Int = 0,
 )
 
 /** Immutable copied graph plus one profile per SCC. Release this owner after run-1 workers join. */
@@ -681,23 +683,43 @@ private class StaticProfileBuilder(private val ap: ApManager) {
             val value = checkNotNull(profile)
             if (frozen.put(value, true) == null) value.freezePlan(universe, classes)
         }
-        val baseRoots = IdentityHashMap<RequestRows, Boolean>()
+        val baseRoots = IdentityHashMap<FrozenRequestBase, Boolean>()
+        val selectedRoots = IdentityHashMap<Set<Run1Slot.StaticField>, Boolean>()
+        val commonRoots = IdentityHashMap<Map<Int, RequestMarkSet>, Boolean>()
+        val sparseRoots = IdentityHashMap<Map<Run1Slot.StaticField, RequestMarkSet>, Boolean>()
         val markSets = IdentityHashMap<RequestMarkSet, Boolean>()
-        var physicalRows = 0L
+        var uniqueRows = 0L; var uniqueMembers = 0L
+        var sparseRows = 0L; var selectedSlots = 0L; var commonRows = 0L
         for (profile in frozen.keys) {
             check()
-            if (baseRoots.put(profile.precomputedRequests, true) == null) physicalRows += profile.precomputedRequests.size
+            val base = profile.precomputedRequests
+            if (baseRoots.put(base, true) == null) {
+                uniqueRows = Math.addExact(uniqueRows, base.logicalRows)
+                uniqueMembers = Math.addExact(uniqueMembers, base.logicalMembers)
+                if (base is FrozenStaticRequests) {
+                    if (selectedRoots.put(base.selected, true) == null)
+                        selectedSlots = Math.addExact(selectedSlots, base.selected.size.toLong())
+                    if (commonRoots.put(base.commonByClass, true) == null)
+                        commonRows = Math.addExact(commonRows, base.commonByClass.size.toLong())
+                    if (sparseRoots.put(base.byField, true) == null)
+                        sparseRows = Math.addExact(sparseRows, base.byField.size.toLong())
+                }
+            }
             profile.visitOwnedRequestMarks { marks -> check(); if (!marks.isEmpty) markSets[marks] = true }
         }
         var logicalRows = 0L; var logicalMembers = 0L
         for (profile in byMethod.values) {
-            check(); logicalRows += profile.precomputedRequests.size
-            for (marks in profile.precomputedRequests.values) { check(); logicalMembers += marks.size }
+            check()
+            logicalRows = Math.addExact(logicalRows, profile.precomputedRequests.logicalRows)
+            logicalMembers = Math.addExact(logicalMembers, profile.precomputedRequests.logicalMembers)
         }
         var primitiveCells = 0L
         for (marks in markSets.keys) { check(); primitiveCells += marks.primitiveCapacity }
         val statistics = constructionStatistics.copy(ownedMarkPrimitiveCells = primitiveCells,
-            precomputedBaseRoots = baseRoots.size, physicalPrecomputedRows = physicalRows,
+            precomputedBaseRoots = baseRoots.size, physicalPrecomputedRows = 0,
+            uniqueBaseLogicalRows = uniqueRows, uniqueBaseLogicalMembers = uniqueMembers,
+            sparseFieldRows = sparseRows, selectedSetRoots = selectedRoots.size, selectedFieldSlots = selectedSlots,
+            commonClassMapRoots = commonRoots.size, commonClassRows = commonRows, sparseFieldMapRoots = sparseRoots.size,
             logicalMethodRequestRows = logicalRows, logicalMethodRequestMembers = logicalMembers,
             runtimeMarkSetRoots = markSets.size, cancellationCheckpoints = checkpoints,
             closureNanos = System.nanoTime() - started)

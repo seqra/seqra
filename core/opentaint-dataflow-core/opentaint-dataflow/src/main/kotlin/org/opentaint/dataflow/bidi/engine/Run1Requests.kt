@@ -4,6 +4,8 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.interp.ownedMap
+import org.opentaint.dataflow.bidi.store.ImmutableRequestMarks
+import org.opentaint.dataflow.bidi.store.forEachMark
 import org.opentaint.dataflow.bidi.store.RequestMarkCursor
 import org.opentaint.dataflow.bidi.store.RequestMarkSelection
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
@@ -46,12 +48,21 @@ sealed interface Run1Slot {
 typealias RequestRows = Map<Run1Slot, RequestMarkSet>
 
 /** Borrowed immutable segments, never a materialized copy of cumulative B union D. */
-data class RequestRowView(val precomputed: RequestMarkSet, val dynamic: RequestMarkSet) : RequestMarkSelection {
+data class RequestRowView(val precomputed: ImmutableRequestMarks, val dynamic: RequestMarkSet) : RequestMarkSelection {
     val isEmpty: Boolean get() = precomputed.isEmpty && dynamic.isEmpty
-    val size: Int get() = Math.addExact(precomputed.size, dynamic.size)
     override fun containsId(id: Int): Boolean = precomputed.containsId(id) || dynamic.containsId(id)
     operator fun contains(mark: TaintMark): Boolean = containsId(mark.id)
-    fun forEachMark(visit: (TaintMark) -> Unit) { precomputed.forEachMark(visit); dynamic.forEachMark(visit) }
+    fun forEachMark(visit: (TaintMark) -> Unit) { precomputed.forEachMark(visit = visit); dynamic.forEachMark(visit) }
+    /** Explicit, cancellable cardinality query; never used by a hot-path row getter. */
+    fun countMarks(checkpoint: () -> Unit): Int {
+        var size = 0
+        val values = cursor()
+        while (!values.isComplete) {
+            checkpoint()
+            values.step(256) { size = Math.addExact(size, 1) }
+        }
+        return size
+    }
     override fun cursor(): RequestMarkCursor = object : RequestMarkCursor {
         private val first = precomputed.cursor()
         private val second = dynamic.cursor()
@@ -109,17 +120,18 @@ internal fun unionRequestMarks(a: RequestMarkSet, b: RequestMarkSet, checkpoint:
 }
 
 /** One writer. R borrows a frozen base; P uses this same class with the empty base. */
-class RequestStorage(private val sharedBase: RequestRows = emptyMap()) {
+class RequestStorage(private val sharedBase: FrozenRequestBase = EmptyFrozenRequestBase) {
+    constructor(sharedBase: RequestRows) : this(MapFrozenRequestBase(sharedBase))
     private val additions = LinkedHashMap<Run1Slot, RequestMarkSet>()
     private var addedMembers = 0L
-    val isEmpty: Boolean get() = sharedBase.isEmpty() && additions.isEmpty()
+    val isEmpty: Boolean get() = sharedBase.isEmpty && additions.isEmpty()
     val dynamicRows: Int get() = additions.size
     val dynamicMembers: Long get() = addedMembers
-    val precomputedRows: Int get() = sharedBase.size
-    val precomputedMembers: Long get() = sharedBase.values.sumOf { it.size.toLong() }
+    val precomputedRows: Long get() = sharedBase.logicalRows
+    val precomputedMembers: Long get() = sharedBase.logicalMembers
 
     fun borrow(slot: Run1Slot): RequestRowView = RequestRowView(
-        sharedBase[slot] ?: RequestMarkSet.EMPTY, additions[slot] ?: RequestMarkSet.EMPTY)
+        sharedBase.borrow(slot), additions[slot] ?: RequestMarkSet.EMPTY)
 
     fun addAll(slot: Run1Slot, offered: RequestMarkSelection, checkpoint: () -> Unit = {}): RequestMarkSet {
         return addAll(slot, offered, null, checkpoint)
@@ -151,7 +163,7 @@ class RequestStorage(private val sharedBase: RequestRows = emptyMap()) {
 
     /** Only the synchronous owner flusher may iterate this borrowed map. */
     fun pendingRows(): RequestRows {
-        check(sharedBase.isEmpty()) { "Only empty-base temporary storage can be committed" }
+        check(sharedBase.isEmpty) { "Only empty-base temporary storage can be committed" }
         return java.util.Collections.unmodifiableMap(additions)
     }
 
@@ -191,11 +203,14 @@ class RequestStorage(private val sharedBase: RequestRows = emptyMap()) {
 
     private fun forEachStaticSlot(checkpoint: () -> Unit, counts: RequestMatchCounts?, visit: (Run1Slot.StaticField) -> Unit) {
         if (counts != null) counts.broadScans++
-        for (slot in sharedBase.keys) { checkpoint(); if (counts != null) counts.scannedKeys++; if (slot is Run1Slot.StaticField) visit(slot) }
+        sharedBase.forEachStaticRow({
+            checkpoint()
+            if (counts != null) { counts.scannedKeys++; counts.frozenSlotsExamined++ }
+        }, visit)
         for (slot in additions.keys) {
             checkpoint()
-            if (counts != null) counts.scannedKeys++
-            if (slot is Run1Slot.StaticField && slot !in sharedBase) visit(slot)
+            if (counts != null) { counts.scannedKeys++; counts.dynamicKeysExamined++ }
+            if (slot is Run1Slot.StaticField && !sharedBase.hasRow(slot)) visit(slot)
         }
     }
 }
@@ -205,6 +220,8 @@ class RequestMatchCounts {
     var directLookups: Long = 0
     var broadScans: Long = 0
     var scannedKeys: Long = 0
+    var frozenSlotsExamined: Long = 0
+    var dynamicKeysExamined: Long = 0
 }
 
 /** One actor collection attempt; populated only inside its existing R/P membership passes. */

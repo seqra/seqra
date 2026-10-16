@@ -25,14 +25,14 @@ class Run1RequestPipelineIntegrationTest {
             h.commit()
             val changed = assertIs<RunEvent.ChangedRequests>(h.events.single())
             assertEquals(mapOf<Run1Slot, RequestMarkSet>(calleeSlot to RequestMarkSet.fromIds(intArrayOf(t.id, u.id))), changed.rows)
-            assertEquals(2, h.storage().borrowRequest(calleeSlot).size)
+            assertEquals(2, h.storage().borrowRequest(calleeSlot).countMarks {})
             h.drain()
             val batch = h.sent.filterIsInstance<RunEvent.MarkRequestsIn>().single()
             assertEquals(f.caller, batch.method)
             assertEquals(mapOf<Run1Slot, RequestMarkSet>(origin to RequestMarkSet.fromIds(intArrayOf(t.id, u.id))), batch.rows)
             assertTrue(h.storage(f.caller).borrowRequest(origin).isEmpty, "A queued delivery only writes the target temporary store")
             h.commit(f.caller)
-            assertEquals(2, h.storage(f.caller).borrowRequest(origin).size)
+            assertEquals(2, h.storage(f.caller).borrowRequest(origin).countMarks {})
             h.collect(f.callee, calleeSlot, RequestMarkSet.of(t)); h.commit(); h.drain()
             assertEquals(1, h.sent.filterIsInstance<RunEvent.MarkRequestsIn>().size)
             assertFails { (changed.rows as MutableMap<Run1Slot, RequestMarkSet>).clear() }
@@ -122,8 +122,8 @@ class Run1RequestPipelineIntegrationTest {
                 h.collect(f.caller, slot, marks); h.commit(f.caller); h.drain()
                 h.commit(f.callee); h.drain()
                 h.commit(f.caller); h.drain()
-                assertEquals(width, h.storage(f.caller).borrowRequest(slot).size)
-                assertEquals(width, h.storage(f.callee).borrowRequest(slot).size)
+                assertEquals(width, h.storage(f.caller).borrowRequest(slot).countMarks {})
+                assertEquals(width, h.storage(f.callee).borrowRequest(slot).countMarks {})
                 assertEquals(1, h.sent.filterIsInstance<RunEvent.MarkRequestsIn>().size,
                     "The edge back to an admitted target needs no second physical batch")
                 val count = h.sent.size

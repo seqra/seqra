@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.bidi.engine
 
 import org.opentaint.dataflow.bidi.ap.*
+import org.opentaint.dataflow.bidi.store.forEachMark
 import org.opentaint.dataflow.bidi.store.Record
 import org.opentaint.dataflow.bidi.store.RequestMarkSetBuilder
 
@@ -117,7 +118,7 @@ class SubscriptionManager(port: SubscriptionPort) {
                                 if (batch != null) batch.groupGeometrySteps++
                                 if (!slotMatches(row.slot, part.added)) continue
                                 if (original != row.slot || original !is Run1Slot.StaticField) {
-                                    row.marks.precomputed.forEachMark {
+                                    row.marks.precomputed.forEachMark(ap.cancellation::checkpoint) {
                                         ap.cancellation.checkpoint(); offered.add(it)
                                         if (batch != null) batch.memberScans++
                                     }

@@ -26,6 +26,8 @@ class Run1AbstractionStatistics {
     private val requestBroadScans = AtomicLong()
     private val requestScannedKeys = AtomicLong()
     private val requestMatchedRows = AtomicLong()
+    private val requestFrozenSlotsExamined = AtomicLong()
+    private val requestDynamicKeysExamined = AtomicLong()
     private val temporaryRows = AtomicLong()
     private val temporaryMembers = AtomicLong()
     private val peakTemporaryRows = AtomicLong()
@@ -58,6 +60,8 @@ class Run1AbstractionStatistics {
         requestMatcherCalls.incrementAndGet(); requestDirectLookups.addAndGet(counts.directLookups)
         requestBroadScans.addAndGet(counts.broadScans); requestScannedKeys.addAndGet(counts.scannedKeys)
         requestMatchedRows.addAndGet(returnedRows.toLong())
+        requestFrozenSlotsExamined.addAndGet(counts.frozenSlotsExamined)
+        requestDynamicKeysExamined.addAndGet(counts.dynamicKeysExamined)
     }
     internal fun temporaryChanged(rows: Long, marks: Long) {
         peakTemporaryRows.accumulateAndGet(temporaryRows.addAndGet(rows), ::maxOf)
@@ -104,6 +108,8 @@ class Run1AbstractionStatistics {
         val freshTemporaryRequestMembers: Long,
         /** Actual current-value reads for newly admitted FLOW inputs, not logical facts or marks. */
         val freshFlowInputReads: Long, val growthFlowInputReads: Long,
+        /** Stored frozen S slots and dynamic keys examined; sum equals requestScannedKeys. */
+        val requestFrozenSlotsExamined: Long, val requestDynamicKeysExamined: Long,
     )
 
     fun snapshot(): Snapshot = Snapshot(inputArrivals.get(), restrictedIntersections.get(),
@@ -114,5 +120,5 @@ class Run1AbstractionStatistics {
         requestBroadScans.get(), requestScannedKeys.get(), requestMatchedRows.get(), temporaryRows.get(), temporaryMembers.get(),
         peakTemporaryRows.get(), peakTemporaryMembers.get(), requestOfferCalls.get(), offeredRequestMembers.get(),
         authoritativeDuplicateRequestMembers.get(), temporaryDuplicateRequestMembers.get(), freshTemporaryRequestMembers.get(),
-        freshFlowInputReads.get(), growthFlowInputReads.get())
+        freshFlowInputReads.get(), growthFlowInputReads.get(), requestFrozenSlotsExamined.get(), requestDynamicKeysExamined.get())
 }

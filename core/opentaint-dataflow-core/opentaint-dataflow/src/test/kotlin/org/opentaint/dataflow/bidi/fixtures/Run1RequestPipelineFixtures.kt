@@ -17,6 +17,7 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
     val climbs = linkedSetOf<Triple<MethodKey, Run1Slot, Int>>()
     val bases = LinkedHashMap<MethodKey, RequestRows>()
     val profiles = LinkedHashMap<MethodKey, Run1StaticProfile>()
+    val frozenBases = LinkedHashMap<MethodKey, FrozenRequestBase>()
     private val stores = LinkedHashMap<MethodKey, SummaryStorage>()
     private val temporary = LinkedHashMap<MethodKey, RequestStorage>()
     private val emitters = LinkedHashMap<MethodKey, Run1Abstraction>()
@@ -36,7 +37,7 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
     }
 
     fun storage(method: MethodKey = f.callee): SummaryStorage = stores.getOrPut(method) {
-        SummaryStorage(method, f.ap, f.ops, steps, bases[method].orEmpty())
+        SummaryStorage(method, f.ap, f.ops, steps, frozenBases[method] ?: MapFrozenRequestBase(bases[method].orEmpty()))
     }
 
     private val port = object : SubscriptionPort by f.port {

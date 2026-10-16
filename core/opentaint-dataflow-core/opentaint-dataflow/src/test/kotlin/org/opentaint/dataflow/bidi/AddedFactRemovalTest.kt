@@ -45,7 +45,7 @@ class AddedFactRemovalTest {
             offer(t)
             offer(t, Tail.ANY, call = 2)
             require(t)
-            assertEquals(2, h.storage().borrowRequest(slot).size)
+            assertEquals(2, h.storage().borrowRequest(slot).countMarks {})
         }
     }
 
@@ -107,7 +107,7 @@ class AddedFactRemovalTest {
             val expected = marks.map { mark -> f.callee to f.ap.initial(slot.base, null, Tail.EXACT,
                 ExclusionSet.Empty, MarkSlot.Concrete(mark)) }.toSet()
             assertEquals(expected, h.initials.filter { it.second.mark is MarkSlot.Concrete }.toSet())
-            assertEquals(128, h.storage().borrowRequest(slot).size)
+            assertEquals(128, h.storage().borrowRequest(slot).countMarks {})
             assertEquals(1, h.sent.filterIsInstance<RunEvent.InitialAnswersIn>().size,
                 "The caller visit merges equal callee answers before sending")
         }

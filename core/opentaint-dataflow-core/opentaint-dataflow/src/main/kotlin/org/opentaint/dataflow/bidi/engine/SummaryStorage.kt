@@ -12,9 +12,13 @@ class SummaryStorage(
     private val ap: ApManager,
     ops: ApOps,
     private val steps: ProtocolSteps,
-    precomputedRequests: RequestRows = emptyMap(),
+    precomputedRequests: FrozenRequestBase = EmptyFrozenRequestBase,
     private val statistics: Run1AbstractionStatistics? = null,
 ) {
+    constructor(method: MethodKey, ap: ApManager, ops: ApOps, steps: ProtocolSteps,
+                precomputedRequests: RequestRows, statistics: Run1AbstractionStatistics? = null) :
+        this(method, ap, ops, steps, MapFrozenRequestBase(precomputedRequests), statistics)
+
     private val lock = Any()
     private val published = PublicationIndex(ap, ops)
     private val subscribers = LinkedHashSet<SubscriptionManager>()

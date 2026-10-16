@@ -46,7 +46,7 @@ class MethodFixtureStaticProfileTest {
             assertTrue(profile.footprint.owns(to.cls, to.field))
             assertFalse(profile.footprint.owns(untouched.cls, untouched.field))
             assertTrue(untouched in profile.footprint.fieldUniverse)
-            assertEquals(RequestMarkSet.of(t), profile.precomputedRequests[from],
+            assertEquals(RequestMarkSet.of(t), profile.precomputedRequests.borrow(from).toRequestMarkSet {},
                 "A generic excluded target requests its actual original static origin")
             val footprint = f.shared.staticFootprint(f.key.method)
             f.shared.releaseRun1StaticProfiles()
@@ -62,7 +62,7 @@ class MethodFixtureStaticProfileTest {
             f.declareStaticDomain(slot.pathData.toList())
             val actor = f.core(localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
             val profile = assertNotNull(f.shared.run1StaticProfiles)[f.key.method]
-            assertTrue(profile.precomputedRequests.isEmpty())
+            assertTrue(profile.precomputedRequests.isEmpty)
             assertTrue(profile.footprint.fieldSlots.isEmpty())
             assertEquals(setOf(slot), profile.footprint.fieldUniverse)
             val ref = org.opentaint.dataflow.bidi.store.CallerRef(f.store.key("supplier"), f.manager.zero,

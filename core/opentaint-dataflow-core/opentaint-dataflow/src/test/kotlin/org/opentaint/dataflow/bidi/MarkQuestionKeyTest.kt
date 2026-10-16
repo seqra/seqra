@@ -62,7 +62,7 @@ class MarkQuestionKeyTest {
             assertEquals(RequestMarkSet.of(t), old.dynamic)
             assertTrue(old.precomputed.isEmpty)
             assertEquals(RequestMarkSet.fromIds(intArrayOf(t.id, u.id)), storage.borrowRequest(slot).dynamic)
-            assertEquals(2, storage.borrowRequest(slot).size)
+            assertEquals(2, storage.borrowRequest(slot).countMarks {})
         }
     }
 }

@@ -108,7 +108,7 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
             mapOf(caller to metadata.compile(ap)))[caller]
         val classId = ap.accessors.index(cls)
         assertEquals(setOf(classId), profile.classPointClasses)
-        assertTrue(profile.precomputedRequests.isEmpty(), "No class request slot or field product is introduced")
+        assertTrue(profile.precomputedRequests.isEmpty, "No class request slot or field product is introduced")
         assertTrue(profile.structuralFieldSlots.isEmpty())
         assertTrue(profile.classPointMarks(classId).containsId(0))
     }

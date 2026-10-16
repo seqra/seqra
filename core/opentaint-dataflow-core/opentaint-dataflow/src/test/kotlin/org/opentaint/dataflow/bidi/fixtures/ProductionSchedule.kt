@@ -141,7 +141,7 @@ class ProductionSchedule(
 
         override fun summaryStorage(key: MethodKey): SummaryStorage =
             storages.getOrPut(key) { SummaryStorage(key, shared.ap, ops, deferred,
-                if (config.run1) shared.run1StaticProfiles?.get(key.method)?.precomputedRequests.orEmpty() else emptyMap()) }
+                if (config.run1) shared.run1StaticProfiles?.get(key.method)?.precomputedRequests ?: EmptyFrozenRequestBase else EmptyFrozenRequestBase) }
 
         override fun subscribe(sub: Subscription) {
             registered += sub

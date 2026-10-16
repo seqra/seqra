@@ -69,7 +69,7 @@ class Run1RequestMatchingTest {
         val answers = arrayListOf<InitialAp>()
         forEachDirectClassInitial(m,input,noNeeds,answers::add)
         assertEquals(listOf(u),answers.map { (it.mark as MarkSlot.Concrete).mark })
-        assertTrue(noNeeds.precomputedRequests.isEmpty(),"Class point ownership creates no request key")
+        assertTrue(noNeeds.precomputedRequests.isEmpty,"Class point ownership creates no request key")
     }
 
     @Test fun `demand FLOW cannot encode a class point by excluding owned field cylinders`() {

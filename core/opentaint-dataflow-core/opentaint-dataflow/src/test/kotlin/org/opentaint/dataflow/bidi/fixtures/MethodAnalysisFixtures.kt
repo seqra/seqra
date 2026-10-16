@@ -258,7 +258,7 @@ class MethodAnalysisFixtures(
             }
             override fun summaryStorage(key: MethodKey): SummaryStorage =
                 summaryStores.getOrPut(key) { SummaryStorage(key, manager, ops, steps,
-                    shared.run1StaticProfiles?.get(key.method)?.precomputedRequests.orEmpty()) }
+                    shared.run1StaticProfiles?.get(key.method)?.precomputedRequests ?: EmptyFrozenRequestBase) }
             override fun subscribe(sub: Subscription) {
                 val receive = checkNotNull(onSubscribe) { "Subscriptions require an explicit protocol fixture" }
                 subscriptions += sub
