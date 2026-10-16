@@ -1,7 +1,8 @@
 # Access paths and storages — specification
 
-The [run-1 field-write contract](run1-field-writes.md) has precedence for
-all run-1 field writes, Empty-E producers and default static summaries.
+The [unified run-1 contract](run1-field-writes.md) has precedence for static
+field/mark requests, initial emission/replay, selective field writes, Empty-E
+producers, ordinary static defaults and later strong refinement.
 Complete overwrite kills and disjoint preservation stay ordinary. Only a
 surviving residual needing a field-exclusion update demotes, with Empty E.
 Every run-1 intermediate field exclusion is Empty. Default static identities use ordinary summary
@@ -10,7 +11,7 @@ emitted in F1. Demotion changes only the edge layer, preserving the complete
 AP and tail. It overrides older W2/W8 layer-driven conversions to ANY below.
 Later strong E semantics remain. [New proofs](run1-field-write-proofs.md) state the exact scope.
 
-The selected [static-handling contract](static-handling.md) takes precedence
+The same [unified contract](run1-field-writes.md) takes precedence
 over the static rules below: separate value-read/mark gates, nine run-1
 initial families, exclusion-update demotion and ordinary stored defaults, guidance-only
 run-1 export, and actual-query strong run-2/later analysis. It is a design

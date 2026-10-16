@@ -7,17 +7,22 @@ The abstraction emits no S.* initial in F1. Demotion changes only the edge
 layer and preserves the complete AP payload, including its known tail.
 The older W2/W8 demand-to-ANY rules are superseded for this operation.
 
-The [run-1 field-write contract](run1-field-writes.md) states that layer-only
-rule, complete overwrite kills, disjoint preservation and Empty E. Only a
+The single [unified run-1 contract](run1-field-writes.md) includes the static
+field/mark plans, R/B/dynamic/P lifecycle, matching, caller replay and nine
+initial families, alongside that layer-only rule, complete overwrite kills,
+disjoint preservation, Empty E, default summaries and strong later behavior. Only a
 surviving E-requiring residual demotes; the general weak-write proposal is
 superseded. The [proof dossier](run1-field-write-proofs.md)
 separates the new independent-layer law from older coarser models. Existing
 receipts retain their original source hashes and do not certify this correction.
-The ordinary actor/publication bridge is a source-bound design argument,
+Consolidating these rules changes documentation ownership only; the Lean
+models and existing proof receipts are unchanged. The ordinary
+actor/publication bridge is a source-bound design argument,
 not a checked scheduler theorem. Runtime implementation is unchanged.
 
-The selected [static-handling contract](static-handling.md) supersedes F78's
-static root/frame and ten-initial policy. Its new [proof dossier](static-handling-proofs.md)
+The unified specification supersedes F78's static root/frame and ten-initial
+policy. [Static handling](static-handling.md) is now a compatibility index;
+request/static rules are no longer a separate normative specification. Its new [proof dossier](static-handling-proofs.md)
 separates constructive design proofs from the checked local module. The
 earlier F78 receipts below remain valid evidence for their historical
 ten-family/root-frame models, not for the new nine-family contract or the
@@ -25,7 +30,7 @@ new run-2 query/persistence boundary. Runtime implementation is unchanged.
 
 The normative rules are [ap.md](ap.md), [interpreter.md](interpreter.md),
 [analyzer-core.md](analyzer-core.md), [run-1 requests](run1-requests.md) and
-the overriding [static contract](static-handling.md).
+the overriding [unified run-1 contract](run1-field-writes.md).
 F78 replaces full-query/role requests, request exclusion tests and the callee
 deferred-answer memo. It retains the exact caller input relation for summary
 application and late requests. This file states proof scope and evidence; it adds

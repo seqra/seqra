@@ -1,454 +1,59 @@
-# Request-gated static handling
+# Static handling: index to the unified specification
 
-The selected [run-1 field-write contract](run1-field-writes.md) retains
-ordinary complete overwrite kills and disjoint preservation. Only a surviving
-residual that needs a field-exclusion update moves to DEMAND with Empty E.
-It replaces the former general weak-write policy. Ordinary stored N/D static
-defaults, the nine initial families and read/mark split stay in force.
-Demotion preserves the AP/tail; no S-root initial propagates in F1.
+Status: compatibility index. The single normative contract is
+[Run-1 requests, field writes and static summaries](run1-field-writes.md).
+Static requests, selective field preservation, ordinary N/D defaults and
+later strong reconstruction are specified together there. This file retains
+older link targets; it adds no separate rules. Runtime is unchanged.
 
-Status: selected design contract; **not implemented**. This contract takes
-precedence over the static parts of [F78](run1-requests.md),
-[AP](ap.md), [interpreter](interpreter.md) and [core](analyzer-core.md) where
-they conflict. Other AP, rule, request and context contracts still apply.
-The [proposal](../docs/design/bidirectional-request-gated-static-handling-20261016.md)
-now combines the request and field-write rules as one complete design, with
-before/after tables and a traced handoff. [Static proofs](static-handling-proofs.md)
-gives the proofs, their assumptions and the checked Lean scope.
-
-Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. No completed
-iteration or accepted forward report. This specification adds no measurement.
+Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. None completed;
+no accepted forward report. No new analyzer measurement was made.
 
 ## 1. Domain and phase boundary
 
-S is the static base, distinct from ZERO. A normal static field slot is
-`[C,f]`: the class accessor C does not count against the field limit. Run-1
-starts with limit exactly 1. Later limits are positive and nondecreasing.
-`C.f.* (*)` denotes `(S,[C,f],STAR,Empty,STAR)`.
-
-Keep these three objects distinct:
-
-| Object | Meaning |
-| --- | --- |
-| Run-1 field request F(M) | A field needs abstract input analysis because code reads its value |
-| Run-1 mark request R(K,slot) | A set of concrete marks needed on an original abstract input slot |
-| Later query Q | A current forward input or backward output requirement, with its full AP, direction, layer, method context and response relation |
-
-K is the full MethodKey. M is the CommonMethod whose fixed plan K borrows.
-Later queries are ordinary restricted-analysis work, not run-1 mark requests.
-No new mark-request store exists on run-2 or later.
-
-Ordinary transfers, cleaner operations and summary application use full AP
-geometry, mark exclusions and complete premises. All run-1 fact payloads have
-Empty field E under the new phase recipes; later strong operations retain
-their ordinary E. Only
-run-1 request lookup ignores E and FLOW mark exclusions. A missing request,
-lazy fact or unfinished callee query is never evidence for a negative rule
-literal, a kill, normal return or absence of a summary.
+See [domain, request slots and nine initial families](run1-field-writes.md#21-request-domain-and-all-initial-families).
 
 ## 2. Prescan inventories
 
-Prescan resolves all calls before closure. It builds separate inventories:
-
-| Inventory | Contributors | Use |
-| --- | --- | --- |
-| Legal coordinate universe | All legal producers and consumers, including writes and models | Validate supplied data and generated coordinates |
-| Local field-read needs | Actual static value reads and effective non-mark checks that read a value | Abstract field-input gate |
-| Local static-mark interests | Effective positive mark checks in source and sink conditions, selected cleaners and excluded-mark creators | Concrete-answer gate and request routing |
-| Direct class-component needs | Legal class-point checks/actions | Separate class component path |
-| StaticMayWrite | Logical local static mutations/unknown effects and every resolved callee | Default static summary layer; independent of field-read requests |
-
-`ContainsMark(C.f,T)` contributes **only (C.f,T) to static-mark interests**.
-It does not contribute C.f to field-read needs. Apply the same distinction to
-other mark predicates and their genuine field/class/root scopes. Collect
-effective conditions after signed/static folding. Retain the existing NNF
-and residual-negative policy; do not introduce a test for absence of lazy
-state. A condition simplified to false contributes nothing. `P AND NOT P`
-may be simplified to false.
-
-In the current eligible call/exit source/sink policy, signed contradictions
-fold first, then residual negative literals project to true. Thus a lone
-`NOT ContainsMark(f,T)` can become unconditional ZERO generation; it does
-not need an abstract f input. `P AND NOT Q` retains the effective positive P
-need. Entry conditions keep their stricter signed/static eligibility rule.
-This contract does not add dynamic absence evaluation.
-
-```text
-x = C.f                   local field need: f
-C.g = C.f                 local field need: f; none from write target g
-C.f = x                   no field need from f
-ContainsMark(C.f,T)        mark interest f/T; no field need
-alias mentioning C.f      no field need
-clean C.f/T               mark interest f/T; no field need from target
-```
-
-Real value reads inside a rule remain field reads. A mark predicate alone is
-not such a read. A mark change from T to U cannot change field-read geometry.
-Keep broad scopes symbolic. Never promote a nonempty mark set to all fields.
-
-For each resolved call edge M→N, close field-read needs and unchanged-origin
-static-mark interests by union along that edge. For recursive components use
-the least union closure. The field closure is F(M). The static-mark closure
-is the shared immutable base B(M) of the request relation. A changed-origin
-need remains dynamic: a g/T check reached after `g=f` can request f/T.
-
-For an excluded-mark value transfer, collect interest at its actual source
-geometry, not blindly at its output target. `g -> f (* except T)` reads g
-and needs source mark T; original-slot routing can then take that interest
-farther upstream. A direct cleaner has the same source/output scope. A
-target coordinate alone never creates a field-read request.
-
-Do not add field needs for alias endpoints, write targets, existence in the
-coordinate universe or generic `keep(S)` edges. Legal coordinate collection
-must still include a constant-write target even if lowering emits keep only.
+See [field/mark requests](run1-field-writes.md#22-prescan-field-and-static-mark-requests)
+and [static effect closure](run1-field-writes.md#5-prescan-static-write-closure).
 
 ## 3. Run-1 initials and request ownership
 
-The table is exhaustive for selected run-1 method-entry initials. Each
-alternative tail denotes a separate family. All E are Empty; no initial has
-mark exclusions. Legal shape alone does not authorize emission.
-
-| Family | Base/path | Tail | Mark | Admission |
-| --- | --- | --- | --- | --- |
-| ZERO | zero / [] | EXACT | canonical zero mark | Root start or Reach |
-| Nonstatic abstract | b / [] | STAR | STAR | Supplied nonstatic input |
-| Static field abstract | S / [C,f] | STAR | STAR | Supplied field geometry and F(M) contains C.f |
-| Nonstatic concrete | b / [] | EXACT or STAR | T | Actual matching TAINT supplier and R(K,b) contains T |
-| Static field concrete | S / [C,f] | EXACT or STAR | T | Actual matching TAINT supplier and R(K,C.f) contains T |
-| Direct concrete class component | S / [C] | EXACT or STAR | T | Actual direct/broad class supplier and separate class projection |
-
-There are nine families when alternative tails are counted separately. There
-is no special abstract S-root initial, abstract class initial, concrete empty
-S-root initial, ANY/ANY_TAINT initial or path deeper than the normal static
-slot. Nonexact concrete suppliers project to STAR, not ANY. A concrete STAR
-initial still starts as the existing DEMAND/ANY fact; this is not an ANY
-initial. Direct class components retain their existing separate supplier and
-layer policy. Actual broad TAINT data is legal; it projects to needed fields
-or class components without creating an abstract S-root.
-
-The two normal-field gates are independent:
-
-```kotlin
-validateAgainstClosedDomain(input)
-for (slot in suppliedStaticSlots(input)) {
-    if (fieldReads.requests(slot)) emit(abstractStar(slot))
-    for (mark in actualMarks(input, slot).intersect(requests.marks(slot))) {
-        emit(projectExactOrStar(input, slot, mark))
-    }
-}
-```
-
-No field request plus a mark request can therefore emit a concrete-only
-initial. A request without actual matching TAINT emits no concrete mark.
-FLOW does not invent T. Field and mark requests do not make source facts.
-
-R=B∪D lives in SummaryStorage. B is borrowed, not copied into D or P. Dynamic
-requests accumulate in the existing per-method temporary RequestStorage P.
-At the method-queue-empty barrier:
-
-```kotlin
-summaryStorage.commit(temporary)
-temporary = new RequestStorage()
-```
-
-Commit merges mark sets, exposes only fresh dynamic additions and notifies
-current exact caller-input subscriptions. New subscriptions borrow all of R,
-including B. A precomputed unchanged static route is satisfied by inherited
-B; it creates no startup request event, duplicate D row or upstream offer.
-Changed origins use the normal dynamic route on the original abstract input.
-Concrete initials/current TAINT skip upstream request propagation. Excluding
-T from a normal abstract origin immediately requests T on that origin.
-Both request-first and input-first arrivals must produce the same union.
+See [initial families](run1-field-writes.md#21-request-domain-and-all-initial-families),
+[authoritative R and temporary P](run1-field-writes.md#23-one-effective-request-relation-and-temporary-batching),
+[matching and emission gates](run1-field-writes.md#24-matching-rows-and-independent-initial-emission-gates),
+[caller routing/replay](run1-field-writes.md#25-dynamic-routing-back-to-the-caller)
+and [static/dynamic coverage](run1-field-writes.md#26-staticdynamic-split-and-coverage-obligations).
 
 ## 4. Run-1 stores and calls
 
-Use ordinary field preservation, static or nonstatic. For `x.f=y`, x.f.*
-and its descendants are killed, disjoint x.g.* stays unchanged, and broad
-x.* moves to DEMAND because its surviving residual would need E{f}. A full
-kill is not an exclusion update. DEMAND components can still be killed.
-Add independent pre-store value transfers. Existing alias/write certainty
-and whole-base replacement rules stay in force.
-
-Every run-1 intermediate fact has Empty field E. Exact exclusion-free
-cleaner outcomes remain; an E-requiring partial residual takes a DEMAND may
-cover while retaining its known tail. Demotion alone changes no AP payload. In particular, never clear E on a NORMAL
-must fact and retain its guarantee. Mark exclusions/requests remain. See
-[the complete producer rule](run1-field-writes.md#4-empty-field-exclusions-throughout-run-1).
-
-For a run-1 selected-mark static cleaner, partition FLOW by first static
-field cylinder **before** the selected-mark operation. An f/T cleaner leaves
-disjoint g unchanged and creates no g/T interest merely because both use S.
-Within the affected f cylinder keep the existing exact/below transfer,
-concrete replay and original-slot request rules. Genuine broad cleaners keep
-their real scope. Keep unlike mark headers, tails and layers separate in packed input.
-This spatial rule replaces the old same-base disjoint static FLOW behavior;
-complete mark/destination kills remain complete kills.
-
-Distinguish source applicability, output scope and original input origin.
-For `g -> f (* except T)`, g is the source: transfer g to f, attach the mark
-exclusion to affected output f and request T on the original g origin. The
-fact that source g is disjoint from output f cannot discard this transfer.
-Apply this distinction to generated rewriters and every excluded-mark creator.
-
-After prescan choose the ordinary S.* -> S.* summary edge layer from
-StaticMayWrite: NORMAL for a write-free transitive body, DEMAND otherwise.
-When the reached F1 actor starts, publish it through the same retained/live
-summary path as every other summary. Do not emit S.* from the abstraction.
-Summary edge endpoints/premise keys are not admitted initial facts.
-
-Calls use their existing input delivery, subscriptions, matching and summary
-application. Apply F/B/R gates in the callee abstraction, not in call delivery
-or subscription. A stored default can answer a static input even if no
-static initial is emitted. The ordinary identity transfer retains the complete
-actual AP, including its tail, and joins only the input and edge layers.
-`C.f.* [N]` plus a DEMAND identity gives `C.f.* [D]`, not `[any]`.
-No default-specific local continuation, separate lookup or bypass is needed.
-Returned rules/bindings/aliases/cuts keep their usual order.
-
-The current canonical-Facts summary adapter and final normalizer infer ANY
-from DEMAND. They must preserve known transfer geometry separately from
-layer. This is a generic summary/AP representation obligation, not special
-run-1 call handling. Existing genuine ANY operations retain their meaning.
-See [the edge contract](run1-field-writes.md#6-ordinary-default-static-summaries).
-
-There is no abstract S-root propagation or root-driven field expansion in
-F1. Remove the old footprint-complement/root-summary shortcut where it would
-mask ordinary stored-summary application. A default can be published before
-return and remains F1 may guidance, not a strong normal-return proof.
+See [selective field preservation](run1-field-writes.md#3-preservation-and-pre-store-values),
+[Empty E](run1-field-writes.md#4-empty-field-exclusions-throughout-run-1)
+and [ordinary default summary storage/application](run1-field-writes.md#6-ordinary-default-static-summaries).
+Calls keep ordinary input delivery, subscription and summary application.
 
 ## 5. Safe transition from run-1 to run-2
 
-Run-1 results are **guidance only** for later analysis. Do not persist or read
-any run-1 publication as an executable native/opposite transfer record. This
-restriction covers all endpoint bases: a provisional static value can become a
-nonstatic return, argument or rule result. Retaining only such nonstatic
-records would still be unsafe.
-
-Defaults are already present in ordinary retained summary storage. Do not
-append them from metadata at handoff. Ordinary demand selection includes
-DEMAND defaults; the existing result.analyzers/demandEdges traversal projects
-them as usual. ZERO creates reached callee actors and normal initialization
-publishes their defaults even without any static initial. Live SummaryStorage
-is released before handoff, so normal publication must also retain the row
-in the actor's summary store. No separate iterator or global scan is needed.
-
-NORMAL defaults follow the same general F1 guidance policy as all other
-NORMAL summaries. Include permitted NORMAL singleton publications in coarse
-guidance without treating them as executable records. For every retained
-publication preserve each premise member, direction, entry/output geometry
-and concrete mark under ordinary demand projection. Canonical demand
-projection remains separate from layer-only transfer demotion. It does not
-rewrite an executable identity into an ANY transfer.
-
-```kotlin
-// Ordinary selection, also for stored defaults; no default-specific branch.
-for (actor in result.analyzers) {
-    for (edge in actor.summaries.demandEdges()) {
-        handoff.add(actor.key, toBackwardDemandPatterns(edge))
-    }
-}
-// The selected general F1 boundary also keeps permitted NORMAL guidance.
-// Neither collection becomes executable native/opposite F1 records.
-```
-
-Run-2 can use an ordinary broad static demand and S-root FLOW initial under
-the later restricted grammar. The S.* initial ban applies to run-1. No special
-default query adapter is required. Keep concrete guides/current requirements
-additive: FLOW alone cannot cross concrete mark/GEN gates. Keep the general
-all-base current-query fallback and full-premise response contract for work
-absent from old guidance, including mixed static/local paths.
-
-Guidance may enlarge a query; it must not veto an actual current query's
-start or response. Keep the existing source/sink seed-coverage contract.
-Filtering a provisional edge must not remove its candidate seed or necessary hint.
-Treat **all run-1 sink matches**, NORMAL as well as DEMAND, as candidates
-for strong refinement. Build B2 sink seeds from both groups, preserving rule
-occurrence, positive support, statement and full context. A NORMAL run-1
-label is not a strong confirmation under E-free partial covers and early default summaries.
-Publish these report witnesses with `confirmed=false`; the existing report
-can classify them as DEMAND candidates. Keep their raw fact/edge layers
-unchanged. This report classification does not demote NORMAL transfer facts
-or authorize an executable DEMAND summary.
-
-The old forward stop checks for no DEMAND vulnerability or no DEMAND edge
-must not prevent B2 when a run-1 candidate still needs strong refinement.
-All-NORMAL run-1 work can still need B2. Candidate count, pending strong
-refinement and the retained guide/query seeds determine this phase decision;
-do not pretend a coarse guide is a new executable DEMAND edge. An explicit
-time/policy limit can still stop with a provisional/incomplete result.
-Only a complete run hands off state. Partial/OOM state is not a completed
-proof or a strong record.
+See [ordinary handoff and the general F1 guidance/candidate boundary](run1-field-writes.md#7-ordinary-handoff-and-strong-run-2-analysis).
 
 ## 6. Strong static handling on run-2 and later
 
-Run-2 is backward. It uses the **converse of the strong forward relation**,
-with ordinary AP reversal and annotations. It uses complete strong residuals, not F1 E-free covers or the
-run-1 prepublished defaults, run-1 field gates or run-1 mark-request propagation.
-Run-3 and later forward runs use the strong forward relation. Strong-phase
-forms and records cannot share an approximated run-1 payload/cache key.
-
 ### 6.1 Current queries supply missing callee analyses
 
-When a later call has an actual forward input or backward output requirement,
-register that requirement with the callee even if run-1 analyzed no matching
-input and published no matching summary. This rule applies to **all bases**:
-static data can cross into returns/arguments, and NORMAL singleton nonstatic
-summaries also cease to be executable after the run-1 boundary.
-Close this rule under actual nested call bindings, including a path such as
-`C.f -> local -> argument -> return -> C.g` and its backward traversal.
-
-```kotlin
-fun queryStrongCallee(call: Call, requirement: Facts) {
-    val q = existingSubscriptions.register(call, requirement, fullPremise)
-    callee.startRestricted(q.requiredEntry, guide.hintsFor(q))
-    callee.allowResponseFor(q) // current query authorizes start AND response
-    // If no proven response exists yet, subscribe and wait.
-}
-```
-
-This is a semantic interface, not a new mandated retained input store.
-Existing caller N2/subscriptions and initial/summary deduplication can own
-it. In backward mode `requiredEntry` is at the forward exit. The query's
-opposite endpoint is computed by strong analysis; a missing old guide does
-not restrict it to the empty set. Keep source-hit/ZERO outcomes and all
-complete-premise outcomes. Ordinary demand/limit abstraction still applies.
-
-A response is applicable by the current query's full geometry, annotations
-and whole premise. A run-1 `owns(field)` check or an old DemandStore row must
-not reject it. Prior guidance can schedule/enlarge work but cannot filter
-these current-query responses. Current requirements and ordinary projected demand authorize later work.
-A broad static demand may admit a root FLOW query under the later restricted
-grammar; that grammar is not the run-1 initial grammar.
-
-Disable the old footprint-complement/root-summary shortcut for strong
-queries. F is a read inventory, not a write/clean/return preservation mask.
-Its complement cannot authorize identity across a write or nonreturning
-call. Strong responses use their proven full relation and ordinary AP read
-views, even when F(callee) is empty.
-
-Unknown is pending, not empty or identity. Publish fresh proven responses
-as soon as found. Recursive queries remain in the ordinary worklist until
-the simultaneous query/response closure reaches a fixed point. Fair work and
-accounting include new queries, responses, source hits and notifications.
-An empty result is final only at that fixed point or under an independent
-local proof. Cancellation yields an incomplete run.
+See [later current-query handling](run1-field-writes.md#72-current-queries-supply-missing-callee-analyses).
 
 ### 6.2 S→S relation
 
-Let D_f be all represented locations at/below C.f. For a local fact set X,
-an ordinary strong store `C.f = v` denotes:
-
-```text
-store_f,v(X) = (X outside D_f) union valueTransfer_v_to_f(X)
-```
-
-All marks and the existing cut/layer policy remain in the value transfer.
-For `C.g = C.f`, retain old f when f≠g, kill old g, and copy source f to g.
-For f=g, read the pre-store input before killing/replacing; it is a value
-assignment, not a read of an already empty destination. A constant untainted
-write has no tainted value output. Explicit cleaners remove only their own
-scope and marks. A true source contributes ZERO→destination, not S→S.
-
-| Strong method behavior on an actual normal-return path | Required static relation |
-| --- | --- |
-| No relevant effect | f/T→f/T, for the admitted actual f/T query |
-| `g=f`, f≠g | f/T→f/T and f/T→g/T; no old-g identity |
-| `f=untainted` | No old-f→f edge; disjoint fields retain identity |
-| Selected `clean f/T` | Remove T only in its scope; retain unaffected marks/locations |
-| `f=source(T)` | ZERO→f/T; no fabricated old-f origin |
-| No normal-return derivation | No caller continuation via a callee return summary |
-
-Identity is computed from the method's actual strong path. It is not a
-default answer to a missing summary. Branches join their proven alternatives;
-a branch that returns may preserve f even if another branch kills it.
-Only paths that reach the modeled normal exit contribute normal summaries.
-Exceptional paths use the existing exceptional-return contract, not a normal
-identity. Apply call-prefix and return actions in their existing order.
-
-Normal-return evidence means a modeled return action. Virtual-exit reachability
-used by AP S11/interpreter I11(e) to totalize backward traversal is not such
-evidence. Artificial completion of code that never returns cannot by itself
-publish a strong normal-return summary. The transfer adapter must retain this
-distinction without changing IR storage. Local source/sink queries inside a
-method do not require that the method later returns; only a continuation back
-to its caller requires the corresponding return witness.
-ZERO/source/end-generation and ND outputs need the same witness to return
-to a caller. Reaching a synthetic exit or creating a candidate is insufficient.
-
-Preservation above a field must retain the **full residual**, not only an
-S-root with class C excluded. One lowering of the untouched part is:
-
-```text
-S.* except C  union  S.C.* except f
-```
-
-Intersect both with incoming geometry and E. This keeps sibling C.g and
-other classes while removing D_f. Exact class points are separate from
-descendants: writing C.f does not kill an exact point C. Mark exclusions
-retain their ordinary denotation. Request-side exclusion erasure is not
-available for these operations. Cross-class copies retain their actual
-source/destination coordinates. Whole-base cleaners retain their specified
-whole-fact behavior; no residual bypass restores removed data.
+See [strong S-to-S relation](run1-field-writes.md#73-ss-relation).
 
 ### 6.3 Calls, reversal and persistent records
 
-Later static facts have **no unconditional call-to-return bypass**. Their
-continuation uses a proven strong callee response under the complete caller
-premise and an actual modeled return path. A pure helper obtains identity
-through §6.1 even if F(helper) is empty. A helper that overwrites f obtains
-the kill relation, and a helper that never returns obtains no normal static
-continuation. A recursive method returns only through a finite derivation
-with a real base return; self-subscription alone creates no identity.
-
-For strong relation R_M, backward answers Q by relational preimage:
-
-```text
-pre_M(Q) = { input | exists output in Q, R_M(input, output) }
-```
-
-For conjunctive rules replace the scalar input with the complete premise;
-do not apply a member independently. ZERO generation remains a source-hit
-case. The current native/opposite AP read-view rules, including may/must
-and exclusions, must refine this relation rather than blindly swap stored
-tuples. No provisional run-1 edge enters that reversal.
-
-Persist only proven strong publications from complete later runs. Tag or
-structurally separate their semantics from run-1 guidance. Reuse them only
-under the existing direction, limit, demand, full-premise and read-view
-contracts. Lack of a reusable record always falls back to the current query;
-it never manufactures preservation. This specification does not assert that
-a bounded abstract S→S edge proves exact concrete JVM memory behavior.
+See [later calls and records](run1-field-writes.md#74-calls-reversal-and-persistent-records).
 
 ## 7. Correctness target and required validation
 
-The reference is the existing selected finite AP transfer/rule semantics,
-with exclusion-update demotion and early stored defaults in run-1, and full
-strong residuals later. JVM frontend gaps, alias over-approximation, field cuts and residual
-negative projection retain their declared scope. They are not erased by a
-static optimization proof.
-
-Prove these results separately:
-
-1. Prescan closure is the least read/mark closure; mark predicates add no F.
-2. The nine-family initial grammar, the two independent gates and actual
-   concrete suppliers are exact for the selected run-1 domain.
-3. Request gating preserves relevant read/mark observations of the eager
-   **same exclusion-update run-1** reference, using dynamic changed-origin replay.
-4. Complete writes kill covered components; disjoint ones stay unchanged;
-   E-requiring residual covers/defaults preserve local strong positive paths
-   without certifying removed locations or normal return.
-5. Defaults use ordinary storage/application/selection; demotion preserves
-   the complete AP and tail. No provisional F1 edge becomes later executable evidence,
-   and no abstract root initial propagates in F1.
-6. Strong stores, residual E, class points and real-return composition give
-   the required S→S relation; reversal gives its exact preimage.
-7. Current-query discovery and response handling are complete independently
-   of run-1 summary/field-plan availability, including recursive calls.
-8. Guidance changes scheduling/coverage hints only; strong result validity
-   comes from strong witnesses with complete premises.
-
-The [proof dossier](static-handling-proofs.md) states constructive arguments,
-counterexamples, checked local laws and integration checks. Lean local proofs
-do not certify Kotlin refinement or the full source-to-sink driver. Runtime
-implementation and project validation are separate work. The performance
-target remains run-1 **engine time** within 60 seconds.
+See [complete proof obligations](run1-field-writes.md#8-correctness-and-implementation-obligations),
+[request/static proofs](static-handling-proofs.md),
+[field-write/default proofs](run1-field-write-proofs.md) and
+[checked proof status](proof-status.md). Existing receipts retain their source-bound scope.

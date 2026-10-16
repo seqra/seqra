@@ -1,6 +1,7 @@
 # Analyzer core — specification
 
-The [run-1 field-write contract](run1-field-writes.md) overrides F1 stores,
+The [unified run-1 contract](run1-field-writes.md) specifies static field/mark
+requests, R/B/dynamic/P ownership, replay, all nine initials and F1 stores,
 Empty-E fact production and static defaults. Complete field overwrite kills
 remain; disjoint components are unchanged. Only surviving E-requiring
 residuals demote. Prescan selects a NORMAL/DEMAND
@@ -12,7 +13,7 @@ the full AP payload and tail; it does not convert known STAR to ANY.
 The older layer-driven normal-form rules below are superseded at this seam.
 No F1 summary becomes an executable later strong record.
 
-The selected [static-handling contract](static-handling.md) takes precedence
+The same [unified contract](run1-field-writes.md) takes precedence
 for static planning, the run-1 initial grammar/stores/calls, the F1→B2
 boundary and later strong query/response behavior. In particular, all F1
 publications become guidance only, including NORMAL singleton hints; they

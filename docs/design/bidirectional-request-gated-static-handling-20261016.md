@@ -1,16 +1,18 @@
 # Run-1 requests, field writes and static summaries
 
 Date: 16 October 2026. Status: complete selected proposal; **not implemented**.
-This document unifies the request handling in [static-handling.md](../../spec/static-handling.md)
-with [run1-field-writes.md](../../spec/run1-field-writes.md). It is the single
-proposal to use for this iteration. The specifications give normative details;
-[request/static proofs](../../spec/static-handling-proofs.md) and
-[write proofs](../../spec/run1-field-write-proofs.md) give their proof scopes.
+This implementation proposal follows the single
+[Run-1 requests, field writes and static summaries specification](../../spec/run1-field-writes.md).
+That specification includes prescan, field/mark requests, replay and batching,
+initial emission, selective writes, ordinary defaults and later strong analysis.
+[Static handling](../../spec/static-handling.md) is a compatibility index.
+[Request/static proofs](../../spec/static-handling-proofs.md) and
+[field-write/default proofs](../../spec/run1-field-write-proofs.md) state checked scope.
 No IR-storage, reference-manager or identity-cache rewrite is included.
 
 Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. No completed
 iteration or accepted forward report. Measurements execute `4acde739b`, captured
-at `05cf9ad62`; current `26ea71480` has the same core tree. No performance result
+at `05cf9ad62`; current `b6d39383a` has the same core tree. No performance result
 exists for this proposal. The target remains run-1 **engine time** within 60 seconds.
 
 ## 1. What changes, and what stays the same
@@ -132,6 +134,15 @@ Include exceptional/finally paths conservatively. Unknown effects require a
 read-only contract to use false. Pure reads/identity bindings are not writes.
 Collect the operation before lowering: a constant store may become keep-only.
 
+Frozen mark membership is defined at selected normal slots:
+
+```text
+frozenSlots(M) = fieldSlots(F(M)) union exactFieldMarkSlots(closedMarkNeeds(M))
+B(M,s) = matching closed mark-scope union at s, if s is in frozenSlots(M)
+```
+
+A wide/class mark scope alone creates no field slot. An actual field outside
+that set can activate a scope dynamically through P/R without adding F.
 F/B/W belong to shared CommonMethod metadata borrowed by full method contexts.
 An alias/write coordinate can be legal and contribute W without contributing F.
 For an excluded-mark copy g→f, collect source interest g/T and route it to
@@ -159,11 +170,16 @@ temporary = new RequestStorage()
 Commit unions mark sets, inserts only `P minus R` into dynamicRequests and notifies exact
 caller-input subscribers of the fresh additions. Existing subscribers see
 new requests; a new subscriber reads the full admitted R, including B. Count
-pending requests/notifications before quiescence. No special index, additional
+pending requests/notifications before quiescence. The first nonempty P offer
+schedules ordinary counted method Work; its reservation covers commit, P
+replacement and child notification accounting, including request-only work.
+No special index, additional
 callee input history or fixed pending-memory threshold is selected.
 
 `borrowMatchingRows(input)` borrows R rows for normal slots whose geometry
-matches the supplied input. It ignores field E and FLOW mx; answers still
+matches the supplied input. Capture immutable row descriptors/mark segments
+eagerly under the existing storage lock; no mutable iterator escapes it.
+Release the lock before answer/replay effects. Matching ignores field E and FLOW mx; answers still
 require actual marks. Run-1 inputs are simple, and broad field scopes can
 remain virtual. Direct class points use their separate lane, not a fake
 class request key. No request alone manufactures a concrete T.

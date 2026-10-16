@@ -1,7 +1,9 @@
 # Proofs for run-1 exclusion-update demotion
 
-Status: constructive design proofs and reference-model laws for
-[run1-field-writes.md](run1-field-writes.md). Analyzer implementation is
+Status: constructive design proofs and reference-model laws for the field-
+write/default parts of the [unified run-1 specification](run1-field-writes.md).
+[Request/static proofs](static-handling-proofs.md) cover the same specification's
+request, initial-emission and later-static parts. Analyzer implementation is
 unchanged. This contract replaces the former general weak-write policy.
 Complete strong kills remain kills; only E-requiring residuals demote.
 

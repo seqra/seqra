@@ -1,22 +1,19 @@
 # F78: run-1 mark requests
 
-[Run-1 field writes](run1-field-writes.md) preserve complete overwrite kills
-and disjoint components. Only surviving E-requiring residuals move to DEMAND,
-with Empty E and the same known AP/tail. Ordinary stored NORMAL/DEMAND default
-static summaries use the usual call and handoff paths; F1 emits no S.* initial.
-Defaults add no request slots or initial families. Authoritative R=B∪D,
-temporary P, merged marks and commit/replacement stay unchanged.
+The current complete normative contract is
+[Run-1 requests, field writes and static summaries](run1-field-writes.md).
+It includes field/mark prescan requests, nine initial families, independent
+emission gates, B/dynamic/P ownership, barriers/replay, selective writes,
+ordinary stored defaults and later strong behavior in one place.
+[Static handling](static-handling.md) is a compatibility index.
 
-The selected [static-handling contract](static-handling.md) replaces the
-static initial, field-selection, root/frame, store/call and later-handoff
-parts of F78. It removes the special abstract S-root and permits nine run-1
-initial families. ContainsMark contributes only mark interest, never F.
-The shared B/D/P request ownership and commit/replacement protocol below
-remain. Old ten-family/root-frame proofs keep their historical scope; use
-[static-handling-proofs.md](static-handling-proofs.md) for the new contract.
+This F78 document retains lower-level protocol details and historical
+root/frame construction. Its special-root, unconditional abstract-field and
+root/frame rows do not override the unified contract. Shared request union,
+full MethodKey ownership and arrival-order laws retain their stated scope.
 Runtime is unchanged.
 
-This document is normative for the selected JVM analyzer. It replaces the run-1
+F78 originally replaced the run-1
 full-query/role request protocol, deferred-answer memo, and request exclusion tests
 in the earlier specifications. The [implementation validation](../docs/reports/bidirectional-run1-mark-request-validation-20261015.md)
 records the current runtime checks. The [fresh project report](../docs/reports/bidirectional-run1-mark-request-performance-20261015.md)
@@ -469,8 +466,9 @@ separately. Zero expanded map rows is not zero requests or a measured net saving
 
 This section records the earlier F78 root/frame contract. The selected
 [static contract](static-handling.md#4-run-1-stores-and-calls) supersedes it:
-run-1 bypass supplies preservation without a root/frame protocol; strong
-later queries compute their actual relation independently of F1 ownership.
+ordinary stored N/D summaries supply preservation through normal summary
+application, without a special root/frame call path. Strong later queries
+compute their actual relation independently of F1 ownership.
 Do not implement this historical section as the selected static behavior.
 
 This section is an explicit proof-driven refinement of the accepted proposal. The

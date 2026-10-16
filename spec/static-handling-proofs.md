@@ -1,6 +1,6 @@
 # Proofs for request-gated static handling
 
-The selected [field-write specification](run1-field-writes.md) and
+The selected [unified run-1 specification](run1-field-writes.md) and
 [proof dossier](run1-field-write-proofs.md) retain complete strong kills and
 disjoint preservation. Only surviving E-requiring residuals demote with
 Empty E and the same AP/tail. Ordinary default summaries and strong later
@@ -8,7 +8,11 @@ query/converse laws remain. Earlier blanket weak-store models are historical;
 their receipts do not certify this selective preservation rule.
 
 Status: constructive design proofs and checked local reference laws. Use with
-[static-handling.md](static-handling.md). Runtime implementation is unchanged.
+[the unified contract](run1-field-writes.md). The former
+[static-handling document](static-handling.md) is a compatibility index.
+This dossier covers request closure, emission, routing and strong statics;
+[the companion dossier](run1-field-write-proofs.md) covers field preservation/defaults.
+Runtime implementation is unchanged.
 Latest measured iteration: **run-1, FORWARD, limit 1; OOM**; no completed
 iteration or accepted forward report. No analyzer run supports this new design.
 

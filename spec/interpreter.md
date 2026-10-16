@@ -1,6 +1,7 @@
 # IR interpreter — specification
 
-The [run-1 field-write contract](run1-field-writes.md) overrides generic
+The [unified run-1 contract](run1-field-writes.md) specifies static read/mark
+requests, initial gates, replay and batching together with the following
 field-preservation rows on F1: complete overwrite kills and disjoint keeps
 remain. Only a surviving residual that needs a field-exclusion update moves
 to DEMAND with Empty E. Partial E-requiring
@@ -10,7 +11,7 @@ ordinary stored summary; ordinary calls apply it without a special F1 branch.
 Only the edge layer changes on demotion; known tails do not become ANY. Later strong
 lowering and stable logical occurrence IDs remain unchanged.
 
-The selected [static-handling contract](static-handling.md) overrides the
+The same [unified contract](run1-field-writes.md) overrides the
 static behavior below where it conflicts. In particular, ContainsMark adds
 only mark interest; run-1 has selective exclusion-update demotion and ordinary
 precomputed static summaries without root initial emission. Run-2/later uses strong

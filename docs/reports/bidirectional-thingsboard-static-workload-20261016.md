@@ -5,14 +5,13 @@ Analyzer implementation is unchanged.
 
 The follow-up [unified run-1 request/write/static proposal](../design/bidirectional-request-gated-static-handling-20261016.md)
 uses value-read field requests and a separate concrete-mark gate. The new
-[field-write contract](../../spec/run1-field-writes.md) preserves ordinary
+[unified request/write/static contract](../../spec/run1-field-writes.md) preserves ordinary
 complete kills and disjoint keeps. Only a surviving E-requiring residual
 demotes, keeping field E Empty.
 It publishes ordinary NORMAL/DEMAND static identity summaries without S-root
 initial propagation. Normal call application and handoff use those rows.
 Demotion changes only the layer and keeps the known AP/tail. ContainsMark
-contributes mark interest only. The selected
-[static specification](../../spec/static-handling.md) also makes all F1
+contributes mark interest only. The same unified specification makes all F1
 publications guidance-only and uses actual strong queries on run-2/later.
 It replaces the earlier control-root/frame candidates below.
 It is unimplemented; the measurements describe the current runtime.
@@ -22,7 +21,7 @@ forward report is accepted. The logged failed engine duration is 109.891609201
 seconds; it is not a completed run-1 time or pure solver CPU time.
 
 The measured runtime is `4acde739b`, captured at `05cf9ad62`. Current HEAD
-`26ea71480` has the same core tree. Use the
+`b6d39383a` has the same core tree. Use the
 [closed project measurements](bidirectional-static-domain-frozen-requests-performance-20261016.md).
 The existing evidence root, called B below, is:
 
