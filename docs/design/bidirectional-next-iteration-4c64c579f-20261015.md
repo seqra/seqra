@@ -3,6 +3,11 @@
 Date: 15 October 2026. Status: proposal only. Runtime remains
 `4c64c579f4c4a10fc8ffcc5bcd0bf1bcd45cf877`.
 
+Selection on 16 October: the next iteration is limited to the exception fix and
+frozen static-request factoring. Use the
+[detailed selected proposal](bidirectional-static-domain-and-frozen-requests-20261016.md).
+The other options below remain unselected.
+
 Use the [fresh project report](../reports/bidirectional-run1-mark-request-performance-20261015.md).
 Earlier proposals and retained-byte estimates are historical; they do not establish
 this iteration's ranking. IR storage is outside this proposal.
