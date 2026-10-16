@@ -5,8 +5,9 @@ Analyzer implementation is unchanged.
 
 The follow-up [unified run-1 request/write/static proposal](../design/bidirectional-request-gated-static-handling-20261016.md)
 uses value-read field requests and a separate concrete-mark gate. The new
-[field-write contract](../../spec/run1-field-writes.md) makes all F1 field
-writes weak, retains affected old data at DEMAND and keeps field E Empty.
+[field-write contract](../../spec/run1-field-writes.md) preserves ordinary
+complete kills and disjoint keeps. Only a surviving E-requiring residual
+demotes, keeping field E Empty.
 It publishes ordinary NORMAL/DEMAND static identity summaries without S-root
 initial propagation. Normal call application and handoff use those rows.
 Demotion changes only the layer and keeps the known AP/tail. ContainsMark
@@ -21,7 +22,7 @@ forward report is accepted. The logged failed engine duration is 109.891609201
 seconds; it is not a completed run-1 time or pure solver CPU time.
 
 The measured runtime is `4acde739b`, captured at `05cf9ad62`. Current HEAD
-`2d3436187` has the same core tree. Use the
+`26ea71480` has the same core tree. Use the
 [closed project measurements](bidirectional-static-domain-frozen-requests-performance-20261016.md).
 The existing evidence root, called B below, is:
 
@@ -335,9 +336,9 @@ actual supplied T + static mark request for C.f/T
 The field request is a separate mark-neutral geometric need. It is not a test
 for nonempty R, nor the current H flag widened by root mark needs. Only static
 value reads seed it; mark checks, aliases and write targets do not. In the
-new proposal, ordinary run-1 static stores are weak, static facts bypass calls
-without waiting, and the special root is removed rather than retained as a
-control protocol. The measured source behavior below remains the explanation
+selected proposal, complete store kills stay kills and only E-requiring
+residuals demote. Static facts use ordinary stored N/D identity summaries;
+the abstraction emits no S-root initial. The measured source behavior below remains the explanation
 of the old workload. The analyzer remains unchanged.
 
 The existing frozen plan is already logically broad: 15,671,695 field rows and
@@ -487,14 +488,15 @@ and statement facts, rather than compressing the resulting relation. Ordinary
 call subscriptions and input delivery remain; fewer caller-input groups are
 not established by a call-delivery filter.
 It collects field requests only for value reads, gates concrete answers by
-actual marks, and uses weak field stores plus ordinary stored N/D static
-identity summaries on run-1. Demotion retains the AP and its known tail. It needs no special static-root control, return watcher
+actual marks, and keeps complete field-store kills while demoting only
+E-requiring residuals. Ordinary N/D static summaries use the normal call path.
+Demotion retains the AP and its known tail. It needs no special static-root control, return watcher
 or pending frame store. Mark predicates add only mark interests. Later
 iterations compute strong S→S relations from actual queries, even without
 an F1 summary. F1 publications are guidance only, not reusable transfer edges.
 
-These are new abstraction rules, not a proven speedup. Weak writes and early default
-summary publication can increase run-1 may-taint; the proposal requires finding and handoff
+These are new abstraction rules, not a proven speedup. E-free partial covers
+and early default summaries can add run-1 may alternatives; the proposal requires finding and handoff
 checks. The remaining alternatives below are historical investigation notes,
 not selected parts of the new proposal.
 

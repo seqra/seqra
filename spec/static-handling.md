@@ -1,12 +1,11 @@
 # Request-gated static handling
 
-The selected [run-1 field-write contract](run1-field-writes.md) adds weak
-static/nonstatic writes with DEMAND old preservation, Empty field exclusions
-throughout F1, and precomputed NORMAL/DEMAND default static templates. It
-supersedes the earlier unannotated weak store and unconditional NORMAL
-bypass. Defaults are ordinary stored summary edges, applied through the
-normal call pipeline without root initial propagation. Layer demotion keeps
-the AP and tail; it does not convert known information to ANY. The nine initial families and read/mark split stay unchanged.
+The selected [run-1 field-write contract](run1-field-writes.md) retains
+ordinary complete overwrite kills and disjoint preservation. Only a surviving
+residual that needs a field-exclusion update moves to DEMAND with Empty E.
+It replaces the former general weak-write policy. Ordinary stored N/D static
+defaults, the nine initial families and read/mark split stay in force.
+Demotion preserves the AP/tail; no S-root initial propagates in F1.
 
 Status: selected design contract; **not implemented**. This contract takes
 precedence over the static parts of [F78](run1-requests.md),
@@ -163,10 +162,12 @@ Both request-first and input-first arrivals must produce the same union.
 
 ## 4. Run-1 stores and calls
 
-Every run-1 field store is weak, static or nonstatic. Retain an affected old
-component at DEMAND; disjoint components keep their layer. Add independently
-computed pre-store value edges. Do not add field E. Whole-base local
-assignment retains its separate strong replacement rule.
+Use ordinary field preservation, static or nonstatic. For `x.f=y`, x.f.*
+and its descendants are killed, disjoint x.g.* stays unchanged, and broad
+x.* moves to DEMAND because its surviving residual would need E{f}. A full
+kill is not an exclusion update. DEMAND components can still be killed.
+Add independent pre-store value transfers. Existing alias/write certainty
+and whole-base replacement rules stay in force.
 
 Every run-1 intermediate fact has Empty field E. Exact exclusion-free
 cleaner outcomes remain; an E-requiring partial residual takes a DEMAND may
@@ -181,7 +182,7 @@ Within the affected f cylinder keep the existing exact/below transfer,
 concrete replay and original-slot request rules. Genuine broad cleaners keep
 their real scope. Keep unlike mark headers, tails and layers separate in packed input.
 This spatial rule replaces the old same-base disjoint static FLOW behavior;
-it does not weaken Clean/RemoveAll into ordinary weak stores.
+complete mark/destination kills remain complete kills.
 
 Distinguish source applicability, output scope and original input origin.
 For `g -> f (* except T)`, g is the source: transfer g to f, attach the mark
@@ -219,7 +220,7 @@ return and remains F1 may guidance, not a strong normal-return proof.
 
 Run-1 results are **guidance only** for later analysis. Do not persist or read
 any run-1 publication as an executable native/opposite transfer record. This
-restriction covers all endpoint bases: a weak static value can become a
+restriction covers all endpoint bases: a provisional static value can become a
 nonstatic return, argument or rule result. Retaining only such nonstatic
 records would still be unsafe.
 
@@ -259,11 +260,11 @@ absent from old guidance, including mixed static/local paths.
 
 Guidance may enlarge a query; it must not veto an actual current query's
 start or response. Keep the existing source/sink seed-coverage contract.
-Filtering a weak edge must not remove its candidate seed or necessary hint.
+Filtering a provisional edge must not remove its candidate seed or necessary hint.
 Treat **all run-1 sink matches**, NORMAL as well as DEMAND, as candidates
 for strong refinement. Build B2 sink seeds from both groups, preserving rule
 occurrence, positive support, statement and full context. A NORMAL run-1
-label is not a strong confirmation under weak stores and early default summaries.
+label is not a strong confirmation under E-free partial covers and early default summaries.
 Publish these report witnesses with `confirmed=false`; the existing report
 can classify them as DEMAND candidates. Keep their raw fact/edge layers
 unchanged. This report classification does not demote NORMAL transfer facts
@@ -281,10 +282,10 @@ proof or a strong record.
 ## 6. Strong static handling on run-2 and later
 
 Run-2 is backward. It uses the **converse of the strong forward relation**,
-with ordinary AP reversal and annotations. It does not use weak stores, the
+with ordinary AP reversal and annotations. It uses complete strong residuals, not F1 E-free covers or the
 run-1 prepublished defaults, run-1 field gates or run-1 mark-request propagation.
 Run-3 and later forward runs use the strong forward relation. Strong-phase
-forms and records cannot share a weak run-1 payload/cache key.
+forms and records cannot share an approximated run-1 payload/cache key.
 
 ### 6.1 Current queries supply missing callee analyses
 
@@ -409,7 +410,7 @@ For conjunctive rules replace the scalar input with the complete premise;
 do not apply a member independently. ZERO generation remains a source-hit
 case. The current native/opposite AP read-view rules, including may/must
 and exclusions, must refine this relation rather than blindly swap stored
-tuples. No weak run-1 edge enters that reversal.
+tuples. No provisional run-1 edge enters that reversal.
 
 Persist only proven strong publications from complete later runs. Tag or
 structurally separate their semantics from run-1 guidance. Reuse them only
@@ -421,8 +422,8 @@ a bounded abstract S→S edge proves exact concrete JVM memory behavior.
 ## 7. Correctness target and required validation
 
 The reference is the existing selected finite AP transfer/rule semantics,
-with run-1 weak stores and early stored defaults selected above, and strong semantics
-later. JVM frontend gaps, alias over-approximation, field cuts and residual
+with exclusion-update demotion and early stored defaults in run-1, and full
+strong residuals later. JVM frontend gaps, alias over-approximation, field cuts and residual
 negative projection retain their declared scope. They are not erased by a
 static optimization proof.
 
@@ -432,11 +433,12 @@ Prove these results separately:
 2. The nine-family initial grammar, the two independent gates and actual
    concrete suppliers are exact for the selected run-1 domain.
 3. Request gating preserves relevant read/mark observations of the eager
-   **same weak run-1** reference, using dynamic changed-origin replay.
-4. Weak field stores/defaults are a may approximation of local strong positive data
-   paths, without claiming that cleaners disappear or calls really return.
+   **same exclusion-update run-1** reference, using dynamic changed-origin replay.
+4. Complete writes kill covered components; disjoint ones stay unchanged;
+   E-requiring residual covers/defaults preserve local strong positive paths
+   without certifying removed locations or normal return.
 5. Defaults use ordinary storage/application/selection; demotion preserves
-   the complete AP and tail. No F1 weak edge becomes executable later evidence,
+   the complete AP and tail. No provisional F1 edge becomes later executable evidence,
    and no abstract root initial propagates in F1.
 6. Strong stores, residual E, class points and real-return composition give
    the required S→S relation; reversal gives its exact preimage.

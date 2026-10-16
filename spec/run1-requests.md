@@ -1,10 +1,11 @@
 # F78: run-1 mark requests
 
-[Run-1 weak field writes](run1-field-writes.md) further requires Empty field
-E on every F1 fact, DEMAND old preservation at affected writes and tagged
-NORMAL/DEMAND default static summaries without root propagation. These
-defaults are not request slots or additional initial families. Authoritative
-R=B∪D, temporary P, mark sets and commit/replacement stay unchanged.
+[Run-1 field writes](run1-field-writes.md) preserve complete overwrite kills
+and disjoint components. Only surviving E-requiring residuals move to DEMAND,
+with Empty E and the same known AP/tail. Ordinary stored NORMAL/DEMAND default
+static summaries use the usual call and handoff paths; F1 emits no S.* initial.
+Defaults add no request slots or initial families. Authoritative R=B∪D,
+temporary P, merged marks and commit/replacement stay unchanged.
 
 The selected [static-handling contract](static-handling.md) replaces the
 static initial, field-selection, root/frame, store/call and later-handoff

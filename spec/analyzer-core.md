@@ -1,7 +1,9 @@
 # Analyzer core — specification
 
 The [run-1 field-write contract](run1-field-writes.md) overrides F1 stores,
-Empty-E fact production and static defaults. Prescan selects a NORMAL/DEMAND
+Empty-E fact production and static defaults. Complete field overwrite kills
+remain; disjoint components are unchanged. Only surviving E-requiring
+residuals demote. Prescan selects a NORMAL/DEMAND
 S.* identity edge. A reached method publishes it through the ordinary
 retained/live summary path; ordinary subscriptions/application/selection and
 handoff use it. The abstraction emits no S.* initial. There is no special

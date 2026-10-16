@@ -1,8 +1,9 @@
 # IR interpreter — specification
 
 The [run-1 field-write contract](run1-field-writes.md) overrides generic
-strong-write/cleaner-writeback rows on F1: all heap field writes retain
-affected old data at DEMAND and produce no field E. Partial E-requiring
+field-preservation rows on F1: complete overwrite kills and disjoint keeps
+remain. Only a surviving residual that needs a field-exclusion update moves
+to DEMAND with Empty E. Partial E-requiring
 cleaner results use a DEMAND may cover. Prescan computes StaticMayWrite
 from all logical effects and resolved callees. Its default identity is an
 ordinary stored summary; ordinary calls apply it without a special F1 branch.
@@ -11,7 +12,7 @@ lowering and stable logical occurrence IDs remain unchanged.
 
 The selected [static-handling contract](static-handling.md) overrides the
 static behavior below where it conflicts. In particular, ContainsMark adds
-only mark interest; run-1 has weak ordinary static stores and ordinary
+only mark interest; run-1 has selective exclusion-update demotion and ordinary
 precomputed static summaries without root initial emission. Run-2/later uses strong
 actual-query analysis and modeled normal returns, without F1 footprint
 identity shortcuts or executable F1 records. Logical rule/action occurrence

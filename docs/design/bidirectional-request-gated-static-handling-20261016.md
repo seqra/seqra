@@ -10,27 +10,27 @@ No IR-storage, reference-manager or identity-cache rewrite is included.
 
 Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. No completed
 iteration or accepted forward report. Measurements execute `4acde739b`, captured
-at `05cf9ad62`; current `2d3436187` has the same core tree. No performance result
+at `05cf9ad62`; current `26ea71480` has the same core tree. No performance result
 exists for this proposal. The target remains run-1 **engine time** within 60 seconds.
 
 ## 1. What changes, and what stays the same
 
-“Previous selected specification” below means the split design at `2d3436187`.
-It is distinct from the implemented analyzer, whose behavior appears in the
-second table and the source trace in §8.
+“Previous selected specification” means the proposal at `26ea71480`, distinct
+from the implemented analyzer. This update removes its general weak-write
+policy; the request/default pipeline stays in force.
 
-| Area | Previous selected specification | This unified proposal |
+| Area | Previous selected specification | Updated proposal |
 | --- | --- | --- |
-| Request keys, mark sets and storage | Normal origin slots; authoritative frozen plus dynamic requests and temporary P | Same behavior, specified here with its full lifecycle |
-| Field versus mark requests | Actual value reads admit abstract field inputs; ContainsMark admits only concrete-mark interest | Same two independent gates |
-| Run-1 field writes | Affected old components weakly retained at DEMAND; all field E Empty | Same weak policy, replacing logical exclusion/restriction with layer-only demand demotion |
-| Demotion and AP tails | W2/W8 changed STAR/must to ANY on DEMAND | Preserve the full known AP/tail; only the edge layer changes |
-| Fully overwritten exact old value | Retained at DEMAND even if the strong kernel would emit no residual | Same; “update exclusion” includes complete destination subtraction, not only allocating an E element |
-| Default static identity | N/D chosen by transitive StaticMayWrite; separate default descriptor/call lane | Ordinary stored summary edge; existing matching, subscription and application path |
-| Handoff ownership | Separate default lookup/export view | Ordinary publication retains the default with other summaries; ordinary demand selection and actor traversal include it |
-| Alleged no-actor helper gap | “Iterating only result.analyzers is insufficient” | Incorrect: ZERO creates the reached helper actor, and its stored DEMAND default is already a demand edge |
-| Strong later analysis and F1 records | Actual queries compute strong responses; F1 evidence is guidance only | Same boundary; default lookup is not a strong identity/return proof |
-| Concrete outcomes behind an abstract guide | Full actual-query contract was stated, but the default/FLOW example did not show mark-gate coverage | Retain concrete current requirements and concrete guides additively; a shared FLOW query cannot replace a needed concrete gate/GEN query |
+| Broad ancestor `x.*`; write x.f | Retain at DEMAND with Empty E | Same result, because ordinary preservation needs E{f} |
+| Destination `x.f.*` or exact old x.f/T | Retain at DEMAND | Kill, as ordinary strong preservation does |
+| Disjoint `x.g.*`, f≠g | Preserve its layer | Same unchanged component |
+| Already-DEMAND destination | Retain at DEMAND | Kill if wholly overwritten |
+| Field-exclusion update | Treated full removal as a restriction requiring demotion | Only a surviving E-requiring residual demotes; complete removal stays a kill |
+| RHS values | Computed independently from pre-store input | Same; self-assignment comes from this branch, not retained stale data |
+| Known AP on demotion | Complete payload/tail retained | Same; DEMAND alone does not produce ANY |
+| Requests and initials | Separate read/mark gates, R=B union dynamic, temporary P, nine families | Same behavior |
+| Default statics and calls | Ordinary stored N/D identity, normal subscription/application, no S.* initial | Same behavior |
+| Handoff and later runs | Ordinary selected-summary traversal; strong recomputation | Same behavior |
 
 The call path stays ordinary. Prescan chooses the default edge; a reached
 method publishes it through the normal summary path. The abstraction does
@@ -39,7 +39,7 @@ not emit S.*. There is no default-specific call or handoff mechanism.
 | Implemented/base-spec behavior | Proposed run-1 behavior | Purpose |
 | --- | --- | --- |
 | Broad static profiles/root analyses can start many fields in callees | Read/mark gates select callee initials; no abstract root propagation | Avoid unnecessary method analyses and statement facts |
-| Generic strong field stores restrict old geometry with field exclusions; existing weak stores retain their old layer | Preserve affected old data at DEMAND with Empty E; retain independent value transfers | Keep a coarse covering result and expose the work for strong refinement |
+| Ordinary field stores can restrict old geometry with field E | Keep ordinary kills/disjoint outputs; demote only E-requiring residuals with Empty E | Avoid E-bearing residuals without retaining every overwritten component |
 | Partial must cleaning can create field E | Keep exact E-free outcomes or a DEMAND may cover | Establish Empty E throughout F1 without inventing a NORMAL must guarantee |
 | Static preservation relies on executed summaries/root mechanisms | Publish one ordinary N/D identity summary per reached method | Avoid root-preservation analysis while using ordinary call application |
 | Handoff reads selected demand rows; native persistence accepts NORMAL singletons | Stored DEMAND defaults enter the same selection; the general F1 guidance-only boundary covers all summaries | Preserve required queries without treating weak results as strong proof |
@@ -230,62 +230,57 @@ can emit no static initial and still answer the caller with its stored
 default summary. Normal summary results do not change the input independently
 supplied to the callee. Keep unlike marks/tails/layers separate.
 
-## 6. General run-1 exclusion rule and field writes
+## 6. Ordinary writes with exclusion-update demotion
 
-**When a run-1 operation needs to restrict field geometry with an exclusion,
-move the affected edge to DEMAND instead, retain its current geometry and
-use Empty E.** Demotion changes only the edge layer. Retain base/path/tail,
-mark/mx and original premise. In particular, known `x.*` remains `x.*` at
-DEMAND; it does not become `[any]`. The field information is still available.
-This overrides old layer-driven W2/W8 conversions. Genuine field-information
-loss can still require ANY, independently of the edge's layer.
+**If ordinary preservation needs a field-exclusion update, move that edge to
+DEMAND and keep Empty E.** Fully overwritten components are killed; disjoint
+components propagate unchanged. This replaces the former general weak-write
+policy. Do not use overlap alone to preserve every old component. Removing
+fully overwritten states also avoids their downstream propagation and request
+work; the expected saving is not yet measured.
 
-For a logical field overwrite, “needs an exclusion” means the destination
-subtraction from OLD data, including complete removal. It is not a check
-for whether a new E object happened to be allocated. This preserves the
-previous selected weak-write behavior, including exact overwritten facts:
-
-| Old component; write | Run-1 old-preservation branch |
+| Old component; definite `x.f=y` | Run-1 preservation |
 | --- | --- |
-| x.* NORMAL; x.f=y | Same x geometry, DEMAND, Empty E |
-| exact x.f/T NORMAL; x.f=constant | Same x.f/T, DEMAND; do not silently kill or retain NORMAL |
-| exact x.g/T NORMAL; x.f=y, f≠g | Disjoint, keeps its layer |
-| exact ancestor x; x.f=y | Ancestor point unaffected |
-| already DEMAND | Remains DEMAND |
+| `x.* NORMAL` | Same x.* at DEMAND, Empty E |
+| `x.f.*`, NORMAL or DEMAND | Killed |
+| exact x.f/T or deeper x.f.g | Killed |
+| `x.g.*`, f≠g | Unchanged, including layer |
+| exact ancestor x | Unchanged |
 
 ```kotlin
-val kept = if (logicalFieldSubtractionChanges(old.current, destination))
-    demandNormalForm(old) else old
-val result = listOf(kept) + valueEdgesFromPreStore(old, rhs)
-    .map(::run1FactNormalForm)
+val kept = when (planOrdinaryPreservation(old.current, write)) {
+    Drop -> null
+    Unchanged -> old
+    NeedsFieldExclusion -> old.copy(layer = DEMAND) // same AP/tail; Empty E
+}
+val values = valueEdgesFromPreStoreInput(old, write)
+val result = listOfNotNull(kept) + values.map(::run1ProducerPolicy)
 ```
 
-All heap field stores use this policy: static/nonstatic, arrays, modeled and
-alias targets, field RemoveAll lowered as overwrite, and cleaner/rewriter
-field writeback. Whole-base local assignment is separate. Direct selected-
-mark cleaning is separate too: an exact mark kill can remain a kill; a
-subsequent field writeback still has its own weak old-preservation branch.
+Classify each actual current component before packing. A syntactic keep edge
+with `{f}` does not mean disjoint x.g gains an exclusion. A complete kill is
+not an exclusion update. Existing alias/write-certainty rules still decide
+which destinations are definite; possible-alias gen does not acquire a new
+blanket strong kill or DEMAND old branch.
 
-New-value edges read the pre-store state and keep their own input/support
-layer. Self-assignment can therefore have a valid NORMAL value derivation
-and a separate DEMAND old-preservation derivation. A constant untainted RHS
-adds no value taint. Never promote a DEMAND derivation with an N default.
+Demotion changes only the edge layer: path, tail, marks/mx, original premise
+and context remain. Known x.* at DEMAND is still x.*, not ANY. An already-
+DEMAND component can still be killed by overwrite. Genuine information-
+losing transfers retain their own ANY rules.
 
-Every F1 intermediate fact, queued input and summary payload has Empty field
-E. Partial cleaners can require E even after a legal AnyField source GEN:
+Read RHS values from the pre-store state. Self-assignment kills the old
+preservation component and derives the assigned value through the value
+branch. An untainted constant adds no taint. Field RemoveAll and cleaner/
+rewriter writeback use the same three cases; they do not restore an old
+fully overwritten mark. Whole-base operations retain their ordinary rules.
 
-```text
-reference: normal x.p.[any-taint]/E{f}, T
-F1 cover:  demand x.p.[any-taint], Empty E, T
-```
-
-Clearing E while keeping NORMAL must is unsound: it would assert taint in
-the removed region. Keep exact exclusion-free outcomes, and use a DEMAND
-cover for E-requiring residuals with the same tail. Do not erase mx or skip its original-
-slot request. Choose this recipe before allocating E. Enforce it at every
-producer/queue/store seam, not just stores or final publication. Strong
-later phases keep their ordinary E and recipes; phase keys do not rename
-logical source/sink/action occurrences.
+All F1 intermediate field E remains Empty. Other partial cleaners/model/rule
+producers can also need E: retain their ordinary exact kills/keeps and use
+an explicit DEMAND E-free cover only for surviving E-requiring residuals.
+Never erase E while keeping a NORMAL must guarantee. Preserve mx and its
+immediate original-slot request. Choose this producer recipe before
+allocating E, at every queue/store seam. Later phases keep ordinary E and
+strong residuals. Logical occurrence IDs remain stable across form flavors.
 
 ## 7. Default statics use ordinary stored summaries
 
@@ -486,7 +481,7 @@ existing full-premise, limit, demand and may/must read-view contracts.
 
 The constructive laws are: separate least F/B/W closures; nine-family and
 actual-supplier gates; merged request union and both arrival orders; original
-slot routing across field/layer changes; weak-write may coverage and Empty E;
+slot routing across field/layer changes; complete-kill/disjoint/partial preservation coverage and Empty E;
 layer monotonicity and default locality; and strong-query/preimage completeness.
 
 The corrected handoff bridge has a direct proof: root ZERO starts the root
@@ -499,30 +494,31 @@ DEMAND edges. The ordinary actor iterator therefore exports the default.
 No global method scan is a premise. Strong actual-query fallback handles
 work not represented by an earlier reached call.
 
-Checked local models remain [Run1Requests](../../spec/lean/ApSpec/Run1Requests.lean),
-[Run1PrecomputedRequests](../../spec/lean/ApSpec/Run1PrecomputedRequests.lean),
-[RequestGatedStatics](../../spec/lean/ApSpec/RequestGatedStatics.lean) and
-[Run1WeakFieldWrites](../../spec/lean/ApSpec/Run1WeakFieldWrites.lean), with the
-shared request protocol module. The earlier [receipt](../reports/bidirectional-run1-field-writes-proof-validation-20261016.md)
-checks their prior definitions, including historical demotion-to-ANY laws.
-[Run1DefaultSummaryApplication](../../spec/lean/ApSpec/Run1DefaultSummaryApplication.lean)
-separately proves ordinary identity geometry with independent layer composition,
-exact tail preservation and the historical root-ANY counterexample. Its
-[validation receipt](../reports/bidirectional-ordinary-static-summary-proof-validation-20261016.md)
-records the new checks. The actor/publication explanation is
-a source-bound design proof, not a checked Kotlin/driver simulation or a full
-composition proof of the local models. Earlier receipts retain their scope.
+The selected local write proof is
+[Run1StrongPreservation](../../spec/lean/ApSpec/Run1StrongPreservation.lean):
+actual prefix/tail classification, complete kills, unchanged disjoint data,
+partial residual coverage, unchanged pre-store value branches and Empty E.
+The [new receipt](../reports/bidirectional-run1-selective-preservation-proof-validation-20261016.md)
+records its aggregate build/audit and executable cases. The earlier
+[ordinary identity proof](../../spec/lean/ApSpec/Run1DefaultSummaryApplication.lean)
+continues to check exact payload/tail preservation with independent layer
+composition. Existing request/closure models retain their stated scopes.
+The blanket [weak-write model](../../spec/lean/ApSpec/Run1WeakFieldWrites.lean)
+and its exact-destination-retention laws are historical and cannot certify
+this update. Actor/publication and full producer/ND/seed integration remain
+explicit source-bound obligations, not a checked Kotlin/driver simulation.
 
 Implementation order:
 
 1. Build shared read/mark/effect plans without changing legal producer coordinates.
 2. Apply supplier gates and request B/D/P/arrival semantics; keep request propagation eligible after FLOW demotion.
-3. Add run-1 exclusion-to-DEMAND recipes at every producer seam and retain independent pre-store values.
+3. Preserve ordinary complete kills/disjoint results; replace only E-requiring residuals with layer-only DEMAND, and retain independent pre-store values.
 4. Preserve transfer plus edge layer in ordinary summary storage/application without layer-driven tail conversion; publish the N/D default through the same retained/live path as other summaries.
 5. Keep ordinary call delivery, subscription, application, demand selection and handoff; remove old root/footprint shortcuts and retain the general candidate/record boundary.
 6. Verify packed/model/alias/scheduler/ND/seed bridges, then run fixed OWASP and real-project configurations.
 
-Count field/mark gates, fresh requests/batches, N/D default applications,
+Count complete write kills, unchanged components, E-update demotions, field/mark
+gates, fresh requests/batches, N/D default applications,
 zero nonempty-E F1 payloads, zero propagated abstract roots, default summary
 rows and notifications per actor, run-1 versus later root initials,
 new analyses/input groups and retained bytes. Report reached, completed and

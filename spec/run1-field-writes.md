@@ -1,191 +1,153 @@
-# Run-1 weak field writes and default static summaries
+# Run-1 field writes without field exclusions
 
 Status: selected specification, **not implemented**. This contract overrides
-the run-1 field-write, field-exclusion and static-summary rules in
-[AP](ap.md), [interpreter](interpreter.md), [core](analyzer-core.md) and
-[static handling](static-handling.md). Later runs retain strong logical
-stores, ordinary exclusions and the strong query/return contract. The
-[proof dossier](run1-field-write-proofs.md) states constructive proofs and
-the checked reference-model scope.
+run-1 field preservation in [AP](ap.md), [interpreter](interpreter.md),
+[core](analyzer-core.md) and [static handling](static-handling.md). It replaces
+the former general weak-write proposal. Later runs retain ordinary strong
+stores and exclusions. The [proof dossier](run1-field-write-proofs.md) states
+the constructive arguments and checked local scope.
 
-The [single complete proposal](../docs/design/bidirectional-request-gated-static-handling-20261016.md)
-combines this contract with request ownership, emission gates and static
-handling. Its §1 distinguishes the previous selected design from implemented
-behavior; §8 traces the ordinary handoff and corrects the former global-view
-requirement.
-
-Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. No completed
-iteration or accepted forward report. This update adds no runtime measurement.
+The [complete proposal](../docs/design/bidirectional-request-gated-static-handling-20261016.md)
+combines this rule with requests and ordinary default static summaries.
+Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. None completed;
+no accepted forward report. This specification adds no runtime measurement.
 
 ## 1. Selected rules
 
-1. Every run-1 heap field write is weak, for static and nonstatic fields.
-2. When logical field exclusion/restriction is needed, move the old edge to
-   DEMAND instead. For a field overwrite this includes full old-value removal,
-   not just appending an E element. Preserve its actual location and premise.
-3. Do not add a field exclusion. **Every admitted run-1 fact, initial and
-   summary payload has Empty field exclusion**, at every processing stage.
-4. Add the new written-value edges from the pre-store state. They keep their
-   own transfer layer; they are not the retained-old-value branch.
-5. After prescan, define a default static identity summary for every method:
-   NORMAL if neither the method nor any callee may write statics; DEMAND otherwise.
-6. Publish it when the reached method starts, through the ordinary summary path.
-   Apply it through ordinary subscriptions and summary application. The abstraction
-   emits no S.* initial; there is no special run-1 call handling.
-7. Carry selected demand edges into run-2 through the ordinary handoff.
-   Run-2 computes strong summaries; it does not treat the defaults as their proof.
+For a definite field write `x.f = y`, apply ordinary strong preservation:
 
-The change is an intentional may abstraction. A DEMAND survivor can represent
-an old value that a strong write would remove. Its field path is preserved;
-its survival has not been proved. Do not describe it as an exact strong edge.
+| Old component | Run-1 old-value result |
+| --- | --- |
+| `x.* [NORMAL]` | `x.* [DEMAND]`, Empty E |
+| `x.f.*`, in either layer | Killed |
+| Exact `x.f/T` or any descendant in the overwritten subtree | Killed |
+| `x.g.*`, f≠g | Propagated unchanged, including its layer |
+| Exact ancestor point `x` | Propagated unchanged |
 
-## 2. Scope, layers and normal form
+**If a surviving preservation result needs a field-exclusion update, move
+that edge to DEMAND and keep Empty E.** Full removal is a kill, not an
+exclusion update. This is not a rule to retain every overlapping old fact.
 
-The selected run-1 limit remains exactly 1. Its nine initial families stay
-unchanged. S differs from ZERO, class accessors do not consume the field
-limit, and no abstract S-root initial is admitted. Actual broad static TAINT
-data and separately supplied direct class components remain legal.
+All run-1 fact/initial/summary field E remains Empty. Add value transfers
+from the pre-store input independently. Keep ordinary alias/write-strength
+rules: a possible alias is not a definite overwritten destination.
 
-Let N=normal and D=demand, with `N ≤ D`. Layer join is logical OR:
+The remaining selected rules stay in force: nine run-1 initial families,
+layer-only demotion, independent field/mark emission gates, merged mark
+requests, ordinary stored N/D default static summaries, no S.* initial
+emission in F1, and strong later refinement through ordinary handoff.
 
-```text
-N join N = N
-N join D = D join N = D join D = D
-```
+## 2. Scope, layers and known AP information
 
-DEMAND never becomes NORMAL along the same propagation derivation. A separate
-new-value/source derivation can have its own NORMAL edge; do not merge the
-derivations in a way that promotes uncertain old data.
+Run-1 has limit exactly 1. Later limits are positive and nondecreasing.
+Class accessors do not count toward the limit. S differs from ZERO; broad
+supplied TAINT and separate concrete class components remain legal.
 
-**Layer demotion preserves the complete AP payload.** Move the edge to
-DEMAND without changing its base, path, tail, mark, mark exclusions, original
-initial, full premise, context or call identity. In particular, `x.* [N]`
-becomes `x.* [D]`, not `x.[any]`. The field information has not been lost.
+Layers satisfy `NORMAL ≤ DEMAND`; composition uses OR. Demotion changes
+only the layer, retaining base/path/tail, marks/mx, original initial, whole
+premise, context and call identity. Known `x.*` stays `x.*` at DEMAND; no
+information was lost that would require `[any]`. This supersedes old W2/W8
+conversions driven solely by the layer. Real cuts/uncorrelated transfers keep
+their own information-losing rules. Concrete-supplier initial projection is
+unchanged.
 
-This overrides the older W2/W8 rules where they converted a tail solely
-because the edge became DEMAND. STAR and layer are independent. A genuine
-operation that loses field/correlation information can still produce ANY;
-that is a separate transfer, not a consequence of demotion. This does not
-change the existing projection of nonexact concrete suppliers to legal
-run-1 initials or their start-fact representation.
+A DEMAND input is still subject to a complete overwrite kill. Layer
+monotonicity constrains surviving derivations; it does not require their
+survival. Independent RHS/source derivations have their own layer.
 
-Empty E means **field exclusion**, not FLOW mark exclusion mx. Selected mark
-cleaning and original-slot requests still use mx. Their request matching
-rules are unchanged. No run-1 initial has mx. Full rule geometry/NNF and
-signed eligibility remain in forms.
+Empty E means field exclusion, not FLOW mark exclusions mx. Request matching
+still ignores E/mx, and excluded-mark creators still request the concrete
+mark on the original abstract slot. Source/sink NNF and full ND premises stay.
 
-## 3. Local field-write transfer
+## 3. Preservation and pre-store values
 
-A field write names a destination cylinder D_w: the locations at/below the
-written field. Use the existing alias/array overlap semantics. The relevance
-test is against the **current conclusion**, not its original premise.
-
-General rule: **when run-1 would need a field-exclusion update, move the
-affected edge to DEMAND instead and keep Empty E**. For a field overwrite,
-the logical exclusion step includes a complete destination kill. Testing
-only whether an E object gains an accessor would miss exact old x.f/T,
-which is still retained at DEMAND under the selected weak-write policy.
-
-For `x.f=y`, old `x.*` overlaps D_w; old exact `x.f/T` is inside; old exact
-`x.g/T` with f≠g is disjoint. An exact point x is not changed by assigning a
-descendant field. For a broad conclusion containing both changed and
-unchanged locations, retain its whole existing geometry at DEMAND when an
-exact exclusion-free split is unavailable. Do not enumerate all fields.
+Classify the ordinary old-value preservation for each current component:
 
 ```kotlin
-fun preserveAcrossFieldWrite(old: Edge, write: FieldWrite): Edge =
-    if (mayOverwrite(write.destination, old.current))
-        demandNormalForm(old) // same current path and original premise, Empty E
-    else
-        old
+sealed interface FieldPreservation {
+    data object Drop : FieldPreservation
+    data object Unchanged : FieldPreservation
+    data object NeedsFieldExclusion : FieldPreservation
+}
 
-fun run1Write(input: Edge, write: FieldWrite): List<Edge> =
-    listOf(preserveAcrossFieldWrite(input, write)) +
-        valueEdgesFromPreStoreInput(input, write).map(::run1FactNormalForm)
+fun run1Keep(old: Edge, write: FieldWrite): Edge? =
+    when (planOrdinaryPreservation(old.current, write)) {
+        Drop -> null
+        Unchanged -> old
+        NeedsFieldExclusion -> old.copy(layer = DEMAND) // same AP, Empty E
+    }
+
+fun run1Write(input: Edge, write: FieldWrite): List<Edge> {
+    val values = valueEdgesFromPreStoreInput(input, write)
+    val kept = run1Keep(input, write)
+    return listOfNotNull(kept) + values.map(::run1ProducerPolicy)
+}
 ```
 
-Apply this to each affected conclusion component, including possible alias
-targets. Packed components whose layers differ remain separate. Do not
-discard a disjoint NORMAL leaf merely because a sibling broad leaf demotes.
+These are proposed interfaces, not runtime changes. The plan uses actual
+base/path/tail geometry and ordinary write certainty, without allocating E.
+A keep operator that mentions `{f}` syntactically does not imply that a
+particular input acquires an exclusion: disjoint `x.g.*` stays unchanged.
 
-| Input and operation | Retained-old-value result |
-| --- | --- |
-| `x.* [N]; x.f=y` | Same root x geometry, DEMAND, Empty E |
-| `x.f/T [N]; x.f=constant` | Old x.f/T retained, DEMAND, Empty E |
-| `x.g/T [N]; x.f=constant`, f≠g | x.g/T, NORMAL |
-| `C.f.* [N]; C.f=y` | Same C.f geometry, DEMAND, Empty E |
-| Already DEMAND input | Remains DEMAND |
-| Definite disjoint base/location | Preserve its current layer |
+For a definite destination cylinder D_w:
 
-An untainted/untracked RHS adds no tainted value edge. For `x.f=x.f`, read
-the pre-store value first: a valid value-transfer branch can coexist with
-the DEMAND old-preservation branch. New-value transfer does not kill the
-preserved branch. Source/ZERO origins remain separate from old input origins.
+1. A component wholly inside D_w has no old-value result.
+2. A disjoint component is unchanged.
+3. A broad ancestor that needs a partial residual with nonempty E retains its
+   original component at DEMAND with Empty E.
 
-This rule covers ordinary instance/static field stores, array-element writes
-under the selected field-accessor model, modeled field stores and alias value
-updates. A nonstatic **whole-base local assignment** `x=y` is not a heap field
-write: it keeps its existing strong whole-base replacement semantics, which
-does not require a field exclusion.
+The third case covers the strong residual but can include removed locations
+as unresolved demand. It does not revive a separately represented component
+killed in the first case. Classify current conclusions, not their original
+premises. Partition packed components independently and preserve headers and
+layers; no sibling leaf can suppress or promote another leaf's result.
 
-A field RemoveAll lowered as a field overwrite and a field-cleaner/rewriter
-writeback also use this rule, even for an exact old destination fact. For a
-read-clean-writeback action, cleaning its temporary can remove selected T
-exactly; the final weak field write still retains old destination T at DEMAND.
-Direct selected-mark Clean and whole-base cleanup are distinct operations,
-not ordinary field overwrites. Classify the logical action before lowering.
+For `x.f=x.f`, the old x.f component is killed by preservation, while the
+pre-store read supplies the new-value result. There is no duplicate retained
+old branch. A constant untainted RHS supplies no taint. Source/ZERO generation
+keeps its own support. Broad ancestors can still have a DEMAND residual
+alongside an independently derived value result.
+
+Use the same rule for definite static/nonstatic stores, selected array
+accessors, modeled field stores, field RemoveAll lowered as overwrite and
+cleaner/rewriter field writeback. In read-clean-writeback, a selected mark
+removed from the temporary is not restored by preserving an old component
+wholly inside the destination. A partial ancestor can still need refinement.
+Whole-base assignment/cleanup retains its separate ordinary kill semantics.
+Possible-alias gen/preservation follows the existing alias contract; this
+change does not upgrade it to a definite write or blanket DEMAND retention.
 
 ## 4. Empty field exclusions throughout run-1
 
-Weak ordinary stores alone do not establish this invariant. Partial cleaners
-and RemoveAll/cleaner writeback can also create E, including a source-generated
-ANY_TAINT fact even though no ANY_TAINT initial is legal.
+The field-write rule does not cover every E producer. Partial cleaners and
+rule/model results can also need an exclusion, including source-generated
+ANY_TAINT even though no ANY_TAINT initial is admitted.
 
-Retain exact exclusion-free selected-mark cleaner/filter outcomes when
-available. Their complete kill can remain a kill. This does not exempt a
-field overwrite/writeback from §3's weak preservation. When a residual requires nonempty
-E, replace that residual with a **DEMAND may cover**, with Empty E. Keep the
-same base/path/tail/mark and original premise. Clearing the required field
-restriction is a separate conservative cover; changing layer alone never
-changes the tail.
-Do not merely clear E on a NORMAL must fact: that would assert the removed
-locations carry the mark. Preserve mark exclusions and issue their existing
-original-slot requests before publishing the excluded-mark output.
+Use ordinary operation results first: an empty result stays empty and an
+E-free unchanged/exact result stays valid. Only a surviving residual that
+would require nonempty field E takes an explicit DEMAND cover with Empty E,
+retaining its base/path/tail/mark and support. A layer-only demotion itself
+changes no AP payload. Clearing a required E is a separate approximation.
 
 ```text
 reference partial result: x.p.[any-taint] / {f}, NORMAL, T
 run-1 cover:              x.p.[any-taint], Empty E, DEMAND, T
-
-reference correlated residual: x.p.* / {f}, NORMAL, *\X
-run-1 cover:                   x.p.*, Empty E, DEMAND, *\X
+reference STAR residual:  x.p.* / {f}, NORMAL, *\X
+run-1 cover:              x.p.*, Empty E, DEMAND, *\X
 ```
 
-Explicit field RemoveAll and cleaner/rewriter field writeback already use
-§3; any remaining E-requiring cleaner residual uses this cover too.
-Fully handled direct mark cleaners retain their local semantics; the
-partial residual is conservative rather than restoring a NORMAL guarantee.
-Static selected-mark cleaning still partitions at the first static field:
-a cleaner on f must not request T on disjoint g. Generic excluded-mark copies
-still match their source and request their original input, not their target.
+Never clear E while asserting the original NORMAL must guarantee. Preserve
+mx and its immediate original-slot request. Static selected-mark cleaners
+partition by their actual first field: cleaning f does not request T on
+disjoint g. A g-to-f excluded-mark copy tests source g and requests T on the
+original g origin; target disjointness cannot discard a real transfer.
 
-Enforce the invariant for every operation result before it becomes a queued
-fact, a call input, a summary, a source/end-action result or an indexed/stored
-fact. This includes direct/model writes, aliases, rules, partial clean,
-bindings, summary application, tree operations and cuts. Constructors which
-only preserve Empty E cannot introduce it. A producer with an explicit
-nonempty E result must use the proved may-cover rule, not silently publish it.
-
-The mathematical proof can describe an excluded reference residual. The
-implementation should choose the exclusion-free run-1 recipe before building
-it; no temporary E allocation is required. Strong later-run recipes can still
-contain field exclusions. Pattern/compiled-kernel syntax for later runs is
-not a propagated run-1 fact.
-
-Run-1 starts with empty previous-run records/handoff and Empty-E initials.
-Supplied internal data must come from the same closed producer set. Assert
-that boundary; an unexpected external E-bearing fact is not silently treated
-as exact Empty-E input. Its only permitted admission is through a proved
-DEMAND cover. No shared factory change may erase E in later runs.
+Enforce Empty E before results enter any queue, input relation, index or
+summary. Cover local/model/rule/alias/binding/summary/cut producers and source/
+end actions, not just store lowering. Choose recipes before allocating E.
+Empty-E starts plus closed producers/packing/delivery establish the invariant
+by induction. An external E-bearing input needs the explicit cover boundary;
+no global factory may erase E in later strong runs.
 
 ## 5. Prescan static-write closure
 
@@ -296,7 +258,8 @@ Run-2 is strong backward analysis. It uses the projected demand as usual,
 including a broad static demand and S-root FLOW initial when ordinary later
 restricted emission selects one. Only run-1 forbids that initial. Strong
 field writes retain full residual exclusions and infer the required S->S
-relation. A default is not an executable reversed strong result.
+relation. A default is not an executable reversed strong result. The run-1 complete
+overwrite kills do not remove the need to refine partial residuals/defaults.
 
 Preserve the general all-base current-query fallback, source-hit/ZERO cases,
 concrete mark/GEN query branches and full ND support. Ordinary strong copy
@@ -316,14 +279,14 @@ The proof dossier must establish:
 
 | Law | Required result |
 | --- | --- |
-| Weak write coverage | Every strong surviving/value output has a run-1 may witness; overwritten old data cannot gain a NORMAL guarantee |
-| Layer and geometry | Affected preservation demotes, disjoint data keeps its layer, value branches stay independent; no D→N; actual path/premise retained |
+| Preservation cases | Full overwrite kills; disjoint data is unchanged; only an E-requiring partial residual demotes, with a witness for every strong survivor |
+| Layer and geometry | Surviving AP/tail/premise retained; no D→N; killed DEMAND components stay killed; pre-store value branches independent |
 | Empty E | All closed run-1 producers/stores preserve Empty E; an E-requiring residual is explicitly a DEMAND cover, never a NORMAL guarantee |
 | Static effect closure | Least call-graph closure, including cycles and conservative unknown effects; writes do not create read requests |
 | Default application | Complete actual AP, including tail, retained with exact layer join; no ANY conversion, enumeration or propagated root |
 | Default availability | Normal method initialization publishes one ordinary row through retained/live stores; independent of static initials; no forced actors |
 | Handoff coverage | DEMAND defaults enter normal demand selection/projection; NORMAL defaults follow the general NORMAL-summary policy |
-| Strong refinement | Run-2 recomputes preservation/copy/kill/source/return behavior; no weak default becomes its executable proof |
+| Strong refinement | Run-2 recomputes preservation/copy/kill/source/return behavior; no provisional default or E-free cover becomes its executable proof |
 
 Prove these in the selected finite AP model, then verify the producer, packed
 representation, scheduler, full-premise/ND and seed bridges during runtime

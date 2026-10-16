@@ -2,8 +2,9 @@
 
 The [run-1 field-write contract](run1-field-writes.md) has precedence for
 all run-1 field writes, Empty-E producers and default static summaries.
-Affected old data is weakly retained at DEMAND; every run-1 intermediate
-field exclusion is Empty. Default static identities use ordinary summary
+Complete overwrite kills and disjoint preservation stay ordinary. Only a
+surviving residual needing a field-exclusion update demotes, with Empty E.
+Every run-1 intermediate field exclusion is Empty. Default static identities use ordinary summary
 storage/application and the closed StaticMayWrite bit; no root initial is
 emitted in F1. Demotion changes only the edge layer, preserving the complete
 AP and tail. It overrides older W2/W8 layer-driven conversions to ANY below.
@@ -11,7 +12,7 @@ Later strong E semantics remain. [New proofs](run1-field-write-proofs.md) state 
 
 The selected [static-handling contract](static-handling.md) takes precedence
 over the static rules below: separate value-read/mark gates, nine run-1
-initial families, weak run-1 stores and ordinary stored defaults, guidance-only
+initial families, exclusion-update demotion and ordinary stored defaults, guidance-only
 run-1 export, and actual-query strong run-2/later analysis. It is a design
 target; runtime is unchanged. [Static proofs](static-handling-proofs.md)
 state the new laws and the local checked scope. Historical root/frame
@@ -246,8 +247,9 @@ are not the zero fact (§4.6).
   accessor below it (§4.7).
 * The LAYER is part of the edge identity. A micro edge has no layer (§4.2): the layer belongs to the propagation edge.
   Only these AP operations put a propagation edge in the demand layer:
-  * in selected run 1, affected old preservation across any static/nonstatic
-    field write, an exclusion-requiring residual's may cover, and application
+  * in selected run 1, only a surviving E-requiring residual of a static/nonstatic
+    field write or other operation takes an E-free DEMAND cover; complete
+    overwrite kills and disjoint preservation remain. Also application
     of an ordinary DEMAND default static summary ([phase contract](run1-field-writes.md));
   * the start fact of an initial fact with the `[any]` tail (historical/restricted initials), or with the `*` tail and a concrete mark (§6.5). F78 run 1 uses only the latter nonexact initial. An
     `[any-taint]` start fact (a must-premise, forward restricted runs only) is normal;
@@ -286,7 +288,8 @@ with `star`, `conc t`, `starEx x`) and `AFact` (a conclusion plus `demand : Bool
 
 Selected run-1 specialization: **all field E is Empty**, on every intermediate
 fact and both summary payloads, including source-generated must facts.
-An E-requiring residual takes an explicit DEMAND cover. Layer demotion itself
+Complete overwrite kills remain kills in either layer; disjoint components
+remain unchanged. Only a surviving E-requiring residual takes a DEMAND cover. Layer demotion itself
 preserves the full AP payload, including STAR or ANY_TAINT; it does not create
 ANY. The older demand-driven normalizers below and their Lean theorems describe
 the prior contract. They do not prove the selected layer-only rule. Later

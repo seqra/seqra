@@ -620,3 +620,18 @@ run_elab do
 #print axioms ApSpec.Run1DefaultSummaryApplication.joined_layer_monotone
 #print axioms ApSpec.Run1DefaultSummaryApplication.attachment_keeps_requests
 #print axioms ApSpec.Run1DefaultSummaryApplication.SelectedControls.STAR_stays_STAR_at_DEMAND
+
+-- Selected field preservation: kill covered components; only partial
+-- residuals needing a field exclusion retain their payload at DEMAND.
+#eval do
+  if !ApSpec.Run1StrongPreservation.Controls.checks then
+    throw (IO.userError "Selective field preservation cases failed.")
+  IO.println "Selective field kills, unchanged components and E-update demotion controls passed."
+
+#print axioms ApSpec.Run1StrongPreservation.killed_region_is_written
+#print axioms ApSpec.Run1StrongPreservation.exclusion_has_proper_ancestor
+#print axioms ApSpec.Run1StrongPreservation.identity_has_no_written_location
+#print axioms ApSpec.Run1StrongPreservation.preservation_full_payload
+#print axioms ApSpec.Run1StrongPreservation.preservation_no_new_E
+#print axioms ApSpec.Run1StrongPreservation.write_outputs_EEmpty
+#print axioms ApSpec.Run1StrongPreservation.strong_write_survival_coverage

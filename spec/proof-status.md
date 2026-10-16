@@ -8,7 +8,9 @@ layer and preserves the complete AP payload, including its known tail.
 The older W2/W8 demand-to-ANY rules are superseded for this operation.
 
 The [run-1 field-write contract](run1-field-writes.md) states that layer-only
-rule, weak field preservation and Empty E. The [proof dossier](run1-field-write-proofs.md)
+rule, complete overwrite kills, disjoint preservation and Empty E. Only a
+surviving E-requiring residual demotes; the general weak-write proposal is
+superseded. The [proof dossier](run1-field-write-proofs.md)
 separates the new independent-layer law from older coarser models. Existing
 receipts retain their original source hashes and do not certify this correction.
 The ordinary actor/publication bridge is a source-bound design argument,
@@ -30,6 +32,27 @@ application and late requests. This file states proof scope and evidence; it add
 no analysis rule and makes no claim that the measured runtime implements F78.
 [proof-history.md](proof-history.md) retains earlier
 theorem catalogs; F70/F71 concrete-run results do not prove current restricted runs.
+
+## Selective run-1 field preservation
+
+[Run1StrongPreservation.lean](lean/ApSpec/Run1StrongPreservation.lean) replaces
+the historical blanket weak-write reference for local field preservation.
+It classifies actual base/path-prefix/tail geometry into complete kill,
+unchanged and partial exclusion need. It proves strong-survivor coverage,
+full surviving payload/origin, layer monotonicity and Empty E under Empty-E
+input/value hypotheses. Definite and possible-alias writes are separate.
+Controls cover both initial layers, descendants, exact ancestors, siblings,
+mixed components, writeback and independent pre-store values.
+
+Validation passed: **129 build jobs**, **23,656 imported declarations**
+with zero unexpected axioms, and all 16 selected cases. The separate module
+audit checks all 183 declarations with zero unexpected axioms. The
+[new receipt](../docs/reports/bidirectional-run1-selective-preservation-proof-validation-20261016.md)
+binds the final sources, commands, logs and scope. Packed/runtime refinement,
+actual RHS/cleaner/alias classification and full scheduling/ND/driver proofs
+remain obligations. The earlier default/layer-only proof below is unchanged.
+Latest project measurement remains **run-1, FORWARD, limit 1; OOM**; none
+completed and no accepted forward report. No analyzer run was repeated.
 
 ## Ordinary static summaries and layer-only demotion
 
@@ -65,7 +88,7 @@ Latest measured iteration remains **run-1, FORWARD, limit 1; OOM**, with no
 completed iteration or accepted forward report. Analyzer implementation and
 project measurements are unchanged.
 
-[Run1WeakFieldWrites.lean](lean/ApSpec/Run1WeakFieldWrites.lean) checks weak
+[Run1WeakFieldWrites.lean](lean/ApSpec/Run1WeakFieldWrites.lean) historically checks blanket weak
 preservation's positive coverage of strong remove-destination/value outputs,
 affected/disjoint layers, independent value layers, canonical demand, safe
 Empty-E may covers, exact mark-cleaning laws, the closed finite producer
@@ -77,7 +100,8 @@ STAR marks; normal concrete ANY in the wrapper denotes must, demand ANY may.
 handoff and strong-reconstruction arguments. The model does not certify the
 actual JVM/model/alias inventory, packed codec, queue/publisher integration,
 ND confirmation or the complete driver. Its tagged default-call helper and
-automatic demand-to-ANY map are historical after the layer-only correction.
+automatic demand-to-ANY map are historical. Its retention of a fully
+overwritten destination is also superseded by the selective-write rule.
 F1 defaults are guidance,
 not strong return certificates. The old static-only weak-store/bypass and
 blanket root-pattern filter are superseded. The nine-family initial and
@@ -103,7 +127,7 @@ change, new runtime measurement or full-engine correctness claim.
 | Read versus mark-only prescan needs | Effective positive inventory and inherited call paths; ContainsMark adds no field need |
 | Nine initial families | Executable classifier/witnesses, exactly old grammar minus special root, Empty E, no ANY/must, unchanged start facts |
 | Independent field/mark gates | Supplied normal static-field oracle; actual concrete leaf plus requested mark for concrete answers |
-| Weak versus strong transfers | Scalar keep/copy/kill/generation with explicit cleaners retained strong; sequence/body inclusion |
+| Historical blanket weak versus strong transfers | Scalar keep/copy/kill/generation and sequence/body inclusion; does not prove selective overwrite kills |
 | Strong S→S and converse | Finite returned bodies, ordinary spatial E, ZERO origin and actual modeled-return witnesses |
 | Actual later queries | Admission independent of F1 hints, exact finite-candidate answers, pending distinct from empty/identity |
 | Recursive balanced calls | Executable generic-state approximants sound/complete for finite balanced derivations, least relation, mixed-state and unproductive-recursion controls |

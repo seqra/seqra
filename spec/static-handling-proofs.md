@@ -1,12 +1,11 @@
 # Proofs for request-gated static handling
 
-The selected [weak field-write specification](run1-field-writes.md) and
-[new proof dossier](run1-field-write-proofs.md) replace unannotated weak
-preservation, the unconditional NORMAL static bypass and the blanket
-root-pattern export ban. All F1 field E is now Empty; affected survivors
-demote without changing the known AP/tail. Defaults are ordinary stored
-summary edges applied by the usual call path, without root initial emission. The strong later-query/converse proofs here retain their explicit
-scope. Earlier local receipt hashes do not certify the added phase rules.
+The selected [field-write specification](run1-field-writes.md) and
+[proof dossier](run1-field-write-proofs.md) retain complete strong kills and
+disjoint preservation. Only surviving E-requiring residuals demote with
+Empty E and the same AP/tail. Ordinary default summaries and strong later
+query/converse laws remain. Earlier blanket weak-store models are historical;
+their receipts do not certify this selective preservation rule.
 
 Status: constructive design proofs and checked local reference laws. Use with
 [static-handling.md](static-handling.md). Runtime implementation is unchanged.
@@ -25,10 +24,10 @@ class points are separate from field descendants; broad TAINT is permitted.
 
 The reference uses the existing selected AP transfers, ordered rule actions,
 NNF/signed eligibility, field cuts, source/sink seeds, full-premise guards and
-modeled normal/exceptional exits. Its run-1 variant has weak ordinary static
-stores and ordinary prepublished static defaults. Its later variant has strong stores
+modeled normal/exceptional exits. Its run-1 variant uses ordinary static-write kills, E-free partial covers
+and ordinary prepublished static defaults. Its later variant has strong stores
 and balanced normal-return calls. These variants are intentionally different.
-We do not claim equality between weak run-1 and the old strong engine.
+We do not claim equality between selected run-1 and the old strong engine.
 Run-1 selected-mark static cleaners also use the new first-field spatial
 partition; the old global same-base disjoint FLOW exclusion/request is not
 part of this reference. Within an affected field the existing policy stays.
@@ -127,8 +126,8 @@ invented T; Kotlin dispatch must still refine that type boundary.
 
 ## 4. Request coverage and gated run-1 observations
 
-Compare gated run-1 with an eager, root-free reference using the **same weak
-stores and bypass**, but admitting every supplied abstract field. Compare
+Compare gated run-1 with an eager, root-free reference using the **same selected
+preservation/default semantics**, but admitting every supplied abstract field. Compare
 observations at actual value reads/effective positive mark checks, not all
 unobserved eager intermediate facts or exact equality with the old core.
 
@@ -168,7 +167,7 @@ fresh D. Excluding T triggers interest immediately; later request matching
 can ignore both field E and FLOW mark exclusions without losing that interest.
 
 Induction on the finite observation derivation, with fair request replay,
-then yields the same relevant positive observation in gated weak run-1.
+then yields the same relevant positive observation in gated selected run-1.
 True generation keeps its ZERO/actual origin. A skipped unobserved field
 has no observation to preserve. Writes/aliases need no additional field
 seed; the first actual consumer supplies the witness above. The proof uses
@@ -179,15 +178,20 @@ their original local hypotheses. The full observation induction in this
 section is a design proof; the new local Lean module does not certify its
 Kotlin producer inventory, mixed-base replay or full NNF/ND bridge.
 
-## 5. Weak run-1 covers strong positive data paths
+## 5. Exclusion-update run-1 covers strong positive paths
 
-For a destination field cylinder D, local strong store is
-`(X minus D) ∪ value(X)` and weak store is `X ∪ value(X)`.
-Every strong output is therefore a weak output, with the same value witness
-or the same surviving input. Cleaners use their own unchanged function on
-both sides; weakening a store does not undo an earlier local cleaner.
-Existing exclusions are not removed. Sequential induction preserves positive
-data-path inclusion under the monotone selected transfers.
+For a destination cylinder D, ordinary strong preservation removes D and
+adds pre-store values. A component fully within D has no old survivor; a
+disjoint component is unchanged. Only an ancestor partial residual needing
+E is replaced by its original payload at DEMAND/Empty E. Every strong old
+survivor therefore has either the unchanged witness or a witness in that
+cover; new values use the same pre-store transfer. Full removal is not
+reclassified as an E update. This is not `X union value(X)` weak storage.
+
+Packed components and existing alias write-certainty rules keep their own
+outcomes. In particular an uncertain alias is not a definite kill. See the
+[field-write proof](run1-field-write-proofs.md#2-strong-preservation-with-a-partial-cover)
+for the constructive cases and exact/descendant/self-assignment controls.
 
 For the new static cleaner partition, every supplied field component is
 either disjoint or affected. The disjoint component is returned unchanged
@@ -212,10 +216,14 @@ Induct on a finite balanced positive source-to-sink derivation to obtain
 run-1 may coverage, relative to the frontend/seed/ND assumptions in §1 and
 the observation argument in §4. This does not prove old finding-set parity,
 cleaner exactness across early defaults, runtime speed or an accepted report.
-In the local Lean model weak stores retain inputs, while selected explicit
-cleaners remain strong (`weak_clean_is_strong`). `strong_step_in_weak`,
-`strong_trace_in_weak` and `strong_body_in_weak` prove that model's inclusion.
-The model has no runtime cleaner-producer implementation or CallPlan stages.
+The earlier `weak_clean_is_strong`, `strong_step_in_weak`,
+`strong_trace_in_weak` and `strong_body_in_weak` concern a blanket weak-store
+model. They are historical, not proofs of the selected complete-kill rule.
+Runtime producer, packed AP and CallPlan refinement remain separate. The
+[selected preservation module](lean/ApSpec/Run1StrongPreservation.lean)
+checks the new local cases and survival witnesses; the
+[fresh receipt](../docs/reports/bidirectional-run1-selective-preservation-proof-validation-20261016.md)
+records their scope.
 
 ## 6. Why run-1 cannot be executable later evidence
 
@@ -223,17 +231,20 @@ Three constructive counterexamples establish necessary restrictions:
 
 ```text
 GEN f/T; helper(skip; return); check f/T
-    F1 may skip helper; no f→f summary exists, but B2 must cross it.
+    F1 has a prepublished default, but no computed strong f→f return witness.
+    B2 must reconstruct the real returning relation.
 
-helper: f=untainted; return
-    F1 weak f/T→f/T is invalid under later strong semantics.
+input x.*; x.f=untainted; read x.f
+    F1 retains x.* at DEMAND without E{f}; it can cover removed old f.
+    A separately represented x.f.* is killed, not retained.
 
 helper: never returns
     F1 prepublished default is not a valid strong normal-return identity.
 ```
 
-In the second example append `x=f; return x`. The weak stale value now has
-a nonstatic endpoint. Filtering root or static-output records cannot fix it.
+A broad static E-free cover or prepublished default can also feed a local
+read and nonstatic return. The resulting provisional edge has a nonstatic endpoint. Filtering only
+root or static-output records cannot fix it.
 Therefore no F1 publication is an executable native/opposite edge. Projection
 to guidance retains only a scheduling/coverage hint, not the claim it encodes.
 All later executable records must have a strong witness. This establishes
@@ -246,7 +257,7 @@ DEMAND summary. Dropping its only NORMAL record and keeping demandEdges()
 alone would remove its guide. Even a retained guide is not enough for all
 missing static identities; current-query admission in §8 is required.
 
-The same restriction applies to report seeds and stop checks. Weak F1 can
+The same restriction applies to report seeds and stop checks. F1 early defaults can
 reach a NORMAL sink match; treating that label as final or seeding B2 from
 DEMAND matches only would bypass strong checking. Retain each F1 candidate's
 sink/occurrence/support regardless of its layer and seed B2 from all such
@@ -379,7 +390,7 @@ and ND support are still the engine refinement of that construction.
 
 ## 9. Backward run-2 and later forward runs
 
-Define the backward strong relation by converse, not by reversing weak F1
+Define the backward strong relation by converse, not by reversing provisional F1
 records. For actual output requirement Q:
 
 ```text
@@ -438,7 +449,7 @@ Runtime work must test the bridges, not just repeat the local equations:
 | Broad supplied fact with E; same-class siblings | Ordinary exclusions retained, killed f removed, sibling g retained |
 | Exact class point with no fields | Separate legal component retained without a field request |
 | Late query/answer, recursive finite return | Both arrival orders; finite return found, cycle alone creates no edge |
-| Weak F1 output with nonstatic endpoint | Guidance retained, native/opposite executable record rejected |
+| Provisional F1 output with nonstatic endpoint | Guidance retained, native/opposite executable record rejected |
 | All-NORMAL F1 sink matches, no DEMAND edges | Candidate retained and B2 seeded; old layer-only stop tests do not skip strong refinement |
 | ND and generated mark | Entire premise matched; ZERO/source origin and occurrence retained |
 
