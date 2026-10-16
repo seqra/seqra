@@ -1,9 +1,11 @@
 # Static-domain fix and factored frozen requests
 
-Date: 16 October 2026. Status: detailed proposal for the two selected changes.
-This document update changes no runtime code.
+Date: 16 October 2026. Status: detailed design and implementation proposal for
+the two selected changes. Their runtime commits are present in this checkout.
+Project captures, strict finding comparisons, profiles and all six required OOM
+heap analyses are complete. This document update changes no runtime code.
 
-The next iteration contains two changes, in this order:
+The selected iteration contains two changes, in this order:
 
 1. Fix the static-domain exception and close the related metadata coverage gaps.
 2. Factor frozen static requests without changing their logical membership.
@@ -11,9 +13,19 @@ The next iteration contains two changes, in this order:
 The coverage repair is committed as `d330a335a`; its four-project map-control
 phase is complete. Factoring is integrated as `4acde739b`, from isolated commit
 `bbdbe7307`. Integrated common/JVM checks pass. The strict application gate keeps
-the map control's eight failures. The final factored project phase is pending.
+the map control's eight failures. The final factored project phase is terminal;
+strict finding comparison, profile analysis and heap comparison are complete.
 These are separate changes and need separate measurements.
 The proposal below defines their required behavior and acceptance.
+
+| Order | Selected work | Purpose | Runtime commit |
+| --- | --- | --- | --- |
+| 1 | Fix the static-domain exception | Correct the delivered coordinate and metadata coverage; establish a valid control | `d330a335a` |
+| 2 | Factor frozen static requests | Avoid the expanded frozen field-row map; keep its logical requests | `4acde739b` |
+
+Factoring has the highest expected memory impact among these two changes. The
+exception fix must come first for correctness. Neither change proves that the
+analyzer will meet the 60-second run-1 target.
 
 This document replaces the selected parts of the
 [broader proposal](bidirectional-next-iteration-4c64c579f-20261015.md).
@@ -45,11 +57,30 @@ limit 1**, then failed after 11.115 engine seconds. It completed no engine and
 accepted no report. The bounded diagnostic identified the coordinate mismatch
 in section 3. This replay is diagnosis evidence, not a performance control.
 
-Latest validation snapshot, **16 October 2026 at 08:17 UTC**: the map-control
+Latest validation snapshot, **16 October 2026 at 09:05:53 UTC**: the map-control
 phase is terminal with stable source and HEAD bindings. Fresh main completed all
 four cases; its legacy engine has no bidirectional run number. Integrated common
-and JVM tests pass; strict application failures remain. Final factored performance and finding comparisons
-remain pending.
+and JVM tests pass; strict application failures remain. The final factored phase
+measures HEAD `05cf9ad62`, which adds documentation to runtime `4acde739b`.
+
+| Factored project at this snapshot | Latest reached | Latest completed engine | Accepted forward report | Run-1 engine |
+| --- | --- | --- | --- | --- |
+| Stirling-PDF | run-4, backward; OOM | run-3, forward | run-3 | 189.346 s; COMPLETE |
+| Conductor | run-1, forward; OOM | None | None | 105.232 s; OOM |
+| ThingsBoard | run-1, forward; OOM | None | None | 109.892 s; OOM |
+| OWASP | run-5, forward; TIMEOUT | run-4, backward | run-3 | 288.383 s; COMPLETE |
+
+The PDF factored result does not establish a speedup: its control completes
+run-1 in 168.350 seconds. All four strict map-to-factored comparisons preserve
+the same finding identities, locations and occurrence counts. This includes
+empty reports after run-1 OOM for Conductor and ThingsBoard; it does not prove
+baseline recall. Profiles and all six OOM heaps are analyzed. The final report
+keeps the failed time, recall and application-test targets explicit.
+Keep this observation separate from the expected memory benefit. The table is
+a dated capture snapshot, not the final profile and memory analysis. All three
+phases have stable terminal source/HEAD bindings. The post-input audit passes
+all 80 checks; its 41 content datasets and all non-path check facts match the
+pre-input audit. Endpoint equality does not prove continuous input immutability.
 
 The new evidence root is:
 
@@ -66,6 +97,9 @@ not establish successful completion or a memory reduction.
 | --- | --- | --- | --- |
 | Exception and metadata fix | An alias can use a different class name from the resolved static field; missing alias knowledge can also hide rule effects or mark needs | Use the resolved declaring owner for static alias coordinates; collect potential source/sink effects and live mark needs under an explicit metadata policy | Restore domain consistency and required work before measuring a storage change |
 | Factor frozen requests | Each profile expands common marks into a map row for every selected field | Borrow the same logical row from common and sparse field descriptors | Avoid repeated map entries, slot references and row construction |
+
+In this table, "current" means the behavior before that selected change. For
+factoring, it means the corrected map control, not today's integrated checkout.
 
 In the corrected map control, ThingsBoard's plan has 3,000,410 physical frozen-map
 rows across 1,454 distinct map roots. Its logical per-method totals are 15,671,695
@@ -309,6 +343,28 @@ and SOURCE/SINK roles. Entry and exit resolvers have no alias-sensitive local
 value; their current effective-form inventory and eligibility stay in place.
 The ordinary runtime path has no callback or symbolic inventory allocation.
 
+Keep the source/sink distinction when enabling the callback:
+
+```kotlin
+// CALL source: no action means no emitted source form or source mark need.
+forms.rewriteSourceOrSink(
+    sourceRule, rewriter,
+    potentialMarkLiteral = metadataSourceLiteral.takeIf {
+        sourceRule.actionsAfter.isNotEmpty()
+    },
+)
+
+// CALL sink: checking a predicate still needs its marks without end actions.
+forms.rewriteSourceOrSink(
+    sinkRule, rewriter,
+    potentialMarkLiteral = metadataSinkLiteral,
+)
+```
+
+An empty source action list must not create predicate interests or ownership
+through this callback. A sink with no end actions still performs its check.
+Keep the executable empty-source/empty-end-sink control.
+
 The integration points are
 [JIRStaticMetadataCollector](../../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/bidi/interp/JIRStaticMetadata.kt),
 [JIRBidiAnalysis.gather](../../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/bidi/JIRBidiAnalysis.kt)
@@ -482,6 +538,51 @@ optimization removes standing expanded rows and their construction; it does not
 remove these scans, transient views or matched-row lists. Measure these costs
 and their allocation before claiming an engine or memory gain.
 
+### 5.2 Concrete before/after example
+
+The following descriptors produce three nonempty logical rows:
+
+```text
+S                  = {C.f, C.g, D.h}
+rootMarks          = {T}
+commonByClass[C]   = {T, U}        // root already included
+fieldMarks[C.f]    = {U, V}        // partial overlap is allowed
+
+Logical B(C.f)     = {T, U, V}
+Logical B(C.g)     = {T, U}
+Logical B(D.h)     = {T}
+Logical B(C.z)     = {}            // z is outside S
+```
+
+```kotlin
+// Map control: retain one expanded row per selected nonempty field.
+for (slot in selected) {
+    val marks = unionRequestMarks(
+        common(slot.cls), fieldMarks[slot] ?: RequestMarkSet.EMPTY, checkpoint,
+    )
+    if (!marks.isEmpty) expanded[slot] = marks
+}
+
+// Factored: retain the existing selected set and common payloads,
+// plus the sparse field overlay. Build no expanded field-row map.
+val base = FrozenStaticRequests.freeze(
+    footprint, rootMarks, commonByClass, fieldMarks, checkpoint,
+)
+check(base.borrow(slotCF).containsId(markV.id))
+check(!base.hasRow(slotCZ))
+```
+
+`freeze` borrows an already owned common map, detaches mutable field scratch
+once, and returns `EmptyFrozenRequestBase` when the logical row count is zero.
+Its production call uses the existing `classWideMarks` as `commonByClass`.
+
+Both forms contain three logical rows and six logical mark memberships. The
+factored form stores only the `C.f` field overlay in addition to the common
+descriptors and existing S. It does not create a union array for `C.f`. If all
+of that overlay's marks already belonged to `common(C)`, freeze would omit the
+overlay while retaining the same S and B. Existing whole-profile and mark-set
+sharing still applies. This example counts relation members, not heap bytes.
+
 ## 6. Distinct, ordered mark views
 
 Common and field marks can overlap. The view must yield each ID once, in the same
@@ -611,6 +712,71 @@ A broad scan can examine S slots that have no B row, whereas the old map omitted
 them. Count and test that cost, especially for sparse plans. Narrow lookups remain
 direct. Do not hide a new expanded-key cache behind this API.
 
+### 7.1 Complete matching selector
+
+The selector below shows the existing geometry with the new frozen-base access.
+It omits only optional statistics. `hasRequestBroadLeaf` recognizes a FLOW
+leaf or a concrete `TaintLeaves.any` leaf that can supply descendants. The latter
+represents ANY or ANY_TAINT according to the layer. An exact ancestor alone
+does not supply its descendant fields. The existing helpers inspect geometry
+without applying field exclusions or FLOW mark exclusions.
+
+```kotlin
+// In RequestStorage; optional statistics arguments are omitted here.
+fun borrowMatchingRows(
+    input: Facts,
+    checkpoint: () -> Unit,
+): List<RequestedRow> = buildList {
+    checkpoint()
+    val root: TrieNode<*> = when (input) {
+        is Reach -> return@buildList
+        is FlowTree -> input.root
+        is TaintTree -> input.root
+    }
+    if (root.isEmpty) return@buildList
+
+    fun addSlot(slot: Run1Slot) {
+        checkpoint()
+        val row = borrow(slot) // immutable B view plus captured immutable D
+        if (!row.isEmpty) add(RequestedRow(slot, row))
+    }
+
+    if (input.base != STATIC) {
+        addSlot(Run1Slot.Base(input.base))
+        return@buildList
+    }
+    if (root.hasRequestBroadLeaf()) {
+        forEachStaticSlot(checkpoint) { addSlot(it) }
+        return@buildList
+    }
+
+    var hasBroadClass = false
+    root.requestChildren(checkpoint) { cls, node ->
+        if (node.hasRequestBroadLeaf()) hasBroadClass = true
+        else node.requestChildren(checkpoint) { field, child ->
+            if (!child.isEmpty) addSlot(Run1Slot.StaticField(cls, field))
+        }
+    }
+    if (hasBroadClass) forEachStaticSlot(checkpoint) { slot ->
+        if (root.child(slot.cls)?.hasRequestBroadLeaf() == true) addSlot(slot)
+    }
+}
+
+// In SummaryStorage: keep the existing lock through list construction.
+fun borrowMatchingRequests(input: Facts): List<RequestedRow> =
+    synchronized(lock) {
+        requests.borrowMatchingRows(input, ap.cancellation::checkpoint)
+    }
+```
+
+These are class-body sketches: `borrow`, `forEachStaticSlot`, `requests` and
+`lock` remain members of their owning classes. The implementation keeps
+its statistics arguments. The `forEachStaticSlot` body is the B-row/D-only loop
+above. Each narrow field needs one lookup; broad branches visit stored selected
+slots, not the global domain. Explicit fields and broad-class passes are
+disjoint, so the selector does not emit the same slot twice. The caller consumes
+the completed list after unlocking; it does not borrow a mutable map iterator.
+
 ## 8. Complete static and dynamic workflow
 
 1. Prescan resolves all calls and collects neutral producer coordinates, method
@@ -677,6 +843,64 @@ The factored base must not make B(g) nonempty merely because root has T. Keep
 `wideRequests(input)` and R filtering on this path. Repeated activation deduplicates
 through the existing stores. A request without an actual T supplier cannot invent
 a concrete initial.
+
+### 8.3 Dynamic request delivery to the caller
+
+Factoring changes the borrowed B segment, not this event route. For a dynamic
+request `callee:f/T` and an eligible abstract input whose original caller slot
+is g, the route is:
+
+```text
+callee actor: collectRequests(f, {T})
+  -> callee P, after subtracting current callee R
+  -> method fact/publication queue empty
+  -> callee SummaryStorage.commit(P); replace P
+  -> fresh D(f)/T notification to registered subscribers
+  -> RunEvent.ChangedRequests(calleeKey, delta), queued on caller runner
+  -> caller SubscriptionManager.onRequests(calleeKey, delta)
+  -> match retained caller inputs to f
+  -> recover original caller g from input.ref.premise
+  -> merge T by (full caller MethodKey, g), subtract caller R(g)
+  -> RunEvent.MarkRequestsIn(callerKey, {g -> {T}})
+  -> caller actor: collectRequests(g, {T})
+  -> caller P; commit at that method's queue-empty boundary
+```
+
+Every renamed slot uses the original premise, not the callee's output slot.
+Concrete-origin inputs answer from their actual supplied marks and never climb.
+An unchanged static slot skips inherited B only; fresh D still follows this
+route. A late subscription reads cumulative R after registration, so it sees a
+request committed before registration without a second retained request copy.
+
+```kotlin
+// In joinRequests, after the FLOW and normal-origin guards:
+val original = checkNotNull(normalRun1Slot(part.ref.premise))
+val target = ClimbTarget(part.ref.caller, original)
+val admitted = port.summaryStorage(target.method).borrowRequest(original)
+val destination = climbs.getOrPut(target, ::RequestMarkSetBuilder)
+offered.takeSnapshot().forEachMark { mark ->
+    ap.cancellation.checkpoint()
+    if (!admitted.containsId(mark.id)) destination.add(mark)
+}
+
+// After visiting all candidate inputs, group the accumulated original slots.
+val requestsByMethod = LinkedHashMap<MethodKey, MutableMap<Run1Slot, RequestMarkSet>>()
+for ((target, marks) in climbs) {
+    ap.cancellation.checkpoint()
+    if (!marks.isEmpty) requestsByMethod
+        .getOrPut(target.method, ::LinkedHashMap)[target.slot] = marks.takeSnapshot()
+}
+for ((method, rows) in requestsByMethod) {
+    ap.cancellation.checkpoint()
+    val accepted = port.send(RunEvent.MarkRequestsIn(method, freezeRequestRows(rows)))
+    ap.cancellation.checkpoint()
+    check(accepted) { "An active run rejected a request delivery" }
+}
+```
+
+The last snippet describes the target and batching contract; the existing
+`joinRequests` performs the actual row grouping, cancellation checks and required
+delivery checks. Do not add a separate forwarding store or alter its barriers.
 
 ## 9. Initial shapes, class points and lifetime
 
@@ -749,6 +973,13 @@ before accounting for descriptor and replacement-map costs. If the sparse map is
 dense, zero expanded B maps alone does not demonstrate a memory saving. No new
 global canonicalization or cache is needed.
 
+The old `requestScannedKeys` counts nonempty frozen map keys and dynamic keys.
+After factoring, a broad pass counts examined S slots and dynamic keys, including
+empty B slots in S. Use `requestFrozenSlotsExamined` and
+`requestDynamicKeysExamined` to expose that split. A higher examined-slot count
+does not mean more logical requests. Compare matched rows and logical B counts
+as separate units.
+
 ## 11. Proof and test obligations
 
 | Obligation | Proof/control |
@@ -764,6 +995,7 @@ global canonicalization or cache is needed.
 | Delivery | Both input/request orders, late subscribers, input growth, cycles, remote/queued callbacks and commit/replacement races |
 | Caller routing | Mixed `f -> {f,g}`, changed static/non-static origins and concrete no-climb controls |
 | Static outputs | Exact/ANY/must packed suppliers, broad ancestors plus explicit fields, separate E groups, class points and all actual T/U marks |
+| Source/sink metadata eligibility | Empty-action sources add no predicate interest; empty-end sinks still inventory their live predicate marks |
 | Summary safety/lifetime | Cleaner-T/no-reintroduction, strong-write-f/preserve-g, nonreturning callee, and later native/opposite record readers |
 
 The expanded oracle must use raw finite descriptors and an independent finite
@@ -814,7 +1046,10 @@ failures, errors or skips. Application test compilation and root classes pass.
 Both fresh application gates ran 158 tests: 149 pass, eight failures, no errors
 and one existing skip. The failed rule-ID memberships and multiplicities match;
 six raw assertion lists differ only in order. Both strict gates remain failed.
-Step 6's final fixed-project measurements remain pending.
+Step 6's final fixed-project phase and strict finding comparisons are terminal;
+see the dated snapshot in section 1. Profile and memory comparisons are complete.
+All six OOM captures have closed owner reviews. No net saved-byte total or
+factoring speedup is established.
 
 After integrating the selected factoring change, run the common and JVM gates
 and compile the application tests before the final project matrix:
@@ -872,6 +1107,12 @@ allocation samples.
    windows; peak RSS; and any OOM snapshot owners. Keep failed/timeout results
    explicit. Without a heap, do not invent a retained-byte saving.
 
+Bind each heap to its actual engine and owner lifetime. A run-4 PDF snapshot
+can occur after the run-1 mark plan has been released. Such a snapshot can
+diagnose run-4 owners, but absence of B there cannot establish the saving at
+peak run-1. Use the plan census and a comparable live owner interval for the
+factoring claim; do not equate a later OOM heap with a run-1 census.
+
 For each project, publish one comparison row with these fields:
 
 ```text
@@ -899,5 +1140,5 @@ Factoring succeeds when logical B/R, required initial/summary behavior and findi
 match the corrected control, the expanded B relation is absent from production,
 and full replacement/query costs improve measured memory without an unacceptable
 engine regression. The broader target remains a completed run-1 within 60 engine
-seconds on every fixed project, with no missing baseline findings. These two
-changes are not yet measured to meet that target.
+seconds on every fixed project, with no missing baseline findings. The fresh
+measurements do not meet that target.
