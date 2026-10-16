@@ -1,5 +1,13 @@
 # Current proof status
 
+The newer [run-1 field-write contract](run1-field-writes.md) adds DEMAND weak
+preservation for all field overwrites, Empty field E throughout F1 and
+NORMAL/DEMAND static default schemas from prescan. Its
+[proof dossier](run1-field-write-proofs.md) overrides the older unannotated
+weak-store/default-continuation claims. Root-shaped tagged defaults are
+guidance without root propagation; historical root-pattern bans do not
+delete them. Later strong exclusions/query/return proofs retain their scope.
+
 The selected [static-handling contract](static-handling.md) supersedes F78's
 static root/frame and ten-initial policy. Its new [proof dossier](static-handling-proofs.md)
 separates constructive design proofs from the checked local module. The
@@ -17,7 +25,37 @@ no analysis rule and makes no claim that the measured runtime implements F78.
 [proof-history.md](proof-history.md) retains earlier
 theorem catalogs; F70/F71 concrete-run results do not prove current restricted runs.
 
-## Request-gated statics and strong later queries
+## Run-1 field writes, Empty E and default static summaries
+
+Validation on 16 October 2026 passed: `lake build` completed **127 jobs**;
+`lake env lean -M2048 audit.lean` checked **23,337 imported declarations**,
+with zero unexpected axioms. All executable certificates passed. The
+[fresh receipt](../docs/reports/bidirectional-run1-field-writes-proof-validation-20261016.md)
+binds final sources, commands, logs and certificate repairs. Only `propext`
+and `Quot.sound` are allowed. No Classical.choice, sorryAx or new axiom is
+accepted.
+
+Latest measured iteration remains **run-1, FORWARD, limit 1; OOM**, with no
+completed iteration or accepted forward report. Analyzer implementation and
+project measurements are unchanged.
+
+[Run1WeakFieldWrites.lean](lean/ApSpec/Run1WeakFieldWrites.lean) checks weak
+preservation's positive coverage of strong remove-destination/value outputs,
+affected/disjoint layers, independent value layers, canonical demand, safe
+Empty-E may covers, exact mark-cleaning laws, the closed finite producer
+model, least recursive write closure, tagged default specialization, original
+callee data and actual backward authorization. Controls use legal normal
+STAR marks; normal concrete ANY in the wrapper denotes must, demand ANY may.
+
+[New proofs](run1-field-write-proofs.md) gives the constructive producer,
+handoff and strong-reconstruction arguments. The model does not certify the
+actual JVM/model/alias inventory, packed codec, queue/publisher integration,
+ND confirmation or the complete driver. Tagged defaults are F1 guidance,
+not strong return certificates. The old static-only weak-store/bypass and
+blanket root-pattern filter are superseded. The nine-family initial and
+later strong-query/converse proofs below remain reusable in their scopes.
+
+## Prior request-gated static and strong-query receipt
 
 Validation on 16 October 2026 passed: `lake build` completed 126 jobs;
 `lake env lean -M2048 audit.lean` checked **22,798 declarations**, with zero

@@ -1,5 +1,13 @@
 # Analyzer core — specification
 
+The [run-1 field-write contract](run1-field-writes.md) additionally overrides
+F1 stores, Empty-E fact production, default static summary lookup and handoff.
+Defaults are available from the total prescan view without an actor/initial.
+Apply them to actual static input with layer OR; no root propagates. Handoff
+retains tagged defaults independently of executed actors and specializes
+strong query initials from actual requirements, not a wildcard guide.
+No F1 default becomes an executable later record.
+
 The selected [static-handling contract](static-handling.md) takes precedence
 for static planning, the run-1 initial grammar/stores/calls, the F1→B2
 boundary and later strong query/response behavior. In particular, all F1

@@ -1,5 +1,11 @@
 # F78: run-1 mark requests
 
+[Run-1 weak field writes](run1-field-writes.md) further requires Empty field
+E on every F1 fact, DEMAND old preservation at affected writes and tagged
+NORMAL/DEMAND default static summaries without root propagation. These
+defaults are not request slots or additional initial families. Authoritative
+R=B∪D, temporary P, mark sets and commit/replacement stay unchanged.
+
 The selected [static-handling contract](static-handling.md) replaces the
 static initial, field-selection, root/frame, store/call and later-handoff
 parts of F78. It removes the special abstract S-root and permits nine run-1

@@ -4,10 +4,12 @@ Date: 16 October 2026. Status: heap census and independent review complete.
 Analyzer implementation is unchanged.
 
 The follow-up [request-gated static-handling proposal](../design/bidirectional-request-gated-static-handling-20261016.md)
-uses value-read field requests, a separate concrete-mark gate, weak run-1
-static stores and a root-free static call-to-return path. It removes the
-special abstract S-root propagation and excludes its identity summaries from
-later handoff. ContainsMark contributes mark interest only. The selected
+uses value-read field requests and a separate concrete-mark gate. The new
+[field-write contract](../../spec/run1-field-writes.md) makes all F1 field
+writes weak, retains affected old data at DEMAND and keeps field E Empty.
+It uses shared NORMAL/DEMAND default static templates without propagated
+S-root facts; tagged templates remain handoff guidance. ContainsMark
+contributes mark interest only. The selected
 [static specification](../../spec/static-handling.md) also makes all F1
 publications guidance-only and uses actual strong queries on run-2/later.
 It replaces the earlier control-root/frame candidates below.
@@ -18,7 +20,7 @@ forward report is accepted. The logged failed engine duration is 109.891609201
 seconds; it is not a completed run-1 time or pure solver CPU time.
 
 The measured runtime is `4acde739b`, captured at `05cf9ad62`. Current HEAD
-`64f5e3db4` has the same core tree. Use the
+`bcc435310` has the same core tree. Use the
 [closed project measurements](bidirectional-static-domain-frozen-requests-performance-20261016.md).
 The existing evidence root, called B below, is:
 

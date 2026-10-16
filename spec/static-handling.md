@@ -1,5 +1,12 @@
 # Request-gated static handling
 
+The selected [run-1 field-write contract](run1-field-writes.md) adds weak
+static/nonstatic writes with DEMAND old preservation, Empty field exclusions
+throughout F1, and precomputed NORMAL/DEMAND default static templates. It
+supersedes the earlier unannotated weak store and unconditional NORMAL
+bypass. Tagged defaults are permitted root-shaped guidance without root
+propagation. The nine initial families and read/mark split stay unchanged.
+
 Status: selected design contract; **not implemented**. This contract takes
 precedence over the static parts of [F78](run1-requests.md),
 [AP](ap.md), [interpreter](interpreter.md) and [core](analyzer-core.md) where
@@ -31,7 +38,9 @@ Later queries are ordinary restricted-analysis work, not run-1 mark requests.
 No new mark-request store exists on run-2 or later.
 
 Ordinary transfers, cleaner operations and summary application use full AP
-geometry, field exclusions E, mark exclusions and complete premises. Only
+geometry, mark exclusions and complete premises. All run-1 fact payloads have
+Empty field E under the new phase recipes; later strong operations retain
+their ordinary E. Only
 run-1 request lookup ignores E and FLOW mark exclusions. A missing request,
 lazy fact or unfinished callee query is never evidence for a negative rule
 literal, a kill, normal return or absence of a summary.
@@ -46,6 +55,7 @@ Prescan resolves all calls before closure. It builds separate inventories:
 | Local field-read needs | Actual static value reads and effective non-mark checks that read a value | Abstract field-input gate |
 | Local static-mark interests | Effective positive mark checks in source and sink conditions, selected cleaners and excluded-mark creators | Concrete-answer gate and request routing |
 | Direct class-component needs | Legal class-point checks/actions | Separate class component path |
+| StaticMayWrite | Logical local static mutations/unknown effects and every resolved callee | Default static summary layer; independent of field-read requests |
 
 `ContainsMark(C.f,T)` contributes **only (C.f,T) to static-mark interests**.
 It does not contribute C.f to field-read needs. Apply the same distinction to
@@ -151,18 +161,23 @@ Both request-first and input-first arrivals must produce the same union.
 
 ## 4. Run-1 stores and calls
 
-An ordinary static store is weak: retain old destination facts and add the
-written value facts. Do not introduce a store-induced destination exclusion.
-Existing E/mark exclusions remain. Explicit Clean, RemoveAll and logical
-cleaner/rewriter writeback retain their specified semantics. Weak alias value
-updates stay weak but do not seed F.
+Every run-1 field store is weak, static or nonstatic. Retain an affected old
+component at DEMAND; disjoint components keep their layer. Add independently
+computed pre-store value edges. Do not add field E. Whole-base local
+assignment retains its separate strong replacement rule.
+
+Every run-1 intermediate fact has Empty field E. Exact exclusion-free
+cleaner outcomes remain; an E-requiring partial residual takes a DEMAND may
+cover with W2/W8 normalization. In particular, never clear E on a NORMAL
+must fact and retain its guarantee. Mark exclusions/requests remain. See
+[the complete producer rule](run1-field-writes.md#4-empty-field-exclusions-throughout-run-1).
 
 For a run-1 selected-mark static cleaner, partition FLOW by first static
 field cylinder **before** the selected-mark operation. An f/T cleaner leaves
 disjoint g unchanged and creates no g/T interest merely because both use S.
 Within the affected f cylinder keep the existing exact/below transfer,
 concrete replay and original-slot request rules. Genuine broad cleaners keep
-their real scope. Keep unlike E/mark headers separate in packed input.
+their real scope. Keep unlike mark headers, tails and layers separate in packed input.
 This spatial rule replaces the old same-base disjoint static FLOW behavior;
 it does not weaken Clean/RemoveAll into ordinary weak stores.
 
@@ -172,25 +187,33 @@ exclusion to affected output f and request T on the original g origin. The
 fact that source g is disjoint from output f cannot discard this transfer.
 Apply this distinction to generated rewriters and every excluded-mark creator.
 
-At the CALLEES stage, every arriving static fact has an immediate local
-continuation with `identityCandidate=true`. It does not wait for any target
-to return, including a nonreturning target. It does not bypass local prefix
+At the CALLEES stage, apply the callee's shared default static template to
+the actual arriving static component, with `identityCandidate=true`. Its
+layer is input OR StaticMayWrite(callee), NORMAL only when both are NORMAL.
+This replaces the old independent NORMAL bypass. The template does not
+need a root initial or wait for any target to return, including a
+nonreturning target. It does not bypass local prefix
 rules or the later returned-rule/bind-back/alias/cut stages. Callee outputs
 add data and do not retract this continuation. Nonstatic inputs keep their
 existing run-1 call protocol.
 
 Deliver to a target only supplied fields in F(target) or a possible scoped
 static-mark interest. Retain direct class-component delivery separately.
-Preserve exact caller premises, contexts, layer and headers. Selection can
-return several facts; explicit tips with E and broad projections with Empty
-E must not be merged by deleting their differences.
+The default's joined layer belongs only to the local preservation branch.
+Select and deliver requested callee data from the original pre-default
+input with its own layer/headers and exact caller premise/context. Actual
+callee value results keep their independent derivations. Selection can
+return several facts; do not merge unlike marks/tails/layers.
+All run-1 selected data has Empty field E.
 
 There is no special abstract S-root propagation, root-driven field expansion,
 root-origin field-summary route, return watcher or pending static frame.
 Generic compiled `keep(S)` operators remain legal. Their pattern endpoints
-are not special propagated root initials or method-summary instances.
+are not special propagated root initials. Tagged default summary schemas
+also have root-shaped pattern syntax; they are not observed root-execution
+summaries and do not enter InitialFactStore.
 
-Run-1 bypass and weak stores are intentional may behavior. They are not
+Run-1 default continuations and weak stores are intentional may behavior. They are not
 proof of preservation under later strong stores or of normal return.
 
 ## 5. Safe transition from run-1 to run-2
@@ -201,9 +224,12 @@ restriction covers all endpoint bases: a weak static value can become a
 nonstatic return, argument or rule result. Retaining only such nonstatic
 records would still be unsafe.
 
-Before building either native records or HandOff, reject any special abstract
-S-root identity summary, including packed components. Retain permitted run-1
-publications as coarse entry/exit guidance and candidate/diagnostic evidence.
+Before building HandOff, distinguish forbidden ordinary synthetic S-root
+execution artifacts from permitted tagged default NORMAL/DEMAND schemas.
+Retain those defaults through the shared prescan lookup independently of
+executed actors, and retain run-1 publications as coarse guidance and
+candidate/diagnostic evidence. Do not apply the former blanket root-pattern
+filter to the new defaults. They are never executable native records.
 Guidance must not certify an edge, a whole premise, a source hit, normal
 return or a confirmed vulnerability in a later strong run.
 
@@ -217,12 +243,19 @@ all premise members as hints. Guidance is not an executable ND conjunction.
 Do not weaken the separate complete-premise requirement for real summaries.
 
 ```kotlin
-val run1 = rejectSpecialStaticRootIdentity(result.snapshot())
-val guide = makeCoarseGuidance(run1, includeNormalSingletons = true)
+val run1 = rejectOrdinarySyntheticRootExecution(result.snapshot())
+val guide = makeCoarseGuidance(run1, prescan.defaultStaticSummaries,
+    includeNormalSingletons = true)
 val seeds = makeCandidateSeeds(run1, guide)
 // No nativeRecords.persist(run1), and no opposite transfer view of run1.
 startRun2(guide, seeds, nativeRecords = strongRecordsOnly)
 ```
+
+On an actual run-2 static requirement, intersect the default's symbolic S
+scope with the actual input geometry before choosing its query initial.
+Do not use the wildcard guide's root as the initial. Both default layers
+authorize work; only strong execution supplies the response. Keep all-base
+current-query fallback for mixed local/argument/return and ND support.
 
 Guidance may enlarge a query; it must not veto an actual current query's
 start or response. Keep the existing source/sink seed-coverage contract.
@@ -249,7 +282,7 @@ proof or a strong record.
 
 Run-2 is backward. It uses the **converse of the strong forward relation**,
 with ordinary AP reversal and annotations. It does not use weak stores, the
-run-1 static bypass, run-1 field gates or run-1 mark-request propagation.
+run-1 default continuation, run-1 field gates or run-1 mark-request propagation.
 Run-3 and later forward runs use the strong forward relation. Strong-phase
 forms and records cannot share a weak run-1 payload/cache key.
 
@@ -401,9 +434,10 @@ Prove these results separately:
    concrete suppliers are exact for the selected run-1 domain.
 3. Request gating preserves relevant read/mark observations of the eager
    **same weak run-1** reference, using dynamic changed-origin replay.
-4. Weak stores/bypass are a may approximation of local strong positive data
+4. Weak field stores/defaults are a may approximation of local strong positive data
    paths, without claiming that cleaners disappear or calls really return.
-5. The run-1 boundary exports no executable weak or special-root edge.
+5. The run-1 boundary exports no executable weak edge; tagged default root
+   patterns remain guidance and no ordinary synthetic root fact propagates.
 6. Strong stores, residual E, class points and real-return composition give
    the required S→S relation; reversal gives its exact preimage.
 7. Current-query discovery and response handling are complete independently

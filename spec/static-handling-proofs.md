@@ -1,5 +1,13 @@
 # Proofs for request-gated static handling
 
+The selected [weak field-write specification](run1-field-writes.md) and
+[new proof dossier](run1-field-write-proofs.md) replace unannotated weak
+preservation, the unconditional NORMAL static bypass and the blanket
+root-pattern export ban. All F1 field E is now Empty; affected survivors
+demote. Tagged default schemas remain guidance without propagated root
+inputs. The strong later-query/converse proofs here retain their explicit
+scope. Earlier local receipt hashes do not certify the added phase rules.
+
 Status: constructive design proofs and checked local reference laws. Use with
 [static-handling.md](static-handling.md). Runtime implementation is unchanged.
 Latest measured iteration: **run-1, FORWARD, limit 1; OOM**; no completed

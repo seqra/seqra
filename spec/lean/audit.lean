@@ -549,3 +549,62 @@ run_elab do
 #print axioms ApSpec.RequestGatedStatics.BalancedCalls.unproductive_recursion_has_no_return
 #print axioms ApSpec.RequestGatedStatics.BalancedCalls.mixed_static_local_nested_call
 #print axioms ApSpec.RequestGatedStatics.F1_record_never_executable
+
+-- All-field F1 writes: canonical DEMAND survivors, no spatial E, distinct
+-- value computations, frozen default layers and actual backward queries.
+#eval do
+  let broad : ApSpec.Run1WeakFieldWrites.Fact :=
+    ⟨9,⟨4,[],.star .empty,.star⟩,.empty,false⟩
+  let old := ApSpec.Run1WeakFieldWrites.weakKeep false (.instance 2 5 []) broad
+  let disjoint : ApSpec.Run1WeakFieldWrites.Fact :=
+    ⟨9,⟨4,[6],.exact,.conc 7⟩,.empty,false⟩
+  if !old.demand || old.ap.kind != ApSpec.Kind.any || old.ap.path != [] ||
+      old.anyEx != ApSpec.Excl.empty ||
+      ApSpec.Run1WeakFieldWrites.weakKeep false (.instance 2 5 []) disjoint != disjoint then
+    throw (IO.userError "Affected/disjoint weak-write layer certificates failed.")
+  let value : ApSpec.Run1WeakFieldWrites.Fact :=
+    ⟨10,⟨4,[5],.exact,.conc 8⟩,.empty,false⟩
+  if ApSpec.Run1WeakFieldWrites.weakWrite false (.instance 2 5 []) broad [value] !=
+      [old,value] then
+    throw (IO.userError "New field value incorrectly inherited old-preservation debt.")
+  let excludedMust : ApSpec.Run1WeakFieldWrites.Fact :=
+    ⟨0,⟨4,[],.any,.conc 7⟩,.set [5],false⟩
+  let cover := ApSpec.Run1WeakFieldWrites.publish excludedMust
+  if !cover.demand || cover.anyEx != ApSpec.Excl.empty || cover.ap.kind != ApSpec.Kind.any ||
+      cover.ap.mark != ApSpec.MarkA.conc 7 then
+    throw (IO.userError "Partial must residual did not become an E-free DEMAND may cover.")
+  let field : ApSpec.Run1WeakFieldWrites.Fact :=
+    ⟨9,⟨1,[2,3],.star .empty,.star⟩,.empty,false⟩
+  let defaultCall := ApSpec.Run1WeakFieldWrites.defaultCall ⟨true⟩ field
+  if !defaultCall.continuation.demand ||
+      defaultCall.continuation.ap.path != field.ap.path ||
+      defaultCall.supplied != field ||
+      !(ApSpec.Run1WeakFieldWrites.instantiateDefault ⟨false⟩
+        defaultCall.continuation).demand ||
+      ApSpec.Run1WeakFieldWrites.templateInitials ⟨true⟩ != [] then
+    throw (IO.userError "Static default changed geometry, data delivery or created a root initial.")
+  if !(ApSpec.Run1WeakFieldWrites.defaultFor
+        ApSpec.Run1WeakFieldWrites.Controls.cycle
+        ApSpec.Run1WeakFieldWrites.Controls.writes 0).mayWrite ||
+      (ApSpec.Run1WeakFieldWrites.defaultFor
+        ApSpec.Run1WeakFieldWrites.Controls.cycle (fun _ => false) 0).mayWrite then
+    throw (IO.userError "Prescan static-write cycle closure certificate failed.")
+  match ApSpec.Run1WeakFieldWrites.authorizeBackward ⟨true⟩ field with
+  | none => throw (IO.userError "Default failed to authorize actual static query.")
+  | some query =>
+    if query.actual != field then
+      throw (IO.userError "Default guide substituted wildcard-root query geometry.")
+  IO.println "Executable all-field weak-write, Empty-E and static-default certificates passed."
+
+#print axioms ApSpec.Run1WeakFieldWrites.publication_is_may_cover
+#print axioms ApSpec.Run1WeakFieldWrites.normal_publication_does_not_forget_E
+#print axioms ApSpec.Run1WeakFieldWrites.weakWrite_covers_strong_output
+#print axioms ApSpec.Run1WeakFieldWrites.affected_keep_is_DEMAND
+#print axioms ApSpec.Run1WeakFieldWrites.unaffected_keep_keeps_layer
+#print axioms ApSpec.Run1WeakFieldWrites.every_producer_EEmpty
+#print axioms ApSpec.Run1WeakFieldWrites.closedWrite_least
+#print axioms ApSpec.Run1WeakFieldWrites.default_NORMAL_iff_no_reachable_write
+#print axioms ApSpec.Run1WeakFieldWrites.default_layer_is_join
+#print axioms ApSpec.Run1WeakFieldWrites.callee_delivery_is_pre_default
+#print axioms ApSpec.Run1WeakFieldWrites.no_propagated_root_initial
+#print axioms ApSpec.Run1WeakFieldWrites.backward_authorization_preserves_full_AP

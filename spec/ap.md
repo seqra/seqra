@@ -1,5 +1,12 @@
 # Access paths and storages — specification
 
+The [run-1 field-write contract](run1-field-writes.md) has precedence for
+all run-1 field writes, Empty-E producers and default static summaries.
+Affected old data is weakly retained at DEMAND; every run-1 intermediate
+field exclusion is Empty. Tagged default static templates use the closed
+StaticMayWrite bit and do not propagate a root. Later strong E semantics
+remain. [New proofs](run1-field-write-proofs.md) state the exact scope.
+
 The selected [static-handling contract](static-handling.md) takes precedence
 over the static rules below: separate value-read/mark gates, nine run-1
 initial families, weak run-1 stores and root-free call bypass, guidance-only
@@ -237,6 +244,9 @@ are not the zero fact (§4.6).
   accessor below it (§4.7).
 * The LAYER is part of the edge identity. A micro edge has no layer (§4.2): the layer belongs to the propagation edge.
   Only these AP operations put a propagation edge in the demand layer:
+  * in selected run 1, affected old preservation across any static/nonstatic
+    field write, an exclusion-requiring residual's may cover, and application
+    of a DEMAND default static template ([phase contract](run1-field-writes.md));
   * the start fact of an initial fact with the `[any]` tail (historical/restricted initials), or with the `*` tail and a concrete mark (§6.5). F78 run 1 uses only the latter nonexact initial. An
     `[any-taint]` start fact (a must-premise, forward restricted runs only) is normal;
   * the case `above` of §4.1 for a fact that is not `[any-taint]`;
@@ -270,6 +280,12 @@ with `star`, `conc t`, `starEx x`) and `AFact` (a conclusion plus `demand : Bool
 `[any-taint]`, `AnyTaintEx.XFact` (an `AFact` plus its exclusion `ex`).
 
 ### 2.3 Well-formedness rules
+
+Selected run-1 specialization: **all field E is Empty**, on every intermediate
+fact and both summary payloads, including source-generated must facts.
+An E-requiring residual demotes and uses a may cover. W2/W8 remain in force:
+DEMAND STAR/must becomes ANY, not a new legal DEMAND/STAR representation.
+The nonempty-E rules below apply to later strong runs and historical models.
 
 | Rule | Text |
 |---|---|
