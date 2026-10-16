@@ -1,9 +1,15 @@
 # Run-1 selective field preservation: proof validation
 
-Date: 16 October 2026. Status: local formal validation passed. Analyzer
-implementation is unchanged. Latest measured project iteration: **run-1,
-FORWARD, limit 1; OOM**. None completed; no accepted forward report. No new
-project configuration, analyzer measurement or speedup result was produced.
+Date: 16 October 2026. Status: historical local formal-validation checkpoint.
+The work recorded below passed local checks and made no analyzer change or
+project measurement. Its then-latest project result was a historical
+ThingsBoard **run-1, FORWARD, limit 1; OOM**, with no completed iteration or
+accepted forward report.
+
+Current measured runtime: `28a123f0e`. Reached/completed/accepted iterations:
+OWASP **run-7 / run-6 / run-5**; conductor **run-2 / run-1 / run-1**;
+ThingsBoard **run-1 / none / none**; Stirling-PDF **run-2 / run-1 / run-1**.
+See the [project measurements](bidirectional-run1-selective-preservation-20261016.md).
 
 The [selected field-write contract](../../spec/run1-field-writes.md) replaces
 the former general weak-write design. For `x.f=y`, broad x.* demotes with

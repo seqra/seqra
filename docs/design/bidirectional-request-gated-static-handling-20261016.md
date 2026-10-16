@@ -12,11 +12,12 @@ initial emission, selective writes, ordinary defaults and later strong analysis.
 [field-write/default proofs](../../spec/run1-field-write-proofs.md) state checked scope.
 No IR-storage, reference-manager or identity-cache rewrite is included.
 
-Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. No completed
-iteration or accepted forward report. Measurements execute `4acde739b`, captured
-at `05cf9ad62`. These measurements predate the selected implementation.
-No fresh project performance result is available. The target remains run-1
-**engine time** within 60 seconds.
+Latest measured runtime: `28a123f0e`. Reached/completed/accepted iterations:
+OWASP **run-7 / run-6 / run-5**; conductor **run-2 / run-1 / run-1**;
+ThingsBoard **run-1 / none / none**; Stirling-PDF **run-2 / run-1 / run-1**.
+See the [project measurements](../reports/bidirectional-run1-selective-preservation-20261016.md).
+The run-1 **engine time** target remains 60 seconds; conductor and Stirling-PDF
+meet it, while OWASP and ThingsBoard do not.
 
 ## 1. What changes, and what stays the same
 

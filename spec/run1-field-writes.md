@@ -14,8 +14,11 @@ and [field-write/default proofs](run1-field-write-proofs.md) state the
 constructive laws, checked models and remaining integration obligations.
 IR storage and cache/reference manager changes are outside this contract.
 
-Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. None completed;
-no accepted forward report. No new selected-project measurement is available.
+Latest measured runtime: `28a123f0e`. Reached/completed/accepted iterations:
+OWASP **run-7 / run-6 / run-5**; conductor **run-2 / run-1 / run-1**;
+ThingsBoard **run-1 / none / none**; Stirling-PDF **run-2 / run-1 / run-1**.
+See the [project measurements](../docs/reports/bidirectional-run1-selective-preservation-20261016.md)
+for failures, engine times and proof-to-runtime limits.
 
 ## 1. Selected rules
 
@@ -608,13 +611,16 @@ really lost. This is a shared summary/AP requirement; no static/run-1 branch
 belongs in calls.
 
 The default can be published before a callee returns. NORMAL classifies
-writes; it does not prove return. The general F1 guidance-only boundary still
-applies to all its summaries, including these defaults.
+writes; it does not prove return. Ordinary live summaries, including these
+defaults, execute inside F1. The guidance-only boundary below restricts their
+reuse in later iterations.
 
 ## 7. Ordinary handoff and strong run-2 analysis
 
-Run-1 results are **guidance only** for later analysis. Do not persist or read
-any run-1 publication as an executable native/opposite transfer record. This
+Run-1 results are **guidance only** for later analysis. Ordinary live
+SummaryStorage publications still execute inside F1. Do not persist or read
+any run-1 publication as an executable native/opposite transfer record for
+later iterations. This
 restriction covers all endpoint bases: a provisional static value can become a
 nonstatic return, argument or rule result. Retaining only such nonstatic
 records would still be unsafe.

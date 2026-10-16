@@ -3,12 +3,15 @@
 Status: constructive design proofs and reference-model laws for the field-
 write/default parts of the [unified run-1 specification](run1-field-writes.md).
 [Request/static proofs](static-handling-proofs.md) cover the same specification's
-request, initial-emission and later-static parts. Analyzer implementation is
-unchanged. This contract replaces the former general weak-write policy.
+request, initial-emission and later-static parts. This contract replaces the
+former general weak-write policy.
 Complete strong kills remain kills; only E-requiring residuals demote.
 
-Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. No completed
-iteration or accepted forward report. This dossier records no new analyzer run.
+Latest measured runtime: `28a123f0e`. Reached/completed/accepted iterations:
+OWASP **run-7 / run-6 / run-5**; conductor **run-2 / run-1 / run-1**;
+ThingsBoard **run-1 / none / none**; Stirling-PDF **run-2 / run-1 / run-1**.
+See the [project measurements](../docs/reports/bidirectional-run1-selective-preservation-20261016.md).
+These local proofs do not establish whole-project completion or precision.
 
 ## 1. Model and correctness statements
 

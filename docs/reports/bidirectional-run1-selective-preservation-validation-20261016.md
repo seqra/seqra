@@ -1,7 +1,14 @@
 # Run-1 request gates and selective preservation: validation
 
-Date: 16 October 2026. Status: implementation complete; core checks pass;
-the strict application precision gate fails. Project measurements are pending.
+Date: 16 October 2026. Status: historical implementation-validation checkpoint;
+core checks pass and the strict application precision gate fails. Fixed-project
+measurements were pending when this checkpoint was recorded.
+
+Current measured runtime: `28a123f0e`. Reached/completed/accepted iterations:
+OWASP **run-7 / run-6 / run-5**; conductor **run-2 / run-1 / run-1**;
+ThingsBoard **run-1 / none / none**; Stirling-PDF **run-2 / run-1 / run-1**.
+See the [project measurements](bidirectional-run1-selective-preservation-20261016.md)
+for current performance and location results.
 
 The implementation follows the single
 [run-1 specification](../../spec/run1-field-writes.md) and its

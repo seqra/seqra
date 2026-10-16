@@ -13,8 +13,11 @@ Status: constructive design proofs and checked local reference laws. Use with
 This dossier covers request closure, emission, routing and strong statics;
 [the companion dossier](run1-field-write-proofs.md) covers field preservation/defaults.
 Runtime validation is separate from these proof claims.
-Latest measured iteration: **run-1, FORWARD, limit 1; OOM**; no completed
-iteration or accepted forward report. No analyzer run supports this new design.
+Latest measured runtime: `28a123f0e`. Reached/completed/accepted iterations:
+OWASP **run-7 / run-6 / run-5**; conductor **run-2 / run-1 / run-1**;
+ThingsBoard **run-1 / none / none**; Stirling-PDF **run-2 / run-1 / run-1**.
+The [project measurements](../docs/reports/bidirectional-run1-selective-preservation-20261016.md)
+record incomplete runs and precision failures; local proofs do not remove them.
 
 ## 1. Reference domain and proof boundary
 
@@ -285,8 +288,9 @@ helper: never returns
 A broad static E-free cover or prepublished default can also feed a local
 read and nonstatic return. The resulting provisional edge has a nonstatic endpoint. Filtering only
 root or static-output records cannot fix it.
-Therefore no F1 publication is an executable native/opposite edge. Projection
-to guidance retains only a scheduling/coverage hint, not the claim it encodes.
+Therefore no F1 publication is an executable native/opposite edge in a later
+iteration. Ordinary live summaries still execute within F1. Projection to
+later guidance retains only a scheduling/coverage hint, not the claim it encodes.
 All later executable records must have a strong witness. This establishes
 phase isolation by construction, including packed/nonstatic publications.
 Semantic flavor belongs in cache/record selection, not in logical source,

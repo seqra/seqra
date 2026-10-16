@@ -6,8 +6,10 @@ Static requests, selective field preservation, ordinary N/D defaults and
 later strong reconstruction are specified together there. This file retains
 older link targets; it adds no separate rules.
 
-Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. None completed;
-no accepted forward report. No new analyzer measurement was made.
+Latest measured runtime: `28a123f0e`. Reached/completed/accepted iterations:
+OWASP **run-7 / run-6 / run-5**; conductor **run-2 / run-1 / run-1**;
+ThingsBoard **run-1 / none / none**; Stirling-PDF **run-2 / run-1 / run-1**.
+See the [project measurements](../docs/reports/bidirectional-run1-selective-preservation-20261016.md).
 
 ## 1. Domain and phase boundary
 
