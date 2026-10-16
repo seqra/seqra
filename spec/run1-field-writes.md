@@ -1,12 +1,18 @@
 # Run-1 weak field writes and default static summaries
 
 Status: selected specification, **not implemented**. This contract overrides
-the run-1 field-write, field-exclusion and static-continuation rules in
+the run-1 field-write, field-exclusion and static-summary rules in
 [AP](ap.md), [interpreter](interpreter.md), [core](analyzer-core.md) and
 [static handling](static-handling.md). Later runs retain strong logical
 stores, ordinary exclusions and the strong query/return contract. The
 [proof dossier](run1-field-write-proofs.md) states constructive proofs and
 the checked reference-model scope.
+
+The [single complete proposal](../docs/design/bidirectional-request-gated-static-handling-20261016.md)
+combines this contract with request ownership, emission gates and static
+handling. Its §1 distinguishes the previous selected design from implemented
+behavior; §8 traces the ordinary handoff and corrects the former global-view
+requirement.
 
 Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. No completed
 iteration or accepted forward report. This update adds no runtime measurement.
@@ -14,16 +20,19 @@ iteration or accepted forward report. This update adds no runtime measurement.
 ## 1. Selected rules
 
 1. Every run-1 heap field write is weak, for static and nonstatic fields.
-2. Preserve an old fact that the write can overwrite, but move its propagation
-   edge to DEMAND. Preserve its actual location and original premise.
+2. When logical field exclusion/restriction is needed, move the old edge to
+   DEMAND instead. For a field overwrite this includes full old-value removal,
+   not just appending an E element. Preserve its actual location and premise.
 3. Do not add a field exclusion. **Every admitted run-1 fact, initial and
    summary payload has Empty field exclusion**, at every processing stage.
 4. Add the new written-value edges from the pre-store state. They keep their
    own transfer layer; they are not the retained-old-value branch.
-5. After prescan, install a default static identity template for every method:
+5. After prescan, define a default static identity summary for every method:
    NORMAL if neither the method nor any callee may write statics; DEMAND otherwise.
-6. Apply that template to actual caller statics without propagating S.*.
-7. Carry the demand edges/templates into run-2 as analysis requirements.
+6. Publish it when the reached method starts, through the ordinary summary path.
+   Apply it through ordinary subscriptions and summary application. The abstraction
+   emits no S.* initial; there is no special run-1 call handling.
+7. Carry selected demand edges into run-2 through the ordinary handoff.
    Run-2 computes strong summaries; it does not treat the defaults as their proof.
 
 The change is an intentional may abstraction. A DEMAND survivor can represent
@@ -48,12 +57,17 @@ DEMAND never becomes NORMAL along the same propagation derivation. A separate
 new-value/source derivation can have its own NORMAL edge; do not merge the
 derivations in a way that promotes uncertain old data.
 
-Keep the existing W2/W8 normal form. Moving a correlated FLOW STAR conclusion
-to DEMAND represents it with may ANY; moving a must ANY_TAINT conclusion to
-DEMAND also gives may ANY. EXACT remains EXACT. Base, path, concrete mark or
-mark-exclusion payload, original initial, full premise, context and call
-identity stay attached to their actual derivation. Thus `x.* [D]` below is
-semantic shorthand, not permission for an illegal scalar DEMAND/STAR fact.
+**Layer demotion preserves the complete AP payload.** Move the edge to
+DEMAND without changing its base, path, tail, mark, mark exclusions, original
+initial, full premise, context or call identity. In particular, `x.* [N]`
+becomes `x.* [D]`, not `x.[any]`. The field information has not been lost.
+
+This overrides the older W2/W8 rules where they converted a tail solely
+because the edge became DEMAND. STAR and layer are independent. A genuine
+operation that loses field/correlation information can still produce ANY;
+that is a separate transfer, not a consequence of demotion. This does not
+change the existing projection of nonexact concrete suppliers to legal
+run-1 initials or their start-fact representation.
 
 Empty E means **field exclusion**, not FLOW mark exclusion mx. Selected mark
 cleaning and original-slot requests still use mx. Their request matching
@@ -65,6 +79,12 @@ signed eligibility remain in forms.
 A field write names a destination cylinder D_w: the locations at/below the
 written field. Use the existing alias/array overlap semantics. The relevance
 test is against the **current conclusion**, not its original premise.
+
+General rule: **when run-1 would need a field-exclusion update, move the
+affected edge to DEMAND instead and keep Empty E**. For a field overwrite,
+the logical exclusion step includes a complete destination kill. Testing
+only whether an E object gains an accessor would miss exact old x.f/T,
+which is still retained at DEMAND under the selected weak-write policy.
 
 For `x.f=y`, old `x.*` overlaps D_w; old exact `x.f/T` is inside; old exact
 `x.g/T` with f≠g is disjoint. An exact point x is not changed by assigning a
@@ -125,17 +145,19 @@ Retain exact exclusion-free selected-mark cleaner/filter outcomes when
 available. Their complete kill can remain a kill. This does not exempt a
 field overwrite/writeback from §3's weak preservation. When a residual requires nonempty
 E, replace that residual with a **DEMAND may cover**, with Empty E. Keep the
-same base/path/mark and original premise, and apply W2/W8 normalization.
+same base/path/tail/mark and original premise. Clearing the required field
+restriction is a separate conservative cover; changing layer alone never
+changes the tail.
 Do not merely clear E on a NORMAL must fact: that would assert the removed
 locations carry the mark. Preserve mark exclusions and issue their existing
 original-slot requests before publishing the excluded-mark output.
 
 ```text
 reference partial result: x.p.[any-taint] / {f}, NORMAL, T
-run-1 cover:              x.p.[any], Empty E, DEMAND, T
+run-1 cover:              x.p.[any-taint], Empty E, DEMAND, T
 
 reference correlated residual: x.p.* / {f}, NORMAL, *\X
-run-1 cover:                   x.p.[any], Empty E, DEMAND, *\X
+run-1 cover:                   x.p.*, Empty E, DEMAND, *\X
 ```
 
 Explicit field RemoveAll and cleaner/rewriter field writeback already use
@@ -194,92 +216,93 @@ input; do not rediscover calls during this closure. Share the final plan by
 CommonMethod; full MethodKey instances borrow it. This Boolean is separate
 from legal coordinates, field reads F, mark interests B and class components.
 
-## 6. Default static summary templates
+## 6. Ordinary default static summaries
 
-After closure make one shared default template available for **every** method,
-including methods with no run-1 actor, no static input and no summary from
-execution. It has symbolic source/target S and the layer:
+After closure, define one ordinary static identity edge per method:
 
 ```text
-Default(M) = S.* -> S.* [if StaticMayWrite(M) then D else N]
+Default(M) = S.* -> S.*
+edge layer = if StaticMayWrite(M) then DEMAND else NORMAL
 ```
 
-This is a **tagged default summary schema**, not an InitialAp, a propagated
-root fact or an observed normal-return publication. Summary storage exposes
-it independently of executed-initial rows. All full method keys borrow the
-method plan; do not create actors, per-field rows or a startup notification
-wave just to install it. Ordinary field-specific callee summaries remain.
-
-For an actual caller static component a, instantiate identity at a's actual
-geometry and join its layer with Default(M). Then use the ordinary W2/W8
-normal form and its Empty E. Do not apply a generic root-to-root may relation
-that forgets which static field a supplied.
+The STAR endpoints describe identity; the edge layer is independent. On
+reached run-1 method initialization insert this edge through the same
+retained-summary, demand-selection and live-publication path as every other
+summary. Do not create an S.* initial or process an S.* method fact to derive
+it. A summary premise key can contain the root pattern without admitting it
+to InitialFactStore. Do not create actors for unreachable methods to publish
+defaults. Shared prescan metadata supplies the edge when an actor starts.
 
 ```kotlin
-fun applyRun1Default(method: Method, callerEdge: Edge): Edge {
-    require(callerEdge.current.base == STATIC)
-    val layer = callerEdge.layer join method.defaultStaticSummary.layer
-    return run1FactNormalForm(callerEdge.copy(layer = layer))
-}
+// Interface pseudocode; this is the common summary publication API.
+publishSummary(SummaryEdge(
+    transfer = identity(STATIC, emptyPath, STAR),
+    layer = if (staticMayWrite) DEMAND else NORMAL,
+))
 ```
 
-| Actual arriving component | Default | Result |
+Ordinary summary deduplication/notifications handle the inserted edge. Calls
+keep their actual input subscriptions and LinkIn delivery. The callee
+abstraction applies field/mark gates to initial emission, not to delivery.
+An ordinary S.* summary can match an actual C.f input even when the callee
+emits no static initial. Apply the stored edge through the usual summary
+handler, then resume the existing call plan. Do not add a local continuation,
+separate default lookup, F1 call bypass or default-specific call branch.
+
+| Actual arriving component | Stored edge layer | Ordinary identity result |
 | --- | --- | --- |
 | C.f at NORMAL | NORMAL | C.f at NORMAL |
 | C.f at NORMAL | DEMAND | C.f at DEMAND |
 | C.f at DEMAND | Either | C.f at DEMAND |
 
-No new field, class or mark is invented. Retain full caller premise/context,
-mark exclusions and supplied class-point identity. The single Boolean can
-demote g because a callee might write unrelated f; this is conservative layer
-precision. It does not widen g into f or all statics.
+Preserve caller premise/context and the complete AP payload, including its
+tail. Join only the input and edge layers; do not run a layer-driven tail
+conversion. If the write bit comes from unrelated g, f can conservatively demote without moving
+to g or all statics. Independent callee value computations retain the original
+supplied input and their own derivations.
 
-Use this lane at the CALLEES stage, after local prefix actions and before the
-existing returned-rule/bind-back/alias/cut stages. Set `identityCandidate=true`
-for the instantiated identity. It replaces the prior unconditional NORMAL
-static bypass; do not run both. Actual callee outputs still add results.
-Deliver actual data to callees under the existing read/mark/class gates.
-Use the original pre-default data and its layer for that delivery; the
-default's joined layer belongs only to the local preservation branch.
-Nonstatic call inputs keep their existing call protocol.
+**Representation obligation:** retain STAR identity and its edge-layer bit
+until application. A normalized root DEMAND FLOW Fact denotes a different,
+uncorrelated ANY target. Current Summary.kt compiles such a payload to root
+ANY and loses the actual field suffix. The ordinary summary representation/
+compiler must preserve the transfer and the separate layer. Existing edge
+application accepts an edgeDemand flag, but its final normalizer also changes
+STAR to ANY on demotion. Both layer-driven conversions must be removed for
+the selected behavior. Preserve actual ANY transfers when information is
+really lost. This is a shared summary/AP requirement; no static/run-1 branch
+belongs in calls.
 
-This F1 default is immediately available, including for a nonreturning target.
-Its NORMAL label certifies only the absence of a discovered static-write
-effect in the closed plan, **not normal return**. All F1 publications/defaults
-remain inside the existing guidance-only, unconfirmed-candidate boundary.
-A default is never an executable later strong record.
+The default can be published before a callee returns. NORMAL classifies
+writes; it does not prove return. The general F1 guidance-only boundary still
+applies to all its summaries, including these defaults.
 
-## 7. Handoff and strong run-2 analysis
+## 7. Ordinary handoff and strong run-2 analysis
 
-Preserve DEMAND write-survival edges and tagged defaults in the demand handoff.
-Do not apply the old blanket ban on all root-shaped identity patterns: a
-permitted default schema has root-shaped syntax without root propagation.
-Reject ordinary synthetic root-execution artifacts and all F1 executable
-native/opposite records; retain the default descriptors as **guidance**.
+The default is already stored. Ordinary selection retains a DEMAND default
+in the actor's demandEdges(), and ordinary handoff projects it with the other
+selected edges. No custom default iterator, virtual descriptor export,
+whole-prescan scan or post-run default insertion is needed. The common
+publication path must update both retained actor summaries and live storage;
+live SummaryStorage is released before handoff.
 
-HandOff has both executed publication guidance and a borrowed default-plan
-view over the entire prescan graph. Iterating only `result.analyzers` is
-insufficient. Keep NORMAL default descriptors available too: a read-only helper
-with no F1 actor still needs a strong identity query when actual demand arrives.
-One shared default lookup is enough; no per-method-per-field expansion.
+On completed reached F1 paths, ZERO creates callee actors even when F/B is
+empty. Their normal initialization publishes the default without a static
+initial. Thus ordinary result.analyzers traversal suffices. See the
+[ordinary pipeline trace](../docs/design/bidirectional-request-gated-static-handling-20261016.md#8-ordinary-demand-selection-and-handoff).
+NORMAL defaults follow the same general F1 guidance policy as other NORMAL
+summaries; they have no special export or persistence exception.
 
-On a run-2 static requirement q:
+Run-2 is strong backward analysis. It uses the projected demand as usual,
+including a broad static demand and S-root FLOW initial when ordinary later
+restricted emission selects one. Only run-1 forbids that initial. Strong
+field writes retain full residual exclusions and infer the required S->S
+relation. A default is not an executable reversed strong result.
 
-1. Look up its callee's tagged default guide independently of F1 execution.
-2. Intersect the symbolic S scope with **q's actual field/class geometry**.
-3. Normalize that actual requirement for the ordinary strong backward run.
-4. Admit its callee query and authorize computed responses by the current
-   query, even if no old field-specific summary or guide row exists.
-5. Execute strong operations and ordinary exclusions. Publish only witnessed
-   strong responses under the full premise and modeled return contract.
-
-The default identity is not its own reverse answer. For a write `g=f`, an
-actual requirement for g can produce source f; the guide must not constrain
-the answer to g. Source-hit/ZERO outcomes and nonstatic intermediates remain
-legal. An overwrite can remove the old-field preimage; a nonreturning method
-has no normal-return answer. Reuse the existing all-base actual-query fallback
-for local/argument/return paths and ND responses: S→S templates alone do not
-cover those paths. They are ordinary restricted queries, not run-1 requests.
+Preserve the general all-base current-query fallback, source-hit/ZERO cases,
+concrete mark/GEN query branches and full ND support. Ordinary strong copy
+can answer a g requirement from f; a constant f overwrite kills its old-f
+preimage; lack of a modeled return gives no strong normal-return answer.
+No default-specific query specialization or handoff logic is required.
 
 All F1 sink matches remain unconfirmed candidates regardless of raw layer.
 Preserve their seeds/support; no zero-DEMAND-edge shortcut may skip required
@@ -295,11 +318,11 @@ The proof dossier must establish:
 | --- | --- |
 | Weak write coverage | Every strong surviving/value output has a run-1 may witness; overwritten old data cannot gain a NORMAL guarantee |
 | Layer and geometry | Affected preservation demotes, disjoint data keeps its layer, value branches stay independent; no D→N; actual path/premise retained |
-| Empty E | All closed run-1 producers and stored/queued payloads preserve Empty E; must guarantees weaken before E is forgotten |
+| Empty E | All closed run-1 producers/stores preserve Empty E; an E-requiring residual is explicitly a DEMAND cover, never a NORMAL guarantee |
 | Static effect closure | Least call-graph closure, including cycles and conservative unknown effects; writes do not create read requests |
-| Default application | Actual component retained with exact layer join, no field enumeration or propagated root |
-| Default availability | Available for every prescan method, including no actor/no initial/no execution publication |
-| Handoff coverage | Default guide plus actual query admits both start and computed response; demand and NORMAL defaults are retained symbolically |
+| Default application | Complete actual AP, including tail, retained with exact layer join; no ANY conversion, enumeration or propagated root |
+| Default availability | Normal method initialization publishes one ordinary row through retained/live stores; independent of static initials; no forced actors |
+| Handoff coverage | DEMAND defaults enter normal demand selection/projection; NORMAL defaults follow the general NORMAL-summary policy |
 | Strong refinement | Run-2 recomputes preservation/copy/kill/source/return behavior; no weak default becomes its executable proof |
 
 Prove these in the selected finite AP model, then verify the producer, packed

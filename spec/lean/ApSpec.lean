@@ -124,3 +124,4 @@ import ApSpec.Run1InitialShapes
 import ApSpec.Run1PrecomputedRequests
 import ApSpec.RequestGatedStatics
 import ApSpec.Run1WeakFieldWrites
+import ApSpec.Run1DefaultSummaryApplication

@@ -4,16 +4,18 @@ The selected [run-1 field-write contract](run1-field-writes.md) adds weak
 static/nonstatic writes with DEMAND old preservation, Empty field exclusions
 throughout F1, and precomputed NORMAL/DEMAND default static templates. It
 supersedes the earlier unannotated weak store and unconditional NORMAL
-bypass. Tagged defaults are permitted root-shaped guidance without root
-propagation. The nine initial families and read/mark split stay unchanged.
+bypass. Defaults are ordinary stored summary edges, applied through the
+normal call pipeline without root initial propagation. Layer demotion keeps
+the AP and tail; it does not convert known information to ANY. The nine initial families and read/mark split stay unchanged.
 
 Status: selected design contract; **not implemented**. This contract takes
 precedence over the static parts of [F78](run1-requests.md),
 [AP](ap.md), [interpreter](interpreter.md) and [core](analyzer-core.md) where
 they conflict. Other AP, rule, request and context contracts still apply.
 The [proposal](../docs/design/bidirectional-request-gated-static-handling-20261016.md)
-describes the changes. [Static proofs](static-handling-proofs.md) gives the
-proofs, their assumptions and the checked Lean scope.
+now combines the request and field-write rules as one complete design, with
+before/after tables and a traced handoff. [Static proofs](static-handling-proofs.md)
+gives the proofs, their assumptions and the checked Lean scope.
 
 Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. No completed
 iteration or accepted forward report. This specification adds no measurement.
@@ -168,7 +170,7 @@ assignment retains its separate strong replacement rule.
 
 Every run-1 intermediate fact has Empty field E. Exact exclusion-free
 cleaner outcomes remain; an E-requiring partial residual takes a DEMAND may
-cover with W2/W8 normalization. In particular, never clear E on a NORMAL
+cover while retaining its known tail. Demotion alone changes no AP payload. In particular, never clear E on a NORMAL
 must fact and retain its guarantee. Mark exclusions/requests remain. See
 [the complete producer rule](run1-field-writes.md#4-empty-field-exclusions-throughout-run-1).
 
@@ -187,34 +189,31 @@ exclusion to affected output f and request T on the original g origin. The
 fact that source g is disjoint from output f cannot discard this transfer.
 Apply this distinction to generated rewriters and every excluded-mark creator.
 
-At the CALLEES stage, apply the callee's shared default static template to
-the actual arriving static component, with `identityCandidate=true`. Its
-layer is input OR StaticMayWrite(callee), NORMAL only when both are NORMAL.
-This replaces the old independent NORMAL bypass. The template does not
-need a root initial or wait for any target to return, including a
-nonreturning target. It does not bypass local prefix
-rules or the later returned-rule/bind-back/alias/cut stages. Callee outputs
-add data and do not retract this continuation. Nonstatic inputs keep their
-existing run-1 call protocol.
+After prescan choose the ordinary S.* -> S.* summary edge layer from
+StaticMayWrite: NORMAL for a write-free transitive body, DEMAND otherwise.
+When the reached F1 actor starts, publish it through the same retained/live
+summary path as every other summary. Do not emit S.* from the abstraction.
+Summary edge endpoints/premise keys are not admitted initial facts.
 
-Deliver to a target only supplied fields in F(target) or a possible scoped
-static-mark interest. Retain direct class-component delivery separately.
-The default's joined layer belongs only to the local preservation branch.
-Select and deliver requested callee data from the original pre-default
-input with its own layer/headers and exact caller premise/context. Actual
-callee value results keep their independent derivations. Selection can
-return several facts; do not merge unlike marks/tails/layers.
-All run-1 selected data has Empty field E.
+Calls use their existing input delivery, subscriptions, matching and summary
+application. Apply F/B/R gates in the callee abstraction, not in call delivery
+or subscription. A stored default can answer a static input even if no
+static initial is emitted. The ordinary identity transfer retains the complete
+actual AP, including its tail, and joins only the input and edge layers.
+`C.f.* [N]` plus a DEMAND identity gives `C.f.* [D]`, not `[any]`.
+No default-specific local continuation, separate lookup or bypass is needed.
+Returned rules/bindings/aliases/cuts keep their usual order.
 
-There is no special abstract S-root propagation, root-driven field expansion,
-root-origin field-summary route, return watcher or pending static frame.
-Generic compiled `keep(S)` operators remain legal. Their pattern endpoints
-are not special propagated root initials. Tagged default summary schemas
-also have root-shaped pattern syntax; they are not observed root-execution
-summaries and do not enter InitialFactStore.
+The current canonical-Facts summary adapter and final normalizer infer ANY
+from DEMAND. They must preserve known transfer geometry separately from
+layer. This is a generic summary/AP representation obligation, not special
+run-1 call handling. Existing genuine ANY operations retain their meaning.
+See [the edge contract](run1-field-writes.md#6-ordinary-default-static-summaries).
 
-Run-1 default continuations and weak stores are intentional may behavior. They are not
-proof of preservation under later strong stores or of normal return.
+There is no abstract S-root propagation or root-driven field expansion in
+F1. Remove the old footprint-complement/root-summary shortcut where it would
+mask ordinary stored-summary application. A default can be published before
+return and remains F1 may guidance, not a strong normal-return proof.
 
 ## 5. Safe transition from run-1 to run-2
 
@@ -224,38 +223,39 @@ restriction covers all endpoint bases: a weak static value can become a
 nonstatic return, argument or rule result. Retaining only such nonstatic
 records would still be unsafe.
 
-Before building HandOff, distinguish forbidden ordinary synthetic S-root
-execution artifacts from permitted tagged default NORMAL/DEMAND schemas.
-Retain those defaults through the shared prescan lookup independently of
-executed actors, and retain run-1 publications as coarse guidance and
-candidate/diagnostic evidence. Do not apply the former blanket root-pattern
-filter to the new defaults. They are never executable native records.
-Guidance must not certify an edge, a whole premise, a source hit, normal
-return or a confirmed vulnerability in a later strong run.
+Defaults are already present in ordinary retained summary storage. Do not
+append them from metadata at handoff. Ordinary demand selection includes
+DEMAND defaults; the existing result.analyzers/demandEdges traversal projects
+them as usual. ZERO creates reached callee actors and normal initialization
+publishes their defaults even without any static initial. Live SummaryStorage
+is released before handoff, so normal publication must also retain the row
+in the actor's summary store. No separate iterator or global scan is needed.
 
-Include NORMAL singleton run-1 publications in guidance, as well as existing
-DEMAND publications. For each surviving publication retain each member's
-entry geometry and output geometry, in the direction of the next run. Use
-the existing location-only/demand normalization: must→may, forget forward
-must guarantees/E as prescribed by the demand projector, and erase FLOW
-mark exclusions for canonical abstract patterns. Retain concrete marks and
-all premise members as hints. Guidance is not an executable ND conjunction.
-Do not weaken the separate complete-premise requirement for real summaries.
+NORMAL defaults follow the same general F1 guidance policy as all other
+NORMAL summaries. Include permitted NORMAL singleton publications in coarse
+guidance without treating them as executable records. For every retained
+publication preserve each premise member, direction, entry/output geometry
+and concrete mark under ordinary demand projection. Canonical demand
+projection remains separate from layer-only transfer demotion. It does not
+rewrite an executable identity into an ANY transfer.
 
 ```kotlin
-val run1 = rejectOrdinarySyntheticRootExecution(result.snapshot())
-val guide = makeCoarseGuidance(run1, prescan.defaultStaticSummaries,
-    includeNormalSingletons = true)
-val seeds = makeCandidateSeeds(run1, guide)
-// No nativeRecords.persist(run1), and no opposite transfer view of run1.
-startRun2(guide, seeds, nativeRecords = strongRecordsOnly)
+// Ordinary selection, also for stored defaults; no default-specific branch.
+for (actor in result.analyzers) {
+    for (edge in actor.summaries.demandEdges()) {
+        handoff.add(actor.key, toBackwardDemandPatterns(edge))
+    }
+}
+// The selected general F1 boundary also keeps permitted NORMAL guidance.
+// Neither collection becomes executable native/opposite F1 records.
 ```
 
-On an actual run-2 static requirement, intersect the default's symbolic S
-scope with the actual input geometry before choosing its query initial.
-Do not use the wildcard guide's root as the initial. Both default layers
-authorize work; only strong execution supplies the response. Keep all-base
-current-query fallback for mixed local/argument/return and ND support.
+Run-2 can use an ordinary broad static demand and S-root FLOW initial under
+the later restricted grammar. The S.* initial ban applies to run-1. No special
+default query adapter is required. Keep concrete guides/current requirements
+additive: FLOW alone cannot cross concrete mark/GEN gates. Keep the general
+all-base current-query fallback and full-premise response contract for work
+absent from old guidance, including mixed static/local paths.
 
 Guidance may enlarge a query; it must not veto an actual current query's
 start or response. Keep the existing source/sink seed-coverage contract.
@@ -263,7 +263,7 @@ Filtering a weak edge must not remove its candidate seed or necessary hint.
 Treat **all run-1 sink matches**, NORMAL as well as DEMAND, as candidates
 for strong refinement. Build B2 sink seeds from both groups, preserving rule
 occurrence, positive support, statement and full context. A NORMAL run-1
-label is not a strong confirmation under weak stores/bypass.
+label is not a strong confirmation under weak stores and early default summaries.
 Publish these report witnesses with `confirmed=false`; the existing report
 can classify them as DEMAND candidates. Keep their raw fact/edge layers
 unchanged. This report classification does not demote NORMAL transfer facts
@@ -282,7 +282,7 @@ proof or a strong record.
 
 Run-2 is backward. It uses the **converse of the strong forward relation**,
 with ordinary AP reversal and annotations. It does not use weak stores, the
-run-1 default continuation, run-1 field gates or run-1 mark-request propagation.
+run-1 prepublished defaults, run-1 field gates or run-1 mark-request propagation.
 Run-3 and later forward runs use the strong forward relation. Strong-phase
 forms and records cannot share a weak run-1 payload/cache key.
 
@@ -315,10 +315,9 @@ complete-premise outcomes. Ordinary demand/limit abstraction still applies.
 A response is applicable by the current query's full geometry, annotations
 and whole premise. A run-1 `owns(field)` check or an old DemandStore row must
 not reject it. Prior guidance can schedule/enlarge work but cannot filter
-these current-query responses. No universal static root is seeded to obtain
-identity; only actual current requirements start work. Later actual broad
-requirements are legal under the existing restricted grammar, which is not
-the run-1 initial grammar.
+these current-query responses. Current requirements and ordinary projected demand authorize later work.
+A broad static demand may admit a root FLOW query under the later restricted
+grammar; that grammar is not the run-1 initial grammar.
 
 Disable the old footprint-complement/root-summary shortcut for strong
 queries. F is a read inventory, not a write/clean/return preservation mask.
@@ -422,7 +421,7 @@ a bounded abstract S→S edge proves exact concrete JVM memory behavior.
 ## 7. Correctness target and required validation
 
 The reference is the existing selected finite AP transfer/rule semantics,
-with run-1 weak stores/bypass explicitly selected above, and strong semantics
+with run-1 weak stores and early stored defaults selected above, and strong semantics
 later. JVM frontend gaps, alias over-approximation, field cuts and residual
 negative projection retain their declared scope. They are not erased by a
 static optimization proof.
@@ -436,8 +435,9 @@ Prove these results separately:
    **same weak run-1** reference, using dynamic changed-origin replay.
 4. Weak field stores/defaults are a may approximation of local strong positive data
    paths, without claiming that cleaners disappear or calls really return.
-5. The run-1 boundary exports no executable weak edge; tagged default root
-   patterns remain guidance and no ordinary synthetic root fact propagates.
+5. Defaults use ordinary storage/application/selection; demotion preserves
+   the complete AP and tail. No F1 weak edge becomes executable later evidence,
+   and no abstract root initial propagates in F1.
 6. Strong stores, residual E, class points and real-return composition give
    the required S→S relation; reversal gives its exact preimage.
 7. Current-query discovery and response handling are complete independently

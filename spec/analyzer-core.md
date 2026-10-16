@@ -1,12 +1,14 @@
 # Analyzer core — specification
 
-The [run-1 field-write contract](run1-field-writes.md) additionally overrides
-F1 stores, Empty-E fact production, default static summary lookup and handoff.
-Defaults are available from the total prescan view without an actor/initial.
-Apply them to actual static input with layer OR; no root propagates. Handoff
-retains tagged defaults independently of executed actors and specializes
-strong query initials from actual requirements, not a wildcard guide.
-No F1 default becomes an executable later record.
+The [run-1 field-write contract](run1-field-writes.md) overrides F1 stores,
+Empty-E fact production and static defaults. Prescan selects a NORMAL/DEMAND
+S.* identity edge. A reached method publishes it through the ordinary
+retained/live summary path; ordinary subscriptions/application/selection and
+handoff use it. The abstraction emits no S.* initial. There is no special
+run-1 static call handling or default iterator. Layer demotion preserves
+the full AP payload and tail; it does not convert known STAR to ANY.
+The older layer-driven normal-form rules below are superseded at this seam.
+No F1 summary becomes an executable later strong record.
 
 The selected [static-handling contract](static-handling.md) takes precedence
 for static planning, the run-1 initial grammar/stores/calls, the F1→B2

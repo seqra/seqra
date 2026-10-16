@@ -550,8 +550,8 @@ run_elab do
 #print axioms ApSpec.RequestGatedStatics.BalancedCalls.mixed_static_local_nested_call
 #print axioms ApSpec.RequestGatedStatics.F1_record_never_executable
 
--- All-field F1 writes: canonical DEMAND survivors, no spatial E, distinct
--- value computations, frozen default layers and actual backward queries.
+-- Historical all-field F1 model: demotion normalizes STAR to ANY. Retain
+-- these checks for that recorded model, not for selected layer-only demotion.
 #eval do
   let broad : ApSpec.Run1WeakFieldWrites.Fact :=
     ⟨9,⟨4,[],.star .empty,.star⟩,.empty,false⟩
@@ -608,3 +608,15 @@ run_elab do
 #print axioms ApSpec.Run1WeakFieldWrites.callee_delivery_is_pre_default
 #print axioms ApSpec.Run1WeakFieldWrites.no_propagated_root_initial
 #print axioms ApSpec.Run1WeakFieldWrites.backward_authorization_preserves_full_AP
+
+-- Selected ordinary summary geometry with independent edge layers.
+#eval do
+  if !ApSpec.Run1DefaultSummaryApplication.SelectedControls.checks then
+    throw (IO.userError "Ordinary identity changed the payload during layer demotion.")
+  IO.println "Ordinary identity payload/tail preservation and layer controls passed."
+
+#print axioms ApSpec.Run1DefaultSummaryApplication.ordinary_root_STAR_layer_only
+#print axioms ApSpec.Run1DefaultSummaryApplication.ordinary_identity_preserves_payload
+#print axioms ApSpec.Run1DefaultSummaryApplication.joined_layer_monotone
+#print axioms ApSpec.Run1DefaultSummaryApplication.attachment_keeps_requests
+#print axioms ApSpec.Run1DefaultSummaryApplication.SelectedControls.STAR_stays_STAR_at_DEMAND

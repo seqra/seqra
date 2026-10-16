@@ -4,8 +4,8 @@ The selected [weak field-write specification](run1-field-writes.md) and
 [new proof dossier](run1-field-write-proofs.md) replace unannotated weak
 preservation, the unconditional NORMAL static bypass and the blanket
 root-pattern export ban. All F1 field E is now Empty; affected survivors
-demote. Tagged default schemas remain guidance without propagated root
-inputs. The strong later-query/converse proofs here retain their explicit
+demote without changing the known AP/tail. Defaults are ordinary stored
+summary edges applied by the usual call path, without root initial emission. The strong later-query/converse proofs here retain their explicit
 scope. Earlier local receipt hashes do not certify the added phase rules.
 
 Status: constructive design proofs and checked local reference laws. Use with
@@ -26,7 +26,7 @@ class points are separate from field descendants; broad TAINT is permitted.
 The reference uses the existing selected AP transfers, ordered rule actions,
 NNF/signed eligibility, field cuts, source/sink seeds, full-premise guards and
 modeled normal/exceptional exits. Its run-1 variant has weak ordinary static
-stores and immediate static call bypass. Its later variant has strong stores
+stores and ordinary prepublished static defaults. Its later variant has strong stores
 and balanced normal-return calls. These variants are intentionally different.
 We do not claim equality between weak run-1 and the old strong engine.
 Run-1 selected-mark static cleaners also use the new first-field spatial
@@ -200,17 +200,18 @@ source applicability, then form the target exclusion and request the original
 source's T; output disjointness alone proves no source inapplicability.
 
 A strong returning call either preserves a location or derives a value.
-The first case is included in run-1's immediate static continuation. In the
+The first case is included by ordinary application of run-1's stored static
+identity. In the
 second, an actual consumer/mark check admits the necessary callee chain by
 §4, or the value originates from retained nonstatic/ZERO work. Actual callee
-output adds that value. A nonreturning call may still have a run-1 bypass;
-that is extra may behavior, not a normal-return proof. Local ordered prefix
-cleaners execute before the bypass, so it cannot restore their removed input.
+output adds that value. A prepublished run-1 default can also apply to a nonreturning target;
+that is extra may behavior, not a normal-return proof. Ordinary ordered prefix
+cleaners execute first, so summary application cannot restore their removed input.
 
 Induct on a finite balanced positive source-to-sink derivation to obtain
 run-1 may coverage, relative to the frontend/seed/ND assumptions in §1 and
 the observation argument in §4. This does not prove old finding-set parity,
-cleaner exactness across bypassed callees, runtime speed or an accepted report.
+cleaner exactness across early defaults, runtime speed or an accepted report.
 In the local Lean model weak stores retain inputs, while selected explicit
 cleaners remain strong (`weak_clean_is_strong`). `strong_step_in_weak`,
 `strong_trace_in_weak` and `strong_body_in_weak` prove that model's inclusion.
@@ -228,7 +229,7 @@ helper: f=untainted; return
     F1 weak f/T→f/T is invalid under later strong semantics.
 
 helper: never returns
-    F1 bypass is not a valid normal-return identity.
+    F1 prepublished default is not a valid strong normal-return identity.
 ```
 
 In the second example append `x=f; return x`. The weak stale value now has

@@ -3,12 +3,13 @@
 Date: 16 October 2026. Status: heap census and independent review complete.
 Analyzer implementation is unchanged.
 
-The follow-up [request-gated static-handling proposal](../design/bidirectional-request-gated-static-handling-20261016.md)
+The follow-up [unified run-1 request/write/static proposal](../design/bidirectional-request-gated-static-handling-20261016.md)
 uses value-read field requests and a separate concrete-mark gate. The new
 [field-write contract](../../spec/run1-field-writes.md) makes all F1 field
 writes weak, retains affected old data at DEMAND and keeps field E Empty.
-It uses shared NORMAL/DEMAND default static templates without propagated
-S-root facts; tagged templates remain handoff guidance. ContainsMark
+It publishes ordinary NORMAL/DEMAND static identity summaries without S-root
+initial propagation. Normal call application and handoff use those rows.
+Demotion changes only the layer and keeps the known AP/tail. ContainsMark
 contributes mark interest only. The selected
 [static specification](../../spec/static-handling.md) also makes all F1
 publications guidance-only and uses actual strong queries on run-2/later.
@@ -20,7 +21,7 @@ forward report is accepted. The logged failed engine duration is 109.891609201
 seconds; it is not a completed run-1 time or pure solver CPU time.
 
 The measured runtime is `4acde739b`, captured at `05cf9ad62`. Current HEAD
-`bcc435310` has the same core tree. Use the
+`2d3436187` has the same core tree. Use the
 [closed project measurements](bidirectional-static-domain-frozen-requests-performance-20261016.md).
 The existing evidence root, called B below, is:
 
@@ -481,17 +482,19 @@ contract caveats and root-origin local-data path are bound in
 ## Recommended focus
 
 Use the new [request-gated static-handling proposal](../design/bidirectional-request-gated-static-handling-20261016.md)
-for the next design. Its main target is avoiding first field analyses and
-callee inputs, rather than compressing the resulting standing relation.
+for the next design. Its main target is avoiding unnecessary field analyses
+and statement facts, rather than compressing the resulting relation. Ordinary
+call subscriptions and input delivery remain; fewer caller-input groups are
+not established by a call-delivery filter.
 It collects field requests only for value reads, gates concrete answers by
-actual marks, and uses weak static stores and direct call-to-return static
-propagation on run-1. It needs no special static-root control, return watcher
+actual marks, and uses weak field stores plus ordinary stored N/D static
+identity summaries on run-1. Demotion retains the AP and its known tail. It needs no special static-root control, return watcher
 or pending frame store. Mark predicates add only mark interests. Later
 iterations compute strong S→S relations from actual queries, even without
 an F1 summary. F1 publications are guidance only, not reusable transfer edges.
 
-These are new abstraction rules, not a proven speedup. Weak writes and static
-bypass can increase run-1 may-taint; the proposal requires finding and handoff
+These are new abstraction rules, not a proven speedup. Weak writes and early default
+summary publication can increase run-1 may-taint; the proposal requires finding and handoff
 checks. The remaining alternatives below are historical investigation notes,
 not selected parts of the new proposal.
 
@@ -504,7 +507,7 @@ population.
 
 These source-level alternatives preceded the selected root-free run-1 model.
 They explain proof constraints of a more precise control/frame design; they
-do not describe the new run-1 call bypass. No analyzer code changes.
+do not describe the selected ordinary-summary call path. No analyzer code changes.
 The order below follows the size of the relation that each direction could
 avoid, not a measured byte or time saving. The first two are alternative
 static-data designs; their possible savings are not additive.

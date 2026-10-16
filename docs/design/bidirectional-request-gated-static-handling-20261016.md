@@ -1,557 +1,530 @@
-# Request-gated static handling
+# Run-1 requests, field writes and static summaries
 
-Date: 16 October 2026. Status: proposal; no implementation or new analyzer run.
-This is the current proposal for static handling. It replaces the earlier
-control-root, return-watcher and pending-frame candidates in the
-[ThingsBoard investigation](../reports/bidirectional-thingsboard-static-workload-20261016.md).
-The selected [static contract](../../spec/static-handling.md) and
-[proof dossier](../../spec/static-handling-proofs.md) now specify run-1 and
-the strong run-2/later boundary. The newer [field-write contract](../../spec/run1-field-writes.md)
-and [proofs](../../spec/run1-field-write-proofs.md) add DEMAND weak preservation
-for every field write, Empty run-1 E and tagged default static templates.
-Implementation remains unchanged.
+Date: 16 October 2026. Status: complete selected proposal; **not implemented**.
+This document unifies the request handling in [static-handling.md](../../spec/static-handling.md)
+with [run1-field-writes.md](../../spec/run1-field-writes.md). It is the single
+proposal to use for this iteration. The specifications give normative details;
+[request/static proofs](../../spec/static-handling-proofs.md) and
+[write proofs](../../spec/run1-field-write-proofs.md) give their proof scopes.
+No IR-storage, reference-manager or identity-cache rewrite is included.
 
-Latest reached: **run-1, forward, limit 1; OOM**. No engine completes and no
-forward report is accepted. Measurements execute `4acde739b`, captured at
-`05cf9ad62`; current `bcc435310` has the same core tree.
+Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. No completed
+iteration or accepted forward report. Measurements execute `4acde739b`, captured
+at `05cf9ad62`; current `2d3436187` has the same core tree. No performance result
+exists for this proposal. The target remains run-1 **engine time** within 60 seconds.
 
-## 1. Selected rules and goal
+## 1. What changes, and what stays the same
 
-Reduce redundant static-field analyses, call deliveries, subscriptions and
-retained facts. The user-selected rules are:
+“Previous selected specification” below means the split design at `2d3436187`.
+It is distinct from the implemented analyzer, whose behavior appears in the
+second table and the source trace in §8.
 
-1. Collect static-field requests from **actual field reads**, including
-   effective non-mark checks that read a value. `ContainsMark(C.f,T)` in a
-   source or sink condition adds **only a static-mark request**, never a field
-   request. Do not add field requests for aliases or static-field write targets.
-2. Emit abstract `C.f.* (*)` only when C.f has a field request.
-3. Emit a concrete field answer only when its actual supplied mark has a
-   static-mark request. The field and mark gates are separate.
-4. All static/nonstatic field writes are **weak on run-1**: retain affected
-   old data at DEMAND and add independent pre-store value edges. All F1 field
-   E stays Empty, including partial-cleaner residuals through a may cover.
-5. Do not propagate the special abstract `(S, ., *)` fact on run-1. Apply a
-   tagged default static identity at NORMAL if the method/callees cannot
-   write statics, DEMAND otherwise. Join with the actual incoming layer.
-6. Retain these default schemas symbolically as later query guidance. They
-   are not executed root facts or executable strong records.
-7. Use run-1 publications only as later guidance. Later actual queries start
-   strong callee analysis independently of run-1 field needs or summaries.
-
-Later iterations use strong stores and normal-return call semantics. Their
-admission/response and persistence paths need the changes in §8 to preserve
-those semantics after root removal. Explicit cleaners remain cleaners.
-
-The parts below are ordered by expected effect on the repeated state:
-
-| Part | Current behavior | Proposed behavior | Expected benefit |
-| --- | --- | --- | --- |
-| Stop root-driven field expansion | Special S-root travels through calls and can start the whole owned field basis | No special root input/fact; start only requested fields from supplied data | Avoid first field analyses and their downstream states |
-| Limit callee data delivery | Every static fact reaching CALLEES is subscribed and linked to each target | Pass statics through locally; deliver only fields/marks requested by that target | Avoid irrelevant deliveries, exact input groups and index entries |
-| Separate field reads from mark checks and effects | Writes/aliases and global mark needs can enlarge structural selection | Actual reads seed field requests; mark predicates seed mark interests only | Avoid abstract analyses created by mark-only checks, write targets or alias inventories |
-| Use DEMAND weak writes and defaults | Strong writes add field exclusions; old bypass keeps NORMAL | Every field write demotes affected old preservation; precomputed static default joins N/D; F1 E stays Empty | Avoid exclusion variants and propagated root-preservation work while exposing refinement needs |
-
-Weak stores can retain more data at a requested field. Their purpose here is
-simpler run-1 semantics; they are not independently claimed to reduce facts.
-
-## 2. Measurement basis
-
-The latest ThingsBoard run-1 heap has these populations:
-
-| Observation | Measurement |
-| --- | ---: |
-| Abstract static-field initial memberships | 2,332,098 |
-| Distinct abstract static-field initial shapes | 3,900 |
-| Method premise rows with a static origin | 99.76% |
-| Occupied statement buckets with a static origin | 99.60% |
-| Caller-input groups with a static origin | 94.66% |
-| Actors with an all-static footprint | 25.04% |
-| Initial memberships held by those actors | 97.50% |
-| Concrete TAINT caller-input groups, all bases | 0.0623% |
-
-The main population is repeated abstract static state, not concrete mark
-multiplicity. At least 54.42% of structural initial attempts also create no
-new initial. Counts do not establish static CPU share, exact unchanged-field
-identity or removable bytes. No speedup is measured for this proposal.
-
-## 3. Field requests: actual reads only
-
-Keep a shared immutable plan per CommonMethod. Full MethodKey contexts borrow
-it. It contains field scopes, with mark identities erased:
-
-```kotlin
-data class StaticFieldRequests(
-    val fields: Set<StaticFieldSlot>,
-    val wholeClasses: Set<ClassAccessor>,
-    val wholeStatics: Boolean,
-) {
-    fun requests(slot: StaticFieldSlot): Boolean =
-        wholeStatics || slot.cls in wholeClasses || slot in fields
-}
-```
-
-Only actual value-read geometry seeds the plan:
-
-| Operation | Field-request contribution |
-| --- | --- |
-| `x = C.f` | C.f |
-| `C.g = C.f` | C.f, because it is read; not the write target C.g |
-| `C.f = x`, including constant writes | None from the target |
-| Alias endpoint or persisted alias path | None |
-| `ContainsMark(C.f, T)` in a source or sink condition | None; only a static-mark request for C.f/T |
-| Other effective non-mark condition/input check that reads the value of C.f | C.f |
-| Cleaner, removal or generation target alone | None |
-| Genuine class/root-descendant value read | Symbolic class/all-field scope |
-| Exact class-point check only | Separate class-point need, not all fields |
-| Coordinate exists in the global universe | None |
-
-Do not scan alias endpoints to add field requests. Alias handling stays in
-ordinary transfer/resolution logic. Its coverage without alias-request seeds
-is a proof obligation, not a reason to add those seeds back silently.
-
-Compute transitive value-read needs on the complete prescan call graph:
-
-```text
-fieldRequests[M] = localValueReadRequests[M]
-                  union union(fieldRequests[C] for resolved callees C of M)
-```
-
-Use the existing recursive-component closure and shared sets. No new request
-index, per-actor copy, startup notification wave or dynamic field-request
-protocol is proposed. A complete field plan is fixed before engine work.
-
-Keep the global coordinate universe separate. Write targets and other legal
-producer coordinates still belong there even when they add no field request.
-For example, a constant weak PUTSTATIC may lower to a keep edge only; its LHS
-must still be collected for legality independently of that lowered edge.
-
-Do not derive `wholeStatics` from a nonempty mark set. A T-to-U mark change at
-the same condition must not enlarge field scope. Genuine global value-read
-geometry can remain global; preserve effective NNF, false-rule elimination,
-source/sink roles and the selected condition policy.
-
-## 4. Static-mark requests and the two emission gates
-
-Static mark requests remain a separate relation:
-
-```text
-fieldRequests[M, C.f]       -> does this field need abstract analysis?
-markRequests[fullKey, C.f]  -> which actual concrete marks need analysis?
-```
-
-A selected cleaner on C.f/T may add a mark request without adding a field
-request. This gives a real use for concrete-only field analysis.
-
-```kotlin
-fun emitStaticField(slot: StaticFieldSlot, input: Facts) {
-    if (!slotMatchesRequestGeometry(slot, input)) return
-
-    if (fieldRequests.requests(slot)) {
-        emit(slot.abstractInitial()) // (S, C.f, *, {}, *)
-    }
-    if (input is TaintTree) {
-        forEachActualRequestedAnswer(input, requests.borrow(slot)) { initial ->
-            emit(initial)           // (S, C.f, $ or *, {}, T)
-        }
-    }
-}
-```
-
-| Field request | Request for actual supplied T | Normal field initials |
+| Area | Previous selected specification | This unified proposal |
 | --- | --- | --- |
-| No | No | None |
-| Yes | No | Abstract `C.f.* (*)` |
-| No | Yes | Concrete answer for T |
-| Yes | Yes | Abstract initial and concrete answer for T |
+| Request keys, mark sets and storage | Normal origin slots; authoritative frozen plus dynamic requests and temporary P | Same behavior, specified here with its full lifecycle |
+| Field versus mark requests | Actual value reads admit abstract field inputs; ContainsMark admits only concrete-mark interest | Same two independent gates |
+| Run-1 field writes | Affected old components weakly retained at DEMAND; all field E Empty | Same weak policy, replacing logical exclusion/restriction with layer-only demand demotion |
+| Demotion and AP tails | W2/W8 changed STAR/must to ANY on DEMAND | Preserve the full known AP/tail; only the edge layer changes |
+| Fully overwritten exact old value | Retained at DEMAND even if the strong kernel would emit no residual | Same; “update exclusion” includes complete destination subtraction, not only allocating an E element |
+| Default static identity | N/D chosen by transitive StaticMayWrite; separate default descriptor/call lane | Ordinary stored summary edge; existing matching, subscription and application path |
+| Handoff ownership | Separate default lookup/export view | Ordinary publication retains the default with other summaries; ordinary demand selection and actor traversal include it |
+| Alleged no-actor helper gap | “Iterating only result.analyzers is insufficient” | Incorrect: ZERO creates the reached helper actor, and its stored DEMAND default is already a demand edge |
+| Strong later analysis and F1 records | Actual queries compute strong responses; F1 evidence is guidance only | Same boundary; default lookup is not a strong identity/return proof |
+| Concrete outcomes behind an abstract guide | Full actual-query contract was stated, but the default/FLOW example did not show mark-gate coverage | Retain concrete current requirements and concrete guides additively; a shared FLOW query cannot replace a needed concrete gate/GEN query |
 
-A request alone starts nothing. FLOW does not invent a concrete mark. Keep
-request-side matching independent of field E and FLOW mark exclusions, while
-ordinary transfer/summary semantics preserve them.
-Validate supplier shape and all class/field coordinates against the closed
-global domain before request filtering. A missing request must not hide an
-invalid coordinate or undo the selected static-domain correctness repair.
+The call path stays ordinary. Prescan chooses the default edge; a reached
+method publishes it through the normal summary path. The abstraction does
+not emit S.*. There is no default-specific call or handoff mechanism.
 
-Keep the existing EXACT/STAR projector, Empty initial E, no ANY/ANY_TAINT
-initial, and no concrete empty-S-root initial. Direct concrete class points
-keep their separate preservation path; they are not normal field answers.
-The special abstract S-root initial is removed from the run-1 initial grammar.
-Actual broad TAINT remains legal data and projects to requested fields/class
-points; it must not recreate the removed abstract root.
+| Implemented/base-spec behavior | Proposed run-1 behavior | Purpose |
+| --- | --- | --- |
+| Broad static profiles/root analyses can start many fields in callees | Read/mark gates select callee initials; no abstract root propagation | Avoid unnecessary method analyses and statement facts |
+| Generic strong field stores restrict old geometry with field exclusions; existing weak stores retain their old layer | Preserve affected old data at DEMAND with Empty E; retain independent value transfers | Keep a coarse covering result and expose the work for strong refinement |
+| Partial must cleaning can create field E | Keep exact E-free outcomes or a DEMAND may cover | Establish Empty E throughout F1 without inventing a NORMAL must guarantee |
+| Static preservation relies on executed summaries/root mechanisms | Publish one ordinary N/D identity summary per reached method | Avoid root-preservation analysis while using ordinary call application |
+| Handoff reads selected demand rows; native persistence accepts NORMAL singletons | Stored DEMAND defaults enter the same selection; the general F1 guidance-only boundary covers all summaries | Preserve required queries without treating weak results as strong proof |
 
-Keep the existing B/D/P protocol:
+The latest heap contains 2,332,098 abstract static-field initial memberships,
+99.76% static-origin method rows and 94.66% static-origin caller-input groups.
+These motivate gates on initial emission. Calls still register actual input
+subscriptions and send their usual input; no reduction in retained caller-input
+groups follows from a call-delivery filter. Empty E alone is not a measured
+large saving; DEMAND alternatives can add refinement work. See the
+[source-bound investigation](../reports/bidirectional-thingsboard-static-workload-20261016.md).
 
-```kotlin
-val requests = RequestStorage(sharedBase = profile.staticMarkPlan)
-var temporary = RequestStorage()
+## 2. Domain and initial facts
 
-// Existing method-queue-empty barrier:
-summaryStorage.commit(temporary)
-temporary = RequestStorage()
-```
+Run-1 is forward with field limit exactly 1. Later limits are positive and
+nondecreasing. S is static, ZERO is separate, and class accessors do not count
+against the limit. Empty E means field exclusion, not FLOW mark exclusion mx.
 
-Precompute scoped static interests after prescan. A field cleaner contributes
-(C.f,T), not a whole-static T need. Keep genuine class/root-wide mark interests
-symbolic and borrow them for matching supplied fields. Do not enumerate the
-universe into dynamic wide offers, copy B into P/D, or create another cumulative
-request store. Frozen lookup must cover genuine wide needs outside the old
-explicit selected set when removing that old dynamic wide-offer path.
-
-For generic excluded-mark copies use source geometry: `g -> f (* except T)`
-reads g and needs source g/T, not a target-created field request for f. The
-actual original input can lie farther upstream and retains its dynamic route.
-
-Preserve changed-origin request discovery:
+A request is `(full MethodKey, normal abstract origin slot, set of marks)`:
 
 ```text
-A receives C.f data; R_A(C.f) is initially empty
-A: C.g = C.f; call B
-B: check ContainsMark(C.g, T)
-
-read C.f seeds A's field request
-B's check seeds ONLY mark interest g/T, inherited unchanged by callers
-abstract f execution derives g FLOW
-B's g/T interest requests T on A's ORIGINAL f slot
+BaseSlot(b)    = (b, [], STAR, Empty, *)       // nonstatic, nonzero
+StaticSlot(C,f)= (S, [C,f], STAR, Empty, *)
 ```
 
-The write target g is not a request seed. Derived output g does not need an
-abstract g initial merely because it is written. Keep both request/input
-arrival orders, original-slot routing, set union and concrete propagation skips.
+There is no class/root request slot, request tail, field E, mx or rule role.
+Conditions retain their complete geometry/NNF and support in the forms.
+Merged marks are independent interests, not proof that an AND condition is
+satisfied. Source/sink NNF and full ND premises remain in the rule engine;
+request handling does not expand conditions into cubes.
+Normal abstract slots identify the ORIGINAL input, even if the current fact
+has moved to another base, field or layer.
 
-For a mark-only method `check ContainsMark(C.f,T)`, F(f) is empty. Actual
-supplied T plus R(f,T) starts concrete-only analysis; FLOW does not create T.
-Signed folding runs before collection. Under the current eligible call/exit
-policy residual negative literals project to true, so a pure negative source
-can become ZERO generation. It does not need an abstract f carrier. Entry
-eligibility stays stricter. Never infer a negative literal from missing state.
+These run-1 method-entry families are exhaustive:
 
-## 5. Weak field writes and Empty E on run-1
+| Family | Location | Tail | Mark | Admission |
+| --- | --- | --- | --- | --- |
+| ZERO | zero / [] | EXACT | zero mark | Root/Reach input |
+| Nonstatic abstract | b / [] | STAR | * | Actual nonstatic supply |
+| Static field abstract | S / [C,f] | STAR | * | Actual field supply and field-read request F(C.f) |
+| Nonstatic concrete | b / [] | EXACT or STAR | T | Actual TAINT T and mark request R(b,T) |
+| Static field concrete | S / [C,f] | EXACT or STAR | T | Actual TAINT T and mark request R(C.f,T) |
+| Direct concrete class component | S / [C] | EXACT or STAR | T | Separate actual direct/broad class projection |
 
-All logical field writes, static or nonstatic, preserve affected old data at
-DEMAND and add value edges from the pre-store input. A disjoint component
-keeps its layer. Whole-base local assignment retains its separate strong
-replacement rule. Array/model/alias field updates use the same phase rule.
+There are nine families when alternative tails are counted separately. All
+initial E is Empty, with no mx. No abstract S-root/class initial, concrete
+empty S-root initial, ANY/ANY_TAINT initial or deeper normal-slot path is
+admitted. A nonexact concrete supplier projects to STAR and starts as the
+existing DEMAND/ANY fact. That is not an ANY initial. Actual broad TAINT
+remains legal data. Sources/end actions can produce must facts later.
+
+## 3. One prescan plan, separate inventories
+
+Prescan already resolves the call graph. Keep these inventories distinct:
+
+| Inventory | Contributors | Consumer |
+| --- | --- | --- |
+| Legal coordinate universe | Legal producers/consumers, including writes/models | Validate supplied/generated positions |
+| Field reads F | Actual value reads and effective value-consuming checks/pass operations | Abstract static-field initial admission |
+| Static-mark base B | Effective positive source/sink mark checks, scoped cleaners/excluded-mark creators | Concrete replay and unchanged-origin interests |
+| Direct class needs | Actual class-point checks/actions | Separate class-component initial emission |
+| StaticMayWrite W | Logical static mutations/unknown effects, closed over callees | N/D default layer |
+
+```text
+x=C.f                  -> field read f
+C.g=C.f                -> field read f; no field request from target g
+C.f=x                  -> static-write effect; no field request from target f
+ContainsMark(C.f,T)     -> mark interest f/T ONLY, no field request
+alias mentioning C.f   -> no field request from that endpoint
+clean C.f/T            -> mark interest and static effect; no field-read seed from target
+```
+
+Keep genuine class/root-wide scopes symbolic. Nonempty mark interests do not
+imply all fields are read. Signed/static folding precedes collection: false
+conditions add nothing; P AND NOT P may fold false. Preserve the existing
+residual-negative/entry eligibility policy; missing lazy state proves no
+negative condition.
+
+Compute least closures on the resolved graph, with recursive components:
+
+```text
+F(M) = localValueReads(M) union union(F(N), M calls N)
+B(M) = localUnchangedStaticMarkNeeds(M) union union(B(N), M calls N)
+W(M) = localStaticMutationOrUnknown(M) OR any(W(N), M calls N)
+```
+
+W includes direct/model/alias static writes, Clean/RemoveAll, cleaner/returned
+rewriter writeback and generated static mutations, including class/root scope.
+Include exceptional/finally paths conservatively. Unknown effects require a
+read-only contract to use false. Pure reads/identity bindings are not writes.
+Collect the operation before lowering: a constant store may become keep-only.
+
+F/B/W belong to shared CommonMethod metadata borrowed by full method contexts.
+An alias/write coordinate can be legal and contribute W without contributing F.
+For an excluded-mark copy g→f, collect source interest g/T and route it to
+its actual original input; do not substitute output f for the source.
+
+## 4. Mark requests: storage, barriers and propagation
+
+One authoritative relation lives in live SummaryStorage:
+
+```text
+R = shared immutable precomputed B union dynamicRequests
+P = per-method temporary RequestStorage, writes only until commit
+```
+
+dynamicRequests is D in the proof notation R=B∪D; it is unrelated to the
+DEMAND layer. B is borrowed, never copied into dynamicRequests/P and never
+sent as an initial event wave.
+Use the same RequestStorage class for R and P. At method-queue-empty:
 
 ```kotlin
-fun run1Write(input: Edge, write: FieldWrite): List<Edge> {
-    val kept = if (mayOverwrite(write.destination, input.current))
-        demandNormalForm(input) else input
-    return listOf(kept) + valueEdgesFromPreStoreInput(input, write)
-        .map(::run1FactNormalForm)
+summaryStorage.commit(temporary)
+temporary = new RequestStorage()
+```
+
+Commit unions mark sets, inserts only `P minus R` into dynamicRequests and notifies exact
+caller-input subscribers of the fresh additions. Existing subscribers see
+new requests; a new subscriber reads the full admitted R, including B. Count
+pending requests/notifications before quiescence. No special index, additional
+callee input history or fixed pending-memory threshold is selected.
+
+`borrowMatchingRows(input)` borrows R rows for normal slots whose geometry
+matches the supplied input. It ignores field E and FLOW mx; answers still
+require actual marks. Run-1 inputs are simple, and broad field scopes can
+remain virtual. Direct class points use their separate lane, not a fake
+class request key. No request alone manufactures a concrete T.
+
+For each matched `(slot, marks)` and actual caller-input relation:
+
+```text
+actual TAINT/current concrete origin -> answer actual requested marks; do not climb
+FLOW with normal abstract origin    -> request those marks on ORIGINAL origin
+```
+
+An abstract origin remains eligible after its current conclusion becomes
+DEMAND. Its known tail is retained; layer demotion is not a reason to suppress request propagation.
+Concrete initials/current TAINT skip upstream request propagation. A creator
+that excludes T requests T immediately on its actual abstract origin; later
+request matching need not subtract mx again.
+
+Unchanged static interests already inherited in B need no duplicate upstream
+offer. Changed origins remain dynamic:
+
+```text
+A receives f; A: g=f; call B; B: ContainsMark(g,T)
+read f -> abstract f -> g FLOW -> B's g/T interest
+                           -> request T on A's ORIGINAL f
+actual f/T -> concrete replay -> actual g/T
+```
+
+B's check adds only g/T, never an abstract g field request. The original f
+read starts the abstract dependency even when R(f) was initially empty.
+Both input-first/request-later and request-first/input-later produce the
+same union through the existing retained caller-input subscriptions.
+
+## 5. Initial emission and ordinary callee input
+
+For a normal static slot, abstract and concrete gates are independent:
+
+```kotlin
+validateAgainstClosedDomain(input)
+for (slot in suppliedInterestedSlots(input, fieldReads, requests)) {
+    if (fieldReads.requests(slot)) emit(abstractStar(slot))
+    for (mark in actualMarks(input, slot).intersect(requests.marks(slot))) {
+        emit(projectExactOrStar(input, slot, mark))
+    }
+}
+emitActualDirectClassComponents(input) // separate existing projector
+```
+
+| F(slot) | R(slot,T) plus actual T | Result |
+| --- | --- | --- |
+| No | No | No normal field initial |
+| Yes | No | Abstract field initial |
+| No | Yes | Concrete-only answer |
+| Yes | Yes | Abstract plus concrete answer |
+
+Validate legality before gating, so lack of a request cannot hide an invalid
+coordinate. FLOW cannot invent T. A mark-only source or sink still receives
+actual requested concrete data without starting abstract field analysis.
+
+At a call keep the ordinary subscription and LinkIn path for the actual
+input, with its original layer, caller premise and context. Do not filter
+subscriptions or input delivery by F/B/R. The callee abstraction applies
+the gates above when it emits initial facts. A callee with no matching gate
+can emit no static initial and still answer the caller with its stored
+default summary. Normal summary results do not change the input independently
+supplied to the callee. Keep unlike marks/tails/layers separate.
+
+## 6. General run-1 exclusion rule and field writes
+
+**When a run-1 operation needs to restrict field geometry with an exclusion,
+move the affected edge to DEMAND instead, retain its current geometry and
+use Empty E.** Demotion changes only the edge layer. Retain base/path/tail,
+mark/mx and original premise. In particular, known `x.*` remains `x.*` at
+DEMAND; it does not become `[any]`. The field information is still available.
+This overrides old layer-driven W2/W8 conversions. Genuine field-information
+loss can still require ANY, independently of the edge's layer.
+
+For a logical field overwrite, “needs an exclusion” means the destination
+subtraction from OLD data, including complete removal. It is not a check
+for whether a new E object happened to be allocated. This preserves the
+previous selected weak-write behavior, including exact overwritten facts:
+
+| Old component; write | Run-1 old-preservation branch |
+| --- | --- |
+| x.* NORMAL; x.f=y | Same x geometry, DEMAND, Empty E |
+| exact x.f/T NORMAL; x.f=constant | Same x.f/T, DEMAND; do not silently kill or retain NORMAL |
+| exact x.g/T NORMAL; x.f=y, f≠g | Disjoint, keeps its layer |
+| exact ancestor x; x.f=y | Ancestor point unaffected |
+| already DEMAND | Remains DEMAND |
+
+```kotlin
+val kept = if (logicalFieldSubtractionChanges(old.current, destination))
+    demandNormalForm(old) else old
+val result = listOf(kept) + valueEdgesFromPreStore(old, rhs)
+    .map(::run1FactNormalForm)
+```
+
+All heap field stores use this policy: static/nonstatic, arrays, modeled and
+alias targets, field RemoveAll lowered as overwrite, and cleaner/rewriter
+field writeback. Whole-base local assignment is separate. Direct selected-
+mark cleaning is separate too: an exact mark kill can remain a kill; a
+subsequent field writeback still has its own weak old-preservation branch.
+
+New-value edges read the pre-store state and keep their own input/support
+layer. Self-assignment can therefore have a valid NORMAL value derivation
+and a separate DEMAND old-preservation derivation. A constant untainted RHS
+adds no value taint. Never promote a DEMAND derivation with an N default.
+
+Every F1 intermediate fact, queued input and summary payload has Empty field
+E. Partial cleaners can require E even after a legal AnyField source GEN:
+
+```text
+reference: normal x.p.[any-taint]/E{f}, T
+F1 cover:  demand x.p.[any-taint], Empty E, T
+```
+
+Clearing E while keeping NORMAL must is unsound: it would assert taint in
+the removed region. Keep exact exclusion-free outcomes, and use a DEMAND
+cover for E-requiring residuals with the same tail. Do not erase mx or skip its original-
+slot request. Choose this recipe before allocating E. Enforce it at every
+producer/queue/store seam, not just stores or final publication. Strong
+later phases keep their ordinary E and recipes; phase keys do not rename
+logical source/sink/action occurrences.
+
+## 7. Default statics use ordinary stored summaries
+
+After prescan construct one identity **edge** for each method:
+
+```text
+Default(M) = (S, [], STAR, Empty, *) -> (S, [], STAR, Empty, *)
+             edge layer = if W(M) then DEMAND else NORMAL
+```
+
+Use the same summary representation, insertion, deduplication, publication,
+subscription and application API as other summaries. There is no default tag
+used by the call handler, separate lookup lane, local continuation or bypass.
+The root pattern is an edge endpoint/premise key, not an emitted initial.
+The nine-family rule constrains admitted method initials, not summary patterns.
+
+The following code shows the required interface, not existing Kotlin names:
+
+```kotlin
+// Shared prescan result; constructing an edge does not start an analysis.
+val defaultStatic = SummaryEdge(
+    transfer = PathEdge.identity(STATIC, path = emptyList(), tail = STAR),
+    layer = if (staticMayWrite) DEMAND else NORMAL,
+)
+
+// Once when a reached run-1 method starts, use the ordinary publication path.
+publishSummary(defaultStatic)
+// Same path as every other summary:
+// retained summaries.add -> demand selection -> pending publication
+// -> SummaryStorage.publish -> current-read/notification -> ordinary applySummary
+```
+
+`publishSummary` must retain the row in the actor's RunSummaryStore as well
+as publish it to live SummaryStorage, just as normal summaries do. Current
+`summaryDelta` is the common entry for executed summaries. Generalize that
+entry to accept the edge form if needed; do not insert only into the live
+index or append defaults during handoff. The live index is released before
+handoff, while the retained actor store survives. Ordinary union/delta logic
+handles repeated equal rows. Initialize on the first counted method work
+after actor registration, before that method can become quiescent. Do not
+publish from the actor constructor: current scheduling requires registration
+before requesting work. An existing subscriber receives a fresh publication; a later subscriber reads the stored row. Neither order loses it.
+
+Use the ordinary call pipeline without an F1 static branch:
+
+```kotlin
+// Existing call path, also for static data during run-1.
+subscribe(callee, callRef, actualInput)
+link(callee, callRef, actualInput)
+// Existing summary handler, for defaults and computed summaries alike.
+for (summary in matchingSummaries(actualInput)) {
+    applySummary(actualInput, summary).forEach(::resumeCallPlan)
 }
 ```
 
-```text
-x.* NORMAL; x.f=y             -> retained x geometry DEMAND, Empty E
-x.g/T NORMAL; x.f=constant     -> disjoint g remains NORMAL
-C.f/T NORMAL; C.f=value/U      -> old T DEMAND, independent new U edge
-already DEMAND; another write -> remains DEMAND
-```
+Callee initialization may follow the first subscription; its normal queued
+publication then notifies that subscriber. Read/mark gates apply only inside
+the callee abstraction (§5). Prefix actions, returned rules, binding back,
+alias processing and cuts retain the ordinary call-plan order. Remove the
+old root/footprint-complement adapter where it would mask this ordinary
+application. Add no default-specific `identityCandidate`, return watcher or
+independent NORMAL continuation.
 
-Keep W2/W8 canonicalization: demand STAR/must becomes may ANY, with the
-actual path/mark/origin retained. Do not simply set weak=true: the current
-weak lowering keeps NORMAL and does not encode this new overwrite debt.
+### 7.1 Preserve the transfer until application
 
-Every intermediate run-1 fact has Empty field E, not merely store outputs.
-Partial cleaners and field RemoveAll/cleaner writeback can also create E.
-Keep exact exclusion-free results, but replace an E-requiring residual with
-an Empty-E DEMAND may cover. Clearing E on NORMAL must would be unsound.
-Mark exclusions and original-slot requests remain; no blanket mark erasure.
+An edge's transfer and its layer are separate. Apply STAR identity to the
+actual input and join the edge layer. Do not convert its known tail to ANY:
 
 ```text
-partial normal must/E{f} -> may ANY, DEMAND, Empty E
-partial FLOW STAR/E{f}   -> may ANY, DEMAND, Empty E
+C.f NORMAL + stored NORMAL identity -> C.f NORMAL
+C.f NORMAL + stored DEMAND identity -> C.f DEMAND
+C.f DEMAND + either identity        -> C.f DEMAND
 ```
 
-Use a phase recipe before allocating E, with checks on every queue/store/
-summary publication seam. Later strong recipes retain their ordinary field
-exclusions. Separate weak-F1 and strong-later cache payloads without changing
-logical rule/action occurrence IDs or the managed-reference mechanism.
+The complete AP payload is retained, including the actual field/class path,
+tail, mark and origin. Only the edge layer changes. No field or mark is
+invented. W=true because of unrelated g can conservatively demote f; it does not widen f to all S.
 
-## 6. Precomputed default static summaries
+This requires a generic representation/compilation check. At current source
+`Summary.kt` converts a DEMAND FLOW conclusion to an ANY transfer target
+before applying it. Encoding the default as a normalized root DEMAND Fact
+would therefore apply `S.* -> S.[any]`, losing the C.f suffix. That is a
+different edge. Keep STAR identity plus its separate edge-layer flag in the
+ordinary summary representation until application. Existing edge application
+accepts an independent `edgeDemand` flag, but its final normalizer also turns
+STAR into ANY on demotion. Remove that layer-driven conversion too. Keep
+ordinary ANY transfers when information is actually lost. This is shared
+summary/AP support, not a special run-1 call handler or a new default operator.
 
-After prescan compute a separate least effect closure:
+The F1 default can be available before a callee return. NORMAL certifies the
+write-closure classification only. It is not a strong normal-return witness;
+the general F1 guidance/candidate boundary still applies.
 
-```text
-StaticMayWrite[M] = localStaticMutationOrUnknown[M]
-                   OR any(StaticMayWrite[C], M calls C)
-Default[M] = S.* -> S.* [if StaticMayWrite[M] then DEMAND else NORMAL]
-```
+## 8. Ordinary demand selection and handoff
 
-Count all logical static effects: direct/model stores, possible static alias
-writes, Clean/RemoveAll, cleaner/returned-rewriter writeback and generated
-static mutations, including conservative unknown effects. Pure reads and
-identity bindings are not writes. This inventory never seeds field requests.
+No special handoff traversal is required. The DEMAND default is a stored
+summary and is selected exactly like every other DEMAND summary. It remains
+in the actor's retained selected collection after live storage is released.
 
-The default is a tagged shared schema available for every prescan method,
-even if no F1 actor, initial or execution summary exists. Summary lookup
-borrows it without enumerating fields or starting actors. It is not an
-InitialAp or an observed root-return summary.
+At source `2d3436187`:
+
+- [RunMethodAnalyzer.summaryDelta](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunMethodAnalyzer.kt) retains a delta, selects demand pieces and queues publication.
+- [Demand.selectDemand](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/Demand.kt) selects every DEMAND result.
+- [HandOff.kt](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/driver/HandOff.kt) iterates result.analyzers and actor.summaries.demandEdges().
+- [RunManager.kt](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunManager.kt) releases live stores but retains completed actors' summary stores.
 
 ```kotlin
-fun enterRun1Static(ctx: CallContext, stage: Callees, fact: PlanFact) {
-    for (target in stage.targetsIncludingUnknown()) {
-        val template = prescan.defaultStaticSummary(target)
-        val continued = applyIdentityToActualInput(template, fact)
-            .copy(identityCandidate = true)
-        enqueueContinuation(ctx, stage.to, continued)
-        for (needed in selectRequestedFieldAndClassData(target, fact)) {
-            subscribeExact(target, needed)
-            linkInput(target, needed)
-        }
+// Same traversal and projection for all selected summary edges.
+for (actor in result.analyzers) {
+    for (edge in actor.summaries.demandEdges()) {
+        handoff.add(actor.key, toBackwardDemandPatterns(edge))
     }
 }
 ```
 
-Instantiating the identity keeps the actual input geometry and original
-caller premise. Join layers before W2/W8 normalization: NORMAL C.f plus a
-DEMAND default gives DEMAND C.f; DEMAND plus NORMAL stays DEMAND. Never
-instantiate a generic root may result first and lose the actual field path.
+NORMAL defaults follow the same rules as other NORMAL F1 summaries. Under
+the selected guidance-only F1 boundary, any broader NORMAL guidance export
+is a general policy over retained summaries, not a default-specific iterator
+or appended metadata row. No `run1Guidance()` accessor that synthesizes
+defaults is needed.
 
-This lane replaces the old independent NORMAL static bypass. It is available
-without waiting for a callee return, including for a nonreturning target;
-NORMAL means no closed static-write contributor, not proof of return. Keep
-F1 defaults inside the unconfirmed/guidance-only boundary. Actual callee
-outputs still add results. Nonstatic call inputs keep their existing protocol.
+### 8.1 Trace with no static initial in the callee
 
-Place it across CALLEES after local prefix actions and before returned rules,
-bind-back, aliases and cuts. Keep identityCandidate explicit and preserve
-actual caller/context/premise correlation. Do not run a second unconditional
-continuation which could mask the demand default.
-
-Callee input gates stay separate from the write effect:
-
-```kotlin
-fun needsData(slot: StaticFieldSlot): Boolean =
-    fieldRequests.requests(slot) || staticMarkPlan.hasScopedInterest(slot)
-```
-
-Requested FLOW can reach the target even with an empty current R, allowing
-late original-slot request discovery. Preserve separate direct class-point
-delivery and actual broad-TAINT projection. Unneeded fields use only the
-default continuation and create no input group/LinkIn. All F1 selected facts
-have Empty field E; retain distinct marks, tails and layers.
-
-There is no propagated abstract S-root, root-driven field expansion, return
-watcher or pending static frame. Root-shaped default schema syntax is legal;
-it does not create a root initial, rule event or field-universe enumeration.
-
-## 7. Cleaner and mark-effect boundary
-
-Explicit cleaners retain their semantics inside an analyzed method and in the
-local CallPlan stages when their result is exclusion-free. An E-requiring
-partial residual uses the DEMAND may-cover rule in §5. The default continuation
-keeps old caller statics at the joined layer; possible static mutation forces
-DEMAND. A read-only nonreturning target can still have an N default under the
-selected F1 may control policy; this does not prove normal return.
-
-Narrow static mark collection spatially. The current selected-mark FLOW cleaner
-operates across base S and relies on unrelated concrete analyses for repair.
-A cleaner on f must not request T on unrelated g merely because both use S:
-
-```kotlin
-val (affected, untouched) = splitAtFirstStaticField(input, cleaner.scope)
-emit(untouched)
-applySelectedMarkClean(affected, cleaner, collectOriginalSlotRequest)
-```
-
-For packed input, retain different mx headers/layers in separate facts. Within
-an affected first-field cylinder, keep exact exclusion-free results and concrete
-replay; an E-requiring partial residual uses the DEMAND cover. Genuine broad cleaners keep
-their actual scope. A cleaner target alone adds mark interest, not a read request.
-
-Do not apply a target-scope disjoint shortcut to generic transfers. For
-`C.g -> C.f (* except T)`, applicability comes from SOURCE g: keep the copy,
-attach exclusions to its affected OUTPUT f, and request T on the ORIGINAL g
-origin. Knowing output f is disjoint from incoming g never permits dropping
-that transfer. Generated rewriters and every excluded-mark creator require the
-same source/output/origin distinction.
-
-For an unread field, no abstract initial is required just to preserve other
-marks through a caller's call: the default continuation covers them at its
-joined layer. A requested
-actual T can still start concrete-only analysis. True source/GEN output keeps
-its ZERO or actual input origin; no request or removed root creates a source.
-Do not infer a negative mark condition from missing lazy state.
-
-## 8. Strong run-2 and later static handling
-
-The user-selected boundary is:
-
-```text
-run-1 live state: no special abstract (S, ., *) propagation
-run-1 handoff:    tagged default N/D schemas retained as query guidance only
-later runs:      query-led strong stores and normal-return call semantics
-```
-
-Do not export ordinary synthetic root-execution summaries as if a root
-initial had been analyzed. Tagged default schemas are now explicitly allowed
-and must not be deleted by the old blanket root-pattern filter. Retain a
-shared default-plan view for the entire prescan graph, independently of
-executed analyzers. DEMAND defaults supply coarse static demand; NORMAL
-defaults remain available for actual queries into skipped read-only helpers.
-
-```kotlin
-val executed = rejectOrdinarySyntheticRootExecution(run1Snapshot)
-val handoff = HandOff.guidanceOnly(executed,
-    defaults = prescan.defaultStaticSummaries, includeNormalSingletons = true)
-// No executable F1 native/opposite records.
-```
-
-B2 intersects a default guide with the actual required field/class component
-before selecting its query initial. The wildcard guide itself must not be
-passed to flowForm as a root initial. The computed response can have a different
-source field or a nonstatic/ZERO outcome. The actual all-base query authorizes
-that response; the default is never its reverse executable answer.
-
-The new write rule demotes old f/T→f/T across `f=constant`; it fixes the old
-unannotated weak-store case. It does not prove every other F1 NORMAL result
-strong-valid: a no-write default can cross a nonreturning helper, and its
-outputs can later reach nonstatic endpoints. The current record has no
-semantic-phase provenance. Retain the all-F1 guidance-only boundary.
-
-Therefore **all run-1 publications are guidance only**, not executable native
-or opposite records. This is the safe selected phase boundary; it does not
-add a new cache or IR representation. Preserve coarse entry/exit hints and
-candidate seeds, including NORMAL singletons omitted by the current
-`demandEdges()` path. Reusable strong records begin with completed run-2.
-Diagnostic run-1 evidence cannot certify a later edge or normal return.
-
-This includes sink matches: retain NORMAL and DEMAND F1 matches as candidates
-and seed B2 from both. The existing demand-only seed extraction and stop
-checks cannot skip strong refinement merely because all F1 matches/edges are
-NORMAL. Keep rule/action occurrence IDs stable; semantic cache flavor must
-not rename the source or sink that a later seed refers to.
-Use `confirmed=false` report witnesses so the existing DEMAND candidate
-path can supply seeds. Keep the raw fact layers unchanged. Replace the
-`demandLayerEdges == 0` stop shortcut while such candidates need B2.
-
-### Actual queries recover missing S→S edges
-
-Consider `GEN f/T; call helper; check f/T`. Run-1 can skip a pure helper,
-so its summaries contain no f→f. Run-2 must nevertheless analyze its actual
-f/T output demand. Adding identity for every missing summary would be wrong
-for `helper { f=constant }` or a helper with no normal return.
-
-```kotlin
-fun queryLater(call: Call, actualRequirement: Facts) {
-    val q = subscriptions.register(call, actualRequirement, fullPremise)
-    callee.startStrongRestricted(q.requiredEntry, oldGuide.hintsFor(q))
-    callee.allowResponseFor(q) // guide absence vetoes neither start nor response
-    // Subscribe; only a proven normal-return response crosses the call.
+```java
+void main() {
+    C.f = sourceT();
+    helper();
+    sinkT(C.f);
+}
+void helper() {
+    C.g = constant; // g != f; no reads or mark checks
 }
 ```
 
-Apply this to all actual nested bindings, including static→local→argument→
-return→static paths. It is ordinary restricted analysis, not run-1 requests.
-Use existing N2/subscriptions and fact/summary deduplication where possible.
-Do not add a universal S-root seed. Do not apply F1 field-ownership or
-footprint-complement identity shortcuts to later strong queries. An unread
-field can still be overwritten; F is not a preservation mask.
+Prescan gives helper F=empty, B=empty and W=true. Its default is the ordinary
+DEMAND S identity. The g target creates no field-read request.
 
-### Strong relation within the selected AP semantics
-
-| Current-query callee behavior | Run-2 relation to infer in reverse |
+| Step | Ordinary action |
 | --- | --- |
-| Pure helper that returns | f/T←f/T |
-| `g=f`, f≠g | f/T←f/T and f/T←g/T; old g does not survive |
-| `f=untainted` | No f/T←old-f/T; disjoint fields survive |
-| Actual `source(T)` into f | ZERO←f/T, a source hit rather than S identity |
-| No modeled normal return | No normal-return static continuation |
+| ZERO reaches the call | Ordinary LinkIn(Reach) creates the helper actor |
+| Helper starts | Its default goes through normal retained-summary insertion and publication; no S.* initial is emitted |
+| Caller C.f/T reaches the call | Register the ordinary subscription and send the actual input |
+| Callee abstraction receives C.f/T | No F/B/R interest, so it emits no static field initial |
+| Summary matching | The stored S.* premise matches C.f/T |
+| Summary application | STAR identity retains C.f/T and the DEMAND edge layer demotes it |
+| Caller resumes | The normal call-plan stages receive C.f/T at DEMAND |
+| End of F1 | The helper's DEMAND default is already in demandEdges() |
+| Handoff | The existing actor loop projects it into B2 demand |
+| B2 | Strong g-write analysis retains unaffected f and reconstructs the required strong relation |
 
-The table writes `input preimage ← output requirement`. Forward run-3 uses
-the corresponding strong forward relation. Preserve full
-residual geometry: killing f retains both other classes and siblings in C,
-not just `S.* except C`. Exact class points are separate from field descendants.
-Ordinary E/mx and full-premise guards remain effective. Unknown queries stay
-pending; recursive analysis computes the least query/response fixed point.
-Strong summary reuse is optional acceleration, with ordinary AP read views;
-missing records fall back to current-query execution.
-Keep actual modeled-return evidence distinct from the synthetic virtual exits
-used for backward CFG reachability. A synthetic exit alone cannot authorize
-a strong return response, including ZERO/generated and ND outputs. Local
-source/sink work before a nonreturning exit remains valid on its own path.
+Whether publication or subscription happens first changes only how the same
+stored edge is delivered. Helper needs no executed f-summary. ZERO supplies
+its actor on reached call paths, and normal initialization supplies the
+stored default. No missing-actor example, hidden descriptor or additional
+global scan remains.
 
-The [static specification](../../spec/static-handling.md#6-strong-static-handling-on-run-2-and-later)
-pins admission, response, reversal, return and persistence behavior. The
-[proof dossier](../../spec/static-handling-proofs.md) gives constructive
-coverage, soundness and completeness arguments and the Lean/local scope.
+### 8.2 Later demand uses the ordinary restricted domain
 
-## 9. Proof obligations and validation
+The default becomes an ordinary broad static demand pattern. A later run
+may use an S-root FLOW initial under the existing restricted grammar; the
+ban on emitting S.* applies to **run-1**, not all later runs. A root demand
+can thus drive strong S->S reconstruction with full field exclusions.
+No field-specific default-query adapter is required by this change.
 
-Update the normative AP/interpreter/core/request specs and reference model
-before runtime work. The current F75/F78 proofs do not certify these changes.
+Keep the selected general current-query fallback and full-premise response
+rules for work absent from F1 guidance, including mixed static/local calls.
+Keep concrete current requirements and concrete guides additive: an abstract
+FLOW query alone cannot cross concrete mark/GEN gates. For `f=source(U)`,
+an actual backward f/U query must still reach the concrete-U source/ZERO
+branch. Defaults authorize analysis; only strong computation proves the
+response. `g=f` may answer a g requirement from f, a constant overwrite kills
+the old-f preimage, and a nonreturning helper yields no strong normal-return
+identity. These are ordinary later strong semantics.
 
-| Obligation | Required checks |
-| --- | --- |
-| Read/mark separation | Only actual value reads seed F; effective source/sink ContainsMark checks seed only mark interests; no alias/write/cleaner target seeds; transitive cycles and genuine broad scopes covered |
-| Legality separation | Keep write/alias/model producer coordinates in the accepted domain without turning them into field requests |
-| Two emission gates | All four field/mark cases; actual supplier required; mark-only cleaner case; no invented mark or ANY/empty-static-root initial |
-| Discovery coverage | Empty R(f), f-to-g copy, downstream g/T, nonstatic/static crossings and both request/input orders still work |
-| Weak stores and Empty E | All field stores retain affected old data at DEMAND; pre-store values independent; every F1 producer is E-free; partial must residuals weaken safely; later caches separated |
-| Default static templates | Least semantic write closure; N/D default for every method without an actor; actual geometry plus layer OR; one continuation; post-prefix and return-stage order |
-| Target delivery | Unrequested fields create no input groups/LinkIn; frozen domain covers late marks; full caller/premise/layer correlation retained |
-| Root removal | No special abstract root initial/queue item/subscription; no root field expansion or root-return data route |
-| Spatial mark effects | Disjoint/mixed fields, source-to-target excluded-mark copies, within-field exact/below, class points and ZERO generation |
-| Iteration handoff | Tagged N/D defaults retained symbolically over all prescan methods; actual B2 query initials; no executable F1 records; normal singleton guidance retained |
-| Later S→S | Actual-query start and response independent of F1 inventory/summary availability; strong keep/copy/kill/source; complete nested bindings; modeled return; residual E and exact converse |
-| Observables | Preserve real source-to-sink derivations and main finding recall; quantify any added run-1 FP and later refinement |
+## 9. Strong refinement and reporting boundary
 
-Use finite-derivation induction and fair monotone replay for cycles. Count every
-queued bypass, input, request and summary delivery before quiescence. Source
-and sink NNF, signed conditions, ND proof support and action order remain intact.
+F1 demand survivors, default summaries and other F1 publications are later
+analysis guidance, not native/opposite executable records. The selected F1
+may control path can cross a nonreturning read-only target even with an N
+default. Thus N alone is not a strong return certificate. Preserve candidate
+sink/source/action occurrences and full premise support across handoff.
 
-Important tests include:
+All F1 sink matches are unconfirmed regardless of raw layer. The existing
+unconfirmed report path can produce candidate seeds without changing raw
+fact layers. Do not stop before required B2 refinement merely because the
+old DEMAND-edge count is zero. Cancellation/OOM is not a complete handoff.
 
-```text
-C.g = C.f; call(check g/T)       // f read request, not a write-seeded g request
-C.f = constant                 // no field request from the target; weak update
-old f/T; f = value/U            // retain T and add U on run-1 only
-clean f/T; f = untainted        // do not resurrect cleaned T locally
-call(no return); read C.f       // static bypass on run-1; ordinary later behavior
-call writes f; caller reads f   // retain old f on run-1; handoff precision audit
-exact class-point T            // no manufactured field or root initial
-late mark after earlier FLOW   // retain requested input for replay
-```
+B2 executes strong stores/cleaners, ordinary E and actual return semantics;
+F3/later forward runs use the corresponding strong relation. A current query
+authorizes both start and computed response. Old guide absence or F1 read
+ownership cannot veto it. Unknown means pending, not empty or identity.
+Recursion uses fair monotone query/response closure with finite return
+witnesses. Synthetic virtual exits alone do not prove return. Only later
+strong publications from complete runs become reusable records under the
+existing full-premise, limit, demand and may/must read-view contracts.
 
-## 10. Implementation order and measurement gates
+## 10. Proofs, implementation order and validation
 
-1. Use the new static specification and proofs to pin the read/mark split,
-   weak run-1 behavior and strong later query/record boundary. Keep checked
-   local laws distinct from Kotlin refinement and complete-engine proofs.
-2. Separate metadata value-read needs from legality, mark interests and
-   write/alias effects. Keep the existing shared request storage and barriers.
-3. Add phase-safe DEMAND weak field stores and all-producer Empty-E rules.
-   Remove root propagation; install N/D defaults and actual-input application
-   with request-gated callee delivery.
-4. Add scoped cleaner/mark changes, guidance-only F1 export, all-base later
-   query admission/response and strong record separation as one coherent
-   implementation; do not enable partial semantics.
-5. Run core/JVM/application checks, OWASP and the selected real projects with
-   their fixed configurations. Use fresh main for finding comparison and the
-   source-bound current runtime for the performance control.
+The constructive laws are: separate least F/B/W closures; nine-family and
+actual-supplier gates; merged request union and both arrival orders; original
+slot routing across field/layer changes; weak-write may coverage and Empty E;
+layer monotonicity and default locality; and strong-query/preimage completeness.
 
-Record separate field, mark and data counters:
+The corrected handoff bridge has a direct proof: root ZERO starts the root
+actor; local ZERO preservation and each actually reached resolved call send
+Reach to its target; fair handling admits the target ZERO actor. By induction
+on reached call paths, every needed F1 callee is in the completed actor set.
+Its normal initialization stores/publishes the default independently of static
+initials. DEMAND selection places it in the same retained collection as other
+DEMAND edges. The ordinary actor iterator therefore exports the default.
+No global method scan is a premise. Strong actual-query fallback handles
+work not represented by an earlier reached call.
 
-```text
-field requests: local READ / CONDITION, closed explicit/class/root scopes
-field initials: attempted / fresh / rejected by field request
-special abstract static-root initials and propagations: must be zero
-static mark requests: frozen logical / offered / fresh D / outgoing batches
-static calls: NORMAL defaults / DEMAND defaults / requested deliveries / skipped fields
-run-1 field facts, summary payloads and queued inputs with nonempty E: zero
-method rows / occupied buckets / N2 groups / index nodes by origin/current base
-propagated root initials and ordinary synthetic root-execution summaries: zero
-shared default templates: NORMAL / DEMAND / missing (missing must be zero)
-B2 actual-geometry queries from defaults / unintended wildcard-root starts
-executable F1 native/opposite records after handoff: must be zero
-later actual queries / missing-guide starts / delivered strong responses
-```
+Checked local models remain [Run1Requests](../../spec/lean/ApSpec/Run1Requests.lean),
+[Run1PrecomputedRequests](../../spec/lean/ApSpec/Run1PrecomputedRequests.lean),
+[RequestGatedStatics](../../spec/lean/ApSpec/RequestGatedStatics.lean) and
+[Run1WeakFieldWrites](../../spec/lean/ApSpec/Run1WeakFieldWrites.lean), with the
+shared request protocol module. The earlier [receipt](../reports/bidirectional-run1-field-writes-proof-validation-20261016.md)
+checks their prior definitions, including historical demotion-to-ANY laws.
+[Run1DefaultSummaryApplication](../../spec/lean/ApSpec/Run1DefaultSummaryApplication.lean)
+separately proves ordinary identity geometry with independent layer composition,
+exact tail preservation and the historical root-ANY counterexample. Its
+[validation receipt](../reports/bidirectional-ordinary-static-summary-proof-validation-20261016.md)
+records the new checks. The actor/publication explanation is
+a source-bound design proof, not a checked Kotlin/driver simulation or a full
+composition proof of the local models. Earlier receipts retain their scope.
 
-Compare processed steps, new analyses, deliveries, subscriptions and retained
-bytes. Report latest reached, completed and accepted iteration. The target is
-**run-1 engine time within 60 seconds**; prescan, metadata, heap capture and
-report time remain separate. Do not claim exact old-report parity or that
-later strong passes necessarily remove every weak run-1 false positive.
+Implementation order:
 
-IR storage, new reference managers/identity caches, generic scheduling and a
-global taint pool are outside this proposal. Analyzer implementation is unchanged.
+1. Build shared read/mark/effect plans without changing legal producer coordinates.
+2. Apply supplier gates and request B/D/P/arrival semantics; keep request propagation eligible after FLOW demotion.
+3. Add run-1 exclusion-to-DEMAND recipes at every producer seam and retain independent pre-store values.
+4. Preserve transfer plus edge layer in ordinary summary storage/application without layer-driven tail conversion; publish the N/D default through the same retained/live path as other summaries.
+5. Keep ordinary call delivery, subscription, application, demand selection and handoff; remove old root/footprint shortcuts and retain the general candidate/record boundary.
+6. Verify packed/model/alias/scheduler/ND/seed bridges, then run fixed OWASP and real-project configurations.
+
+Count field/mark gates, fresh requests/batches, N/D default applications,
+zero nonempty-E F1 payloads, zero propagated abstract roots, default summary
+rows and notifications per actor, run-1 versus later root initials,
+new analyses/input groups and retained bytes. Report reached, completed and
+accepted iteration on every measurement. IR storage and new cache/reference
+managers remain out of scope. Analyzer implementation is unchanged.

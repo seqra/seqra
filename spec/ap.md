@@ -3,13 +3,15 @@
 The [run-1 field-write contract](run1-field-writes.md) has precedence for
 all run-1 field writes, Empty-E producers and default static summaries.
 Affected old data is weakly retained at DEMAND; every run-1 intermediate
-field exclusion is Empty. Tagged default static templates use the closed
-StaticMayWrite bit and do not propagate a root. Later strong E semantics
-remain. [New proofs](run1-field-write-proofs.md) state the exact scope.
+field exclusion is Empty. Default static identities use ordinary summary
+storage/application and the closed StaticMayWrite bit; no root initial is
+emitted in F1. Demotion changes only the edge layer, preserving the complete
+AP and tail. It overrides older W2/W8 layer-driven conversions to ANY below.
+Later strong E semantics remain. [New proofs](run1-field-write-proofs.md) state the exact scope.
 
 The selected [static-handling contract](static-handling.md) takes precedence
 over the static rules below: separate value-read/mark gates, nine run-1
-initial families, weak run-1 stores and root-free call bypass, guidance-only
+initial families, weak run-1 stores and ordinary stored defaults, guidance-only
 run-1 export, and actual-query strong run-2/later analysis. It is a design
 target; runtime is unchanged. [Static proofs](static-handling-proofs.md)
 state the new laws and the local checked scope. Historical root/frame
@@ -246,11 +248,11 @@ are not the zero fact (§4.6).
   Only these AP operations put a propagation edge in the demand layer:
   * in selected run 1, affected old preservation across any static/nonstatic
     field write, an exclusion-requiring residual's may cover, and application
-    of a DEMAND default static template ([phase contract](run1-field-writes.md));
+    of an ordinary DEMAND default static summary ([phase contract](run1-field-writes.md));
   * the start fact of an initial fact with the `[any]` tail (historical/restricted initials), or with the `*` tail and a concrete mark (§6.5). F78 run 1 uses only the latter nonexact initial. An
     `[any-taint]` start fact (a must-premise, forward restricted runs only) is normal;
   * the case `above` of §4.1 for a fact that is not `[any-taint]`;
-  * an `[any]` result (W6: a may), and the normal form W2 of a `*` result (§4.1 step 6);
+  * an `[any]` result (W6: a may), and the concrete-STAR payload projector (§4.1 step 6);
   * in the backward run, every result of the reversal of a micro edge whose forward target is `[any]` (a pass rule
     with an `AnyField` target, a may), also a `$` result (§9.1);
   * the cut of the field limit (§4.4);
@@ -265,7 +267,8 @@ are not the zero fact (§4.6).
 
   A demand-layer input gives a demand-layer result. The layer of an edge never goes back to normal
   (`Invariant.applyEdge_demand_monotone` and the related lemmas). On an `[any-taint]` fact only these operations give
-  a demand-layer result, which W8 (b) names `[any]`, with no exclusion (THE DEMOTIONS; the other lists of this spec
+  a demand-layer result. A layer-only change retains its known tail and E; an
+  actual information-losing transfer has its own shape rule (THE DEMOTIONS; the other lists of this spec
   refer to this one): the field-limit cut (§4.4); a cleaner `part` row of §4.7 other than the `atAndBelow` and `below`
   rows one accessor below the fact (so the `exact` cleaner at the path of the fact or one accessor below it, and every
   cleaner two or more accessors below it); a may target (an `[any]` target of a pass rule, W6); a demand input (a
@@ -283,20 +286,22 @@ with `star`, `conc t`, `starEx x`) and `AFact` (a conclusion plus `demand : Bool
 
 Selected run-1 specialization: **all field E is Empty**, on every intermediate
 fact and both summary payloads, including source-generated must facts.
-An E-requiring residual demotes and uses a may cover. W2/W8 remain in force:
-DEMAND STAR/must becomes ANY, not a new legal DEMAND/STAR representation.
-The nonempty-E rules below apply to later strong runs and historical models.
+An E-requiring residual takes an explicit DEMAND cover. Layer demotion itself
+preserves the full AP payload, including STAR or ANY_TAINT; it does not create
+ANY. The older demand-driven normalizers below and their Lean theorems describe
+the prior contract. They do not prove the selected layer-only rule. Later
+strong field operations retain their ordinary exclusions.
 
 | Rule | Text |
 |---|---|
 | W1 | An edge with no `*` side has the Empty exclusion. |
-| W2 | A conclusion with the `*` tail has the mark `*` or `*∖X` and is in the normal layer. A premise may have the `*` tail with a concrete mark (a request answer in run 1; before F72 also, in a restricted run, the meet of an added fact with a `*/E` entry pattern, which F72 replaces by the FLOW form, §6.3). |
+| W2 | A conclusion with the `*` tail has the mark `*` or `*∖X`. The layer is independent: moving a known STAR edge to DEMAND retains STAR. A premise may have the `*` tail with a concrete mark (a request answer in run 1; before F72 also, in a restricted run, the meet of an added fact with a `*/E` entry pattern, which F72 replaces by the FLOW form, §6.3). |
 | W3 | In a run with the field limit `L`, every result of an operation has at most `L` counted accessors (§4.4). This claim needs nondecreasing limits (§6.6), bounded seeds, and binding-in edges that do not increase the counted path depth. The interpreter bindings into a callee meet this condition (`interpreter.md` §3.1). Then an added fact, a premise emitted from a demand chain (§6.3), and a fact on an untouched base stay in the bound. A generic micro edge (§4.2) has no bound; nondecreasing limits alone do not bound a path-growing binding (`ReviewDemand.binding_in_needs_non_growth_condition`). W3 as a whole is argued, not proved (§11.2). |
 | W4 | `[any]` and `[any-taint]` are tails only. A path has no inner `[any]` or `[any-taint]`. |
 | W5 | Marks are not accessors. `TaintMarkAccessor`, `FinalAccessor` and `AnyAccessor` do not occur in a path. `TypeInfoAccessor`, `TypeInfoGroupAccessor` and `ValueAccessor` do not occur either: the type-info accessors serve only the lambda analysis of the prescan, and no statement and no rule makes a value accessor. |
 | W6 | A conclusion with the `[any]` tail is in the demand layer. |
 | W7 | Only a conclusion has a mark exclusion. An edge whose premise set has two or more members (an ND edge, §4.6) has no `*` tail. |
-| W8 | THE `[any-taint]` RULE. (a) `[any-taint]` has a concrete mark only (never `*` or `*∖X`). It is a TAINT conclusion (§7.2). It can carry an EXCLUSION `E` of first accessors (`[any-taint]/E`, §1). Only a normal `[any-taint]` conclusion and a must-premise have one; an `[any]` fact, a `$` fact and every demand-layer fact have the Empty exclusion (Lean: `AnyTaintEx.carriesB`, `normX`). (b) THE NORMAL FORM: a conclusion with the `[any-taint]` tail is in the normal layer. A demand-layer result with the `[any-taint]` tail becomes `[any]`, with the same path and mark and with the Empty exclusion (a normal form, as W2; §4.1 step 6). So in a forward run the layer gives the any tail of a conclusion: `[any-taint]` in the normal layer, `[any]` in the demand layer (§7.2). (c) An `[any-taint]` PREMISE (a must-premise) occurs only in a forward restricted run, never in run 1 (§6.5). (d) `[any-taint]` is a FORWARD tail. The backward run has no fact, premise, edge or demand pattern with the `[any-taint]` tail: its seeds and its reversed `[any]` literals give `[any]` (§9.1, §9.2), and the hand-off reads a forward `[any-taint]/E` conclusion as the pattern `[any]` (§9.2). A normal edge with the `[any-taint]` tail is complete (§1). |
+| W8 | THE `[any-taint]` RULE. (a) `[any-taint]` has a concrete mark only (never `*` or `*∖X`). It is a TAINT conclusion (§7.2). It can carry an EXCLUSION `E` of first accessors (`[any-taint]/E`, §1). A conclusion or must-premise can retain its spatial exclusion independently of layer; all run-1 exclusions are Empty by the phase contract. `[any]` and `$` have Empty E. The earlier `AnyTaintEx.carriesB`/`normX` laws describe the older layer-coupled representation. (b) LAYER INDEPENDENCE: a DEMAND edge can retain an `[any-taint]` conclusion. Demotion alone changes neither tail nor E. A transfer which actually loses information can produce `[any]`; an explicit run-1 E-free cover can forget E. Neither is inferred merely from DEMAND. (c) An `[any-taint]` PREMISE (a must-premise) occurs only in a forward restricted run, never in run 1 (§6.5). (d) `[any-taint]` is a FORWARD tail. The backward run has no fact, premise, edge or demand pattern with the `[any-taint]` tail: its seeds and its reversed `[any]` literals give `[any]` (§9.1, §9.2), and the hand-off reads a forward `[any-taint]/E` conclusion as the pattern `[any]` (§9.2). A normal edge with the `[any-taint]` tail is complete (§1). |
 
 W2 holds for every derived fact, in run 1 without the static rule and the conjunctions (the closure `D`:
 `Invariant.final_star_legal`) and in every forward restricted run (`RExact.final_star_legalR`). For run 1 with the
@@ -767,21 +772,23 @@ exclusions preserve the prior creator/request route through the corresponding ca
 marks still use the table above; ignoring exclusions for request propagation does not pass a cleaned mark.
 The old `markComp` fact-result lemma does not prove this new request side effect.
 
-Step 6 — layer and normal form. The result is in the demand layer if `c` is, if the applied edge is (a summary edge,
-§4.3), or if step 3 says so. Then:
+Step 6 — compose layers independently of the AP payload. Join the input,
+applied summary edge and any layer required by the geometric transfer in
+step 3. A DEMAND layer alone does not convert STAR or ANY_TAINT to ANY or
+remove an exclusion. Preserve the tail and geometry computed by the transfer.
 
-* W6: a result with the `[any]` tail is in the demand layer. Every result of a may `[any]` target has the `[any]`
-  tail (step 3).
-* W8: a result with the `[any-taint]` tail in the demand layer becomes `[any]`, with the same path and mark and the
-  Empty exclusion. A result with the `[any-taint]` tail in the normal layer stays `[any-taint]`, with its exclusion.
-* W2: a result with the `*` tail and (a concrete mark, or the demand layer) becomes uncorrelated: `[any]` with the
-  Empty exclusion, in the demand layer.
+* An actual ANY target still gives ANY at DEMAND (W6).
+* A STAR target preserves the matched suffix, including when the edge is DEMAND.
+* A concrete mark with STAR still needs the existing concrete-payload projector;
+  this is distinct from a layer-only demotion.
+* Field cuts, uncorrelated above-case operations and explicit covers can lose
+  information by their own transfer rules, not merely because of their layer.
 
-The step only enlarges the fact (`CoreAux.norm_sound`, `Invariant.demand_of_any_ok`); W8 changes the name of the
-tail and drops the exclusion, so it only enlarges the location set (§3.1). The step does not apply the field limit
-(§4.4). Lean: W6 and W8 together are the rule W6T (`AnyTaint.w6t`, `transferT`; with the exclusion `AnyTaintEx.w6tX`,
-`transferX` and the normal form `normX`): the model keeps the kind `.any` and raises only the layer of a may result
-(§11.2).
+The old `norm`, `normX`, `CoreAux.norm_sound` and W6T receipts certify the
+historical layer-coupled normalizer. The selected separate-layer identity
+law is in [Run1DefaultSummaryApplication](lean/ApSpec/Run1DefaultSummaryApplication.lean).
+General packed AP refinement remains required. The field limit is a separate
+operation (§4.4).
 
 Theorem `Core.applyEdge_sound` (THE CORE LEMMA): `concat` covers the composition of the fact relation and the edge
 relation, or raises the request for the premise mark. This holds in both cases: at or below the premise, and above it.
@@ -1003,6 +1010,13 @@ locations that are not at or below `a.f.g`, `locations_exact`; a write in one st
 `AnyTaintCases.G.t3_eJ1`).
 
 ### 4.3 Apply a summary edge
+
+Default S.* identity edges are stored and applied through this same operation.
+Their edge layer is independent of the STAR transfer. The selected law is
+`applyIdentity((payload,L),D) = (payload,L OR D)`, with exact payload equality.
+Do not normalize a DEMAND default's symbolic root into an ANY target. No
+S.* initial is emitted in F1 to obtain the stored edge. See the
+[complete contract](run1-field-writes.md#6-ordinary-default-static-summaries).
 
 `applySummary(a, j, g) = concat(a, j → g, edgeDemand = the layer of the summary edge)` (§4.1; Lean: `applySummary`).
 The input `a` is the ADDED FACT of a link (§1), in callee coordinates; the result has the layer of `a` on that link

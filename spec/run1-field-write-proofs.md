@@ -18,8 +18,8 @@ strong recipes are distinct from exclusions in admitted run-1 facts.
 
 The strong reference uses the existing logical field-write, cleaner, binding,
 source and full-premise semantics. Run-1 uses weak field writes with DEMAND
-old preservation, exclusion-free partial-result covers and tagged static
-default continuations. Later runs use the strong reference. Compare these
+old preservation, exclusion-free partial-result covers and ordinary stored
+static defaults. Layer demotion retains the complete AP payload and tail. Later runs use the strong reference. Compare these
 models through **positive may coverage**, not equality of their findings.
 
 Three properties must not be confused:
@@ -82,48 +82,44 @@ weak-store proof. A direct mark-clean stage is separate: it can remove T
 from a temporary exactly, while the subsequent field write still preserves
 the old destination only as demand. A whole-base kill is also separate.
 
-## 3. Layer monotonicity and canonical demotion
+## 3. Layer monotonicity without AP information loss
 
 Layers are Booleans with false=N and true=D. OR is associative, commutative,
-idempotent and has N as identity. Case analysis proves:
+idempotent and has N as identity. Define `moveToDemand(e)` by changing only
+the edge layer. For every payload p:
 
 ```text
-old ≤ old OR overwrite
-input ≤ input OR default
-D OR anything = D
+moveToDemand((p,N)) = (p,D)
+moveToDemand((p,D)) = (p,D)
+applyIdentity((p,inputLayer), edgeLayer) = (p,inputLayer OR edgeLayer)
 ```
 
-Thus a read-only NORMAL default cannot turn an existing demand edge normal.
-A later value edge with the same payload has a separate derivation; it is
-not a promotion of the retained old edge. Storage/joins must preserve the
-demand obligation even when an independent normal alternative also exists.
+These equations construct the result and prove exact payload equality,
+idempotence and layer monotonicity. Base/path/tail/marks/E/mx and the
+originating premise do not change. In particular, known STAR stays STAR.
+A DEMAND input cannot become NORMAL under a NORMAL default. Independent
+value/source derivations remain separate alternatives, not promotions.
 
-W2/W8 normalization is part of the map: demand STAR becomes may ANY, and
-demand must ANY_TAINT becomes may ANY. Demand EXACT remains EXACT. This
-weakens correlation/guarantees and retains the actual path, mark exclusions,
-base and originating premise. It never silently leaves a scalar STAR or
-ANY_TAINT conclusion in the DEMAND layer. At the semantic component level
-the location path remains the original path; syntactic tail equality is
-not the claimed precision result.
-
-The map is idempotent: once demand/canonical, another demotion changes
-nothing. It changes no source/rule occurrence ID and invents no concrete
-mark. Concrete suppliers and original-slot requests retain their existing
-separate proof obligations.
+The old W2/W8 demand-driven STAR/must-to-ANY map is superseded for this
+operation. Its earlier checked laws describe a different, coarser map; they
+do not prove the new tail-preservation law. ANY remains available when an
+actual transfer loses information. Demand projection into a query pattern
+is also separate from executable edge demotion.
 
 ## 4. Empty-E covers and the must counterexample
 
 For a legal result r with nonempty E, let `Cover1(r)` retain its actual
-base/path/mark/origin, move it to DEMAND, weaken STAR/must as above and use
-Empty E. If E is already empty, keep the ordinary canonical result.
+base/path/tail/mark/origin, move it to DEMAND and use Empty E. This is an
+explicit exclusion-free cover. If E is already empty, layer demotion itself
+changes none of the payload.
 Every location admitted by r's exclusion is still admitted by the cover;
 the latter may admit additional possible locations. Those additions carry
 no NORMAL correlation or must guarantee. This proves positive may coverage.
 
 For must results, compare potential taint and guarantees separately. All
 actually retained marked locations remain possible in the cover. No claim
-that *every* location is marked remains. This is essential, not a cosmetic
-layer change.
+that *every* location is marked remains. The DEMAND result is provisional; its retained tail is not a new NORMAL
+strong certificate. Clearing E and changing the layer are separate operations.
 
 Executable counterexample domain: locations f and g, T true only at g.
 `must / {f}` is satisfied. Replacing it with `must / Empty` at NORMAL would
@@ -205,83 +201,78 @@ No-write classification does not imply return: a pure recursive loop has
 no write witness and no finite normal-return derivation. Thus the closure
 proves the default's chosen layer, not a later executable return identity.
 
-## 7. Default templates, locality and availability
+## 7. Ordinary default storage and application
 
-Define the total frozen function `Default(M)=IdentityS at layer W(M)`.
-Since the prescan plan covers each resolved method, lookup constructs this
-descriptor even when the executed analyzer/initial/summary sets are empty.
-Actor existence is not a hypothesis. Shared lookup causes no field expansion,
-initial insertion or startup propagation event.
+Prescan defines `Default(M)` as ordinary STAR identity on S with edge layer
+W(M). On reached method initialization insert it through the same retained
+summary, demand-selection, publication and notification path as any summary.
+No root initial or root method fact is created. The summary premise pattern
+and the admitted initial grammar have separate purposes.
 
-For actual a with base S, instantiate the identity at a, then join layers
-and canonicalize. Before normal-form weakening this is pointwise identity
-on the supplied coordinates. After normalization its base/path/mark/origin
-are unchanged; the only tail weakening is required by demand. Therefore
-a field C.f never becomes unrelated C.g or a fabricated root input.
-For W=false the input layer is retained. For W=true the result is demand.
-For an already demand input both cases remain demand. These are exhaustive
-Boolean cases, including the user's normal C.f plus demand-default example.
+Let the actual static input be `(payload, L)`. Identity retains payload and
+ordinary layer composition gives `L OR W(M)`. Exhausting the four Boolean
+pairs proves the exact layer table; identity proves exact base/path/tail/
+mark/E/mx equality. Unrelated writes can demote f but cannot change f into g
+or erase its known tail. Neither input-first nor publication-first requires
+a special call branch: ordinary stored replay covers the latter, ordinary
+subscriber notification covers the former. Input delivery keeps its actual
+payload/layer; gates inside abstraction determine initial emission only.
 
-The write bit can be true due to unrelated g, so layer precision is
-conservative. Geometry remains local to the supplied component. Applying a
-generic root may relation first would not be an equivalent implementation:
-its cross-location pairs can lose that input-field correlation.
+The constructor must store the **identity transfer** plus its edge layer.
+Normalizing its root conclusion to ANY before application would instead
+create a cross-location relation. Similarly, applying the old final
+normalizer after joining DEMAND would unnecessarily turn an actual STAR
+into ANY. Both are excluded by the selected layer-only contract. This
+requires a generic summary/AP representation refinement in Kotlin; it is
+not proved by reusing the old Facts-backed summary adapter unchanged.
+Existing genuine ANY transfers must keep their distinct meaning.
 
-At calls replace the old independent static bypass with this one lane;
-otherwise the old NORMAL bypass could coexist with the demoted default and
-hide the intended refinement debt. Prefix actions execute first; exact local
-kills do not reappear from a pre-prefix saved fact. Post-call stages keep
-their order and canonicalization. Exact caller premise/context and the
-identity classification remain attached; no actual normal return is asserted.
-Requested callee data is selected from the pre-default input, so the default
-does not demote independent value computations. Their own inputs/transfers,
-including any real overlapping write, determine their layer.
+Retained summary patterns can have root endpoints. Only root initial
+emission/processing is forbidden in F1. Do not filter default rows by a
+blanket root-pattern ban and do not add a default-specific bypass.
 
-Ordinary root-execution artifacts stay forbidden. Tagged root-shaped default
-descriptors are now allowed and must survive guide lookup. The former blanket
-root-identity export prohibition cannot be used to delete them.
+## 8. Ordinary demand handoff and strong reconstruction
 
-## 8. Demand handoff and strong reconstruction
+A DEMAND default is selected by the ordinary DEMAND selector and retained
+with other selected summaries. After live SummaryStorage is released,
+ordinary actor.summaries.demandEdges() still contains it. The existing actor
+traversal therefore exports it without synthesizing a descriptor, adding a
+second iterator or scanning the prescan graph. NORMAL defaults follow the
+same general guidance policy as other NORMAL F1 summaries.
 
-Handoff contains two sources of guidance: executed publications, including
-the new DEMAND write-survival edges, and the total frozen default view.
-The latter is independent of `result.analyzers`. Both default layers remain
-available as coarse guidance. Dropping the NORMAL descriptors would lose a
-write-free helper's only inherited guide when F1 never analyzed its statics.
+Actor coverage follows from ZERO: roots admit zero, local/entry/binding
+operations preserve it, and each actually reached resolved call sends Reach
+to its callee. Fair handling admits that callee's zero actor. Normal actor
+initialization publishes its default before that method can become quiescent.
+Induct on the finite reached call path in a completed F1. Static initials are
+not a premise. This source-bound bridge is not a checked runner theorem.
+The [unified pipeline trace](../docs/design/bidirectional-request-gated-static-handling-20261016.md#8-ordinary-demand-selection-and-handoff)
+shows a helper writing g, receiving caller f/T, emitting no static initial,
+and answering with its ordinary stored DEMAND identity.
 
-For actual static output requirement q in B2, intersect the symbolic default
-scope with q. Because q already has base S, the identity-scope intersection
-is q's own geometry. Normalize a query initial from that **actual requirement**,
-not from the root wildcard guide. A general old `flowForm(rootGuide)` is not
-this construction and can create unwanted root work. No guide invents T;
-actual concrete demands/suppliers retain their real mark.
+Handoff demand projection is not identity execution. It can produce a broad
+static query pattern under the ordinary restricted grammar. Later strong
+analysis may start S-root FLOW from that demand; only run-1 forbids root
+initial emission. No actual-field adapter is required specifically for a
+default. The strong computation must reconstruct preservation, kills and
+copies with ordinary field E rather than execute the weak default as proof.
 
-The current query authorizes start and computed response. The template is
-not an executable identity or reversed F1 certificate. Its broad response
-scope must permit a strong copy from f to answer a g requirement, and permit
-source-hit/ZERO and mixed nonstatic responses under their real support.
-Ordinary strong query matching/return guards then validate those answers.
-All-base current-query fallback remains for nested local/argument/return
-paths, including complete ND premises; static descriptors alone cannot
-prove that mixed coverage.
+Keep concrete current requirements and concrete guides additive. For
+`f=source(U)` and actual B2 f/U, FLOW alone cannot cross the reversed concrete-U
+gate. The existing general current-query fallback or a concrete guide must
+admit that branch. All-base fallback also covers mixed local/argument/return
+paths and full ND support. This is the general later-query contract, not a
+new default handler. Actual computed source f can answer an output g query.
 
-For strong-query soundness, induct on an answer derivation: only real strong
-primitive, supported rule, composition and modeled-return constructors can
-publish executable answers. A default lookup merely registers/advises work,
-so it adds no counterexample edge. Strong overwrite removes the old field;
-copy supplies its source; generation supplies ZERO; absent return yields
-no normal-return summary. Reuse the checked strong-body/converse laws from
-the prior module within their stated scalar scope.
-
-For completeness, take a finite balanced strong derivation required by an
-actual B2 query. Its static call is admitted by total default lookup plus
-actual specialization, even with no F1 actor/input. Its mixed calls use the
-all-base query rule. Induct on the finite callee derivation; its actual
-responses are not rejected by old F1 ownership or missing guide rows. Fair
-notification resumes the caller. Finite recursive returns are included;
-an unsupported cycle cannot manufacture an answer. The prior generic-state
-balanced-call proof checks this finite derivation construction. It does
-not prove the actual packed asynchronous runner.
+For soundness, induct on a strong answer derivation: only strong primitives,
+supported rules, composition and modeled-return witnesses publish executable
+answers. A projected default guide starts work and proves no answer itself.
+For completeness, follow a finite balanced strong derivation. Ordinary demand
+and current-query fallback admit its necessary work; computed responses are
+not rejected by F1 ownership or missing old guide rows. Fair notifications
+resume callers. A recursive cycle with no return witness creates no answer.
+The earlier balanced-call proof checks this finite-derivation argument in
+its generic state model, not the packed asynchronous runner.
 
 ## 9. Candidate coverage and strong phase isolation
 
@@ -305,13 +296,27 @@ layer; label it unconfirmed. No old stop rule based only on missing demand
 edges may prevent its B2 refinement. §8 then supplies the real strong source
 hit for each genuine selected path. Strong later runs rebuild corresponding
 forward paths under the existing seed/limit contracts. Every executable
-record has a later strong witness: no tagged default, weak survivor or
+record has a later strong witness: no F1 default, weak survivor or
 coarse guide is persisted/reversed as executable evidence, even if NORMAL.
 This also excludes F1 contamination through nonstatic endpoints.
 
 ## 10. Checked scope and required controls
 
-The new local model is [Run1WeakFieldWrites.lean](lean/ApSpec/Run1WeakFieldWrites.lean).
+The new [Run1DefaultSummaryApplication.lean](lean/ApSpec/Run1DefaultSummaryApplication.lean)
+checks `ordinary_root_STAR_layer_only`, `ordinary_identity_preserves_payload`,
+`joined_layer_monotone` and `attachment_keeps_requests`. It reuses ordinary
+summary geometry with layers attached separately; it is not a custom static
+call operator. `SelectedControls.STAR_stays_STAR_at_DEMAND` pins the user's
+no-information-loss case. Historical controls exhibit both old final-tail
+normalization and the root-ANY suffix-loss counterexample. The
+[new receipt](../docs/reports/bidirectional-ordinary-static-summary-proof-validation-20261016.md)
+binds the final check and axiom audit. The model does not prove generic
+Kotlin representation/normalizer refinement or actual storage/notification.
+
+The earlier [Run1WeakFieldWrites.lean](lean/ApSpec/Run1WeakFieldWrites.lean)
+model retains its recorded scope. Its automatic demotion-to-ANY definitions
+and tagged default-call helper are **historical**, not the selected ordinary
+summary/layer-only implementation contract.
 Its scalar Fact wrapper models normal concrete ANY as must with a separate
 anyEx channel; demand ANY is may. Normal STAR controls use abstract marks.
 This is not a new legal NORMAL/may-ANY or concrete-STAR runtime form.
@@ -320,15 +325,15 @@ This is not a new legal NORMAL/may-ANY or concrete-STAR runtime form.
 | --- | --- |
 | Positive weak-store coverage | `weak_keep_is_may_cover`, `weakWrite_covers_strong_output` |
 | Old/value layer separation | `affected_keep_is_DEMAND`, `unaffected_keep_keeps_layer`, `fresh_value_keeps_its_own_layer` |
-| Geometry and canonical demand | `publication_preserves_full_geometry`, `demand_STAR_is_ANY`, `no_demand_STAR_publication` |
+| Historical coarser demotion | `publication_preserves_full_geometry`, `demand_STAR_is_ANY`, `no_demand_STAR_publication`; superseded for selected layer-only demotion |
 | Empty E and no hidden normal widening | `publication_has_empty_E`, `publication_is_may_cover`, `normal_publication_does_not_forget_E`, `every_producer_EEmpty`, `all_queued_producer_results_EEmpty` |
 | Exact mark cleaner | `cleaner_never_keeps_selected_mark`; partial excluded residuals use the separate demand-cover branch |
 | Least static-write closure | `closedWrite_has_contributor`, `closedWrite_least`, `recursive_write_inherited`, `default_NORMAL_iff_no_reachable_write` |
-| Actual-input default | `default_instantiates_actual_geometry`, `default_layer_is_join`, `writing_default_demotes_actual`, `callee_delivery_is_pre_default` |
+| Historical default helper | `default_instantiates_actual_geometry`, `default_layer_is_join`, `writing_default_demotes_actual`, `callee_delivery_is_pre_default`; no ordinary-storage/application refinement claim |
 | No startup root / later actual query | `no_propagated_root_initial`, `backward_authorization_preserves_full_AP`, `backward_static_requirement_authorized`, `later_query_not_vetoed_by_default` |
 
-The fresh receipt and validation scope are in [proof-status.md](proof-status.md).
-The aggregate build passed 127 jobs and the imported axiom audit checked
+The earlier receipt and its scope are in [proof-status.md](proof-status.md).
+That aggregate build passed 127 jobs and its imported axiom audit checked
 23,337 declarations with zero unexpected axioms. All executable certificates
 passed. Only `propext` and `Quot.sound` are allowed.
 The previous static proof receipt
@@ -345,11 +350,12 @@ Implementation must verify these bridges with meaningful controls:
 | AnyField GEN then partial cleaner | No NORMAL must with cleared E; demand may cover, Empty E |
 | Possible static alias / unknown callee | Conservative static-write bit; no read-request seed from target |
 | Write-free SCC / reachable-write SCC | NORMAL default / DEMAND default respectively |
-| No F1 actor or static initial | Default lookup still exists, without actor or root propagation |
-| Normal C.f plus demand default | Actual C.f becomes demand; no unrelated field or root |
+| Reached ZERO actor, no static initial | First counted actor work publishes the default through normal retained/live stores; ordinary handoff exports DEMAND rows |
+| Metadata for a not-yet-created actor | Default edge available for normal initialization; no eager actor/global handoff scan |
+| Normal C.f.* plus demand default | Exact same C.f.* payload at DEMAND; no ANY conversion, unrelated field or root |
 | Demand C.f plus normal default | Remains demand |
-| Partial root blacklist / ordinary root execution | Tagged defaults retained; actual synthetic root execution rejected |
-| B2 actual g requirement through g=f | Query initial from actual g; computed strong source f allowed |
+| Root summary pattern versus root initial | Ordinary stored default retained; no root initial emitted in F1 |
+| B2 g requirement through g=f | Ordinary demand/current-query admission; computed strong source f allowed |
 | Killing/nonreturning helper | No stale old-field identity / no normal-return certificate |
 | Mixed static/local/argument/return path | All-base query recursion and full support retained |
 

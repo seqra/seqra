@@ -1,12 +1,18 @@
 # Current proof status
 
-The newer [run-1 field-write contract](run1-field-writes.md) adds DEMAND weak
-preservation for all field overwrites, Empty field E throughout F1 and
-NORMAL/DEMAND static default schemas from prescan. Its
-[proof dossier](run1-field-write-proofs.md) overrides the older unannotated
-weak-store/default-continuation claims. Root-shaped tagged defaults are
-guidance without root propagation; historical root-pattern bans do not
-delete them. Later strong exclusions/query/return proofs retain their scope.
+The [unified proposal](../docs/design/bidirectional-request-gated-static-handling-20261016.md)
+uses ordinary stored N/D static identity summaries. Normal publication,
+subscription, application, demand selection and actor handoff handle them.
+The abstraction emits no S.* initial in F1. Demotion changes only the edge
+layer and preserves the complete AP payload, including its known tail.
+The older W2/W8 demand-to-ANY rules are superseded for this operation.
+
+The [run-1 field-write contract](run1-field-writes.md) states that layer-only
+rule, weak field preservation and Empty E. The [proof dossier](run1-field-write-proofs.md)
+separates the new independent-layer law from older coarser models. Existing
+receipts retain their original source hashes and do not certify this correction.
+The ordinary actor/publication bridge is a source-bound design argument,
+not a checked scheduler theorem. Runtime implementation is unchanged.
 
 The selected [static-handling contract](static-handling.md) supersedes F78's
 static root/frame and ten-initial policy. Its new [proof dossier](static-handling-proofs.md)
@@ -25,7 +31,27 @@ no analysis rule and makes no claim that the measured runtime implements F78.
 [proof-history.md](proof-history.md) retains earlier
 theorem catalogs; F70/F71 concrete-run results do not prove current restricted runs.
 
-## Run-1 field writes, Empty E and default static summaries
+## Ordinary static summaries and layer-only demotion
+
+[Run1DefaultSummaryApplication.lean](lean/ApSpec/Run1DefaultSummaryApplication.lean)
+reuses ordinary scalar summary transfer geometry, attaches input/operation/edge
+layers independently, and proves exact payload and tail preservation for
+identity, layer monotonicity and unchanged requests. Executable controls include
+concrete/excluded marks, spatial E, exact/STAR/ANY payloads and both layer bits.
+Its Historical namespace records current-kernel normalization and a root-ANY
+counterexample; those are not the selected layer-only semantics.
+
+Validation passed: `lake build` completed **128 jobs**; the aggregate audit
+checked **23,473 declarations** with zero unexpected axioms. The separate
+new-module audit checked all **182 declarations**; 16 selected controls pass.
+The [new receipt](../docs/reports/bidirectional-ordinary-static-summary-proof-validation-20261016.md)
+binds commands, final sources, logs and audit scope. The new
+module does not prove packed representation, publication initialization,
+concurrent subscription delivery, ND, handoff or the full driver. Those are
+explicit implementation refinements. No analyzer measurement was repeated:
+latest reached **run-1, FORWARD, limit 1; OOM**, none completed/accepted.
+
+## Earlier field-write, Empty-E and default-helper receipt
 
 Validation on 16 October 2026 passed: `lake build` completed **127 jobs**;
 `lake env lean -M2048 audit.lean` checked **23,337 imported declarations**,
@@ -50,7 +76,9 @@ STAR marks; normal concrete ANY in the wrapper denotes must, demand ANY may.
 [New proofs](run1-field-write-proofs.md) gives the constructive producer,
 handoff and strong-reconstruction arguments. The model does not certify the
 actual JVM/model/alias inventory, packed codec, queue/publisher integration,
-ND confirmation or the complete driver. Tagged defaults are F1 guidance,
+ND confirmation or the complete driver. Its tagged default-call helper and
+automatic demand-to-ANY map are historical after the layer-only correction.
+F1 defaults are guidance,
 not strong return certificates. The old static-only weak-store/bypass and
 blanket root-pattern filter are superseded. The nine-family initial and
 later strong-query/converse proofs below remain reusable in their scopes.
