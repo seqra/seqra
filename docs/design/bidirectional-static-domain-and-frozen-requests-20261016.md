@@ -1,12 +1,19 @@
 # Static-domain fix and factored frozen requests
 
-Date: 16 October 2026. Status: selected implementation proposal. No runtime change
-is made by this document.
+Date: 16 October 2026. Status: detailed proposal for the two selected changes.
+This document update changes no runtime code.
 
 The next iteration contains two changes, in this order:
 
-1. Fix the missing static-domain coverage that aborts run-1.
+1. Fix the static-domain exception and close the related metadata coverage gaps.
 2. Factor frozen static requests without changing their logical membership.
+
+The coverage repair is committed as `d330a335a`; its four-project map-control
+phase is complete. Factoring is integrated as `4acde739b`, from isolated commit
+`bbdbe7307`. Integrated common/JVM checks pass. The strict application gate keeps
+the map control's eight failures. The final factored project phase is pending.
+These are separate changes and need separate measurements.
+The proposal below defines their required behavior and acceptance.
 
 This document replaces the selected parts of the
 [broader proposal](bidirectional-next-iteration-4c64c579f-20261015.md).
@@ -15,41 +22,71 @@ request scheduling, reference managers and IR storage are outside this iteration
 
 ## 1. Evidence and intended result
 
-The latest measured analyzer core is
-`4c64c579f4c4a10fc8ffcc5bcd0bf1bcd45cf877`. The later documentation commit
-`bf0cc9926` does not change that core. Use the
-[project report](../reports/bidirectional-run1-mark-request-performance-20261015.md).
-No new project scan was made for this proposal.
+The original selection used the historical `4c64c579f` measurements. The
+corrected map control at `d330a335a` now supplies the comparison workload. Use the
+[current project report](../reports/bidirectional-static-domain-frozen-requests-performance-20261016.md).
+The table below records that control, not factoring. All first engines use
+run-1, forward, limit exactly 1.
 
 | Project | Latest reached | Latest completed engine | Accepted forward report | Run-1 engine |
 | --- | --- | --- | --- | --- |
-| OWASP | run-5, forward; TIMEOUT | run-4, backward | run-3 | 245.412 s; COMPLETE |
-| Conductor | run-1, forward; FAILED | None | None | 8.551 s; FAILED |
-| ThingsBoard | run-1, forward; FAILED | None | None | 47.387 s; FAILED |
-| Stirling-PDF | run-1, forward; FAILED | None | None | 11.680 s; FAILED |
+| OWASP | run-6, backward; TIMEOUT | run-5, forward | run-5 | 213.730 s; COMPLETE |
+| Conductor | run-1, forward; OOM | None | None | 105.805 s; OOM |
+| ThingsBoard | run-1, forward; OOM | None | None | 106.335 s; OOM |
+| Stirling-PDF | run-4, backward; OOM | run-3, forward | run-3 | 168.350 s; COMPLETE |
 
-The three failures lose 7, 14 and 17 baseline rule/sink identities respectively.
-Their short failed runs are not passes of the 60-second completed run-1 target.
-There is no OOM heap from this batch.
+The old static-class exception does not recur in these four control scans.
+Resource limits remain. The completed run-1 engines exceed the 60-second target;
+an OOM prefix is not a completed run-1. Three guard heaps were captured. Strict
+main comparisons and heap/profile analysis are separate evidence gates.
+
+The diagnostic Stirling-PDF replay on 16 October reached **run-1, forward,
+limit 1**, then failed after 11.115 engine seconds. It completed no engine and
+accepted no report. The bounded diagnostic identified the coordinate mismatch
+in section 3. This replay is diagnosis evidence, not a performance control.
+
+Latest validation snapshot, **16 October 2026 at 08:17 UTC**: the map-control
+phase is terminal with stable source and HEAD bindings. Fresh main completed all
+four cases; its legacy engine has no bidirectional run number. Integrated common
+and JVM tests pass; strict application failures remain. Final factored performance and finding comparisons
+remain pending.
+
+The new evidence root is:
+
+```text
+/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012/static-domain-frozen-requests/20261016T063718.860848Z
+```
+
+Use `diagnostic-pdf/first-miss.txt` for the failure witness,
+`corrected-map/launch.json` for the control revision and fixed workload, and
+the terminal project summaries when each case finishes. An unfinished log must
+not establish successful completion or a memory reduction.
 
 | Change | Current behavior | Proposed behavior | Expected benefit |
 | --- | --- | --- | --- |
-| Static-domain fix | A delivered static class can be absent from the frozen global domain; the guard aborts before an accepted report | Collect every possible selected producer coordinate before freezing; retain the guard and repair the identified omission | Restore valid analysis and finding coverage |
+| Exception and metadata fix | An alias can use a different class name from the resolved static field; missing alias knowledge can also hide rule effects or mark needs | Use the resolved declaring owner for static alias coordinates; collect potential source/sink effects and live mark needs under an explicit metadata policy | Restore domain consistency and required work before measuring a storage change |
 | Factor frozen requests | Each profile expands common marks into a map row for every selected field | Borrow the same logical row from common and sparse field descriptors | Avoid repeated map entries, slot references and row construction |
 
-ThingsBoard's plan has 3,000,408 physical frozen-map rows across 1,452 distinct map
-roots. Its logical per-method totals are 15,671,691 rows and 63,549,683 memberships.
-The mark payloads already share storage. The reported 47,142 mark-set roots and
-55,832 primitive cells also include wide/class metadata. Thus the target is the
-expanded row relation, not 63.5 million separately allocated mark cells.
+In the corrected map control, ThingsBoard's plan has 3,000,410 physical frozen-map
+rows across 1,454 distinct map roots. Its logical per-method totals are 15,671,695
+rows and 188,923,219 memberships. The mark payloads already share storage. The
+reported 52,957 mark-set roots and 79,080 primitive cells also include wide/class
+metadata. Thus the target is the expanded row relation, not 188.9 million
+separately allocated mark cells.
 
 No saved-byte estimate is available. Replacement descriptors and query costs must
-be measured. Field-specific entries remain in the sparse map. The 3,000,408 rows
+be measured. Field-specific entries remain in the sparse map. The 3,000,410 rows
 are a gross target, not the number of entries guaranteed to disappear. A profile
 with only explicit field needs may have little map-entry saving.
-Catalog setup takes 3.667 seconds, separately from 69.447 seconds of
+Catalog setup takes 3.609 seconds, separately from 58.665 seconds of
 metadata preparation. Factoring does not remove that metadata phase and does not
 by itself establish a 60-second engine time.
+
+The exception fix is a correctness prerequisite. Factoring is the selected
+memory optimization. It avoids construction of the repeated row relation, while
+preserving the requests. It does not reduce the number of logical facts or mark
+answers. Use the corrected map control to measure the new relation size after
+the coverage repair; do not carry the historical row count forward as a forecast.
 
 ## 2. Keep domain, ownership and frozen selection separate
 
@@ -81,7 +118,7 @@ closure. There is no new call-resolution phase, request index or runtime domain
 growth. AP accessor IDs belong to one manager; neutral descriptors, not scratch
 IDs, cross from metadata collection to the engine.
 
-## 3. Find and reproduce the exception
+## 3. Exception: observed cause and diagnostic contract
 
 The observed failure is:
 
@@ -92,10 +129,26 @@ Static input class is absent from the frozen prescan universe
 
 [Run1Abstraction.emit](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/Run1Abstraction.kt)
 checks the supplier and input shapes before this global-domain check. The failed
-class is not merely absent from that callee's H. The exact class, full methods and
-creating producer are not printed. A package-unit name does not identify them.
+class is not merely absent from that callee's H. The original message did not
+identify the coordinate. The bounded replay now records:
 
-First extend the existing failure diagnostic. Keep the check and its position.
+```text
+delivered class: stirling.software.common.util.ProcessExecutor.Processes
+field owner:     stirling.software.common.util.ProcessExecutor$Processes
+first field:     WEASYPRINT
+callee:          ProcessExecutor#runCommandWithOutputHandling(java.util.List)
+caller:          FileToPdf#convertHtmlToPdf(...), call 48
+input:           FLOW, STATIC base, DEMAND layer
+```
+
+The nested-class spellings differ. The resolved field and direct field transfer
+use the binary declaring-class name. The alias builder used the typed reference
+name. The real JVM regression reproduces this mismatch through static read,
+local alias and persisted call-alias output. The project witness establishes
+the bad delivered coordinate; it does not by itself identify the earliest
+creating instruction in that project.
+
+Retain the bounded failure diagnostic. Keep the check and its position.
 Pass the owning MethodKey from the actor to the check helper:
 
 ```kotlin
@@ -128,27 +181,37 @@ retain it in a new store, evaluate a predicate/transfer again, force alias analy
 or resolve a call. Print both IDs and symbols so a cross-manager ID error is
 distinguishable from a missing symbol. Keep field-miss diagnostics equivalent.
 
-Replay the failing project with its existing configuration. From the actual miss,
-locate the producing form/statement. S bind-in can transport an older omission,
-so the immediate caller is not automatically the creator. If necessary, add a
-temporary check for that one coordinate at existing output callbacks, using their
-method/node information. Do not introduce persistent provenance tracking.
+The selected repair in `JIRDSUAABuilder.evalRefValue` is:
 
-Create a real JVM regression fixture that runs that producer and compares its
-actual output coordinates with collected Sigma. Do not declare the missing field
-in a fixture and then claim that collection covers it. This diagnostic/reproducer
-step selects the repair; the current evidence does not justify naming a specific
-project producer as the cause.
+```kotlin
+// Before: a typed reference can have a different nested-class spelling.
+val type = value.field.enclosingType.typeName
+
+// After: agree with the direct transfer and the resolved field coordinate.
+val type = value.field.field.enclosingClass.name
+Expr.FieldLoad(RefValue.Static(type), value.field.field)
+```
+
+`JIRStaticDomainProducerTest` must exercise the real producer and compare its
+emitted class/first-field pair with metadata collected from the same method.
+Keep nested and inherited-reference syntax controls. The inherited fixture's IR
+already resolves to the parent owner; do not claim an observed subclass-owner
+mismatch from that fixture. Retain the red test and green test receipts.
+
+Replay all three originally failing projects with the same configuration. If a
+new coordinate fails, diagnose it through the same bounded callback route;
+S bind-in can transport an older omission, so the immediate caller is not
+automatically the creator. No persistent provenance tracking is required.
 
 ## 4. Repair metadata coverage
 
-There are two demonstrated source-level coverage obligations and one conditional
-coordinate question. Implement the smallest repair established by the reproducer,
-then close the complete producer inventory below.
+The coordinate repair must also close the metadata coverage obligations below.
+These are correctness changes. They can restore previously omitted work, so
+factoring must be compared with this repaired version.
 
 ### 4.1 Make alias knowledge explicit
 
-The collector currently uses:
+The pre-repair collector used:
 
 ```kotlin
 val availableAlias = aliasAnalysis?.takeIf { it.computedAliasInfo() != null }
@@ -157,28 +220,30 @@ val unknownAliases = aliasAnalysis != null && availableAlias == null
 
 The null-AA fallback therefore means `unknownAliases=false`, although runtime can
 enable and compute AA later. A nonnull, uncomputed AA object takes a different path.
-Replace that ambiguity with an explicit metadata policy:
+Replace that ambiguity with the explicit selected policy:
 
 ```kotlin
-sealed interface MetadataAliases {
-    data object Disabled : MetadataAliases
-    data object Unknown : MetadataAliases
-    data class Known(val analysis: JIRLocalAliasAnalysis) : MetadataAliases
+internal enum class MetadataAliases {
+    Disabled, Unknown;
+
+    companion object {
+        fun forRuntime(enabled: Boolean): MetadataAliases =
+            if (enabled) Unknown else Disabled
+    }
 }
 
-fun aliasKnowledge(runtimeAAEnabled: Boolean, completed: CompletedPrescanAA?): MetadataAliases = when {
-    !runtimeAAEnabled -> MetadataAliases.Disabled
-    completed != null && completed.coversRuntimeAliasOutcomes -> MetadataAliases.Known(completed.analysis)
-    else -> MetadataAliases.Unknown
-}
+// Derive this from runtime settings, not the AA-disabled scratch compiler.
+val policy = MetadataAliases.forRuntime(params.aliasAnalysisParams.useAliasAnalysis)
+val collector = JIRStaticMetadataCollector(scratchCompiler, policy)
+// Apply the same policy to retained prescan contexts and graph-only methods.
 ```
 
-`coversRuntimeAliasOutcomes` is a proof obligation, not an existing flag. A joined
-prescan result is usable only if its method, graph/model policy and relevant facts
-cover later runtime outcomes. One known prescan context does not establish coverage
-of every runtime context. Missing, uncomputed or failed AA is Unknown when runtime
-AA can run. Disabled means runtime really disables it. Collection must not start
-new AA after prescan workers join.
+A completed prescan AA result is not certified to cover all independently timed
+runtime outcomes. This iteration therefore has no `Known` state and borrows no
+AA owner. Missing, uncomputed, failed and completed contexts all use Unknown
+when runtime AA is enabled. Disabled means runtime really disables it. A future
+Known policy would need a separate method/context and model-coverage proof.
+Collection must not start new AA after prescan workers join.
 
 Unknown alias-sensitive predicates preserve their potential static effects and
 mark needs. They must not be folded to false merely because no AA object was
@@ -252,50 +317,41 @@ Ordinary runtime predicate evaluation is not replaced by metadata approximation.
 
 ### 4.2 Cover producer coordinates without widening every footprint
 
-Runtime statement aliases and persisted call aliases can emit static endpoints;
-the metadata visitor currently omits those alias payloads. Prove that their
-coordinates already follow from collected code/rule endpoints, or add their
-finite coordinate basis to the shared domain. Do not force full alias analysis
-solely to enumerate a whole classpath.
+Use the existing collected basis after the canonical-owner and metadata-policy
+repairs. Do not add an independent per-method producer-domain store. The selected
+constructor argument is in
+[the frontend bridge proof](../../spec/run1-request-proofs.md#13-selected-jvm-producer-domain-construction):
 
-If an independent domain is needed, use neutral values and the existing builder
-arguments. There is no need for a new per-method domain store:
-
-```kotlin
-data class StaticProducerDomain(
-    val classes: Set<ClassStaticAccessor>,
-    val fields: Set<Pair<ClassStaticAccessor, FieldAccessor>>,
-)
-
-// Use the completed graph, validated effective code/rule/model endpoints,
-// and the proved alias-coordinate basis. Keep each class/field pair intact.
-val domain = collectProducerDomain(resolvedPrescanGraph, selectedProviders)
-val locals = collectPotentialMethodEffects(resolvedPrescanGraph, aliasPolicies)
-
-val profiles = Run1StaticProfiles.build(
-    ap, resolvedPrescanGraph.adjacency, locals.compile(ap),
-    declaredFieldUniverse = domain.fields.mapToEngineSlots(ap),
-    declaredClassUniverse = domain.classes.mapToEngineClasses(ap),
-)
+```text
+StaticFieldLoad(C.f)
+  -> canonical pair (declaringClass(f), f)
+  -> direct metadata access and local alias share that pair
+  -> a later alias suffix retains the first class/field pair
+  -> call binding and the transitive call closure preserve coverage
 ```
 
-`declaredFieldUniverse` and `declaredClassUniverse` already exist; the JVM caller
-currently supplies neither. Add a separate descriptor only where the coverage
-argument needs a domain coordinate without a method effect. If the alias-policy
-repair alone restores the complete collected basis, reuse it rather than add a
-redundant domain representation.
+The AA static container is introduced by a static-field load. Its exposed alias
+therefore retains that originating first field. Statement alias writes and
+persisted call aliases need not add every field of a class to Sigma.
+
+Also check the accepted rule constructors. A generic transfer from `arg.f` to a
+bare static class could invent a new `(class, field)` pair by retaining the suffix.
+The selected JVM pass-rule validation already rejects a bare `ClassStatic(C)`
+target for `CopyMark` and `CopyAllMarks`. Generated class-point actions add no
+residual suffix. Explicit field targets declare their fixed class/field pair.
+The proof depends on these existing validation rules; it does not apply to
+arbitrary hand-built generic AP providers or future constructors without review.
+
+Keep neutral accessor descriptors across metadata and engine managers. Compile
+them through the destination AP manager, under different interning orders in the
+regression control. Never copy numeric IDs from the scratch manager.
 
 Do not populate Sigma with arbitrary classpath fields, promote Sigma into every
-H or S, or broadcast all marks to all fields. Conversely, if the missing producer
-also reads/writes a method-owned component, repair that method's H/needs as well.
-Adding only the domain cannot prove that the untouched frame is safe.
-
-Direct static accesses use a resolved declaring owner; one AA construction uses
-the typed reference owner. An inherited reference may already be canonical in
-real IR. First assert the actual values in a real JVM fixture. If a mismatch is
-real, collect the actual admitted coordinates or use one proved canonical helper.
-Changing emitted coordinates is a semantic repair and requires its own equivalence
-checks. It is not an assumed fix for these unprinted project failures.
+H or S, or broadcast all marks to all fields. If a newly reproduced omission
+also reads or writes a method-owned component, repair its H/needs as well.
+Adding only the domain cannot prove that the untouched frame is safe. Keep
+`declaredFieldUniverse` and `declaredClassUniverse` as existing generic API inputs;
+this repair needs no new JVM domain population path.
 
 ### 4.3 Required domain proof
 
@@ -401,6 +457,31 @@ deltas and event payloads. Do not force them through the virtual-base interface.
 A map adapter is useful for the corrected reference implementation and existing
 small fixtures; production must not keep both the expanded map and factored base.
 
+### 5.1 Storage and query cost
+
+Let N be the number of selected slots in one distinct profile, F its retained
+sparse field entries, and C its class-common entries. The existing selected set
+remains. Relative to it, the expanded map owns up to N row entries; the new base
+owns a descriptor and F sparse entries and borrows the existing C class entries.
+Count shared objects once across profiles, rather than multiply them by method
+uses. Mark payload sharing already exists in the map control.
+
+| Operation | Materialized map control | Factored base |
+| --- | --- | --- |
+| Freeze final B | Visit selected slots and build each nonempty union row | Freeze common/sparse descriptors; do not construct expanded rows |
+| Row membership | Lookup the row and test its stored mark set | Check S, then test common and sparse sets |
+| Borrow one row | Borrow one stored set | Borrow one set or a two-segment immutable view |
+| Enumerate one B row | Read each union ID once | Consume common IDs plus sparse IDs; emit each distinct ID once |
+| Broad matching | Visit nonempty B map keys, then D-only keys | Visit S and test B emptiness, then D-only keys |
+| Matching result | Detached list of immutable row descriptors | Same list remains; some descriptors contain a two-segment view |
+
+A two-segment cursor consumes `|common| + |field|` source cells, including
+overlaps. A broad request-store pass examines up to `|S| + |D keys|` slots.
+The old B-key pass can be smaller when many selected slots have empty B. The
+optimization removes standing expanded rows and their construction; it does not
+remove these scans, transient views or matched-row lists. Measure these costs
+and their allocation before claiming an engine or memory gain.
+
 ## 6. Distinct, ordered mark views
 
 Common and field marks can overlap. The view must yield each ID once, in the same
@@ -467,11 +548,15 @@ Keep two instances of the same mutable storage class:
 
 ```kotlin
 // Owned by SummaryStorage for the full MethodKey:
-val requests = RequestStorage(sharedBase = profile.frozenRequests)
+val requests = RequestStorage(sharedBase = profile.precomputedRequests)
 
 // Owned by the method actor:
 var temporary = RequestStorage(sharedBase = EmptyFrozenRequestBase)
 ```
+
+Keep the existing `precomputedRequests` property name and change its type from
+`RequestRows` to `FrozenRequestBase`. Update every consumer to the base API;
+do not expose an expanded-map compatibility getter in production.
 
 Generalize only the frozen segment of the borrowed row:
 
@@ -707,8 +792,8 @@ require their own tests; changing documentation does not extend a receipt.
 
 | Step | Files/work | Completion gate |
 | --- | --- | --- |
-| 1. Diagnostic and reproducer | `Run1Abstraction`, actor key handoff, actual JVM producer fixture | Exact missing coordinate and producer established; original guard still fails on the uncorrected case |
-| 2. Coverage repair only | `JIRStaticMetadata`, `JIRBidiAnalysis`, metadata policy plumbing; declared-domain input only if required | Real producer outputs covered; H and Sigma proofs closed; corrected map control retained |
+| 1. Diagnostic and reproducer | `Run1Abstraction`, actor key handoff, actual JVM producer fixture | Actual failing coordinate recorded; real producer regression fails before repair |
+| 2. Coverage repair only | `JIRDSUAABuilder`, `JIRStaticMetadata`, `JIRBidiAnalysis`, metadata policy and symbolic mark inventory | Selected-frontend constructor argument and executable controls support H/Sigma coverage; corrected map control retained |
 | 3. Immutable mark/base views | `RequestMarkSet`, `Run1Requests`; empty/map adapters and sorted union cursor | Independent lookup/iteration/cardinality/cancellation controls pass |
 | 4. Factored freeze | `Run1StaticProfiles.freezePlan`, `covers`, mark ownership census and logical statistics | Expanded/factored equality on finite closures; no production expanded base retained |
 | 5. Storage integration | `SummaryStorage`, `RunManager`, precomputed iteration in `SubscriptionManager` | Same R/P protocol, matching lists, inherited-B behavior and late wide activation |
@@ -719,11 +804,49 @@ pending-admission fast paths, delta-join changes, class-point descriptor factori
 or scheduler changes into them. A prototype may use the map adapter for controls;
 the final runtime selects only one base representation.
 
+At this document's snapshot, steps 1–2 are committed as `d330a335a`. Their five
+common diagnostic tests, 121 focused JVM tests and 408 full JVM tests pass, with
+no failures, errors or skips in those selections. These receipts do not establish
+project completion or a full application-suite pass. Steps 3–5 are integrated
+as `4acde739b` from isolated commit `bbdbe7307`, whose 66 focused common tests
+pass. The integrated source passes all 1,480 common and 408 JVM tests, with no
+failures, errors or skips. Application test compilation and root classes pass.
+Both fresh application gates ran 158 tests: 149 pass, eight failures, no errors
+and one existing skip. The failed rule-ID memberships and multiplicities match;
+six raw assertion lists differ only in order. Both strict gates remain failed.
+Step 6's final fixed-project measurements remain pending.
+
+After integrating the selected factoring change, run the common and JVM gates
+and compile the application tests before the final project matrix:
+
+```bash
+env JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64 OPENTAINT_TEST_BIDI=true \
+  ./gradlew \
+  :opentaint-dataflow-core:opentaint-dataflow:test \
+  :opentaint-dataflow-core:opentaint-jvm-dataflow:test \
+  :compileTestKotlin \
+  :opentaint-jvm-sast-dataflow:compileTestKotlin \
+  --max-workers=2 --console=plain \
+  -x :opentaint-ir:go:buildGoServer
+```
+
+Run the existing strict bidirectional application selection as well. Record its
+actual pass/fail/skip counts and diagnose changes from its prior eight failures.
+Do not change a finding comparator or expected result to make this gate pass.
+
 ## 13. Measurement and acceptance
 
 Use the exact existing OWASP, Conductor, ThingsBoard and Stirling-PDF configurations
 and direct Gradle `:runProjectAnalyzer`. Do not change project heaps, timeouts or
 field limits. Preserve the original strict identity, span and occurrence comparator.
+
+Keep continuous JFR and the same 30-second CPU capture windows for both versions:
+start the normal window 60 seconds after full analysis starts; start the late
+window 60 seconds before the IFDS time limit. If analysis ends before a window,
+record that window as unavailable. Capture a heap whenever MemoryManager reports
+OOM and inspect its retained owners after the scans finish. A missing or failed
+required capture is an evidence gap, not a reason to infer the memory owner from
+allocation samples.
 
 1. Use diagnostic replays only to identify the failure, starting with a failing
    project. Label them diagnostic, not performance controls.
@@ -748,6 +871,24 @@ field limits. Preserve the original strict identity, span and occurrence compara
    iteration; prescan/metadata/catalog time; request counters; allocation/CPU
    windows; peak RSS; and any OOM snapshot owners. Keep failed/timeout results
    explicit. Without a heap, do not invent a retained-byte saving.
+
+For each project, publish one comparison row with these fields:
+
+```text
+revision; terminal status;
+latest reached run / latest completed engine / accepted forward report;
+completed run-1 engine seconds; all later engine and barrier seconds;
+missing identities / changed spans / added identities / occurrence changes;
+physical B rows / sparse entries / unique descriptors / logical B memberships;
+peak RSS; sampled allocation and CPU windows;
+OOM events / required heap capture status / retained-owner evidence
+```
+
+Use `none`, `in progress` or `not captured` where appropriate. A failed run-1
+duration is not a completed run-1 time. Compare physical layout and equal logical
+membership separately from sampled allocation and retained heap bytes. Source
+counts can prove that expanded rows were removed; they cannot prove a byte saving
+or a project speedup.
 
 Before new measurements, retain compact evidence and clean prior raw captures as
 required by `task.md`. Run scans serially and perform heavy profile/heap analysis

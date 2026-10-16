@@ -1,7 +1,9 @@
 # Next core iteration after merged run-1 requests
 
-Date: 15 October 2026. Status: proposal only. Runtime remains
-`4c64c579f4c4a10fc8ffcc5bcd0bf1bcd45cf877`.
+Date: 15 October 2026. Status: historical broader proposal, based on runtime
+`4c64c579f4c4a10fc8ffcc5bcd0bf1bcd45cf877`. Its measurements describe that
+revision only. Current implementation status and validation are recorded in the
+selected proposal below.
 
 Selection on 16 October: the next iteration is limited to the exception fix and
 frozen static-request factoring. Use the
