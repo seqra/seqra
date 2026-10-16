@@ -6,7 +6,7 @@ Our current goal: implement optimization and repeat major testing on real projec
 Always cleanup memory snapshot/profiles from the previous runs.
 
 # Optimization:
-Implement optimization wrt the [bidirectional-static-domain-and-frozen-requests-20261016.md](docs/design/bidirectional-static-domain-and-frozen-requests-20261016.md)
+Implement optimization wrt the [run1-field-writes.md](spec/run1-field-writes.md)
 Commit after implementation.  
 Avoid changes in the analyzer core, that were not proposed and designed.
 If you have an optimization idea, write a proposal. Then we will include it into the next iteration.
