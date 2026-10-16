@@ -110,7 +110,7 @@ class StaticCatalogIterationTest {
                 p.fields + f.program.field("fresh"), p.marks + f.program.mark("fresh") + TaintMark.ZERO, 2)
             // First check the full forward closure before actual engines freeze their working stores.
             val forward = f.program.config(L = 1, roots = p.roots)
-            val scalar = NaiveClosure(f.program, forward).run()
+            val scalar = NaiveClosure(f.program, forward, semantics = NaiveClosure.Semantics.SELECTED).run()
             for (policy in listOf(SchedulePolicy.REPLAY_FIRST, SchedulePolicy.NOTIFY_FIRST)) {
                 val scheduler = ProductionSchedule(f.program, forward, sameUnit, policy, quantum = 1,
                     duplicateDeliveries = true, useStaticCatalog = true)

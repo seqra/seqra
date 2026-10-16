@@ -113,10 +113,11 @@ class FactShapeTest {
     }
 
     @Test
-    fun `raw conclusion rejects a demand star instead of silently changing its tail`() {
+    fun `raw conclusion preserves a demand star tail and field exclusions`() {
         val p = pattern(Tail.STAR, MarkSlot.STAR, ExclusionSet.of(g))
         assertEquals(p.fact, Conclusion(p.fact, p.exclusion, false).fact)
-        assertFails { Conclusion(p.fact, p.exclusion, true) }
+        assertEquals(Conclusion(p.fact, p.exclusion, false).copy(demand = true),
+            Conclusion(p.fact, p.exclusion, true))
     }
 
     @Test

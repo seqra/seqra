@@ -60,14 +60,14 @@ class CleanerTest {
             is FlowTree -> {
                 require(typed.all { it is FlowTree && it.exclusion == first.exclusion && it.markExclusion == first.markExclusion })
                 val root = typed.drop(1).fold(first.root) { root, next -> FlowAlgebra.mergeAdd(root, (next as FlowTree).root) }
-                manager.flowTree(first.base, first.layer, first.exclusion, first.markExclusion, root)
+                manager.flowTree(first.base, first.layer, first.exclusion, first.markExclusion, root, first.tail)
             }
             is TaintTree -> {
                 require(typed.all { it is TaintTree })
                 val root = typed.drop(1).fold(first.root) { root, next -> manager.taintAlg.mergeAdd(root, (next as TaintTree).root) }
                 val exclusion = leaves.firstOrNull { it.fact.tail == Tail.ANY_TAINT }?.exclusion ?: ExclusionSet.Empty
                 require(leaves.filter { it.fact.tail == Tail.ANY_TAINT }.all { it.exclusion == exclusion })
-                manager.taintTree(first.base, first.layer, root, exclusion)
+                manager.taintTree(first.base, first.layer, root, exclusion, (typed.firstOrNull { it is TaintTree && it.root.hasAny } as? TaintTree)?.anyTail ?: Tail.ANY_TAINT)
             }
         }
         return Input(facts, leaves)
@@ -88,13 +88,16 @@ class CleanerTest {
         ops.leaves(facts).map { Conclusion(it.fact, it.exclusion, facts.layer == Layer.DEMAND) }.toList()
     }.toSet()
 
+    private fun policy(value: Conclusion, mode: ApMode): Conclusion =
+        if (mode.run1 && value.exclusion != ExclusionSet.Empty) value.copy(exclusion = ExclusionSet.Empty, demand = true) else value
+
     private fun expected(input: Input, cl: Cleaner, mode: ApMode): Expected {
-        val results = input.leaves.map { cleanRes(cl, it) }
+        val results = input.leaves.map { cleanRes(cl, it, mode.run1) }
         return Expected(results.flatMap { it.facts }.toSet(),
             if (mode.run1) results.mapNotNull { it.request }.toSet() else emptySet())
     }
 
-    private fun check(input: Input, cl: Cleaner, mode: ApMode = run1, name: String = ""): CollectingOut {
+    private fun check(input: Input, cl: Cleaner, mode: ApMode = forward, name: String = ""): CollectingOut {
         val expected = expected(input, cl, mode)
         val out = CollectingOut()
         ops.clean(input.facts, premise(input), cl, mode, out)
@@ -136,8 +139,8 @@ class CleanerTest {
                 val result = assertIs<FlowTree>(out.results.single())
                 val original = assertIs<FlowTree>(input.facts)
                 assertSame(original.root, result.root)
-                assertEquals(original.layer, result.layer)
-                assertEquals(original.exclusion, result.exclusion)
+                assertEquals(if (mode.run1 && original.exclusion != ExclusionSet.Empty) Layer.DEMAND else original.layer, result.layer)
+                assertEquals(if (mode.run1) ExclusionSet.Empty else original.exclusion, result.exclusion)
                 assertEquals(marks(t.id, u.id), result.markExclusion)
                 if (t in original.markExclusion) assertSame(original.markExclusion, result.markExclusion)
                 assertEquals(if (mode.run1) listOf(t) else emptyList(), out.markRequests)
@@ -153,9 +156,9 @@ class CleanerTest {
             val kept = original.copy(exclusion = exclusion.union(ex(g)))
             val endpoint = value(p(f, g), Tail.EXACT)
             for (mark in listOf(t, null)) for (mode in modes) {
-                assertEquals(setOf(kept), decoded(check(input, cleaner(p(f, g), CleanReach.AT_AND_BELOW, mark), mode).results))
-                assertEquals(setOf(kept, endpoint), decoded(check(input, cleaner(p(f, g), CleanReach.BELOW, mark), mode).results))
-                val demoted = value(p(f), Tail.ANY, demand = true)
+                assertEquals(setOf(policy(kept, mode)), decoded(check(input, cleaner(p(f, g), CleanReach.AT_AND_BELOW, mark), mode).results))
+                assertEquals(setOf(policy(kept, mode), endpoint), decoded(check(input, cleaner(p(f, g), CleanReach.BELOW, mark), mode).results))
+                val demoted = policy(original.copy(demand = true), mode)
                 assertEquals(setOf(demoted), decoded(check(input, cleaner(p(f, g), CleanReach.EXACT, mark), mode).results))
                 assertEquals(setOf(demoted), decoded(check(input, cleaner(p(f, g, h), CleanReach.AT_AND_BELOW, mark), mode).results))
                 assertEquals(setOf(demoted), decoded(check(input, cleaner(p(f, g, h), CleanReach.BELOW, mark), mode).results))
@@ -171,7 +174,7 @@ class CleanerTest {
         val input = pack(listOf(original))
         for (mode in modes) for (mark in listOf(t, null)) {
             assertEquals(setOf(value(p(f, g), Tail.EXACT)), decoded(check(input, cleaner(p(f, g), CleanReach.BELOW, mark), mode).results))
-            assertEquals(setOf(value(p(f, g), Tail.ANY, demand = true)), decoded(check(input, cleaner(p(f, g), CleanReach.EXACT, mark), mode).results))
+            assertEquals(setOf(policy(original.copy(demand = true), mode)), decoded(check(input, cleaner(p(f, g), CleanReach.EXACT, mark), mode).results))
             assertTrue(check(input, cleaner(p(f, g), CleanReach.AT_AND_BELOW, mark), mode).results.isEmpty())
         }
         val demand = pack(listOf(value(p(f, g), Tail.ANY, demand = true)))
@@ -184,8 +187,8 @@ class CleanerTest {
         val original = value(p(f), Tail.ANY_TAINT, exclusion = ex(h))
         val input = pack(listOf(original))
         for (reach in CleanReach.entries) for (mark in listOf(t, null)) for (mode in modes) {
-            assertEquals(setOf(original), decoded(check(input, cleaner(p(f, h, g), reach, mark), mode).results))
-            assertEquals(setOf(value(p(f), Tail.ANY, demand = true)),
+            assertEquals(setOf(policy(original, mode)), decoded(check(input, cleaner(p(f, h, g), reach, mark), mode).results))
+            assertEquals(setOf(policy(original.copy(demand = true), mode)),
                 decoded(check(input, cleaner(p(f, g, h), reach, mark), mode).results))
         }
     }
@@ -229,7 +232,8 @@ class CleanerTest {
             pack(listOf(value(p(), Tail.EXACT, MarkSlot.Concrete(TaintMark.ZERO), demand = true, base = AccessPathBase.Zero))))
         for (input in inputs) for (reach in CleanReach.entries) for (mark in listOf(t, null)) for (mode in modes) {
             val out = check(input, cleaner(p(), reach, mark, y), mode)
-            assertSame(input.facts, out.results.single())
+            if (!mode.run1 || input.leaves.all { it.exclusion == ExclusionSet.Empty }) assertSame(input.facts, out.results.single())
+            else assertEquals(input.leaves.map { policy(it, mode) }.toSet(), decoded(out.results))
         }
         for (path in listOf(p(), p(c), p(c, f))) {
             val abstract = flow(listOf(path), mx = marks(u.id), exclusion = ex(g), base = static)
@@ -252,8 +256,8 @@ class CleanerTest {
             ops.clean(facts, initial, cleaner(p(k, h), CleanReach.EXACT), mode, out)
             val result = assertIs<FlowTree>(out.results.single())
             assertSame(root, result.root)
-            assertEquals(facts.layer, result.layer)
-            assertEquals(facts.exclusion, result.exclusion)
+            assertEquals(if (mode.run1 && facts.exclusion != ExclusionSet.Empty) Layer.DEMAND else facts.layer, result.layer)
+            assertEquals(if (mode.run1) ExclusionSet.Empty else facts.exclusion, result.exclusion)
             assertEquals(marks(t.id, u.id), result.markExclusion)
             assertEquals(if (mode.run1) listOf(t) else emptyList(), out.markRequests)
         }

@@ -65,9 +65,9 @@ class MethodWorkTest {
             assertFailsWith<Cancellation.Cancelled> { core.work(1000) }
             assertEquals(1L, core.steps)
             assertTrue(f.publications.isEmpty())
-            assertFailsWith<Cancellation.Cancelled> { core.summaries.all().none() }
+            assertFailsWith<Cancellation.Cancelled> { core.summaries.all().withoutPrecomputedStaticDefault().none() }
             f.cancellation.activate()
-            assertTrue(core.summaries.all().none())
+            assertTrue(core.summaries.all().withoutPrecomputedStaticDefault().none())
         }
     }
 

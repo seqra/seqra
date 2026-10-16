@@ -67,7 +67,7 @@ internal fun restrictFacts(ops: ApOps, j: InitialAp, g: Facts, d: DemandPattern)
     for (c in restrictRaw(ops, j, g, d)) {
         m.cancellation.checkpoint()
         check(c.fact.mark !is MarkSlot.Star ||
-            (c.fact.tail == Tail.STAR && !c.demand) || (c.fact.tail == Tail.ANY && c.demand)) {
+            c.fact.tail == Tail.STAR || (c.fact.tail == Tail.ANY && c.demand)) {
             "The reference result needs a FLOW tail that Facts cannot encode; validate the canonical paired guard"
         }
         val f = m.factsOf(c.fact, c.exclusion, if (c.demand) Layer.DEMAND else Layer.NORMAL)

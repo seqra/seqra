@@ -37,7 +37,8 @@ private fun ownPattern(pattern: Pattern): Pattern = pattern.copy(fact = ownPath(
 
 /** Method identity and source graph are fixture inputs, not a production graph observation. */
 class ProgramMethod internal constructor(val method: CommonMethod, successors: List<List<Int>>,
-                                         val normalExit: Int, val exceptionalExit: Int?) {
+                                         val normalExit: Int, val exceptionalExit: Int?,
+                                         val backwardExitDiscovery: Boolean = false) {
     data class Context(val name: String) : MethodContext {
         override fun toString(): String = name
     }
@@ -96,15 +97,24 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
             if (path.size == 2) declaredStaticFields += Run1Slot.StaticField(path[0], path[1])
         }
     }
+    /** Immutable construction vocabulary; independent scalar oracles do not read production plans. */
+    val declaredStaticFieldPaths: Set<List<Int>> get() = declaredStaticFields.mapTo(LinkedHashSet()) { listOf(it.cls, it.field) }
+    val declaredStaticClassIds: Set<Int> get() = declaredStaticClasses.toSet()
+
     val defaultCallExpression = object : CommonCallExpr {
         override val typeName = "Box"
         override val args: List<CommonValue> = emptyList()
     }
 
-    fun method(name: String, successors: List<List<Int>>, normalExit: Int, exceptionalExit: Int? = null): ProgramMethod {
+    fun method(name: String, successors: List<List<Int>>, normalExit: Int, exceptionalExit: Int? = null,
+               backwardExitDiscovery: Boolean = false): ProgramMethod {
         check(staticCatalog == null) { "The finite program catalog has already been frozen" }
         require(successors.isNotEmpty())
         require(normalExit in successors.indices && (exceptionalExit == null || exceptionalExit in successors.indices))
+        require(!backwardExitDiscovery || exceptionalExit != null) {
+            "I11 backward discovery requires a distinct exceptional exit, never a fabricated normal return"
+        }
+        require(!backwardExitDiscovery || exceptionalExit != normalExit)
         require(successors.all { next -> next.all { it in successors.indices } })
         require(methodData.none { it.method.name == name }) { "Finite methods have unique diagnostic names" }
         val common = object : CommonMethod {
@@ -114,7 +124,7 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
             override fun flowGraph(): ControlFlowGraph<CommonInst> = error("Use the explicit finite compact graph")
             override fun toString(): String = name
         }
-        return ProgramMethod(common, successors, normalExit, exceptionalExit).also(methodData::add)
+        return ProgramMethod(common, successors, normalExit, exceptionalExit, backwardExitDiscovery).also(methodData::add)
     }
     fun key(method: ProgramMethod, context: String = "context", entry: Int = 0): MethodKey = method.key(context, entry)
     fun programMethod(key: MethodKey): ProgramMethod = methodData.single { it.method === key.method }
@@ -171,8 +181,34 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
     }
     fun graph(key: MethodKey, direction: Direction): MethodInstGraph = graphCache.computeIfAbsent(key to direction) {
         val method = programMethod(key)
-        val next = if (direction == Direction.FORWARD) method.successors else
-            method.successors.indices.map { target -> method.successors.indices.filter { target in method.successors[it] } }
+        val next = if (direction == Direction.FORWARD) method.successors else {
+            val reverse = method.successors.indices.map { target ->
+                method.successors.indices.filter { target in method.successors[it] }.toMutableList()
+            }
+            if (method.backwardExitDiscovery) {
+                // Explicit selected-fixture I11(e) contract. Preserve raw forward/historical
+                // graphs; only backward discovery gets the JVM-style exceptional wiring.
+                val exceptional = checkNotNull(method.exceptionalExit)
+                val exiting = BitSet()
+                val queue = ArrayDeque<Int>()
+                for (exit in listOf(method.normalExit, exceptional)) {
+                    exiting.set(exit)
+                    queue.addLast(exit)
+                }
+                while (queue.isNotEmpty()) {
+                    cancellation.checkpoint()
+                    for (before in reverse[queue.removeFirst()]) if (!exiting[before]) {
+                        exiting.set(before)
+                        queue.addLast(before)
+                    }
+                }
+                for (index in method.successors.indices) {
+                    cancellation.checkpoint()
+                    if (!exiting[index]) reverse[exceptional] += index
+                }
+            }
+            reverse
+        }
         MethodInstGraph(Array(next.size, method::inst),
             CompactGraph.build(next.size) { index -> BitSet().apply { next[index].forEach(::set) } },
             BitSet().apply {
@@ -296,7 +332,7 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
     }
 
     fun describe(): String = buildString {
-        for (m in methods) appendLine("method=${m.method.name} adjacency=${m.successors} normal=${m.normalExit} exceptional=${m.exceptionalExit}")
+        for (m in methods) appendLine("method=${m.method.name} adjacency=${m.successors} normal=${m.normalExit} exceptional=${m.exceptionalExit} backwardExitDiscovery=${m.backwardExitDiscovery}")
         val accessorIds = LinkedHashSet<Int>()
         val markIds = LinkedHashSet<Int>()
         fun key(k: MethodKey): String = "${k.method.name}/${k.context}/${k.statement.location.index}"

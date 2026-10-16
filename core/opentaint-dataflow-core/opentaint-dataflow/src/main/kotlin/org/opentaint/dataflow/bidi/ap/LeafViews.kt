@@ -24,7 +24,7 @@ internal fun nearLeafViews(m: ApManager, f: Facts, p: IntArray): Sequence<Patter
         is FlowTree -> buildList {
             val u = f.root.walk(p) { d, n ->
                 m.cancellation.checkpoint()
-                if (!n.leaf.isEmpty && (f.layer == Layer.DEMAND || f.exclusion.admits(p[d]))) add(flowPattern(f, p.copyOf(d)))
+                if (!n.leaf.isEmpty && f.exclusion.admits(p[d])) add(flowPattern(f, p.copyOf(d)))
             }
             u?.let { FlowAlgebra.forEachLeaf(it, p, m.cancellation) { path, _ -> add(flowPattern(f, path)) } }
         }.asSequence()
@@ -43,11 +43,11 @@ internal fun nearLeafViews(m: ApManager, f: Facts, p: IntArray): Sequence<Patter
 }
 
 private fun flowPattern(f: FlowTree, path: IntArray): Pattern = Pattern(
-    PathFact(f.base, path.asList(), if (f.layer == Layer.NORMAL) Tail.STAR else Tail.ANY, MarkSlot.Star(f.markExclusion)),
+    PathFact(f.base, path.asList(), f.tail, MarkSlot.Star(f.markExclusion)),
     f.exclusion)
 
 private inline fun taintPatterns(f: TaintTree, path: IntArray, leaf: TaintLeaves, add: (Pattern) -> Unit) {
-    val anyTail = if (f.layer == Layer.NORMAL) Tail.ANY_TAINT else Tail.ANY
+    val anyTail = f.anyTail
     for (id in leaf.exact.data) add(Pattern(PathFact(f.base, path.asList(), Tail.EXACT, MarkSlot.Concrete(TaintMark(id))), ExclusionSet.Empty))
     for (id in leaf.any.data) add(Pattern(PathFact(f.base, path.asList(), anyTail, MarkSlot.Concrete(TaintMark(id))), f.exclusion))
 }

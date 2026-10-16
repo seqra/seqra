@@ -110,7 +110,7 @@ class CumulativeSubscriptionEquivalenceTest {
                         assertEquals(expectedCreators,creatorRequests,
                             "creator case=$case size=$size mode=$mode j=$pattern target=$target")
                         val expected = expectedSelected.mapNotNull { leaf ->
-                            when (val outcome = oracle.transfer(pattern, target, leaf, mode.restricted)) {
+                            when (val outcome = oracle.transfer(pattern, target, leaf, mode.restricted, run1 = mode.run1)) {
                                 is EdgeOutcome.Fact -> outcome.conclusion
                                 EdgeOutcome.None -> null
                                 else -> error("A matched reference summary must transfer directly: $outcome")
@@ -195,13 +195,15 @@ class CumulativeSubscriptionEquivalenceTest {
             val header = setOf(callerPremise.toPattern())
             val expectedRequests = LinkedHashSet<Pair<Set<Pattern>, RequestKind>>()
             if (actor.mode.run1) expectedRequests += header to RequestKind.Mark(u)
-            val reference = FormsReference(f.ops, ReferenceAlgebra(actor.mode, manager = f.manager))
+            val reference = SelectedFormsReference(f.ops, SelectedReferenceAlgebra(actor.mode,
+                request = { pr, kind -> expectedRequests += pr to kind }, allows = { _, _ -> true },
+                hit = { _, _ -> }, manager = f.manager, join = { _, _, _, _, _ -> error("No ND in this control") }))
             val expected = ArrayList<Conclusion>()
             for (leaf in accepted.filter { oracle.selects(j.toPattern(), it, actor.mode.restricted) }) {
-                val outcome = oracle.transfer(j.toPattern(), target, leaf, actor.mode.restricted)
+                val outcome = oracle.transfer(j.toPattern(), target, leaf, actor.mode.restricted, run1 = actor.mode.run1)
                 if (outcome !is EdgeOutcome.Fact) continue
                 val hooks = PlanHooks(clean = { cl, item ->
-                    val out = cleanRes(cl, item.c)
+                    val out = cleanRes(cl, item.c, run1 = actor.mode.run1)
                     if (actor.mode.run1 && out.request != null) expectedRequests += item.premise to RequestKind.Mark(out.request)
                     out.facts.map { item.copy(c = it) }
                 }, exit = { it.copy(c = limit(it.c, fieldLimit)) })

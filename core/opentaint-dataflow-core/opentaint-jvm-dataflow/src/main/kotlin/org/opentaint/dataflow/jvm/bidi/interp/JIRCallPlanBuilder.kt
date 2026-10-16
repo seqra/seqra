@@ -140,12 +140,13 @@ internal class JIRCallPlanBuilder(
      */
     fun visitStaticMetadata(summary: (StatementSummary) -> Unit,
                             sink: (org.opentaint.dataflow.bidi.interp.SinkRule) -> Unit,
-                            clean: (CleanStep) -> Unit) {
+                            clean: (CleanStep) -> Unit,
+                            passSummary: (StatementSummary) -> Unit = summary) {
         sinks().forEach(sink)
         summary(sources())
         cleanSteps().forEach(clean)
         rewriterSteps().forEach(clean)
-        summary(passRules())
+        passSummary(passRules())
     }
 
     private fun touched(): Set<AccessPathBase> = buildSet {

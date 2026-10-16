@@ -9,15 +9,15 @@ data class Pattern(val fact: PathFact, val exclusion: ExclusionSet)
 
 data class Conclusion(val fact: PathFact, val exclusion: ExclusionSet, val demand: Boolean) {
     init {
-        check(fact.tail != Tail.STAR || (!demand && fact.mark is MarkSlot.Star)) {
-            "W2: a STAR conclusion needs an abstract mark and NORMAL layer"
+        check(fact.tail != Tail.STAR || fact.mark is MarkSlot.Star) {
+            "A STAR conclusion needs an abstract mark"
         }
         check(fact.tail != Tail.ANY || demand) { "W6: a may conclusion must be DEMAND" }
-        check(fact.tail != Tail.ANY_TAINT || (!demand && fact.mark is MarkSlot.Concrete)) {
-            "W8: a must conclusion needs a concrete mark and NORMAL layer"
+        check(fact.tail != Tail.ANY_TAINT || fact.mark is MarkSlot.Concrete) {
+            "A must conclusion needs a concrete mark"
         }
-        check(exclusion == ExclusionSet.Empty || (!demand && (fact.tail == Tail.STAR || fact.tail == Tail.ANY_TAINT))) {
-            "Only a normal STAR or must conclusion can exclude fields"
+        check(exclusion == ExclusionSet.Empty || (fact.tail == Tail.STAR || fact.tail == Tail.ANY_TAINT)) {
+            "Only a STAR or must conclusion can exclude fields"
         }
     }
 }
@@ -181,7 +181,7 @@ fun commonPart(d: Pattern, a: Pattern): Pattern? {
 }
 
 fun satisfies(j: Pattern, a: Pattern, restricted: Boolean): Boolean =
-    if (!restricted) applicable(j, a)       // run 1: a inside j (run 1 has no `[any-taint]` premise)
+    if (!restricted) applicable(j, a) || inside(j, a)
     else if (j.fact.tail == Tail.STAR && j.exclusion == ExclusionSet.Empty && j.fact.mark == MarkSlot.STAR)
         overlap(j, a)                      // canonical FLOW only; reads the exclusion of the added fact
     else inside(j, a) ||                   // concrete/must premise: inside; noncanonical FLOW retains both tests
@@ -296,7 +296,7 @@ sealed interface EdgeOutcome {
 fun rootOrClass(q: List<AccessorIdx>): Boolean = q.isEmpty() || (q.size == 1 && q[0].isClass())
 
 fun concat(c: Conclusion, edge: PathEdge, edgeDemand: Boolean = false,
-           staticIdentity: Boolean = false, restricted: Boolean = false): EdgeOutcome {
+           staticIdentity: Boolean = false, restricted: Boolean = false, run1: Boolean = false): EdgeOutcome {
     val from = edge.from
     check(from.mark !is MarkSlot.Star || from.mark.excluded == MarkSet.EMPTY)          // S7
     check(edge.to.mark !is MarkSlot.Concrete || from.mark is MarkSlot.Concrete)          // S7
@@ -330,8 +330,9 @@ fun concat(c: Conclusion, edge: PathEdge, edgeDemand: Boolean = false,
         }
     }
     val mark = compose(edge.to.mark, c.fact.mark) ?: return EdgeOutcome.None  // step 5
+    val cover = run1 && shape.exclusion != ExclusionSet.Empty
     return EdgeOutcome.Fact(normalize(PathFact(edge.to.base, shape.path, shape.tail, mark),
-        shape.exclusion, c.demand || edgeDemand || shape.demand))
+        if (cover) ExclusionSet.Empty else shape.exclusion, c.demand || edgeDemand || shape.demand || cover))
 }
 
 fun compose(to: MarkSlot, c: MarkSlot): MarkSlot? = when (to) {
@@ -346,10 +347,9 @@ fun normalize(f: PathFact, exclusion: ExclusionSet, demand: Boolean): Conclusion
     f.tail == Tail.ANY -> Conclusion(f, ExclusionSet.Empty, demand = true)                                  // W6
     f.tail == Tail.ANY_TAINT -> {
         check(f.mark is MarkSlot.Concrete)                                                                  // W8 (a)
-        if (demand) Conclusion(f.copy(tail = Tail.ANY), ExclusionSet.Empty, demand = true)                // W8 (b)
-        else Conclusion(f, exclusion, demand = false)                                    // keeps E (W8 (a))
+        Conclusion(f, exclusion, demand)
     }
-    f.tail != Tail.STAR || (f.mark is MarkSlot.Star && !demand) -> Conclusion(f, exclusion, demand)
+    f.tail != Tail.STAR || f.mark is MarkSlot.Star -> Conclusion(f, exclusion, demand)
     else -> Conclusion(f.copy(tail = Tail.ANY), ExclusionSet.Empty, demand = true)                         // W2
 }
 
@@ -401,7 +401,17 @@ fun cleanPos(cl: Cleaner, c: PathFact, exclusion: ExclusionSet): Pos {
 class CleanOut(val facts: List<Conclusion>, val request: TaintMark?)
 
 /** ap.md §4.7, F75 selected-mark split (BaseCleaner.cleanRes); concrete/all-marks rows keep concPart. */
-fun cleanRes(cl: Cleaner, c: Conclusion): CleanOut {
+fun cleanRes(cl: Cleaner, c: Conclusion, run1: Boolean = false): CleanOut {
+    val raw = if (run1 && c.fact.base == STATIC && cl.base == STATIC &&
+        c.fact.mark is MarkSlot.Star && cl.mark != null && cleanPos(cl, c.fact, c.exclusion) == Pos.DISJOINT)
+        CleanOut(listOf(c), null) else cleanResRaw(cl, c)
+    return if (!run1) raw else CleanOut(raw.facts.map { value ->
+        if (value.exclusion == ExclusionSet.Empty) value
+        else value.copy(exclusion = ExclusionSet.Empty, demand = true)
+    }, raw.request)
+}
+
+private fun cleanResRaw(cl: Cleaner, c: Conclusion): CleanOut {
     if (c.fact.base != cl.base) return CleanOut(listOf(c), null)
     val abstractMark = c.fact.mark as? MarkSlot.Star
     val selected = cl.mark
@@ -430,7 +440,7 @@ fun cleanRes(cl: Cleaner, c: Conclusion): CleanOut {
 fun concPart(cl: Cleaner, c: Conclusion): List<Conclusion> {
     val p = cl.path?.toList().orEmpty()
     val q = c.fact.path
-    if (c.fact.tail == Tail.ANY_TAINT && !c.demand && p.size == q.size + 1 && p.startsWith(q) && cl.reach != CleanReach.EXACT) {
+    if (c.fact.tail == Tail.ANY_TAINT && p.size == q.size + 1 && p.startsWith(q) && cl.reach != CleanReach.EXACT) {
         val kept = c.copy(exclusion = c.exclusion.union(ExclusionSet.of(p.last())))          // `[any-taint]/(E ∪ {f})`
         return if (cl.reach == CleanReach.AT_AND_BELOW) listOf(kept)
                else listOf(kept, c.copy(fact = c.fact.copy(path = p, tail = Tail.EXACT), exclusion = ExclusionSet.Empty))   // + x.p.f.$
@@ -438,8 +448,7 @@ fun concPart(cl: Cleaner, c: Conclusion): List<Conclusion> {
     return listOf(
         if (c.fact.tail.isAny && cl.reach == CleanReach.BELOW && q == p)
             c.copy(fact = c.fact.copy(tail = Tail.EXACT), exclusion = ExclusionSet.Empty)   // in the layer of c
-        else c.copy(fact = if (c.fact.tail == Tail.ANY_TAINT) c.fact.copy(tail = Tail.ANY) else c.fact,
-                    exclusion = ExclusionSet.Empty, demand = true))
+        else c.copy(demand = true))
 }
 
 sealed interface CheckResult { data object None : CheckResult; data object Holds : CheckResult; data class Request(val mark: TaintMark) : CheckResult }

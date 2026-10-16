@@ -205,17 +205,18 @@ class BuilderTransferVectorsTest {
         assertEquals(written, limit(written, 2))
     }
 
-    @Test fun `static root identity raises only the class keep position request in run one`(): Unit {
-        val strong = write(AccessPathBase.ClassStatic, p(cls, f))
-        val initial = Pattern(PathFact(AccessPathBase.ClassStatic, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty)
-        val input = flow(AccessPathBase.ClassStatic, exclusion = ex(g), mark = mx)
-        assertExpected(strong, input, setOf(flow(AccessPathBase.ClassStatic, exclusion = ex(cls, g), mark = mx)),
-            run1 = true, inputPremise = setOf(initial),
-            requests = listOf(RequestKind.Position(m.path(p(cls))!!)), runtimeRequests = emptyList())
-        val excluded = flow(AccessPathBase.ClassStatic, exclusion = ex(cls), mark = mx)
-        assertExpected(strong, excluded, setOf(excluded), run1 = true, inputPremise = setOf(initial))
-        assertExpected(strong, input, setOf(flow(AccessPathBase.ClassStatic, exclusion = ex(cls, g), mark = mx),
-            c(AccessPathBase.ClassStatic, p(cls), Tail.ANY, mx)))
+    @Test fun `run one field preservation demotes only an exclusion requiring residual`(): Unit {
+        val strong = write(AccessPathBase.ClassStatic, p(cls, f, g))
+        val initial = Pattern(PathFact(AccessPathBase.ClassStatic, p(cls, f), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty)
+        val input = flow(AccessPathBase.ClassStatic, p(cls, f), mark = mx)
+        assertExpected(strong, input,
+            setOf(c(AccessPathBase.ClassStatic, p(cls, f), Tail.STAR, mx, demand = true)),
+            run1 = true, inputPremise = setOf(initial))
+        val sibling = flow(AccessPathBase.ClassStatic, p(cls, h), mark = mx)
+        assertExpected(strong, sibling, setOf(sibling), run1 = true, inputPremise = setOf(initial))
+        val overwritten = flow(AccessPathBase.ClassStatic, p(cls, f, g), mark = mx)
+        assertExpected(strong, overwritten, emptySet(), run1 = true, inputPremise = setOf(initial))
+        assertExpected(strong, input, setOf(flow(AccessPathBase.ClassStatic, p(cls, f), ex(g), mx)))
     }
 
     @Test fun `empty root write replaces the base and an empty self write regenerates it`(): Unit {

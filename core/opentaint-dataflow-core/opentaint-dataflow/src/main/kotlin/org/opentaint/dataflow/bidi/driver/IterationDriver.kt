@@ -113,14 +113,15 @@ class IterationDriver internal constructor(
         if (forward) {
             report.add(config, result)
         }
-        shared.records.persist(config.direction, result.analyzers.asSequence().map { it.key to it.summaries })
+        if (!config.run1)
+            shared.records.persist(config.direction, result.analyzers.asSequence().map { it.key to it.summaries })
         val handOff = HandOff.of(config, result, report, shared)
         val frontier = frontierOf(config, result, handOff, report)
         frontierLog += frontier
         frontier.log()
         if (forward && !report.hasDemandVulnerability())
             return Next.End(RunStatus.COMPLETE, EndReason.STOP_RULE)
-        if (forward && result.demandLayerEdges == 0L)
+        if (forward && !config.run1 && result.demandLayerEdges == 0L)
             return Next.End(RunStatus.COMPLETE, EndReason.NO_DEMAND_EDGE)
         if (forward && !policy.continueAfter(config, result, frontiers))
             return Next.End(RunStatus.COMPLETE, EndReason.POLICY)

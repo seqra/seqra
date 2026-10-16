@@ -135,15 +135,15 @@ class OrdinaryStaticRequestGateTest {
     }
 
     @Test
-    fun `F75 cleaners still register unchanged disjoint and already excluded static interests`(): Unit {
+    fun `static selected cleaners skip disjoint fields even when the mark is already excluded`(): Unit {
         val origin = initial()
         for (input in listOf(ops.startFact(origin), flow(gp, mx = m.markSetOf(t)))) {
             val out = CollectingOut()
             ops.clean(input, origin, Cleaner(STATIC, m.path(fp), CleanReach.EXACT, t), run1, out)
-            assertEquals(listOf(t), out.markRequests)
+            assertTrue(out.markRequests.isEmpty())
             val result = out.results.single() as FlowTree
-            assertTrue(t in result.markExclusion)
-            assertSame((input as FlowTree).root, result.root)
+            assertEquals((input as FlowTree).markExclusion, result.markExclusion)
+            assertEquals(input.root, result.root)
         }
     }
 

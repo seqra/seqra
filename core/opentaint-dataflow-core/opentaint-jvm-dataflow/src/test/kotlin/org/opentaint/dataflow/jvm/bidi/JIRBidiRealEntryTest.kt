@@ -59,12 +59,13 @@ class JIRBidiRealEntryTest : BidiJIRTestUtils() {
             val copiedIds = setOf("real-entry-source", "real-entry-sink-id")
             assertEquals(copiedIds, f.manager.prescanRuleIds())
             var runtimeShared: org.opentaint.dataflow.bidi.engine.SharedObjects? = null
+            var actualDriver: IterationDriver? = null
             val entry = JIRBidiAnalysis(cp, graph, f.units, rules, f.params, FixedLimits(listOf(1, 2, 3)), f.refManager,
                 driverFactory = { policy, shared, remaining ->
                     runtimeShared = shared
                     assertTrue(assertNotNull(shared.run1StaticProfiles).contains(root),
                         "The remapped catalog must remain available to the actual engine after prescan release")
-                    org.opentaint.dataflow.bidi.driver.IterationDriver(policy, shared, remaining)
+                    IterationDriver(policy, shared, remaining).also { actualDriver = it }
                 })
             entry.gather(f.manager, listOf(MethodWithContext(root, EmptyMethodContext)), f.engine.prescanResolvedGraph())
             assertEquals(listOf(copiedIds), selected, "Gather selects once before collecting effective metadata")
@@ -79,10 +80,17 @@ class JIRBidiRealEntryTest : BidiJIRTestUtils() {
             assertNull(assertNotNull(runtimeShared).run1StaticProfiles,
                 "The actual joined run and analysis close must release the catalog, while the report remains usable")
             assertEquals(listOf(copiedIds), selected)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            val frontiers = assertNotNull(actualDriver).frontiers
+            assertEquals(listOf(1, 2, 3), frontiers.map { it.run }, "The NORMAL F1 candidate still requires B2/F3 refinement")
+            assertEquals(listOf(Direction.FORWARD, Direction.BACKWARD, Direction.FORWARD), frontiers.map { it.direction })
+            assertTrue(frontiers.all { it.confirmedVulnerabilities == 0 })
+            assertEquals(1, frontiers.first().demandVulnerabilities)
+            assertTrue(frontiers.first().demandEdges.isNotEmpty(), "NORMAL F1 publications remain guidance")
+            assertEquals(0L, frontiers[1].recordCrossings, "B2 does not read an executable F1 record")
             val item = report.entries.single()
             assertEquals(ReportState.DEMAND, item.state)
-            assertEquals(1, item.run)
+            assertEquals(3, item.run)
             assertSame(sink, item.key.rule)
             assertSame(root, item.key.method)
             assertSame(normalExit(root), item.key.statement)

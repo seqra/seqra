@@ -73,13 +73,13 @@ class KindFactoryTest {
             is Reach -> result += conclusion(emptyList(), Tail.EXACT, MarkSlot.Concrete(TaintMark.ZERO),
                 demand = demand, base = AccessPathBase.Zero)
             is FlowTree -> walk(facts.root) { path, leaf ->
-                if (leaf == FlowLeaf.LEAF) result += conclusion(path, if (demand) Tail.ANY else Tail.STAR,
+                if (leaf == FlowLeaf.LEAF) result += conclusion(path, facts.tail,
                     MarkSlot.Star(facts.markExclusion), facts.exclusion, demand, facts.base)
             }
             is TaintTree -> walk(facts.root) { path, leaf ->
                 for (id in leaf.exact.ids) result += conclusion(path, Tail.EXACT, MarkSlot.Concrete(TaintMark(id)),
                     demand = demand, base = facts.base)
-                for (id in leaf.any.ids) result += conclusion(path, if (demand) Tail.ANY else Tail.ANY_TAINT,
+                for (id in leaf.any.ids) result += conclusion(path, facts.anyTail,
                     MarkSlot.Concrete(TaintMark(id)), facts.exclusion, demand, facts.base)
             }
         }
@@ -260,7 +260,7 @@ class KindFactoryTest {
                 conclusion(listOf(cls, f, element), Tail.EXACT, mt, demand = layer == Layer.DEMAND),
                 conclusion(listOf(cls, f, element), Tail.EXACT, mu, demand = layer == Layer.DEMAND),
             ), decode(facts))
-            assertEquals(GroupKey(FactsKind.TAINT, layer, x), facts.groupKey)
+            assertEquals(GroupKey(FactsKind.TAINT, layer, x, tail = Tail.ANY_TAINT), facts.groupKey)
         }
     }
 
@@ -286,9 +286,9 @@ class KindFactoryTest {
             Row(Tail.STAR, mt, ex(g), Layer.NORMAL, Tail.ANY, empty, true),
             Row(Tail.STAR, mt, ex(g), Layer.DEMAND, Tail.ANY, empty, true),
             Row(Tail.ANY_TAINT, mt, ex(g), Layer.NORMAL, Tail.ANY_TAINT, ex(g), false),
-            Row(Tail.ANY_TAINT, mt, ex(g), Layer.DEMAND, Tail.ANY, empty, true),
+            Row(Tail.ANY_TAINT, mt, ex(g), Layer.DEMAND, Tail.ANY_TAINT, ex(g), true),
             Row(Tail.STAR, abstract, ex(g), Layer.NORMAL, Tail.STAR, ex(g), false),
-            Row(Tail.STAR, abstract, ex(g), Layer.DEMAND, Tail.ANY, empty, true),
+            Row(Tail.STAR, abstract, ex(g), Layer.DEMAND, Tail.STAR, ex(g), true),
             Row(Tail.ANY, abstract, ex(g), Layer.NORMAL, Tail.ANY, empty, true),
             Row(Tail.ANY, abstract, ex(g), Layer.DEMAND, Tail.ANY, empty, true),
         )
@@ -300,7 +300,8 @@ class KindFactoryTest {
                 assertEquals(if (row.demand) Layer.DEMAND else Layer.NORMAL, actual.layer)
                 val kind = if (row.mark is MarkSlot.Star) FactsKind.FLOW else FactsKind.TAINT
                 val mx = if (row.mark is MarkSlot.Star) row.mark.excluded else MarkSet.EMPTY
-                assertEquals(GroupKey(kind, actual.layer, x, row.expectedE, mx), actual.groupKey)
+                assertEquals(GroupKey(kind, actual.layer, x, row.expectedE, mx,
+                    if (row.expectedTail == Tail.EXACT) Tail.ANY_TAINT else row.expectedTail), actual.groupKey)
             }
         }
     }
@@ -486,7 +487,8 @@ class KindFactoryTest {
                 assertSame(first.normalFlow.exclusion, sample.normalFlow.exclusion)
                 assertSame(first.normalFlow.markExclusion, sample.normalFlow.markExclusion)
                 assertSame(first.demandFlow.markExclusion, sample.demandFlow.markExclusion)
-                assertSame(empty, sample.demandFlow.exclusion)
+                assertSame(first.normalFlow.exclusion, sample.demandFlow.exclusion)
+                assertEquals(Tail.STAR, sample.demandFlow.tail)
                 assertSame(first.normalTaint.root, sample.normalTaint.root)
                 assertSame(first.demandTaint.root, sample.demandTaint.root)
                 assertSame(first.normalTaint.exclusion, sample.normalTaint.exclusion)

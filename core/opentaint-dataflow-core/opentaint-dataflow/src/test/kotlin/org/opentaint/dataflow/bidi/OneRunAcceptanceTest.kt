@@ -45,7 +45,7 @@ class OneRunAcceptanceTest {
 
     private fun run(f: FiniteProgramFixtures, config: RunConfig, fields: List<Int>, marks: List<TaintMark>,
                     extraBases: List<AccessPathBase> = emptyList()): RunObservation {
-        val expected = NaiveClosure(f, config).run()
+        val expected = NaiveClosure(f, config, semantics = NaiveClosure.Semantics.SELECTED).run()
         val schedule = ProductionSchedule(f, config, policy = SchedulePolicy.REPLAY_FIRST, quantum = 1)
         val actual = schedule.run()
         val universe = BoundedDenotation((listOf(AccessPathBase.Zero, x, y, z, returned) + extraBases).distinct(),
@@ -92,7 +92,7 @@ class OneRunAcceptanceTest {
             assertEquals(listOf(ObservedSinkEdge(zero, Layer.NORMAL, setOf(conclusion),
                 GroupKey(FactsKind.TAINT, Layer.NORMAL, dead))), witness.edges)
             assertTrue(raw(actual, key, dead).isEmpty())
-            assertTrue(actual.requests.isEmpty() && actual.selectedDemand.isEmpty())
+            assertTrue(actual.requests.isEmpty() && actual.selectedDemand.none { it.conclusion.fact.base !in listOf(STATIC, AccessPathBase.Zero) })
         }
     }
 
@@ -116,6 +116,15 @@ class OneRunAcceptanceTest {
             val demand = listOf(key to DemandPattern(ZERO_PATTERN, f.pattern(x, tail = Tail.ANY, mark = MarkSlot.STAR)))
             val actual = run(f, f.config(index = index, L = 1, roots = listOf(key),
                 demand = demand, seeds = listOf(seed)), listOf(a, b, h, k), listOf(t.mark))
+            if (index == 1) {
+                val cover = Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, true)
+                assertContains(raw(actual, key, x), cover)
+                assertTrue(raw(actual, key, x).all { it.exclusion == ExclusionSet.Empty && it.demand })
+                assertEquals(listOf(overwritten, sibling, rootSibling).associate { it.rule.id to setOf(Layer.DEMAND) },
+                    witnesses(actual), "The broad E-free cover requires refinement, unlike an exact destination kill")
+                assertTrue(actual.requests.isEmpty())
+                return@use
+            }
             val atRoot = Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.of(a), false)
             val atField = Conclusion(PathFact(x, listOf(a), Tail.ANY_TAINT, t), ExclusionSet.of(b), false)
             assertEquals(setOf(atRoot, atField), raw(actual, key, x))
@@ -150,6 +159,18 @@ class OneRunAcceptanceTest {
                 f.pattern(base, tail = Tail.ANY, mark = MarkSlot.STAR)) }
             val actual = run(f, f.config(index = index, L = 1, roots = listOf(key),
                 demand = demand, seeds = listOf(seed)), listOf(name, email), listOf(t.mark))
+            if (index == 1) {
+                val cover = Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, true)
+                assertEquals(setOf(cover), raw(actual, key, x))
+                for (base in listOf(y, z)) {
+                    assertEquals(setOf(Conclusion(PathFact(base, emptyList(), Tail.ANY_TAINT, t),
+                        ExclusionSet.Empty, true)), raw(actual, key, base))
+                }
+                assertEquals(mapOf(excluded.rule.id to setOf(Layer.DEMAND), admitted.rule.id to setOf(Layer.DEMAND)),
+                    witnesses(actual))
+                assertTrue(actual.requests.isEmpty())
+                return@use
+            }
             val kept = Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.of(name), false)
             val read = Conclusion(PathFact(z, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, false)
             assertEquals(setOf(kept), raw(actual, key, x))
@@ -187,9 +208,24 @@ class OneRunAcceptanceTest {
             val demand = listOf(key to DemandPattern(ZERO_PATTERN, f.pattern(x, tail = Tail.ANY, mark = MarkSlot.STAR)))
             val actual = run(f, f.config(index = index, L = 1, roots = listOf(key),
                 demand = demand, seeds = listOf(seed)), listOf(a, b, k), listOf(t.mark))
+            if (index == 1 && reach != CleanReach.EXACT) {
+                val cover = Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, true)
+                assertContains(raw(actual, key, x), cover)
+                assertTrue(raw(actual, key, x).all { it.exclusion == ExclusionSet.Empty })
+                assertEquals(setOf(atField.rule.id, belowField.rule.id, elsewhere.rule.id), witnesses(actual).keys)
+                assertEquals(setOf(Layer.DEMAND), witnesses(actual).getValue(belowField.rule.id))
+                assertEquals(setOf(Layer.DEMAND), witnesses(actual).getValue(elsewhere.rule.id))
+                if (reach == CleanReach.BELOW) {
+                    assertContains(raw(actual, key, x), Conclusion(PathFact(x, listOf(a), Tail.EXACT, t),
+                        ExclusionSet.Empty, false))
+                    assertContains(witnesses(actual).getValue(atField.rule.id), Layer.NORMAL)
+                } else assertEquals(setOf(Layer.DEMAND), witnesses(actual).getValue(atField.rule.id))
+                assertTrue(actual.requests.isEmpty() && actual.links.isEmpty())
+                return@use
+            }
             val kept = Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.of(a), false)
             val exact = Conclusion(PathFact(x, listOf(a), Tail.EXACT, t), ExclusionSet.Empty, false)
-            val demoted = Conclusion(PathFact(x, emptyList(), Tail.ANY, t), ExclusionSet.Empty, true)
+            val demoted = Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, true)
             val expectedFacts = when (reach) {
                 CleanReach.AT_AND_BELOW -> setOf(kept)
                 CleanReach.BELOW -> setOf(kept, exact)
@@ -213,14 +249,15 @@ class OneRunAcceptanceTest {
                 assertEquals(zero, witness.edges.single().premise)
                 assertFalse(witness.confirmed)
             }
+            val selectedData = actual.selectedDemand.filter { it.conclusion.fact.base == x }.toSet()
             assertEquals(if (reach == CleanReach.EXACT) setOf(ObservedEdge(key, zero, demoted)) else emptySet(),
-                actual.selectedDemand)
+                selectedData)
             assertTrue(actual.requests.isEmpty() && actual.links.isEmpty())
         }
     }
 
     @Test
-    fun `a normal exact singleton is retained raw and only the matching restricted exit mark publishes it`(): Unit {
+    fun `actual current input authorizes a normal exact answer even when old exit guidance names another mark`(): Unit {
         for (index in listOf(1, 3)) for (matchingExit in listOf(false, true)) FiniteProgramFixtures().use { f ->
             val callerMethod = f.method("publicationCaller", listOf(listOf(1), listOf(2), emptyList()), 2)
             val calleeMethod = f.method("publicationCallee", listOf(listOf(1), emptyList()), 1)
@@ -250,8 +287,9 @@ class OneRunAcceptanceTest {
             val actual = run(f, f.config(index = index, L = 1, roots = listOf(caller),
                 demand = demand, seeds = listOf(seed)), listOf(field), listOf(t.mark, u.mark))
             assertContains(actual.rawSummaries, expectedRaw)
-            assertTrue(actual.selectedDemand.none { it.method == callee })
-            val publishes = index == 1 || matchingExit
+            if (index == 1) assertContains(actual.selectedDemand, expectedRaw)
+            else assertTrue(actual.selectedDemand.none { it.method == callee })
+            val publishes = true // actual input authorizes its response independently of the old exit guide
             assertEquals(if (publishes) setOf(expectedRaw) else emptySet(),
                 actual.publications.filter { it.method == callee && it.conclusion.fact.base == returned }.toSet())
             assertEquals(if (publishes) setOf(Conclusion(PathFact(y, listOf(field), Tail.EXACT, t),

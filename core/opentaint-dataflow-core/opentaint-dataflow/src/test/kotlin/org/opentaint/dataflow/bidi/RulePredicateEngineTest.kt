@@ -57,7 +57,7 @@ class RulePredicateEngineTest {
             }
             assertEquals(setOf(0, 1), result.single().first.members.map { (it.base as AccessPathBase.Argument).idx }.toSet())
             assertEquals(Layer.DEMAND, result.single().second.layer)
-            assertEquals(Tail.ANY, f.ops.leaves(result.single().second).single().fact.tail)
+            assertEquals(Tail.ANY_TAINT, f.ops.leaves(result.single().second).single().fact.tail)
         }
     }
 

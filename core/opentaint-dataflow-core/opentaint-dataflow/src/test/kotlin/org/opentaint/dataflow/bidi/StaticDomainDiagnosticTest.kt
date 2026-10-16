@@ -35,8 +35,7 @@ class StaticDomainDiagnosticTest {
             "excludedField", "excluded-T", "domainClasses=0", "domainFields=0", "fieldCount=1")) {
             assertTrue(part in message, "$part missing from $message")
         }
-        assertEquals(listOf(ap.initial(STATIC, null, Tail.STAR, ExclusionSet.Empty, MarkSlot.STAR)), answers,
-            "The existing unconditional policy start still precedes the guard")
+        assertTrue(answers.isEmpty(), "Validate the supplied domain before admitting any static initial")
     }
 
     @Test

@@ -105,7 +105,7 @@ class FormsReferenceTest {
         assertTrue(vectors > 10_000)
     }
 
-    @Test fun `reference mark and static requests use run one and statement geometry`(): Unit {
+    @Test fun `historical reference mark and static position requests retain their original geometry`(): Unit {
         val markRead = MicroEdge.of(PathEdge(PathFact(x, emptyList(), Tail.STAR, mt), exact(y), ExclusionSet.Empty))
         val star = Conclusion(starSide(x), ExclusionSet.Empty, false)
         val staticPremise = setOf(Pattern(starSide(STATIC), ExclusionSet.Empty))
@@ -114,7 +114,7 @@ class FormsReferenceTest {
         for (run1 in listOf(false, true)) for (statement in listOf(false, true)) {
             val requests = ArrayList<Pair<Set<Pattern>, RequestKind>>()
             val algebra = ReferenceAlgebra(ApMode(run1, Direction.FORWARD, 1),
-                request = { p, r -> requests += p to r }, manager = m)
+                request = { p, r -> requests += p to r }, manager = m, historicalRun1 = true)
             algebra.applyEdge(markRead, star, premise, statement) { _, _ -> fail("A star mark cannot supply T") }
             assertEquals(if (run1) listOf(premise to RequestKind.Mark(t)) else emptyList(), requests)
             requests.clear()
@@ -205,7 +205,7 @@ class FormsReferenceTest {
                 assertTrue(reached.none { it.first == AFTER })
             } else {
                 val beforeCut = exitSeen.single()
-                assertEquals(Conclusion(PathFact(y, listOf(g, f), Tail.ANY, mt), ExclusionSet.Empty, true), beforeCut.c)
+                assertEquals(Conclusion(PathFact(y, listOf(g, f), Tail.ANY_TAINT, mt), ExclusionSet.Empty, true), beforeCut.c)
                 assertEquals(false, beforeCut.identityCandidate)
                 assertEquals(premise, beforeCut.premise)
                 val final = reached.single { it.first == AFTER }.second

@@ -38,7 +38,7 @@ class ExitRulesTest {
         assertEquals(setOf(
             j to Conclusion(PathFact(result, emptyList(), Tail.EXACT, t), ExclusionSet.Empty, demand = false),
             j to Conclusion(generated, ExclusionSet.Empty, demand = false),
-            f.manager.zero to Conclusion(endTarget, ExclusionSet.Empty, demand = false)), raw(core))
+            f.manager.zero to Conclusion(endTarget, ExclusionSet.Empty, demand = false), defaultRow(f)), raw(core))
         assertEquals(1, f.sinkEvaluations.count { it.first === exitSink })
     }
 
@@ -61,7 +61,7 @@ class ExitRulesTest {
         core.addRootZero()
         f.drain(core)
         assertEquals(setOf(f.manager.zero to Conclusion(ZERO_FACT, ExclusionSet.Empty, demand = false),
-            f.manager.zero to Conclusion(normalTarget, ExclusionSet.Empty, demand = false)), raw(core))
+            f.manager.zero to Conclusion(normalTarget, ExclusionSet.Empty, demand = false), defaultRow(f)), raw(core))
         assertEquals(setOf(normalSink, exceptionalSink), f.sinkEvaluations.map { it.first }.toSet())
         assertTrue(raw(core).none { it.second.fact.mark == exceptionalMark })
     }
@@ -243,7 +243,7 @@ class ExitRulesTest {
             val expected = decode(target).map { f.manager.zero to it }.toSet()
             assertEquals(expected, raw(core))
             assertEquals(expected, f.publications.flatten().flatMap { pub -> decode(pub.conclusion).map { pub.premise to it } }.toSet())
-            assertEquals(if (index == 2) expected else emptySet(), selected(core))
+            assertEquals(expected, selected(core), "F1 normal guidance and backward ZERO are both retained")
         }
     }
 
@@ -267,7 +267,7 @@ class ExitRulesTest {
         if (complete) {
             assertEquals(2, f.publications.size, "True requires both accepted publication batches to be flushed")
             assertTrue(f.processed.any { it.premise === queued }, "True requires callback-enqueued work to be processed")
-            assertEquals(3, raw(core).size)
+            assertEquals(4, raw(core).size, "Three data outcomes plus the ordinary static default")
         }
         f.drain(core)
         assertTrue(core.work(1000))
@@ -275,7 +275,7 @@ class ExitRulesTest {
         assertSame(first, f.publications[0].single().conclusion)
         assertTrue(f.publications.flatten().any { it.conclusion === follow })
         assertTrue(f.processed.any { it.premise === queued })
-        assertEquals(3, raw(core).size)
+        assertEquals(4, raw(core).size, "Three data outcomes plus the ordinary static default")
     }
 
     @Test
@@ -334,6 +334,12 @@ class ExitRulesTest {
                 assertSame(source, hit.third)
             }
         }
+    }
+
+    private fun defaultRow(f: MethodAnalysisFixtures): Pair<PremiseKey, Conclusion> {
+        val identity = PathFact(STATIC, emptyList(), Tail.STAR, MarkSlot.STAR)
+        return f.manager.initial(Pattern(identity, ExclusionSet.Empty)) to
+            Conclusion(identity, ExclusionSet.Empty, false)
     }
 
     private fun mark(f: MethodAnalysisFixtures, name: String) = MarkSlot.Concrete(f.manager.marks.mark(name))

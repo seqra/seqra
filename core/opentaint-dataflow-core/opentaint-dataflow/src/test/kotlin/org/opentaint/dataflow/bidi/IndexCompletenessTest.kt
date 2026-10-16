@@ -435,8 +435,8 @@ class IndexCompletenessTest {
         }
         val run1 = delivery(f, index, listOf(pub), modes[0])
         val matchedGroup = run1.single { it.subscription.ref == root.ref && it.subscription.added.groupKey == root.added.groupKey }
-        assertEquals(decoded(deeper.added), decoded(matchedGroup.selected),
-            "The root leaf cannot replace the deeper run1 match, even when the header is cumulative")
+        assertEquals(decoded(root.added) + decoded(deeper.added), decoded(matchedGroup.selected),
+            "Both actual nonexact ancestor and direct descendant survive the complete match")
         val before = index.candidates(pub, 0, modes[1]).toList()
         val late = root.copy(ref = root.ref.copy(caller = f.key("late")))
         assertEquals(late, index.add(late))

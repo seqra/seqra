@@ -1,6 +1,6 @@
 # Run-1 requests, field writes and static summaries
 
-Status: single selected specification, **not implemented**. This document
+Status: single selected specification. This document
 unifies static field/mark requests, run-1 initial emission, field writes,
 ordinary static defaults and strong later refinement. It takes precedence
 for these topics over [AP](ap.md), [interpreter](interpreter.md),
@@ -12,11 +12,10 @@ The [implementation proposal](../docs/design/bidirectional-request-gated-static-
 uses this complete contract. [Request/static proofs](static-handling-proofs.md)
 and [field-write/default proofs](run1-field-write-proofs.md) state the
 constructive laws, checked models and remaining integration obligations.
-No analyzer implementation, IR storage or cache/reference manager changes
-are part of this documentation update.
+IR storage and cache/reference manager changes are outside this contract.
 
 Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. None completed;
-no accepted forward report. No new measurement was made for this consolidation.
+no accepted forward report. No new selected-project measurement is available.
 
 ## 1. Selected rules
 
@@ -56,8 +55,9 @@ rules: a possible alias is not a definite overwritten destination.
 
 The request/initial rules in §2 are part of this specification, not optional
 references. The default and later-phase rules are in §§5–7.
+For the complete static request lifecycle, see [§2.2.1](#221-static-request-lifecycle).
 
-## 2. Scope, layers and known AP information
+## 2. Request handling, initial facts and AP information
 
 Run-1 has limit exactly 1. Later limits are positive and nondecreasing.
 Class accessors do not count toward the limit. S differs from ZERO; broad
@@ -192,6 +192,38 @@ Collect source geometry for excluded-mark transfers: `g -> f (* except T)`
 needs source g/T and later original-slot routing, not a mark request invented
 on target f. Writes/alias coordinates can be legal and contribute W without
 contributing F. Direct class points stay on the separate supplied-data route.
+
+#### 2.2.1 Static request lifecycle
+
+The following steps apply to both source and sink conditions. They are part
+of the same run-1 contract as field preservation and static defaults.
+
+| Step | Field-read plan F | Static mark base B |
+| --- | --- | --- |
+| Prescan | Collect actual value reads; omit write targets, alias endpoints and mark predicates alone | Collect effective static mark interests with their source geometry |
+| After prescan | Compute transitive read closure on the resolved call graph | Close mark scopes on that graph; resolve selected slots and retain wide scopes symbolically |
+| Method owner creation | Borrow the immutable read plan | Construct R with the immutable B as its borrowed base, before publishing input/subscription access |
+| Actual input arrives | A supplied selected field admits its abstract STAR initial | Actual requested T admits its concrete EXACT/STAR initial; FLOW cannot answer T |
+| Same-slot FLOW dependency | No runtime field request is sent | Caller already borrows the callee's frozen membership; skip its redundant upstream offer after origin validation |
+| Changed-origin FLOW dependency | The real read that made the dependency supplies F | Offer the marks on the original abstract slot through P; commit fresh marks into dynamic R and notify callers |
+| Concrete answer arrives later | Reuse the same field gate | Reuse current R and the same concrete projector; ordinary initial deduplication prevents a second analysis of an equal initial |
+
+F is never inserted into RequestStorage. B has no startup commit or
+notification wave and is never copied into P or dynamic R. A late subscriber
+reads effective R, including B. A late dynamic request notifies existing
+subscribers. These are the two ordinary arrival orders, not two stores of
+the input or request. Concrete supplier data remains in the ordinary caller
+input subscription; the callee creates no added-fact history for requests.
+
+For example, if A calls B and B checks `ContainsMark(C.f,T)`, prescan gives
+both methods frozen C.f/T membership. It adds no F(C.f). Actual C.f/T can
+therefore produce a concrete-only initial in either method without a request
+propagation wave. If A first copies C.g to C.f, that copy contributes F(C.g).
+Its FLOW dependency has original slot C.g, so B's frozen C.f/T still causes
+a dynamic C.g/T offer in A. Frozen membership on C.f cannot discharge a
+different original slot. Sections 2.3–2.6 specify batching, matching, replay
+and coverage; the [proof dossier](static-handling-proofs.md#41-frozen-request-lifecycle-and-no-duplicate-propagation)
+states the corresponding closure and arrival arguments.
 
 ### 2.3 One effective request relation and temporary batching
 
@@ -689,12 +721,44 @@ Its complement cannot authorize identity across a write or nonreturning
 call. Strong responses use their proven full relation and ordinary AP read
 views, even when F(callee) is empty.
 
+The implementation uses actual current queries as its later-run starts. Old
+rows remain phase guidance and seed coverage; an old broad row does not start
+an additional wider executable transfer for a precise actual input. This is
+a general rule for all bases, not a static-root adapter. Concrete guide
+intersections with the actual bounded input may add more precise concrete
+starts; they retain the actual supplied mark and cannot create FLOW or
+authorize an input region outside that intersection. Register the entire
+current-query initial batch before starting any of its members. If a newly
+authorized initial already has a computed raw response, publish that response
+through ordinary publication deduplication without repeating its analysis.
+
+For fresh production driver runs, later nonzero inputs and initials carry
+concrete marks. The induction starts with ZERO and concrete source/sink
+requirements. Current-query projection retains the actual mark, and K6 keeps
+TAINT/concrete support through statements, calls, records and ND joins. Thus
+old abstract run-1 root guidance cannot produce a later FLOW analysis. This
+is a production reachability invariant. It does not remove legal external
+FLOW queries from the AP grammar or prove an exact correlated residual for
+such an external abstract-root query. Keep explicit controls for both scopes.
+
 Unknown is pending, not empty or identity. Publish fresh proven responses
 as soon as found. Recursive queries remain in the ordinary worklist until
 the simultaneous query/response closure reaches a fixed point. Fair work and
 accounting include new queries, responses, source hits and notifications.
 An empty result is final only at that fixed point or under an independent
 local proof. Cancellation yields an incomplete run.
+
+Backward ZERO discovery retains interpreter I11(e): every forward-reachable
+node has a path to a discovery exit. The JVM backward graph connects code
+that reaches no original exit to the exceptional exit before reversal.
+ZERO starts at both exits; nonzero callee queries start only at the normal
+exit. Thus ZERO can discover nested calls and activate their ordinary sink
+seeds at BOUND inside a nonreturning loop. A seed's local backward dependency
+can reach the method entry and its caller without a forward return from that
+method. The forward graph and its modeled normal-return paths stay intact.
+This is the existing graph/seed contract, not a new seed scheduler or static
+call handler. Finite validation fixtures must supply the same discovery
+coverage; an isolated normal exit alone does not satisfy I11(e).
 
 ### 7.3 S→S relation
 
@@ -735,8 +799,10 @@ publish a strong normal-return summary. The transfer adapter must retain this
 distinction without changing IR storage. Local source/sink queries inside a
 method do not require that the method later returns; only a continuation back
 to its caller requires the corresponding return witness.
-ZERO/source/end-generation and ND outputs need the same witness to return
-to a caller. Reaching a synthetic exit or creating a candidate is insufficient.
+Forward ZERO/source/end-generation and ND outputs need the same witness for
+an executable normal return to a caller. A backward local sink dependency
+under §7.2 is not such a return. Reaching a synthetic exit or creating a
+candidate is insufficient to prove an executable normal return.
 
 Preservation above a field must retain the **full residual**, not only an
 S-root with class C excluded. One lowering of the untouched part is:

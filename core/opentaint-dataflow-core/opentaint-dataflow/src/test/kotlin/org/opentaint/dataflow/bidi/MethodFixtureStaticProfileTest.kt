@@ -11,7 +11,7 @@ import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import kotlin.test.*
 
 class MethodFixtureStaticProfileTest {
-    @Test fun `lowered value-free strong write owns its field but leaves its sibling and class point framed`(): Unit {
+    @Test fun `lowered value-free write sets the effect bit without requesting a field read`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val cls = f.manager.accessors.index(ClassStaticAccessor("C"))
             val field = Run1Slot.StaticField(cls, f.field("f"))
@@ -21,7 +21,8 @@ class MethodFixtureStaticProfileTest {
                 write(STATIC, field.pathData.toList(), weak = false, values = emptyList(), aliasPaths = emptyList())
             }.build())
             val footprint = assertNotNull(f.shared.staticFootprint(f.key.method))
-            assertTrue(footprint.owns(field.cls, field.field))
+            assertFalse(footprint.owns(field.cls, field.field))
+            assertTrue(assertNotNull(f.shared.run1StaticProfiles)[f.key.method].staticMayWrite)
             assertFalse(footprint.owns(sibling.cls, sibling.field))
             assertFalse(footprint.ownsPoint(cls))
             assertFalse(footprint.allStatic)
@@ -43,7 +44,8 @@ class MethodFixtureStaticProfileTest {
             f.core()
             val profile = assertNotNull(f.shared.run1StaticProfiles)[f.key.method]
             assertTrue(profile.footprint.owns(from.cls, from.field))
-            assertTrue(profile.footprint.owns(to.cls, to.field))
+            assertFalse(profile.footprint.owns(to.cls, to.field))
+            assertTrue(profile.staticMayWrite)
             assertFalse(profile.footprint.owns(untouched.cls, untouched.field))
             assertTrue(untouched in profile.footprint.fieldUniverse)
             assertEquals(RequestMarkSet.of(t), profile.precomputedRequests.borrow(from).toRequestMarkSet {},
@@ -51,7 +53,7 @@ class MethodFixtureStaticProfileTest {
             val footprint = f.shared.staticFootprint(f.key.method)
             f.shared.releaseRun1StaticProfiles()
             assertNull(f.shared.run1StaticProfiles)
-            assertSame(footprint, f.shared.staticFootprint(f.key.method), "Later summary readers keep structural ownership only")
+            assertSame(footprint, f.shared.staticFootprint(f.key.method), "The diagnostic/legal vocabulary can outlive the request plans")
         }
     }
 
@@ -68,8 +70,7 @@ class MethodFixtureStaticProfileTest {
             val ref = org.opentaint.dataflow.bidi.store.CallerRef(f.store.key("supplier"), f.manager.zero,
                 Layer.NORMAL, f.inst(1))
             f.admit(actor, ref, Layer.NORMAL, f.fact(STATIC, slot.pathData.toList()))
-            assertEquals(setOf(f.manager.initial(STATIC, null, Tail.STAR, ExclusionSet.Empty, MarkSlot.STAR)),
-                actor.initials.all().toSet())
+            assertTrue(actor.initials.all().isEmpty(), "A legal coordinate alone is not a field-read request")
             assertFailsWith<IllegalStateException> { f.declareStaticDomain(slot.pathData.toList()) }
         }
     }

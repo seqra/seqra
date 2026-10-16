@@ -48,7 +48,7 @@ data class RunObservation(
     }
 }
 
-enum class ObservationComponent { REACH, FLOW, NORMAL_EXACT, NORMAL_MUST, DEMAND_TAINT }
+enum class ObservationComponent { REACH, FLOW, NORMAL_EXACT, NORMAL_MUST, DEMAND_EXACT, DEMAND_MUST, DEMAND_TAINT }
 sealed interface ObservationCell {
     data object Zero : ObservationCell
     data class Location(val value: TestLocation) : ObservationCell
@@ -83,12 +83,14 @@ private fun Conclusion.observationGroup(): GroupKey {
         fact.base == AccessPathBase.Zero -> GroupKey(FactsKind.REACH, layer, fact.base)
         fact.mark is MarkSlot.Star -> GroupKey(FactsKind.FLOW, layer, fact.base, exclusion,
             (fact.mark as MarkSlot.Star).excluded)
-        else -> GroupKey(FactsKind.TAINT, layer, fact.base, exclusion)
+        else -> GroupKey(FactsKind.TAINT, layer, fact.base, exclusion, tail = Tail.ANY_TAINT)
     }
 }
 private fun Conclusion.component(): ObservationComponent = when {
     fact.base == AccessPathBase.Zero -> ObservationComponent.REACH
     fact.mark is MarkSlot.Star -> ObservationComponent.FLOW
+    demand && fact.tail == Tail.EXACT -> ObservationComponent.DEMAND_EXACT
+    demand && fact.tail == Tail.ANY_TAINT -> ObservationComponent.DEMAND_MUST
     demand -> ObservationComponent.DEMAND_TAINT
     fact.tail == Tail.EXACT -> ObservationComponent.NORMAL_EXACT
     else -> ObservationComponent.NORMAL_MUST
@@ -141,7 +143,10 @@ private fun normalizeWitnesses(values: Set<ObservedWitness>, universe: BoundedDe
     val result = LinkedHashMap<SemanticWitnessHeader, SemanticWitness>()
     for (witness in values) {
         val headers = witness.edges.map { SemanticSinkHeader(it.premise, it.layer,
-            sinkGroup(it).copy(exclusion = ExclusionSet.Empty, markExclusion = MarkSet.EMPTY)) }
+            sinkGroup(it).let { group -> group.copy(exclusion = ExclusionSet.Empty, markExclusion = MarkSet.EMPTY,
+                // Exact members can physically share either TAINT envelope. Typed
+                // fact components below retain EXACT/must/may independently.
+                tail = if (group.kind == FactsKind.TAINT) Tail.ANY_TAINT else group.tail) }) }
         val header = SemanticWitnessHeader(witness.rule, witness.methodKey, witness.statement, witness.alternative,
             witness.run, headers, witness.confirmed, witness.proof)
         val edges = witness.edges.map { edge ->

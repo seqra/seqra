@@ -171,15 +171,20 @@ class JIRCallTransferTest : BasicTestUtils() {
         assertEquals(setOf(ZERO_PATTERN), result.final.single { it.c.fact.base != AccessPathBase.Zero }.premise)
     }
 
-    @Test fun `static FLOW enters and returns through summaries with its original premise and E`(): Unit {
+    @Test fun `static field FLOW retains its original admitted premise and later field E through calls`(): Unit {
         val s = v.call("staticCall")
         val plan = v.builder(s, resolutions = listOf(v.resolved())).build()
-        val input = flow(stat, exclusion = ex(g), mark = mx(u.id))
-        val original = item(input)
-        val result = check(plan, s, listOf(original), setOf(input), run1 = true,
-            methodResult = { _, i -> listOf(i.copy(identityCandidate = true)) })
-        assertEquals(setOf(input), result.at(BOUND))
-        assertTrue(result.final.all { it.premise === original.premise })
+        val cls = m.accessors.index(ClassStaticAccessor(CLS))
+        val staticField = field("sField")
+        val origin = setOf(Pattern(PathFact(stat,p(cls,staticField),Tail.STAR,MarkSlot.STAR),ExclusionSet.Empty))
+        for (run1 in listOf(false,true)) {
+            val input = flow(stat,p(cls,staticField),exclusion = if (run1) ExclusionSet.Empty else ex(g),mark = mx(u.id))
+            val original = item(input,premise = origin)
+            val result = check(plan,s,listOf(original),setOf(input),run1 = run1,fieldLimit = if (run1) 1 else Int.MAX_VALUE,
+                methodResult = { _, i -> listOf(i.copy(identityCandidate = true)) })
+            assertEquals(setOf(input),result.at(BOUND))
+            assertTrue(result.final.all { it.premise === original.premise })
+        }
     }
 
     @Test fun `unresolved default identity and pass result are sibling paths`(): Unit {
@@ -205,19 +210,20 @@ class JIRCallTransferTest : BasicTestUtils() {
         check(plan, s, listOf(item(fact(AccessPathBase.This))), setOf(fact(receiver), fact(resultBase(s))), from = ADDED)
     }
 
-    @Test fun `run one unresolved static field pass requests position on original static FLOW premise`(): Unit {
+    @Test fun `run one unresolved static pass retains original field origin without a root position request`(): Unit {
         val s = v.call("staticExternal")
         val cls = m.accessors.index(ClassStaticAccessor(CLS))
         val staticField = field("sField")
-        val rules = CallRules().apply { passes = listOf(pass(s, listOf(CopyAllMarks(at(ClassStatic(CLS), "sField"), Result)))) }
-        val plan = v.builder(s, rules).build()
-        val original = setOf(Pattern(PathFact(stat, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty))
-        val input = flow(stat, exclusion = ex(g))
-        val result = check(plan, s, listOf(item(input, premise = original)), setOf(input), run1 = true, fieldLimit = 1,
-            positions = listOf(checkNotNull(m.path(p(cls, staticField)))))
-        assertTrue(result.requests.single().first === original)
-        val blocked = flow(stat, exclusion = ex(cls))
-        check(plan, s, listOf(item(blocked, premise = original)), setOf(blocked), run1 = true, fieldLimit = 1)
+        val rules = CallRules().apply { passes = listOf(pass(s,listOf(CopyAllMarks(at(ClassStatic(CLS),"sField"),Result)))) }
+        val plan = v.builder(s,rules).build()
+        val original = setOf(Pattern(PathFact(stat,p(cls,staticField),Tail.STAR,MarkSlot.STAR),ExclusionSet.Empty))
+        val input = flow(stat,p(cls,staticField))
+        val result = check(plan,s,listOf(item(input,premise = original)),
+            setOf(input,flow(resultBase(s))),run1 = true,fieldLimit = 1)
+        assertTrue(result.requests.isEmpty())
+        assertTrue(result.final.all { it.premise === original })
+        val sibling = flow(stat,p(cls,g))
+        check(plan,s,listOf(item(sibling,premise = original)),setOf(sibling),run1 = true,fieldLimit = 1)
     }
 
     @Test fun `sink sees uncleaned bound T and its end fact survives the cleaner chain`(): Unit {
@@ -249,7 +255,8 @@ class JIRCallTransferTest : BasicTestUtils() {
         val plan = v.builder(s, rules).build()
         val input = flow(inputBase(s), exclusion = ex(g), mark = mx(u.id))
         val original = item(input)
-        val cleaned = input.copy(fact = input.fact.copy(mark = mx(t.id, u.id)))
+        val cleaned = input.copy(fact = input.fact.copy(mark = mx(t.id, u.id)),
+            exclusion = ExclusionSet.Empty,demand = true)
         val result = check(plan, s, listOf(original), setOf(cleaned, copyTo(cleaned, resultBase(s))), run1 = true,
             marks = listOf(t))
         assertEquals(setOf(copyTo(cleaned, arg0)), result.at(ADDED))
@@ -345,12 +352,13 @@ class JIRCallTransferTest : BasicTestUtils() {
         val origin = item(fact(local.argument)).premise
         val returned = item(must(ret, p(f), ex(g)), candidate = true, premise = origin)
         for ((limit, aliasFact) in listOf(1 to fact(other, p(next), Tail.ANY),
-            2 to fact(other, p(next, next), Tail.ANY), 3 to fact(other, p(next, next, f), Tail.ANY))) {
-            val result = check(plan, local.inst, listOf(returned), setOf(fact(local.result, p(f), Tail.ANY), aliasFact),
+            2 to fact(other, p(next, next), Tail.ANY),
+            3 to must(other,p(next,next,f),ex(g)).copy(demand = true))) {
+            val result = check(plan, local.inst, listOf(returned), setOf(must(local.result,p(f),ex(g)).copy(demand = true),aliasFact),
                 from = RETURNED, pending = true, fieldLimit = limit)
             assertTrue(result.items(REWRITTEN).all { it.c.fact.tail == Tail.ANY_TAINT && it.c.exclusion == ex(g) && !it.c.demand })
             assertTrue(result.items(REWRITTEN).all { it.identityCandidate == false && it.premise === origin })
-            assertTrue(result.exitInputs.all { it.demand && it.exclusion == ExclusionSet.Empty && it.fact.tail == Tail.ANY })
+            assertTrue(result.exitInputs.all { it.demand && it.exclusion == ex(g) && it.fact.tail == Tail.ANY_TAINT })
         }
         check(plan, local.inst, listOf(returned), setOf(must(local.result, p(f), ex(g))), from = RETURNED)
         val demand = item(fact(ret, p(f), Tail.ANY), candidate = true, premise = origin)
@@ -367,8 +375,8 @@ class JIRCallTransferTest : BasicTestUtils() {
         val origin = item(fact(inputBase(s))).premise
         val input = item(must(ret, exclusion = ex(g)), candidate = true, premise = origin)
         for (limit in listOf(1, 2, 3)) {
-            val result = check(plan, s, listOf(input), setOf(fact(resultBase(s), tail = Tail.ANY),
-                fact(resultBase(s), p(f), Tail.ANY)), from = RETURNED, pending = true, fieldLimit = limit)
+            val result = check(plan, s, listOf(input), setOf(must(resultBase(s),exclusion = ex(f,g)).copy(demand = true),
+                must(resultBase(s),p(f)).copy(demand = true)),from = RETURNED,pending = true,fieldLimit = limit)
             assertTrue(result.cleanInputs.any { it.fact.base is AccessPathBase.CleanerTemporary &&
                 it.fact.tail == Tail.ANY_TAINT && !it.demand })
             assertTrue(result.statementCuts.any { it.fact.base is AccessPathBase.CleanerTemporary })
@@ -376,7 +384,7 @@ class JIRCallTransferTest : BasicTestUtils() {
             assertTrue(result.at(REWRITTEN).contains(must(ret, exclusion = ex(f, g))))
         }
         val blocked = item(must(ret, exclusion = ex(f)), candidate = true, premise = origin)
-        val result = check(plan, s, listOf(blocked), setOf(fact(resultBase(s), tail = Tail.ANY)), from = RETURNED, pending = true)
+        val result = check(plan, s, listOf(blocked), setOf(must(resultBase(s),exclusion = ex(f)).copy(demand = true)),from = RETURNED,pending = true)
         assertTrue(result.cleanInputs.none { it.fact.base is AccessPathBase.CleanerTemporary })
         val killRules = CallRules().apply { allCleaners = listOf(cleaner(s,
             listOf(RemoveMark(RuleMark("T"), Result, TaintCleanReach.ExactAndAnyField)), user("T"))) }
@@ -642,7 +650,7 @@ class JIRCallTransferTest : BasicTestUtils() {
             }, callees = { stage, i -> stage.callees.flatMap { methodResult(it, i) } },
             clean = { cl, i ->
                 events += "clean"; cleanInputs += i.c
-                val cleaned = cleanRes(cl, i.c)
+                val cleaned = cleanRes(cl,i.c,run1 = run1)
                 if (run1) cleaned.request?.let { requests += i.premise to RequestKind.Mark(it) }
                 cleaned.facts.map { i.copy(c = it) }
             }, statementCut = { i -> statementCuts += i.c; i.copy(c = limit(i.c, fieldLimit)) },
@@ -705,8 +713,7 @@ class JIRCallTransferTest : BasicTestUtils() {
         fun finish(i: TreeItem): List<TreeItem> {
             val normalized = if (pending) raw(i).map { item ->
                 require(item.c.fact.mark is MarkSlot.Concrete && item.c.fact.tail != Tail.STAR)
-                val fact = if (item.c.fact.tail == Tail.ANY_TAINT) item.c.fact.copy(tail = Tail.ANY) else item.c.fact
-                tree(item.copy(c = Conclusion(fact, ExclusionSet.Empty, demand = true), identityCandidate = false))
+                tree(item.copy(c = item.c.copy(demand = true),identityCandidate = false))
             } else listOf(i)
             return normalized.flatMap(::cut)
         }

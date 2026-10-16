@@ -54,7 +54,8 @@ class ReferenceSourcePredicateTest {
                 }
             }
         })
-        val algebra = ReferenceAlgebra(core.mode, request = { pr, kind -> rawRequests += pr to kind }, manager = f.manager)
+        val algebra = ReferenceAlgebra(core.mode, request = { pr, kind -> rawRequests += pr to kind }, manager = f.manager,
+            historicalRun1 = referencePositions.isNotEmpty())
         private val decoder = FormsReference(f.ops)
 
         fun give(source: SourceRuleOccurrence, premise: Set<Pattern>, input: Conclusion,
@@ -106,7 +107,7 @@ class ReferenceSourcePredicateTest {
                     agreement.give(source, pr, Conclusion(f.pattern(base).fact, ExclusionSet.Empty, demand && base == b))
                     assertEquals(if (position == 0) 0 else 2, agreement.raw.size)
                 }
-                val expectedMust = if (demand) targets[0].copy(fact = targets[0].fact.copy(tail = Tail.ANY)) else targets[0]
+                val expectedMust = targets[0]
                 assertEquals(setOf(result(setOf(pa), expectedMust, demand), result(setOf(pa), targets[1], demand)),
                     agreement.raw.toSet())
                 assertTrue(agreement.rawRequests.isEmpty())
@@ -159,7 +160,7 @@ class ReferenceSourcePredicateTest {
     }
 
     @Test
-    fun `scalar static source position traffic is replaced by catalog refinement with no false source`(): Unit {
+    fun `historical root source position traffic has no selected runtime source output`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val cls = f.manager.accessors.index(ClassStaticAccessor("Box"))
             val field = f.field("f")

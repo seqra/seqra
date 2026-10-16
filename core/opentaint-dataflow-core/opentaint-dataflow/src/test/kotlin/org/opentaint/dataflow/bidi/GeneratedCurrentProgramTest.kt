@@ -45,7 +45,7 @@ class GeneratedCurrentProgramTest {
         val initialAdmission = if (catalogRefinement)
             NaiveClosure.InitialAdmission.RUN1_CONCRETE_CHAIN
         else NaiveClosure.InitialAdmission.HISTORICAL
-        val expected = NaiveClosure(f, config, initialAdmission).run()
+        val expected = NaiveClosure(f, config, initialAdmission, semantics = NaiveClosure.Semantics.SELECTED).run()
         if (catalogRefinement) assertTrue(expected.initials.none {
             it.initial.fact.tail == Tail.ANY || it.initial.fact.tail == Tail.ANY_TAINT
         }, "The independent selected run-1 closure must construct STAR, never ANY, initials")
@@ -174,8 +174,8 @@ class GeneratedCurrentProgramTest {
                 "seed=$seed index=$index full static path=$path")
             if (index == 3 && abstract) {
                 assertTrue(actual.requests.isEmpty())
-                assertFalse(actual.rawSummaries.any { it.conclusion.fact.mark == u },
-                    "A restricted abstract initial does not satisfy the concrete source mark")
+                assertTrue(actual.rawSummaries.any { it.conclusion.fact.mark == u },
+                    "Actual concrete input authorizes the transfer independently of an abstract old guide")
             }
         }
     }
@@ -212,7 +212,7 @@ class GeneratedCurrentProgramTest {
             // At run1's nonstatic root policy, a below-root mark answer has a STAR initial and an ANY starting fact in DEMAND
             // layer. A root exact answer is NORMAL. Restricted exact demand entries copy exact facts.
             val targetDemand = index == 1 && (px.isNotEmpty() || py.isNotEmpty())
-            val expectedTail = if (targetDemand && target.tail == Tail.ANY_TAINT) Tail.ANY else target.tail
+            val expectedTail = target.tail
             val expectedResult = limit(Conclusion(target.copy(tail = expectedTail), ExclusionSet.Empty, targetDemand), config.fieldLimit)
             assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(ZERO_PATTERN), expectedResult),
                 "seed=$seed index=$index px=$px py=$py out=$out target=$target expectedDemand=$targetDemand")

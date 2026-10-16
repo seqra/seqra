@@ -10,7 +10,7 @@ private class SummaryTails<P : TrieLeaf>(
 )
 
 private fun flowTails(a: FlowTree) = SummaryTails<FlowLeaf>(a.exclusion) { p, star, any, _ ->
-    if (if (a.layer == Layer.NORMAL) star else any) p else FlowLeaf.NONE
+    if (if (a.tail == Tail.STAR) star else any) p else FlowLeaf.NONE
 }
 
 private fun taintTails(m: ApManager, a: TaintTree) =
@@ -26,15 +26,15 @@ internal fun satisfyingPart(m: ApManager, a: Facts, j: Pattern, mode: ApMode, re
         "W8 (c): a must-premise is forward restricted"
     }
     val below = record || mode.run1 || (mode.restricted && j.fact.mark is MarkSlot.Star)
-    val inside = record || mode.restricted
+    val inside = record || mode.restricted || mode.run1
     return when (a) {
         is Reach -> a.takeIf { j.fact.base == AccessPathBase.Zero }
         is FlowTree -> if (j.fact.mark !is MarkSlot.Star) null
             else summaryPart(m, a.root, FlowAlgebra, flowTails(a), j, below, inside)
-                ?.let { m.flowTree(a.base, a.layer, a.exclusion, a.markExclusion, it) }
+                ?.let { m.flowTree(a.base, a.layer, a.exclusion, a.markExclusion, it, a.tail) }
         is TaintTree -> summaryPart(m, a.root, m.taintAlg, taintTails(m, a), j, below, inside)
             ?.let { markSubPart(m, it, j) }
-            ?.let { m.taintTree(a.base, a.layer, it, a.exclusion) }
+            ?.let { m.taintTree(a.base, a.layer, it, a.exclusion, a.anyTail) }
     }
 }
 
@@ -150,7 +150,7 @@ private fun leafKinds(m: ApManager, g: Facts, j: InitialAp): List<SummaryLeafKin
     return when (g) {
         is Reach -> listOf(SummaryLeafKind(edge(Tail.EXACT, MarkSlot.Concrete(TaintMark.ZERO), ExclusionSet.Empty)) { it })
         is FlowTree -> listOf(
-            if (g.layer == Layer.NORMAL)
+            if (g.tail == Tail.STAR)
                 SummaryLeafKind(edge(Tail.STAR, MarkSlot.Star(g.markExclusion), j.exclusion.union(g.exclusion))) {
                     graftSummary(m, g.root, { p -> p == FlowLeaf.LEAF }, it)
                 }
@@ -159,7 +159,7 @@ private fun leafKinds(m: ApManager, g: Facts, j: InitialAp): List<SummaryLeafKin
             })
         is TaintTree -> {
             val all = m.taintAlg.foldAll(g.root, m.cancellation)
-            val anyTail = if (g.layer == Layer.NORMAL) Tail.ANY_TAINT else Tail.ANY
+            val anyTail = g.anyTail
             val kinds = ArrayList<SummaryLeafKind>()
             for (id in all.exact.ids) {
                 m.cancellation.checkpoint()
@@ -213,7 +213,7 @@ internal fun applyMatchedCombinationPart(
         manager.cancellation.checkpoint()
         if (linkLayer == Layer.DEMAND) layer = Layer.DEMAND
     }
-    out.result(manager.taintTree(g.base, layer, g.root, g.exclusion))
+    out.result(manager.taintTree(g.base, layer, g.root, g.exclusion, g.anyTail))
 }
 
 /** Remove identical annotated leaves; preserve the other leaves without record demotion. */
@@ -222,7 +222,8 @@ internal fun withoutPart(manager: ApManager, c: Facts, part: Facts): Facts? {
     return when {
         c.base != part.base -> c
         c is TaintTree && part is TaintTree ->
-            if (c.layer != part.layer || (part.root.hasAny && part.exclusion != c.exclusion)) c
+            if (c.layer != part.layer || (part.root.hasAny &&
+                    (part.exclusion != c.exclusion || part.anyTail != c.anyTail))) c
             else manager.taintAlg.minusNode(c.root, part.root, manager.cancellation)
                 ?.let { if (it === c.root) c else c.withRoot(it) }
         c.groupKey != part.groupKey -> c

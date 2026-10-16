@@ -13,14 +13,14 @@ import kotlin.test.*
 class Run1AbstractionTest {
     private fun path(f: MethodAnalysisFixtures, field: String): List<Int> =
         listOf(f.manager.accessors.index(ClassStaticAccessor("Box")), f.field(field))
-    private fun fixture(marks: Boolean = false, empty: Boolean = false): MethodAnalysisFixtures =
+    private fun fixture(marks: Boolean = false, empty: Boolean = false, reads: Boolean = true): MethodAnalysisFixtures =
         MethodAnalysisFixtures(staticProfiles = { f ->
             val fp = path(f, "f")
             val gp = path(f, "g")
             val interest = f.pattern(STATIC, fp, Tail.ANY, MarkSlot.Concrete(f.mark("T")))
             Run1StaticProfiles.build(f.manager, mapOf(f.key.method to emptyList()), mapOf(f.key.method to
                 if (empty) Run1StaticLocalProfile.EMPTY else Run1StaticLocalProfile(
-                    accesses = listOf(fp, gp), abstractions = listOf(fp.take(1), fp, gp),
+                    accesses = listOf(fp, gp), abstractions = if (reads) listOf(fp, gp) else emptyList(),
                     marks = if (marks) listOf(StaticMarkInterest(interest, StaticMarkRole.SINK,
                         RequestMarkSet.of(f.mark("T")))) else emptyList())),
                 declaredFieldUniverse = setOf(Run1Slot.StaticField(fp[0], fp[1]), Run1Slot.StaticField(gp[0], gp[1])))
@@ -36,12 +36,17 @@ class Run1AbstractionTest {
         core.initials.all().filter { it.mark is MarkSlot.Concrete }.toSet()
 
     @Test
-    fun `empty static profile still emits the static root and never invents concrete marks`(): Unit {
+    fun `empty static profile emits no initials and stores an ordinary default`(): Unit {
         fixture(empty = true).use { f ->
             val core = actor(f)
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, path(f, "g")))
             barrier(f, core)
-            assertEquals(setOf(abstract(f)), core.initials.all().toSet())
+            assertTrue(core.initials.all().none())
+            val default = core.summaries.all().single { (premise, _) ->
+                premise is InitialAp && isSpecialStaticRoot(premise)
+            }
+            assertEquals(Layer.NORMAL, default.second.layer)
+            assertEquals(Tail.STAR, f.ops.leaves(default.second).single().fact.tail)
             assertTrue(f.events.filterIsInstance<RunEvent.MarkRequestsIn>().isEmpty())
         }
     }
@@ -50,16 +55,34 @@ class Run1AbstractionTest {
     fun `broad supplier projects selected structural fields and never starts an abstract class`(): Unit {
         fixture().use { f ->
             val core = actor(f)
-            f.admit(core, caller(f, emptyList()), Layer.NORMAL,
+            f.admit(core, caller(f, path(f, "f")), Layer.NORMAL,
                 f.fact(STATIC, tail = Tail.STAR, mark = MarkSlot.STAR))
             val fp = path(f, "f")
             val gp = path(f, "g")
-            assertEquals(setOf(abstract(f), abstract(f, fp), abstract(f, gp)), core.initials.all().toSet())
+            assertEquals(setOf(abstract(f, fp), abstract(f, gp)), core.initials.all().toSet())
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, gp))
             barrier(f, core)
-            assertEquals(setOf(abstract(f), abstract(f, fp), abstract(f, gp)), core.initials.all().toSet())
+            assertEquals(setOf(abstract(f, fp), abstract(f, gp)), core.initials.all().toSet())
             assertTrue(answers(core).isEmpty())
             assertTrue(f.events.filterIsInstance<RunEvent.MarkRequestsIn>().isEmpty())
+        }
+    }
+
+    @Test
+    fun `field reads and mark requests independently gate the two kinds of initials`(): Unit {
+        for (read in listOf(false, true)) for (mark in listOf(false, true)) {
+            fixture(marks = mark, reads = read).use { f ->
+                val core = actor(f)
+                val fp = path(f, "f")
+                val t = f.mark("T")
+                f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, fp, mark = MarkSlot.Concrete(t)))
+                barrier(f, core)
+                val initials = core.initials.all().toSet()
+                assertEquals(read, abstract(f, fp) in initials)
+                assertEquals(mark, initials.any { it.mark == MarkSlot.Concrete(t) })
+                assertTrue(initials.none { it.base == STATIC && it.path == null })
+                assertTrue(initials.all { it.exclusion == ExclusionSet.Empty })
+            }
         }
     }
 

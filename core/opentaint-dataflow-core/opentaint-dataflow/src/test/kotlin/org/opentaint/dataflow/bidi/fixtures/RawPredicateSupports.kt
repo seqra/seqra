@@ -87,8 +87,9 @@ private fun rawGroup(c: Conclusion): GroupKey {
     val mark = c.fact.mark
     return when {
         c.fact.base == AccessPathBase.Zero -> GroupKey(FactsKind.REACH, layer, c.fact.base)
-        mark is MarkSlot.Star -> GroupKey(FactsKind.FLOW, layer, c.fact.base, c.exclusion, mark.excluded)
-        else -> GroupKey(FactsKind.TAINT, layer, c.fact.base, c.exclusion)
+        mark is MarkSlot.Star -> GroupKey(FactsKind.FLOW, layer, c.fact.base, c.exclusion, mark.excluded, c.fact.tail)
+        else -> GroupKey(FactsKind.TAINT, layer, c.fact.base, c.exclusion, tail =
+            if (c.fact.tail == Tail.EXACT) Tail.ANY_TAINT else c.fact.tail)
     }
 }
 

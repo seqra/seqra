@@ -72,7 +72,7 @@ internal class EdgeApplication(private val m: ApManager, private val ce: Compile
         }
         val mx = gate.flowMarks(c.markExclusion)
         check(mx == null || (ce.toTail != Tail.EXACT && ce.toTail != Tail.ANY_TAINT))
-        val normal = c.layer == Layer.NORMAL
+        val normal = c.tail == Tail.STAR
         val layer = c.layer or edgeDemand
         val unchanged = if (mode.run1) unchangedStaticFlowPath(c, unchangedStaticInitial) else null
         val u = c.root.walk(ce.fromPathData) { d, n ->
@@ -88,12 +88,14 @@ internal class EdgeApplication(private val m: ApManager, private val ce: Compile
         when (ce.toTail) {
             Tail.STAR -> {
                 if (kids != null) flowHit(mx, c, { changedFlowSubtree(m, kids, ce.fromPathData, unchanged) }) {
-                    results.flow(layer, c.exclusion, it, FlowAlgebra.prepend(m, ce.toPath, kids))
+                    results.flow(layer, c.exclusion, it, FlowAlgebra.prepend(m, ce.toPath, kids), c.tail)
                 }
                 if (!u.leaf.isEmpty) flowHit(mx, c, {
                     !sameFlowLeaf(m, unchanged, ce.fromPathData, ce.fromPathData.size)
                 }) {
-                    results.flow(layer, c.exclusion.union(ce.exclusion), it, flagAtTarget())
+                    if (mode.run1 && ce.exclusion != ExclusionSet.Empty && c.tail == Tail.STAR)
+                        results.flow(Layer.DEMAND, ExclusionSet.Empty, it, flagAtTarget(), c.tail)
+                    else results.flow(layer, c.exclusion.union(ce.exclusion), it, flagAtTarget(), c.tail)
                 }
             }
             else -> if (kids != null || !u.leaf.isEmpty) flowHit(mx, c, {
@@ -113,7 +115,7 @@ internal class EdgeApplication(private val m: ApManager, private val ce: Compile
 
     fun taint(c: TaintTree) {
         val layer = c.layer or edgeDemand
-        val must = c.layer == Layer.NORMAL
+        val must = c.anyTail == Tail.ANY_TAINT
         val e = c.exclusion
         val u = c.root.walk(ce.fromPathData) { d, n ->
             m.cancellation.checkpoint()
@@ -126,11 +128,15 @@ internal class EdgeApplication(private val m: ApManager, private val ce: Compile
         when (ce.toTail) {
             Tail.STAR -> {
                 m.taintAlg.retainChildren(u, m.cancellation, admitsRest)?.let { kids ->
-                    gateTree(kids)?.let { results.taint(layer, m.taintAlg.prepend(m, ce.toPath, it), e) }
+                    gateTree(kids)?.let { results.taint(layer, m.taintAlg.prepend(m, ce.toPath, it), e, c.anyTail) }
                 }
                 gate.taintMarks(u.leaf.exact)?.let { put(layer, Tail.EXACT, it) }
                 gate.taintMarks(u.leaf.any)?.let {
-                    if (must) put(layer, Tail.ANY_TAINT, it, e.union(ce.exclusion))
+                    if (must) {
+                        if (mode.run1 && ce.exclusion != ExclusionSet.Empty)
+                            put(Layer.DEMAND, Tail.ANY_TAINT, it)
+                        else put(layer, Tail.ANY_TAINT, it, e.union(ce.exclusion))
+                    }
                     else put(Layer.DEMAND, Tail.ANY, it)
                 }
             }
@@ -149,8 +155,11 @@ internal class EdgeApplication(private val m: ApManager, private val ce: Compile
             Tail.ANY, Tail.ANY_TAINT -> m.taintLeaves(MarkSet.EMPTY, marks)
             Tail.STAR -> error("S8: a concrete mark has no STAR leaf")
         }
-        results.taint(resultLayer, m.taintAlg.prepend(m, ce.toPath, m.taintAlg.leafNode(leaf)),
-            if (tail == Tail.ANY_TAINT) exclusion else ExclusionSet.Empty)
+        val cover = mode.run1 && tail == Tail.ANY_TAINT && exclusion != ExclusionSet.Empty
+        results.taint(if (cover) Layer.DEMAND else resultLayer,
+            m.taintAlg.prepend(m, ce.toPath, m.taintAlg.leafNode(leaf)),
+            if (cover || tail != Tail.ANY_TAINT) ExclusionSet.Empty else exclusion,
+            if (tail == Tail.EXACT) Tail.ANY_TAINT else tail)
     }
 
     private fun gateTree(n: TaintNode): TaintNode? =

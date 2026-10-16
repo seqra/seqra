@@ -45,7 +45,8 @@ class Run1StaticSummaryPipelineTest {
                             assertSame(initial, application.publication.premise)
                             val leaves = f.ops.leaves(application.part.added).toList()
                             assertEquals(1, leaves.size)
-                            assertEquals(listOf(cls, field), leaves.single().fact.path)
+                            assertEquals(if (root) emptyList() else listOf(cls), leaves.single().fact.path)
+                            assertEquals(exclusion, assertIs<TaintTree>(application.part.added).exclusion)
                             assertEquals(MarkSlot.Concrete(t), leaves.single().fact.mark)
                             assertEquals(Layer.NORMAL, application.part.added.layer)
                         }
@@ -75,10 +76,11 @@ class Run1StaticSummaryPipelineTest {
                 f.subscriptions.subscribe(f.subscription(input))
                 if (!summaryFirst) f.storage().publish(listOf(pub))
                 f.deliverAll()
-                assertEquals(setOf(ExclusionSet.Empty, e), f.summaries.map { assertIs<TaintTree>(it.part.added).exclusion }.toSet(),
-                    "Consuming an ancestor and keeping the direct tip do not share one E header")
+                assertEquals(setOf(e), f.summaries.map { assertIs<TaintTree>(it.part.added).exclusion }.toSet(),
+                    "Ordinary matching retains the original ancestor and direct-leaf header")
                 assertTrue(f.summaries.all { application ->
-                    f.ops.leaves(application.part.added).all { it.fact.path == listOf(cls, field) }
+                    f.ops.leaves(application.part.added).map { it.fact.path }.toSet() ==
+                        setOf(listOf(cls),listOf(cls,field))
                 })
             }
         }

@@ -68,8 +68,7 @@ class FactoredRequestPipelineTest {
             }
             assertTrue(f.callee to initialU in h.initials)
             h.submit(f.subscription(input,call=2));h.drain()
-            assertEquals(setOf(f.callee to slot.initial(f.ap),f.callee to initialT,f.callee to initialU,
-                f.callee to f.ops.policy(input)),h.initials)
+            assertEquals(setOf(f.callee to slot.initial(f.ap),f.callee to initialT,f.callee to initialU),h.initials)
             assertTrue(h.initials.none { it.second.tail==Tail.ANY })
             assertEquals(RequestMarkSet.of(u),h.storage().borrowRequest(slot).dynamic)
         }

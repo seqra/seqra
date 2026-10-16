@@ -79,11 +79,9 @@ class CalleeSubscriptions(private val ops: ApOps, private val statistics: N2Stat
         val ids = LinkedHashSet<Int>()
         if (mode.run1) {
             ids += index.lookupExtensions(initial.base, initial.pathData)
-            // The component reader can project a broad root/class supplier into
-            // an owned static field before full ordinary satisfaction.
-            if (initial.base == STATIC && initial.pathData.size == 2) {
-                ids += index.lookupPrefixes(initial.base, initial.pathData)
-            }
+            // Candidate ancestors are checked by the same full AP predicate
+            // as replay. Exact ancestors and excluded components do not match.
+            ids += index.lookupPrefixes(initial.base, initial.pathData)
         }
         else {
             ids += index.lookupPrefixes(initial.base, initial.pathData)

@@ -254,7 +254,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
     }
 
     @Test
-    fun `conditional static exit source keeps the scalar position obligation and runtime parent identity`(): Unit {
+    fun `conditional static exit source requests its supplied field mark and preserves runtime parent identity`(): Unit {
         val m = method("copy")
         val cls = manager.accessors.index(ClassStaticAccessor(owner))
         val staticField = manager.accessors.index(FieldAccessor(owner, "sField", "java.lang.Object"))
@@ -265,7 +265,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
         }
         val i = interp(provider)
         val entry = start(i, m)
-        val requested = RequestKind.Position(assertNotNull(manager.path(listOf(cls, staticField))))
+        val requested = RequestKind.Mark(t)
 
         fun check(summary: StatementSummary, node: CommonInst, mode: ApMode,
                   original: Pattern, input: Conclusion, expected: Set<Conclusion>,
@@ -345,16 +345,21 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
             assertEquals(edge(from, target), source.transfer(source.predicate.leaves.single(), source.actions.single()).edge)
             assertTrue(forward.conjunctions.isEmpty())
             val reversed = forward.reversed()
+            val selected = Pattern(PathFact(STATIC, listOf(cls, staticField), Tail.STAR, MarkSlot.STAR), empty)
+            val selectedInput = conclusion(selected.fact)
+            check(forward, node, run1, selected, selectedInput, setOf(selectedInput), listOf(requested))
+            val actual = Pattern(from, empty)
+            check(forward, node, run1, actual, conclusion(from), setOf(conclusion(from), conclusion(target)))
+            // Broad root/class inputs are legal later AP controls, not run-1 initials.
             for (path in listOf(emptyList(), listOf(cls))) {
                 val original = Pattern(PathFact(STATIC, path, Tail.STAR, MarkSlot.STAR), empty)
                 val input = conclusion(original.fact, exclusion = ExclusionSet.of(g))
-                check(forward, node, run1, original, input, setOf(input), listOf(requested), runtimeRequests = emptyList())
                 check(forward, node, restricted, original, input, setOf(input))
                 check(reversed, node, backward, original, input, setOf(input))
 
                 val excluded = if (path.isEmpty()) cls else staticField
                 val blocked = conclusion(original.fact, exclusion = ExclusionSet.of(excluded))
-                check(forward, node, run1, original, blocked, setOf(blocked))
+                check(forward, node, restricted, original, blocked, setOf(blocked))
             }
             val reached = conclusion(target)
             check(reversed, node, backward, Pattern(target, empty), reached,
@@ -383,7 +388,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
             assertTrue(rules.endFacts.touched.isEmpty())
             for (demand in listOf(false, true)) {
                 val zero = conclusion(ZERO_FACT, demand)
-                val target = fact(resultBase, listOf(f), if (demand) Tail.ANY else Tail.ANY_TAINT, u)
+                val target = fact(resultBase, listOf(f), Tail.ANY_TAINT, u)
                 assertEquals(listOf(conclusion(target, demand)), FormsReference(ops).apply(FormsReference.Mode.GEN,
                     rules.endFacts, setOf(ZERO_PATTERN), zero, Place(node, false, false)))
             }

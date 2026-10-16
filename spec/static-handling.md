@@ -4,7 +4,7 @@ Status: compatibility index. The single normative contract is
 [Run-1 requests, field writes and static summaries](run1-field-writes.md).
 Static requests, selective field preservation, ordinary N/D defaults and
 later strong reconstruction are specified together there. This file retains
-older link targets; it adds no separate rules. Runtime is unchanged.
+older link targets; it adds no separate rules.
 
 Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. None completed;
 no accepted forward report. No new analyzer measurement was made.
@@ -15,7 +15,8 @@ See [domain, request slots and nine initial families](run1-field-writes.md#21-re
 
 ## 2. Prescan inventories
 
-See [field/mark requests](run1-field-writes.md#22-prescan-field-and-static-mark-requests)
+See [field/mark requests](run1-field-writes.md#22-prescan-field-and-static-mark-requests),
+their [complete lifecycle](run1-field-writes.md#221-static-request-lifecycle)
 and [static effect closure](run1-field-writes.md#5-prescan-static-write-closure).
 
 ## 3. Run-1 initials and request ownership

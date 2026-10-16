@@ -67,14 +67,14 @@ class EdgeTreeEquivalenceTest {
             is FlowTree -> {
                 require(typed.all { it is FlowTree && it.exclusion == first.exclusion && it.markExclusion == first.markExclusion })
                 val root = typed.drop(1).fold(first.root) { root, next -> FlowAlgebra.mergeAdd(root, (next as FlowTree).root) }
-                manager.flowTree(first.base, first.layer, first.exclusion, first.markExclusion, root)
+                manager.flowTree(first.base, first.layer, first.exclusion, first.markExclusion, root, first.tail)
             }
             is TaintTree -> {
                 require(typed.all { it is TaintTree })
                 val root = typed.drop(1).fold(first.root) { root, next -> manager.taintAlg.mergeAdd(root, (next as TaintTree).root) }
                 val exclusion = leaves.firstOrNull { it.fact.tail == Tail.ANY_TAINT }?.exclusion ?: ExclusionSet.Empty
                 require(leaves.filter { it.fact.tail == Tail.ANY_TAINT }.all { it.exclusion == exclusion })
-                manager.taintTree(first.base, first.layer, root, exclusion)
+                manager.taintTree(first.base, first.layer, root, exclusion, (typed.firstOrNull { it is TaintTree && it.root.hasAny } as? TaintTree)?.anyTail ?: Tail.ANY_TAINT)
             }
         }
         return Input(facts, leaves)
@@ -123,7 +123,7 @@ class EdgeTreeEquivalenceTest {
             (e.to.mark as? MarkSlot.Star)?.excluded?.ids?.forEach { marks += TaintMark(it) }
         }
         for (leaf in input.leaves) when (val result = concat(leaf, e, may,
-            staticIdentity(leaf, premise, statement, mode), mode.restricted)) {
+            staticIdentity(leaf, premise, statement, mode), mode.restricted, mode.run1)) {
             EdgeOutcome.None -> Unit
             is EdgeOutcome.Fact -> facts += result.conclusion
             is EdgeOutcome.Request -> marks += result.mark

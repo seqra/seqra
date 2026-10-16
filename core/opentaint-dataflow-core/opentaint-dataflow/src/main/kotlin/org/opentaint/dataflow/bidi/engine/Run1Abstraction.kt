@@ -29,7 +29,7 @@ internal class Run1Abstraction(
         validateRun1Supplier(ap, ref.premise, input)
         validateRun1Input(ap, input)
         check(input.base != STATIC || profile != null) { "A run-1 static input needs its frozen prescan plan" }
-        answer(ops.policy(input)) // includes the unconditional special static-root seed
+        if (input.base != STATIC) answer(ops.policy(input))
         if (input is Reach) return
         if (input.base == STATIC && profile != null) {
             // Even a mixed broad root must not hide an explicit unknown field.
@@ -50,7 +50,7 @@ internal class Run1Abstraction(
             }
             for (slot in profile.footprint.selectedFields(input, ap.cancellation::checkpoint)) {
                 ap.cancellation.checkpoint()
-                if (!slotMatches(slot, input)) continue
+                if (!profile.requestsField(slot) || !slotMatches(slot, input)) continue
                 policyStatistics?.structural()
                 answer(slot.initial(ap)) // additive, independent of concrete request membership
             }

@@ -67,7 +67,7 @@ internal fun cleanFacts(m: ApManager, c: Facts, premise: PremiseKey, cl: Cleaner
     when (c) {
         is Reach -> out.result(c)
         is FlowTree -> FlowClean(m, c, cl, mode, out).run()
-        is TaintTree -> TaintClean(m, c, cl, out).run()
+        is TaintTree -> TaintClean(m, c, cl, mode, out).run()
     }
 }
 
@@ -75,18 +75,46 @@ internal fun cleanFacts(m: ApManager, c: Facts, premise: PremiseKey, cl: Cleaner
 private class FlowClean(private val m: ApManager, private val c: FlowTree, private val cl: Cleaner,
                         private val mode: ApMode, private val out: ApOut) {
     private val results = Results(m, c.base)
-    private val tail = if (c.layer == Layer.NORMAL) Tail.STAR else Tail.ANY
+    private val tail = c.tail
 
     fun run() {
         val selected = cl.mark
         if (selected != null) {
-            results.flow(c.layer, c.exclusion, m.intern(c.markExclusion + selected), c.root)
+            if (mode.run1 && c.base == STATIC) { selectedStatic(selected); return }
+            results.flow(c.layer, c.exclusion, m.intern(c.markExclusion + selected), c.root, c.tail)
             if (mode.run1) out.markRequest(selected)
             results.flush(out)
             return
         }
         FlowAlgebra.cleanSpine(c.root, cl.pathArray, cl.reach, 0, m.cancellation, ::row) { null }
-            ?.let { results.flow(c.layer, c.exclusion, c.markExclusion, it) }
+            ?.let { results.flow(c.layer, c.exclusion, c.markExclusion, it, c.tail) }
+        results.flush(out)
+    }
+
+    /** A disjoint static field is not a mark-interest producer. Split selected
+     * leaves before changing mx so an unrelated sibling keeps its own header. */
+    private fun selectedStatic(selected: TaintMark) {
+        val mx = m.intern(c.markExclusion + selected)
+        var matched = false
+        fun add(node: FlowNode) {
+            matched = true
+            results.flow(c.layer, c.exclusion, mx, node, c.tail)
+        }
+        val kept = FlowAlgebra.cleanSpine(c.root, cl.pathArray, cl.reach, 0, m.cancellation,
+            { depth, leaf ->
+                if (leaf.isEmpty || cleanPosAt(cl, c.tail, depth,
+                        depth < cl.pathArray.size && c.exclusion.admits(cl.pathArray[depth])) == Pos.DISJOINT) leaf
+                else {
+                    add(FlowAlgebra.prepend(m, m.path(cl.pathArray.copyOf(depth)), FlowAlgebra.LEAF_NODE))
+                    FlowLeaf.NONE
+                }
+            },
+            { children ->
+                add(FlowAlgebra.prepend(m, cl.path, children))
+                null
+            })
+        kept?.let { results.flow(c.layer, c.exclusion, c.markExclusion, it, c.tail) }
+        if (matched) out.markRequest(selected)
         results.flush(out)
     }
 
@@ -97,7 +125,7 @@ private class FlowClean(private val m: ApManager, private val c: FlowTree, priva
         if (pos == Pos.DISJOINT) return leaf
         if (pos == Pos.PART) {
             val at = FlowAlgebra.prepend(m, m.path(path.copyOf(d)), FlowAlgebra.LEAF_NODE)
-            results.flow(Layer.DEMAND, ExclusionSet.Empty, c.markExclusion, at)
+            results.flow(Layer.DEMAND, c.exclusion, c.markExclusion, at, c.tail)
         }
         return FlowLeaf.NONE
     }
@@ -105,9 +133,9 @@ private class FlowClean(private val m: ApManager, private val c: FlowTree, priva
 
 /** Concrete and all-mark cleaners retain the spatial and partial-cleaning rows. */
 private class TaintClean(private val m: ApManager, private val c: TaintTree, private val cl: Cleaner,
-                         private val out: ApOut) {
+                         private val mode: ApMode, private val out: ApOut) {
     private val results = Results(m, c.base)
-    private val anyTail = if (c.layer == Layer.NORMAL) Tail.ANY_TAINT else Tail.ANY
+    private val anyTail = c.anyTail
 
     private fun gone(marks: MarkSet): MarkSet =
         if (cl.mark == null || marks.isEmpty) marks else marks.intersect(m.markSetOf(cl.mark))
@@ -117,7 +145,7 @@ private class TaintClean(private val m: ApManager, private val c: TaintTree, pri
             m.taintAlg.mapLeaves(kids, m.cancellation) {
                 m.taintLeaves(it.exact - gone(it.exact), it.any - gone(it.any))
             }
-        }?.let { results.taint(c.layer, it, c.exclusion) }
+        }?.let { results.taint(c.layer, it, c.exclusion, c.anyTail) }
         results.flush(out)
     }
 
@@ -135,11 +163,12 @@ private class TaintClean(private val m: ApManager, private val c: TaintTree, pri
                 val at = m.path(path.copyOf(d))
                 when {
                     tail == Tail.ANY_TAINT && d == path.size - 1 && cl.reach != CleanReach.EXACT -> {
-                        put(c.layer, at, Tail.ANY_TAINT, removed, c.exclusion.union(ExclusionSet.of(path[d])))
+                        if (mode.run1) put(Layer.DEMAND, at, Tail.ANY_TAINT, removed)
+                        else put(c.layer, at, Tail.ANY_TAINT, removed, c.exclusion.union(ExclusionSet.of(path[d])))
                         if (cl.reach == CleanReach.BELOW) put(c.layer, cl.path, Tail.EXACT, removed)
                     }
                     tail.isAny && cl.reach == CleanReach.BELOW && d == path.size -> put(c.layer, at, Tail.EXACT, removed)
-                    else -> put(Layer.DEMAND, at, tail, removed)
+                    else -> put(Layer.DEMAND, at, tail, removed, c.exclusion)
                 }
             }
         }
@@ -150,6 +179,6 @@ private class TaintClean(private val m: ApManager, private val c: TaintTree, pri
                     exclusion: ExclusionSet = ExclusionSet.Empty) {
         val leaf = if (tail == Tail.EXACT) m.taintLeaves(marks, MarkSet.EMPTY) else m.taintLeaves(MarkSet.EMPTY, marks)
         val root = m.taintAlg.prepend(m, at, m.taintAlg.leafNode(leaf))
-        results.taint(layer, root, exclusion)
+        results.taint(layer, root, exclusion, if (tail == Tail.EXACT) Tail.ANY_TAINT else tail)
     }
 }

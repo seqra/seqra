@@ -219,8 +219,7 @@ class NdJoinAdapterTest {
                 for (a in 0..1) for (b in 0..1) {
                     val demand = a == 1 || b == 1
                     add(f.manager.union(callerFirst[a], callerSecond[b]) to Conclusion(
-                        target.copy(tail = if (demand) Tail.ANY else Tail.ANY_TAINT),
-                        if (demand) ExclusionSet.Empty else e, demand))
+                        target, ExclusionSet.Empty, true))
                 }
             }
             assertEquals(expected, methodEntries(f.ops, actor.summaries.all()))
@@ -310,7 +309,7 @@ class NdJoinAdapterTest {
             actor.applySummary(first, publication, premise.members.indexOf(j1))
             actor.applySummary(second, publication, premise.members.indexOf(j2))
             f.drain(actor)
-            assertEquals(setOf(Conclusion(PathFact(result, path, Tail.ANY_TAINT, t), e, false)),
+            assertEquals(setOf(Conclusion(PathFact(result, path, Tail.ANY_TAINT, t), ExclusionSet.Empty, true)),
                 methodLeaves(f.ops, f.cuts.filter { it.first == Cut.CALL }.map { it.second }))
             assertEquals(setOf(premise to Conclusion(PathFact(result, path.take(1), Tail.ANY, t), ExclusionSet.Empty, true)),
                 methodEntries(f.ops, actor.summaries.all()))

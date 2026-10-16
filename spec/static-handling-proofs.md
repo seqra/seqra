@@ -12,7 +12,7 @@ Status: constructive design proofs and checked local reference laws. Use with
 [static-handling document](static-handling.md) is a compatibility index.
 This dossier covers request closure, emission, routing and strong statics;
 [the companion dossier](run1-field-write-proofs.md) covers field preservation/defaults.
-Runtime implementation is unchanged.
+Runtime validation is separate from these proof claims.
 Latest measured iteration: **run-1, FORWARD, limit 1; OOM**; no completed
 iteration or accepted forward report. No analyzer run supports this new design.
 
@@ -182,6 +182,42 @@ their original local hypotheses. The full observation induction in this
 section is a design proof; the new local Lean module does not certify its
 Kotlin producer inventory, mixed-base replay or full NNF/ND bridge.
 
+### 4.1 Frozen request lifecycle and no duplicate propagation
+
+Let M call N and let s be one selected static field slot. The least read and
+mark-scope closures in §2 imply that every selected slot of N is selected
+in M, and each inherited mark scope still matches that same s. Thus
+`B(N,s) subset B(M,s) subset R(M,s)`. This includes a wide scope activated
+at an already selected field slot. A scope activated outside the selected
+set is not frozen membership and takes the ordinary dynamic route.
+
+For a FLOW dependency whose validated original is s, forwarding B(N,s) to
+M would add the empty difference. Skipping that segment before mark
+enumeration preserves exactly the request union. For an original t different
+from s, closure does not guarantee membership on t. The ordinary original-slot join
+must offer B(N,s) on t; its fresh difference enters P and then dynamic R.
+The same reasoning applies to nonstatic originals. A concrete current fact
+or concrete original needs no upstream interest because its mark is fixed.
+
+At method creation R borrows B, so B is already visible before an input can
+read R. An input that precedes a dynamic commit is retained by the ordinary
+caller subscription and revisited by its fresh notification. An input that
+follows that commit reads the new effective R. Subscription registration
+precedes that read; commit precedes notification. Therefore every required
+input/request pair is covered in either order, without a startup B event or
+a second supplier store. Repeated delivery can revisit the same pair, but
+set union and initial deduplication prevent duplicate logical request
+membership and equal initial analyses. This does not claim that every input
+is visited only once.
+
+F only gates the abstract supplied-field branch. B and dynamic R gate the
+actual concrete-mark branch. Since neither gate inserts a supplier, this
+lifecycle retains the no-invented-mark law in §3. Field writes may demote a
+surviving FLOW edge without changing its original slot; such a dependency
+still uses this proof. A killed branch has no dependency to route. This is
+a constructive integration argument under §1's producer, origin and fair
+accounting assumptions, not a new checked whole-engine theorem.
+
 ## 5. Exclusion-update run-1 covers strong positive paths
 
 For a destination cylinder D, ordinary strong preservation removes D and
@@ -307,6 +343,20 @@ from those completion edges; otherwise the no-return theorem applies only
 to the small reference model and cannot be transferred to the frontend.
 Local sink/source work before a nonreturning exit needs no method-return
 witness; the restriction concerns continuation back to a caller.
+
+The discovery premise is interpreter I11(e). In the JVM backward graph,
+nodes that cannot reach an original exit are connected to the exceptional
+exit before reversal. ZERO starts at both exits. Induct on the reversed
+finite discovery path to reach each forward-reachable call or seed site;
+then induct on reached calls to obtain callee ZERO discovery. An ordinary
+sink seed enters at its own BOUND or boundary point and follows its local
+strong preimage to the method entry, even inside a nonreturning loop.
+Its zero-premise backward dependency can then reach the caller's source.
+Nonzero callee queries start only at the normal exit, and the forward graph
+has no added return path. Consequently this discovery argument supplies no
+forward normal-return witness. A finite fixture with a disconnected normal
+exit and no discovery path violates the premise; its missing source hit is
+not evidence that production needs a separate seed-start mechanism.
 
 Ordinary E is part of atom membership. For killing `[C,f]`, a surviving
 static atom is in another class, in sibling field g≠f, or a legal exact class

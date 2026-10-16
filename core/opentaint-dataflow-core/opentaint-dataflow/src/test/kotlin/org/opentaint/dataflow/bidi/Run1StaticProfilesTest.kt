@@ -5,6 +5,9 @@ import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.StoreFixtures
+import org.opentaint.dataflow.bidi.fixtures.FiniteProgramFixtures
+import org.opentaint.dataflow.bidi.fixtures.SelectedScalarPlan
+import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.ir.api.common.*
@@ -88,7 +91,7 @@ class Run1StaticProfilesTest {
         val x = f.field("x"); val y = f.field("y"); val t = f.mark("T")
         val ms = List(1024) { method("chain$it") }; val extra = method("unrelated")
         val graph = ms.dropLast(1).mapIndexed { i, m -> m to listOf(ms[i + 1]) }.toMap()
-        val profiles = Run1StaticProfiles.build(f.manager, graph, mapOf(
+        val profiles = Run1StaticProfiles.build(f.manager, graph, ms.associateWith { Run1StaticLocalProfile.EMPTY } + mapOf(
             ms.last() to Run1StaticLocalProfile(abstractions = listOf(listOf(c, x)), cleanerMarks = RequestMarkSet.of(t)),
             extra to Run1StaticLocalProfile(abstractions = listOf(listOf(c, y)))))
         val last = profiles[ms.last()]
@@ -182,9 +185,80 @@ class Run1StaticProfilesTest {
         val c = f.manager.accessors.index(ClassStaticAccessor("C")); val x = f.field("x"); val t = f.mark("T")
         val graph = ms.dropLast(1).mapIndexed { i, m -> m to listOf(ms[i + 1]) }.toMap()
         val last = Run1StaticLocalProfile(abstractions = listOf(listOf(c, x)), cleanerMarks = RequestMarkSet.of(t))
-        val ps = Run1StaticProfiles.build(f.manager, graph, mapOf(ms.last() to last))
+        val ps = Run1StaticProfiles.build(f.manager, graph,
+            ms.associateWith { Run1StaticLocalProfile.EMPTY } + (ms.last() to last))
         assertSame(ps[ms.last()].precomputedRequests, ps[ms.first()].precomputedRequests)
         assertEquals(32768, ps.statistics.components)
         assertEquals(32768L, ps.statistics.transitiveAbstractions)
     }
+
+    @Test fun `read gate frozen mark slots legal coordinates and write effects stay independent`() {
+        val f = StoreFixtures(); val m = method("separate")
+        val c = f.manager.accessors.index(ClassStaticAccessor("C"))
+        val read = Run1Slot.StaticField(c, f.field("read"))
+        val marked = Run1Slot.StaticField(c, f.field("marked"))
+        val written = Run1Slot.StaticField(c, f.field("written"))
+        val t = f.mark("T"); val u = f.mark("U")
+        val p = Run1StaticProfiles.build(f.manager, emptyMap(), mapOf(m to Run1StaticLocalProfile(
+            accesses = listOf(read.pathData.toList(), marked.pathData.toList(), written.pathData.toList()),
+            abstractions = listOf(read.pathData.toList()),
+            marks = listOf(
+                StaticMarkInterest(f.pattern(STATIC, marked.pathData.toList(), Tail.EXACT, MarkSlot.Concrete(t)),
+                    StaticMarkRole.SOURCE, RequestMarkSet.of(t)),
+                StaticMarkInterest(f.pattern(STATIC, listOf(c), Tail.STAR, MarkSlot.Concrete(u)),
+                    StaticMarkRole.SINK, RequestMarkSet.of(u))), staticMayWrite = true)))[m]
+        assertEquals(setOf(read), p.fieldReads)
+        assertTrue(p.requestsField(read)); assertFalse(p.requestsField(marked)); assertFalse(p.requestsField(written))
+        assertEquals(mapOf<Run1Slot, Set<Int>>(read to setOf(u.id), marked to setOf(t.id, u.id)),
+            members(p.precomputedRequests))
+        assertEquals(setOf(read), p.footprint.selectedFields(f.fact(STATIC, emptyList(), Tail.ANY, layer = Layer.DEMAND)))
+        assertTrue(p.staticMayWrite)
+        assertEquals(setOf(read, marked, written), p.footprint.fieldUniverse)
+        assertEquals(mapOf<Run1Slot, Set<Int>>(written to setOf(u.id)),
+            members(p.wideRequests(f.fact(STATIC, written.pathData.toList()))))
+        assertFalse(p.precomputedRequests.hasRow(written), "Late-wide activation cannot mutate B or F")
+    }
+
+    @Test fun `least static write closure distinguishes read-only cycle reachable writer and missing metadata`() {
+        val f = StoreFixtures()
+        val a = method("a"); val b = method("b"); val w = method("writer"); val unknown = method("unknown")
+        val clean = Run1StaticProfiles.build(f.manager, mapOf(a to listOf(b), b to listOf(a)),
+            mapOf(a to Run1StaticLocalProfile.EMPTY, b to Run1StaticLocalProfile.EMPTY))
+        assertFalse(clean[a].staticMayWrite); assertFalse(clean[b].staticMayWrite)
+        val dirty = Run1StaticProfiles.build(f.manager,
+            mapOf(a to listOf(b), b to listOf(a, w)), mapOf(a to Run1StaticLocalProfile.EMPTY,
+                b to Run1StaticLocalProfile.EMPTY, w to Run1StaticLocalProfile(staticMayWrite = true)))
+        assertTrue(dirty[a].staticMayWrite); assertTrue(dirty[b].staticMayWrite)
+        val missing = Run1StaticProfiles.build(f.manager, mapOf(a to listOf(unknown)),
+            mapOf(a to Run1StaticLocalProfile.EMPTY))
+        assertTrue(missing[a].staticMayWrite); assertTrue(missing[unknown].staticMayWrite)
+        assertTrue(missing[a].fieldReads.isEmpty()); assertTrue(missing[a].precomputedRequests.isEmpty)
+    }
+    @Test fun `alias endpoints retain legal mark and write metadata without requesting a field read`() {
+        FiniteProgramFixtures().use { f ->
+            val owner = f.method("alias-only metadata", listOf(emptyList()), 0).key()
+            val cls = f.ap.accessors.index(ClassStaticAccessor("AliasOwner"))
+            val source = listOf(cls, f.field("source"))
+            val target = listOf(cls, f.field("target"))
+            val t = f.mark("T")
+            val edge = starEdge(STATIC, source, org.opentaint.dataflow.ap.ifds.AccessPathBase.Return, emptyList())
+            val excluded = edge.copy(to = edge.to.copy(mark = MarkSlot.Star(MarkSet(intArrayOf(t.id)))))
+            val write = starEdge(org.opentaint.dataflow.ap.ifds.AccessPathBase.Argument(0), emptyList(), STATIC, target)
+            val aliases = StatementSummary(setOf(STATIC, write.from.base), listOf(excluded, write).map(MicroEdge::of),
+                emptyList(), emptyMap())
+            f.call(owner, 0, CallPlan(aliases.touched, listOf(CallStage.Edges(CallPoint.BEFORE,
+                CallPoint.AFTER, StageKind.ALIASES, aliases)), emptyList(), CallPoint.BEFORE, CallPoint.AFTER))
+            val actual = f.staticProfiles()[owner.method]
+            assertTrue(actual.fieldReads.isEmpty(), "An alias endpoint is not a value-read seed")
+            assertEquals(setOf(source, target), actual.footprint.fieldUniverse.map { it.pathData.toList() }.toSet())
+            assertTrue(actual.staticMayWrite)
+            assertEquals(mapOf<Run1Slot, Set<Int>>(Run1Slot.StaticField(cls, source[1]) to setOf(t.id)),
+                members(actual.precomputedRequests), "Selected exclusion creators still contribute scoped marks")
+            val scalar = SelectedScalarPlan(f)
+            assertTrue(scalar.fieldReads(owner).isEmpty())
+            assertTrue(scalar.writes(owner))
+            assertEquals(mapOf(SelectedScalarPlan.slot(STATIC, source) to setOf(t)), scalar.base(owner))
+        }
+    }
+
 }

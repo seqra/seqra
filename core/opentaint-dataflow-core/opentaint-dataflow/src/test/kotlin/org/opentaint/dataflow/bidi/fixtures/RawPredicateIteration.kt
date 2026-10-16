@@ -19,7 +19,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 class RawPredicateIteration(private val program: FiniteProgramFixtures, private val roots: List<MethodKey>,
                                   private val limits: List<Int>) {
     init {
-        require(limits.isNotEmpty() && limits.all { it >= 1 })
+        require(limits.isNotEmpty() && limits.first() == 1 && limits.all { it >= 1 })
         require(limits.zipWithNext().all { (a, b) -> b >= a })
     }
 
@@ -59,14 +59,14 @@ class RawPredicateIteration(private val program: FiniteProgramFixtures, private 
                 currentDemand = LinkedHashMap()
                 for (witness in observation.witnesses) {
                     val key = HistoricalFinding(witness.rule, witness.statement)
-                    if (witness.confirmed) confirmed[key] = HistoricalState.CONFIRMED
+                    if (!config.run1 && witness.confirmed) confirmed[key] = HistoricalState.CONFIRMED
                     else if (key !in confirmed) currentDemand[key] = HistoricalState.DEMAND
                 }
                 // A later witness of the same key can confirm it; remove the earlier demand row.
                 confirmed.keys.forEach(currentDemand::remove)
             }
-            // Current R1, independently scanned before hand-off. Raw native singleton facts only.
-            for (edge in observation.rawSummaries) if (!edge.conclusion.demand && edge.premise.size == 1 &&
+            // F1 publications are guidance only. Later R1 persists computed normal singleton facts.
+            for (edge in observation.rawSummaries) if (!config.run1 && !edge.conclusion.demand && edge.premise.size == 1 &&
                 !(config.direction == Direction.BACKWARD && isZero(edge.premise))) {
                 records += RawRecord(edge.method, config.direction, edge.premise.single(), edge.conclusion)
             }
@@ -76,7 +76,7 @@ class RawPredicateIteration(private val program: FiniteProgramFixtures, private 
             log += HistoricalRun(index, inputs, observation,
                 ProgramRunInputs(roots.toList(), demand.toList(), records.toList(), seeds.toList()))
             if (config.direction == Direction.FORWARD && (currentDemand.isEmpty() ||
-                (observation.processed.none { it.conclusion.demand } &&
+                (!config.run1 && observation.processed.none { it.conclusion.demand } &&
                     observation.rawSummaries.none { it.conclusion.demand } &&
                     observation.links.none { it.linkLayer == Layer.DEMAND }))) break
         }
@@ -90,11 +90,11 @@ class RawPredicateIteration(private val program: FiniteProgramFixtures, private 
         val result = LinkedHashSet<Pair<MethodKey, DemandPattern>>()
         for (edge in observation.selectedDemand) {
             program.cancellation.checkpoint()
-            fun normalized(p: Pattern): Pattern {
-                val forgotten = if (p.fact.tail == Tail.ANY_TAINT) Pattern(p.fact.copy(tail = Tail.ANY), ExclusionSet.Empty) else p
+            fun normalized(p: Pattern, entry: Boolean = false): Pattern {
+                val forgotten = if (p.fact.tail == Tail.ANY_TAINT || (entry && p.fact.tail == Tail.STAR)) Pattern(p.fact.copy(tail = Tail.ANY), ExclusionSet.Empty) else p
                 return if (forgotten.fact.mark is MarkSlot.Star) forgotten.copy(fact = forgotten.fact.copy(mark = MarkSlot.STAR)) else forgotten
             }
-            val entry = normalized(Pattern(edge.conclusion.fact.copy(path = edge.conclusion.fact.path.toList()), edge.conclusion.exclusion))
+            val entry = normalized(Pattern(edge.conclusion.fact.copy(path = edge.conclusion.fact.path.toList()), edge.conclusion.exclusion), entry = true)
             if (direction == Direction.FORWARD) for (member in edge.premise) result += edge.method to DemandPattern(entry, normalized(member))
             else {
                 check(edge.premise.size == 1)

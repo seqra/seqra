@@ -53,10 +53,10 @@ class PublicationIndex(private val ap: ApManager, private val ops: ApOps) {
                 val path = leaf.fact.path.toIntArray()
                 if (mode.run1) {
                     members += byMember.lookupPrefixes(leaf.fact.base, path)
-                    if (leaf.fact.base == STATIC && path.size < 2 && leaf.fact.tail != Tail.EXACT) {
-                        // Broad suppliers also read owned field analyses. This
-                        // is only candidate discovery; component guards and the
-                        // ordinary AP predicate decide application.
+                    if (leaf.fact.tail != Tail.EXACT) {
+                        // A nonexact actual ancestor can supply a requested
+                        // component. The complete AP predicate checks its E,
+                        // marks and tail after this candidate lookup.
                         members += byMember.lookupExtensions(leaf.fact.base, path)
                     }
                 }

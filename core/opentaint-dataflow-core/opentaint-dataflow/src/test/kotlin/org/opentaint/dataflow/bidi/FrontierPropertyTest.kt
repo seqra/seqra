@@ -34,7 +34,7 @@ class FrontierPropertyTest {
     }
 
     @Test fun `real nonzero initial presence separates analyzed keys from zero-only stored work in both directions`(): Unit {
-        for (index in listOf(1, 2)) HandOffFixtures(index).use { f ->
+        for (index in listOf(3, 2)) HandOffFixtures(index).use { f ->
             val zero = f.key("zero only")
             val concrete = f.key("concrete initial")
             val flow = f.key("flow initial")
@@ -65,7 +65,7 @@ class FrontierPropertyTest {
         }
     }
 
-    @Test fun `real accepted demand links edges and summaries do not become outgoing hand-off counts without publications`(): Unit {
+    @Test fun `actual current queries authorize demand publications independently of absent exit guidance`(): Unit {
         HandOffFixtures(index = 3).use { f ->
             val t = MarkSlot.Concrete(f.mark("T"))
             f.finite.statement(1, summary(PathEdge(PathFact(x, emptyList(), Tail.EXACT, t),
@@ -85,12 +85,12 @@ class FrontierPropertyTest {
             assertEquals(3L, result.demandLayerEdges)
             assertEquals(3L, actor.edgeDeltas)
             assertEquals(setOf(first, second), f.links(actor).asSequence().map { it.caller }.toSet())
-            assertTrue(actor.summaries.demandEdges().none(), "The run has no exit demand to publish the raw summary")
+            assertEquals(1, actor.summaries.demandEdges().count(), "The full current query authorizes its computed response without old exit demand")
             val handOff = HandOff.of(f.config, result, f.report, f.shared)
             val frontier = frontierOf(f.config, result, handOff, f.report)
             assertEquals(setOf(actor.key), frontier.analysed)
             assertTrue(frontier.zeroOnly.isEmpty())
-            assertTrue(frontier.demandEdges.isEmpty())
+            assertEquals(mapOf(actor.key to 1), frontier.demandEdges)
             assertEquals(0L, frontier.zeroOnlyEdges)
             assertNull(frontier.demandByCause)
         }
@@ -130,7 +130,7 @@ class FrontierPropertyTest {
     }
 
     @Test fun `bounded stored normalized demand counts equal an independent exact set in both hand-off directions`(): Unit {
-        for (index in listOf(1, 2)) for (mask in 0..7) HandOffFixtures(index).use { f ->
+        for (index in listOf(3, 2)) for (mask in 0..7) HandOffFixtures(index).use { f ->
             val a = f.field("a")
             val b = f.field("b")
             val t = f.mark("T")
@@ -139,7 +139,7 @@ class FrontierPropertyTest {
             val keys = listOf(f.key("left context"), f.key("right context"))
             val expected = LinkedHashSet<Pair<MethodKey, DemandPattern>>()
             for (key in keys) {
-                val origins = if (index == 1) listOf(x to emptyList(), y to emptyList())
+                val origins = if (index == 3) listOf(x to emptyList(), y to emptyList())
                     else listOf(x to emptyList(), x to listOf(a))
                 for ((premiseBase, premisePath) in origins) {
                     val initial = f.initial(premiseBase, premisePath, Tail.STAR, MarkSlot.STAR)
@@ -176,7 +176,7 @@ class FrontierPropertyTest {
     }
 
     @Test fun `frontier owns key and count snapshots and retains no mutable hand-off aliases`(): Unit {
-        HandOffFixtures().use { f ->
+        HandOffFixtures(index = 3).use { f ->
             val nonzero = f.key("nonzero")
             val zero = f.key("zero")
             f.core(nonzero).addInitial(f.initial())
@@ -204,15 +204,15 @@ class FrontierPropertyTest {
     }
 
     @Test fun `frontier counts current report states only for a forward result`(): Unit {
-        HandOffFixtures().use { forward ->
+        HandOffFixtures(index = 3).use { forward ->
             val actor = forward.core()
             actor.addRootZero()
             val confirmedRule = rule("confirmed")
             val demandRule = rule("demand")
             val confirmed = SinkWitness(0, actor.key,
-                listOf(SinkEdge(forward.manager.zero, Layer.NORMAL, Reach.NORMAL)), 1).also { it.confirmed = true }
+                listOf(SinkEdge(forward.manager.zero, Layer.NORMAL, Reach.NORMAL)), 3).also { it.confirmed = true }
             val demand = SinkWitness(0, actor.key,
-                listOf(SinkEdge(forward.manager.zero, Layer.DEMAND, Reach.DEMAND)), 1)
+                listOf(SinkEdge(forward.manager.zero, Layer.DEMAND, Reach.DEMAND)), 3)
             forward.vulnerabilities.add(VulnerabilityKey(confirmedRule, actor.key.method, forward.inst(2)), confirmed)
             forward.vulnerabilities.add(VulnerabilityKey(demandRule, actor.key.method, forward.inst(2)), demand)
             val result = forward.result()
@@ -233,7 +233,7 @@ class FrontierPropertyTest {
     }
 
     @Test fun `frontier rejects incomplete results and cancellation of a retained actor walk`(): Unit {
-        HandOffFixtures().use { f ->
+        HandOffFixtures(index = 3).use { f ->
             val handOff = emptyHandOff(f)
             for (status in listOf(RunStatus.TIMEOUT, RunStatus.OOM, RunStatus.FAILED))
                 assertFailsWith<IllegalStateException> { frontierOf(f.config, f.result(status), handOff, f.report) }

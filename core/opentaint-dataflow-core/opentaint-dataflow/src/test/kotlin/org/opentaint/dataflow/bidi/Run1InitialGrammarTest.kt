@@ -8,20 +8,19 @@ import org.opentaint.dataflow.bidi.fixtures.StoreFixtures
 import kotlin.test.*
 
 class Run1InitialGrammarTest {
-    @Test fun `ten initial families have the selected starting kind and layer`() {
+    @Test fun `nine initial families have the selected starting kind and layer`() {
         val f = StoreFixtures(); val m = f.manager
         val cls = m.accessors.index(ClassStaticAccessor("Box")); val field = f.field("f")
         val t = f.mark("T"); val b = AccessPathBase.Argument(0)
         fun initial(base: AccessPathBase, path: List<Int>, tail: Tail, mark: MarkSlot) =
             m.initial(base, m.path(path), tail, ExclusionSet.Empty, mark)
         val abstracts = listOf(initial(b, emptyList(), Tail.STAR, MarkSlot.STAR),
-            initial(STATIC, emptyList(), Tail.STAR, MarkSlot.STAR),
             initial(STATIC, listOf(cls,field), Tail.STAR, MarkSlot.STAR))
         val exacts = listOf(b to emptyList(), STATIC to listOf(cls,field), STATIC to listOf(cls)).map {
             initial(it.first,it.second,Tail.EXACT,MarkSlot.Concrete(t)) }
         val chains = exacts.map { m.initial(it.base,it.path,Tail.STAR,ExclusionSet.Empty,it.mark) }
         val all = listOf(m.zero) + abstracts + exacts + chains
-        assertEquals(10, all.size)
+        assertEquals(9, all.size)
         for (i in all) validateRun1Initial(i, 1)
         assertTrue(f.ops.startFact(m.zero) is Reach)
         for (i in abstracts) assertEquals(Layer.NORMAL, (f.ops.startFact(i) as FlowTree).layer)
@@ -41,6 +40,7 @@ class Run1InitialGrammarTest {
         val cls = m.accessors.index(ClassStaticAccessor("Box")); val field = f.field("f")
         val t = MarkSlot.Concrete(f.mark("T"))
         val cases = listOf(
+            m.initial(STATIC,null,Tail.STAR,ExclusionSet.Empty,MarkSlot.STAR),
             m.initial(STATIC,m.path(listOf(cls,field)),Tail.ANY,ExclusionSet.Empty,t),
             m.initial(STATIC,m.path(listOf(cls)),Tail.STAR,ExclusionSet.Empty,MarkSlot.STAR),
             m.initial(STATIC,null,Tail.EXACT,ExclusionSet.Empty,t),

@@ -26,7 +26,7 @@ class HandOffRegressionTest {
         edges.flatMap { listOf(it.from.base, it.to.base) }.toSet(), edges.map(MicroEdge::of), emptyList(), emptyMap())
 
     @Test
-    fun `a confirmed end fact trigger recovers its source seed and retains the later demand finding`(): Unit {
+    fun `provisional end fact trigger and F1 candidates retain B2 source seeds and the later demand finding`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val x = AccessPathBase.Argument(0)
             val y = AccessPathBase.Argument(1)
@@ -62,22 +62,20 @@ class HandOffRegressionTest {
             val forward = run(forwardConfig)
             val earlyKey = VulnerabilityKey(early.rule, f.key.method, f.inst(1))
             val laterKey = VulnerabilityKey(later.rule, f.key.method, f.inst(2))
-            // This sticky-report control supplies a certificate explicitly; NORMAL does not prove support.
-            forward.witnessesByKey().getValue(earlyKey).forEach { it.confirmed = true }
             report.add(forwardConfig, forward)
-            assertTrue(forward.witnessesByKey().getValue(earlyKey).all { it.confirmed })
+            assertTrue(forward.witnessesByKey().getValue(earlyKey).all { !it.confirmed })
             assertTrue(forward.witnessesByKey().getValue(laterKey).all { !it.confirmed })
-            assertEquals(listOf(laterKey), report.demandEntries().map { it.key })
-            assertEquals(1, report.confirmedCount)
-            f.records.persist(Direction.FORWARD, forward.analyzers.asSequence().map { it.key to it.summaries })
+            assertEquals(setOf(earlyKey, laterKey), report.demandEntries().map { it.key }.toSet())
+            assertEquals(0, report.confirmedCount)
             val toBackward = HandOff.of(forwardConfig, forward, report, f.shared)
-            assertTrue(toBackward.seeds.at(f.key, f.inst(1)).isEmpty(), "The confirmed trigger adds no hand-off sink seed")
+            assertEquals(listOf(Seed.Sink(early.rule, f.key, f.inst(1), early.patterns.single())),
+                toBackward.seeds.at(f.key, f.inst(1)), "A normal F1 candidate still supplies its exact seed")
             assertEquals(listOf(Seed.Sink(later.rule, f.key, f.inst(2), later.patterns.single())),
                 toBackward.seeds.at(f.key, f.inst(2)))
             val backwardConfig = f.config(index = 2, L = 1, demand = toBackward.demand, seeds = toBackward.seeds)
             val backward = run(backwardConfig)
             val actor = backward.analyzers.single()
-            assertEquals(1L, actor.triggerSeeds, "The reversed end fact seeds the confirmed alternative")
+            assertEquals(1L, actor.triggerSeeds, "The reversed end fact still fires its trigger")
             assertEquals(listOf(Triple(f.key, f.inst(0), source)), actor.sourceHits!!.entries().toList())
             assertSame(source, actor.sourceHits.entries().single().third)
             assertTrue(f.vulnerabilities.witnessesOf(2).none(), "Backward has no sink check")
@@ -89,12 +87,12 @@ class HandOffRegressionTest {
             val refined = run(refinedConfig)
             report.add(refinedConfig, refined)
             assertTrue(refined.witnessesByKey().getValue(earlyKey).all { !it.confirmed },
-                "The old proven report entry is sticky even when current witnesses are unproved")
+                "Strong raw NORMAL alone still is not a confirmation certificate")
             assertTrue(refined.witnessesByKey().getValue(laterKey).all { !it.confirmed })
             val final = report.build(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.POLICY))
             assertEquals(setOf(earlyKey, laterKey), final.entries.map { it.key }.toSet())
-            assertEquals(ReportState.CONFIRMED, final.entries.single { it.key == earlyKey }.state)
-            assertEquals(1, final.entries.single { it.key == earlyKey }.run)
+            assertEquals(ReportState.DEMAND, final.entries.single { it.key == earlyKey }.state)
+            assertEquals(3, final.entries.single { it.key == earlyKey }.run)
             assertEquals(ReportState.DEMAND, final.entries.single { it.key == laterKey }.state)
             assertEquals(3, final.entries.single { it.key == laterKey }.run)
             // A separate direct-core control omits the recovered source seed; this is not a driver schedule.

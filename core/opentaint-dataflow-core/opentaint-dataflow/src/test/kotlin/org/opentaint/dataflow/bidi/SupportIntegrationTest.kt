@@ -158,7 +158,7 @@ class SupportIntegrationTest {
             val result = joined(f, config)
             assertTrue(links(result.analyzers.single().key).isEmpty())
             val witness = result.witnessesByKey().values.single().single()
-            val demand = Conclusion(target.copy(tail = Tail.ANY), ExclusionSet.Empty, true)
+            val demand = Conclusion(target, ExclusionSet.Empty, true)
             checkWitness(f, witness, key, 1, listOf(f.ap.zero), listOf(demand))
             assertTrue(result.demandLayerEdges > 0L)
 
@@ -315,7 +315,7 @@ class SupportIntegrationTest {
             assertEquals(6, witnesses.values.sumOf { it.size })
             for (witness in witnesses.values.flatten()) {
                 val demand = witness.methodKey == demandContext
-                val conclusion = Conclusion(if (demand) exact.fact.copy(tail = Tail.ANY) else exact.fact,
+                val conclusion = Conclusion(if (demand) must else exact.fact,
                     ExclusionSet.Empty, demand)
                 checkWitness(f, witness, witness.methodKey, 1, listOf(f.ap.zero), listOf(conclusion))
             }

@@ -67,12 +67,18 @@ internal class FrozenStaticRequests private constructor(
         /** The input overlay is mutable closure scratch. Freeze its nonredundant entries exactly once. */
         fun freeze(footprint: Run1StaticFootprint, root: RequestMarkSet,
                    commonByClass: Map<Int, RequestMarkSet>, fieldMarks: Map<Run1Slot.StaticField, RequestMarkSet>,
+                   checkpoint: () -> Unit): FrozenRequestBase =
+            freeze(footprint.fieldSlots, root, commonByClass, fieldMarks, checkpoint)
+
+        fun freeze(selected: Set<Run1Slot.StaticField>, root: RequestMarkSet,
+                   commonByClass: Map<Int, RequestMarkSet>, fieldMarks: Map<Run1Slot.StaticField, RequestMarkSet>,
                    checkpoint: () -> Unit): FrozenRequestBase {
             // Already-owned maps are shared; mutable constructor scratch is detached once.
             val frozenCommon = ownedMap(commonByClass)
             var rows = 0L
             var members = 0L
-            for ((cls, fields) in footprint.fieldsByClass) {
+            val fieldsByClass = selected.groupBy { it.cls }
+            for ((cls, fields) in fieldsByClass) {
                 checkpoint()
                 val common = frozenCommon[cls] ?: root
                 if (!common.isEmpty) rows = Math.addExact(rows, fields.size.toLong())
@@ -81,7 +87,7 @@ internal class FrozenStaticRequests private constructor(
             val sparse = LinkedHashMap<Run1Slot.StaticField, RequestMarkSet>()
             for ((slot, marks) in fieldMarks) {
                 checkpoint()
-                check(slot in footprint.fieldSlots)
+                check(slot in selected)
                 val common = frozenCommon[slot.cls] ?: root
                 var additional = 0L
                 marks.forEachId { id -> checkpoint(); if (!common.containsId(id)) additional++ }
@@ -93,7 +99,7 @@ internal class FrozenStaticRequests private constructor(
             }
             checkpoint()
             if (rows == 0L) return EmptyFrozenRequestBase
-            return FrozenStaticRequests(footprint.fieldSlots, root, frozenCommon, ownedMap(sparse),
+            return FrozenStaticRequests(org.opentaint.dataflow.bidi.interp.ownedSet(selected), root, frozenCommon, ownedMap(sparse),
                 rows, members, checkpoint)
         }
     }

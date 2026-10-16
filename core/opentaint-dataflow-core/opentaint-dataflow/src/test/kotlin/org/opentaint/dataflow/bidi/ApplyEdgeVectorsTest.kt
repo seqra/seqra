@@ -64,7 +64,7 @@ class ApplyEdgeVectorsTest {
             PathFact(toBase, toPath, toTail, toMark), exclusion, fromExclusion, toExclusion)
 
     private data class Row(val name: String, val input: Conclusion,
-                           val normalEdge: List<EdgeOutcome>, val demandEdge: List<EdgeOutcome>)
+                           val normalEdge: List<EdgeOutcome>)
 
     private fun checkRows(rows: List<Row>, sourceTails: List<Tail>, fromPath: List<Int>) {
         for (row in rows) for (fromTail in sourceTails) for ((index, toTail) in tails.withIndex()) {
@@ -75,7 +75,10 @@ class ApplyEdgeVectorsTest {
                 toExclusion = if (toTail == Tail.ANY_TAINT) ex(h) else ExclusionSet.Empty)
             assertEquals(row.normalEdge[index], concat(row.input, e),
                 "${row.name}: $fromTail -> $toTail, NORMAL edge")
-            assertEquals(row.demandEdge[index], concat(row.input, e, edgeDemand = true),
+            assertEquals(when (val expected = row.normalEdge[index]) {
+                is EdgeOutcome.Fact -> EdgeOutcome.Fact(expected.conclusion.copy(demand = true))
+                else -> expected
+            }, concat(row.input, e, edgeDemand = true),
                 "${row.name}: $fromTail -> $toTail, DEMAND edge")
         }
     }
@@ -86,26 +89,17 @@ class ApplyEdgeVectorsTest {
         val rows = listOf(
             Row("exact normal", input(listOf(f), Tail.EXACT),
                 listOf(out(q, Tail.EXACT), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY_TAINT, mu, exclusion = ex(h)), out(q, Tail.EXACT, mu)),
-                listOf(out(q, Tail.EXACT, demand = true), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true))),
+                    out(q, Tail.ANY_TAINT, mu, exclusion = ex(h)), out(q, Tail.EXACT, mu))),
             Row("exact demand", input(listOf(f), Tail.EXACT, demand = true),
                 listOf(out(q, Tail.EXACT, demand = true), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true)),
-                listOf(out(q, Tail.EXACT, demand = true), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true))),
+                    out(q, Tail.ANY_TAINT, mu, true, exclusion = ex(h)), out(q, Tail.EXACT, mu, true))),
             Row("may demand", input(listOf(f), Tail.ANY, demand = true),
                 listOf(out(q, Tail.ANY, demand = true), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true)),
-                listOf(out(q, Tail.ANY, demand = true), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true))),
+                    out(q, Tail.ANY_TAINT, mu, true, exclusion = ex(h)), out(q, Tail.EXACT, mu, true))),
             Row("must normal", input(listOf(f), Tail.ANY_TAINT, exclusion = ex(g)),
                 listOf(out(q, Tail.ANY_TAINT, exclusion = ex(g)), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY_TAINT, mu, exclusion = ex(h)), out(q, Tail.EXACT, mu)),
-                listOf(out(q, Tail.ANY, demand = true), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true))),
+                    out(q, Tail.ANY_TAINT, mu, exclusion = ex(h)), out(q, Tail.EXACT, mu))),
             Row("abstract star normal", input(listOf(f), Tail.STAR, mx(u.id), exclusion = ex(g)),
-                listOf(requestT, requestT, requestT, requestT),
                 listOf(requestT, requestT, requestT, requestT)),
         )
         checkRows(rows, tails, listOf(f))
@@ -119,26 +113,17 @@ class ApplyEdgeVectorsTest {
         val rows = listOf(
             Row("exact normal", input(p, Tail.EXACT),
                 listOf(out(qr, Tail.EXACT), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY_TAINT, mu, exclusion = ex(h)), out(q, Tail.EXACT, mu)),
-                listOf(out(qr, Tail.EXACT, demand = true), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true))),
+                    out(q, Tail.ANY_TAINT, mu, exclusion = ex(h)), out(q, Tail.EXACT, mu))),
             Row("exact demand", input(p, Tail.EXACT, demand = true),
                 listOf(out(qr, Tail.EXACT, demand = true), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true)),
-                listOf(out(qr, Tail.EXACT, demand = true), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true))),
+                    out(q, Tail.ANY_TAINT, mu, true, exclusion = ex(h)), out(q, Tail.EXACT, mu, true))),
             Row("may demand", input(p, Tail.ANY, demand = true),
                 listOf(out(qr, Tail.ANY, demand = true), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true)),
-                listOf(out(qr, Tail.ANY, demand = true), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true))),
+                    out(q, Tail.ANY_TAINT, mu, true, exclusion = ex(h)), out(q, Tail.EXACT, mu, true))),
             Row("must Ec applies after the input path", input(p, Tail.ANY_TAINT, exclusion = ex(g)),
                 listOf(out(qr, Tail.ANY_TAINT, exclusion = ex(g)), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY_TAINT, mu, exclusion = ex(h)), out(q, Tail.EXACT, mu)),
-                listOf(out(qr, Tail.ANY, demand = true), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true))),
+                    out(q, Tail.ANY_TAINT, mu, exclusion = ex(h)), out(q, Tail.EXACT, mu))),
             Row("abstract star normal", input(p, Tail.STAR, mx(u.id), exclusion = ex(g)),
-                listOf(requestT, requestT, requestT, requestT),
                 listOf(requestT, requestT, requestT, requestT)),
         )
         checkRows(rows, listOf(Tail.STAR, Tail.ANY, Tail.ANY_TAINT), listOf(f))
@@ -163,21 +148,16 @@ class ApplyEdgeVectorsTest {
         val q = listOf(k)
         val rows = listOf(
             Row("exact normal cannot overlap from above", input(listOf(f), Tail.EXACT),
-                listOf(none, none, none, none), listOf(none, none, none, none)),
+                listOf(none, none, none, none)),
             Row("exact demand cannot overlap from above", input(listOf(f), Tail.EXACT, demand = true),
-                listOf(none, none, none, none), listOf(none, none, none, none)),
+                listOf(none, none, none, none)),
             Row("may demand", input(listOf(f), Tail.ANY, demand = true),
-                listOf(out(q, Tail.ANY, demand = true), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true)),
                 listOf(out(q, Tail.ANY, demand = true), out(q, Tail.ANY, demand = true),
                     out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true))),
             Row("must normal", input(listOf(f), Tail.ANY_TAINT, exclusion = ex(a)),
                 listOf(out(q, Tail.ANY_TAINT), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY_TAINT, mu, exclusion = ex(h)), out(q, Tail.EXACT, mu)),
-                listOf(out(q, Tail.ANY, demand = true), out(q, Tail.ANY, demand = true),
-                    out(q, Tail.ANY, mu, true), out(q, Tail.EXACT, mu, true))),
+                    out(q, Tail.ANY_TAINT, mu, exclusion = ex(h)), out(q, Tail.EXACT, mu))),
             Row("abstract star normal", input(listOf(f), Tail.STAR, mx(u.id), exclusion = ex(a)),
-                listOf(requestT, requestT, requestT, requestT),
                 listOf(requestT, requestT, requestT, requestT)),
         )
         checkRows(rows, tails, listOf(f, g, h))
@@ -203,7 +183,7 @@ class ApplyEdgeVectorsTest {
         assertEquals(none, concat(input(listOf(f, h), Tail.EXACT), identity))
         assertEquals(none, concat(input(listOf(f, h), Tail.STAR, star),
             edge(Tail.ANY, Tail.STAR, exclusion = ex(h))))
-        assertEquals(out(listOf(k), Tail.ANY, mx(u.id), true),
+        assertEquals(out(listOf(k), Tail.STAR, mx(u.id), true, exclusion = ex(g, h)),
             concat(input(listOf(f), Tail.STAR, mx(u.id), exclusion = ex(g)), identity, edgeDemand = true))
     }
 
@@ -214,7 +194,7 @@ class ApplyEdgeVectorsTest {
         assertEquals(none, concat(input(listOf(f, g), Tail.EXACT), e))
         assertEquals(out(listOf(k), Tail.ANY_TAINT, mu, exclusion = ex(h)),
             concat(input(listOf(f, a), Tail.ANY_TAINT, exclusion = ex(a)), e))
-        assertEquals(out(listOf(k), Tail.ANY, mu, true),
+        assertEquals(out(listOf(k), Tail.ANY_TAINT, mu, true, exclusion = ex(h)),
             concat(input(listOf(f, a), Tail.ANY_TAINT, exclusion = ex(a)), e, edgeDemand = true))
         assertEquals(out(listOf(k), Tail.EXACT, mu),
             concat(input(listOf(f, a), Tail.ANY_TAINT, exclusion = ex(a)),
@@ -261,9 +241,9 @@ class ApplyEdgeVectorsTest {
                 out(listOf(k, a), Tail.ANY_TAINT, exclusion = ex(a))),
         )
         for ((name, c, expected) in rows) assertEquals(expected, concat(c, e), name)
-        assertEquals(out(listOf(k), Tail.ANY, demand = true),
+        assertEquals(out(listOf(k), Tail.ANY_TAINT, demand = true, exclusion = ex(a, g)),
             concat(input(listOf(f), Tail.ANY_TAINT, exclusion = ex(a)), e, edgeDemand = true))
-        assertEquals(out(listOf(k, a), Tail.ANY, demand = true),
+        assertEquals(out(listOf(k, a), Tail.ANY_TAINT, demand = true, exclusion = ex(h)),
             concat(input(listOf(f, a), Tail.ANY_TAINT, exclusion = ex(h)), e, edgeDemand = true))
     }
 
@@ -376,7 +356,7 @@ class ApplyEdgeVectorsTest {
     }
 
     @Test
-    fun `normalize enforces W2 W6 W8 while preserving raw generic abstract exact`() {
+    fun `normalize retains tail and E independently of demand and preserves generic abstract exact`() {
         data class NormalRow(val name: String, val fact: PathFact, val exclusion: ExclusionSet,
                              val demand: Boolean, val expected: Conclusion)
         val path = listOf(k)
@@ -387,7 +367,7 @@ class ApplyEdgeVectorsTest {
             NormalRow("concrete STAR", raw(Tail.STAR, mt), ex(g), false,
                 Conclusion(raw(Tail.ANY, mt), ExclusionSet.Empty, true)),
             NormalRow("demand FLOW", raw(Tail.STAR, mx(u.id)), ex(g), true,
-                Conclusion(raw(Tail.ANY, mx(u.id)), ExclusionSet.Empty, true)),
+                Conclusion(raw(Tail.STAR, mx(u.id)), ex(g), true)),
             NormalRow("demand concrete STAR", raw(Tail.STAR, mt), ex(g), true,
                 Conclusion(raw(Tail.ANY, mt), ExclusionSet.Empty, true)),
             NormalRow("normal may", raw(Tail.ANY, mt), ex(g), false,
@@ -397,7 +377,7 @@ class ApplyEdgeVectorsTest {
             NormalRow("normal must", raw(Tail.ANY_TAINT, mt), ex(g), false,
                 Conclusion(raw(Tail.ANY_TAINT, mt), ex(g), false)),
             NormalRow("demand must", raw(Tail.ANY_TAINT, mt), ex(g), true,
-                Conclusion(raw(Tail.ANY, mt), ExclusionSet.Empty, true)),
+                Conclusion(raw(Tail.ANY_TAINT, mt), ex(g), true)),
             NormalRow("normal exact", raw(Tail.EXACT, mt), ExclusionSet.Empty, false,
                 Conclusion(raw(Tail.EXACT, mt), ExclusionSet.Empty, false)),
             NormalRow("demand exact", raw(Tail.EXACT, mt), ExclusionSet.Empty, true,

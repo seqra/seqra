@@ -3,6 +3,14 @@ package org.opentaint.dataflow.bidi.ap
 
 /** Shared facade. All walk state is local to the call. */
 class ApOps(val manager: ApManager) {
+    fun run1Cover(f: Facts, emit: (Facts) -> Unit) = run1CoverFacts(manager, f, emit)
+
+    /** Scalar callers must not silently demote exact members of a mixed group. */
+    fun run1Cover(f: Facts): Facts {
+        var only: Facts? = null
+        run1Cover(f) { value -> check(only == null) { "Mixed E-bearing facts require the callback cover" }; only = value }
+        return checkNotNull(only)
+    }
     fun applyEdge(c: Facts, premise: PremiseKey, e: PathEdge, statementEdge: Boolean,
                   mode: ApMode, out: ApOut, may: Boolean = false,
                   unchangedStaticInitial: InitialAp? = null) {
@@ -26,13 +34,14 @@ class ApOps(val manager: ApManager) {
                                    unchangedStaticInitial: InitialAp? = null) {
         manager.cancellation.checkpoint()
         if (c.base != ce.fromBase) return
-        val app = EdgeApplication(manager, ce, edgeDemand, mode, out, unchangedStaticInitial)
+        val sink = out.run1Policy(manager, mode)
+        val app = EdgeApplication(manager, ce, edgeDemand, mode, sink, unchangedStaticInitial)
         when (c) {
             is Reach -> app.reach(c)
             is FlowTree -> app.flow(c, staticAt)
             is TaintTree -> app.taint(c)
         }
-        app.results.flush(out)
+        app.results.flush(sink)
     }
 
     fun satisfying(a: Facts, j: InitialAp, mode: ApMode, record: Boolean = false): Facts? =
@@ -48,7 +57,7 @@ class ApOps(val manager: ApManager) {
         applyRecordLeafPart(this, a, view, mode, out)
 
     fun applyCombination(parts: List<Pair<Facts, InitialAp>>, g: TaintTree, mode: ApMode, out: ApOut) =
-        applyCombinationPart(manager, parts, g, mode, out)
+        applyCombinationPart(manager, parts, g, mode, out.run1Policy(manager, mode))
 
     /** Used only after E6's full matching and TAINT guards. Caller layers remain in the resume context. */
     internal fun applyMatchedCombination(linkLayers: List<Layer>, g: TaintTree, out: ApOut) =
@@ -60,7 +69,7 @@ class ApOps(val manager: ApManager) {
     fun leavesNear(f: Facts, p: IntArray): Sequence<Pattern> = nearLeafViews(manager, f, p)
 
     fun clean(c: Facts, premise: PremiseKey, cl: Cleaner, mode: ApMode, out: ApOut) =
-        cleanFacts(manager, c, premise, cl, mode, out)
+        cleanFacts(manager, c, premise, cl, mode, out.run1Policy(manager, mode))
 
     fun filter(c: Facts, f: TypeFilter): Facts? = filterFacts(manager, c, f)
     fun limit(c: Facts, fieldLimit: Int, out: ApOut) = limitFacts(manager, c, fieldLimit, out)

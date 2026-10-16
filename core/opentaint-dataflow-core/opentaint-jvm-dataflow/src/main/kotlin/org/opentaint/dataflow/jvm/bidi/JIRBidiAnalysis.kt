@@ -109,7 +109,7 @@ class JIRBidiAnalysis internal constructor(
         // Scratch forms disable AA construction. Metadata knowledge follows the real
         // runtime policy, including methods with no retained prescan context/AA owner.
         val aliasKnowledge = MetadataAliases.forRuntime(params.aliasAnalysisParams.useAliasAnalysis)
-        val collector = JIRStaticMetadataCollector(compiler, aliasKnowledge)
+        val collector = JIRStaticMetadataCollector(compiler, aliasKnowledge, graph.calls.mapTo(HashSet()) { it.statement })
         val locals = LinkedHashMap<CommonMethod, JIRStaticMetadata>()
         var unknownAliasContexts = 0L
         var graphOnlyMethods = 0L
@@ -137,6 +137,7 @@ class JIRBidiAnalysis internal constructor(
         logger.info { "Bidi static metadata setup: elapsed=${setupStarted.elapsedNow()}, methods=${locals.size}, " +
             "resolvedCalls=${graph.calls.size}, localAccesses=${locals.values.sumOf { it.accesses.size.toLong() }}, " +
             "localAbstractions=${locals.values.sumOf { it.abstractions.size.toLong() }}, " +
+            "localStaticMayWrite=${locals.values.count { it.staticMayWrite }}, " +
             "declaredMarks=${locals.values.sumOf { it.marks.size.toLong() }}, " +
             "potentialPassInputGates=${locals.values.sumOf { local -> local.marks.count { it.role == org.opentaint.dataflow.bidi.engine.StaticMarkRole.INPUT_GATE }.toLong() }}, " +
             "metadataAliasPolicy=$aliasKnowledge, contextsUnderUnknownAliasPolicy=$unknownAliasContexts, " +

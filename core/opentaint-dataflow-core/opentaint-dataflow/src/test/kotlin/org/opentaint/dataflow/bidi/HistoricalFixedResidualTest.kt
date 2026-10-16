@@ -106,7 +106,7 @@ class HistoricalFixedResidualTest {
     }
 
     @Test
-    fun `pre F76 factory fallback performs real backward source analysis while current native views retain both findings`(): Unit = DriverFixtures().use { f ->
+    fun `historical and selected factory paths retain both findings with genuine strong source refinement`(): Unit = DriverFixtures().use { f ->
         val p = f.program
         val root = p.method("historical factory root", straight(9), 8).key()
         val factory = p.method("historical factory", straight(4), 3).key()
@@ -153,9 +153,27 @@ class HistoricalFixedResidualTest {
             "A non-reversible must/E record forces old backward callee analysis")
         assertContains(old.runs[1].observation.sourceHits, ObservedSourceHit(factory, factory.statement, sourceT))
         assertContains(old.runs[1].handOff.seeds, Seed.Source(factory, factory.statement, sourceT))
-        assertTrue(direct.runs[1].observation.initials.filter { it.method == factory }.all { it.initial == ZERO_PATTERN })
-        assertTrue(direct.runs[1].observation.sourceHits.isEmpty(), "F76 record application is not source execution")
-        assertTrue(f.configs[2].seeds.at(factory, factory.statement).isEmpty())
+        assertTrue(direct.runs[0].handOff.records.isEmpty(), "Selected F1 publications are guidance, never executable records")
+        assertTrue(direct.runs[1].observation.initials.any { it.method == factory && it.initial.fact.base != AccessPathBase.Zero })
+        val hits = setOf(ObservedSourceHit(factory, factory.statement, sourceT),
+            ObservedSourceHit(factory, factory.statement, sourceU))
+        assertEquals(hits, direct.runs[1].observation.sourceHits)
+        val sourceSeeds = setOf(Seed.Source(factory, factory.statement, sourceT),
+            Seed.Source(factory, factory.statement, sourceU))
+        assertEquals(sourceSeeds, direct.runs[1].handOff.seeds.toSet())
+        assertEquals(sourceSeeds, f.configs[2].seeds.at(factory, factory.statement).toSet())
+        assertEquals(direct.runs.map { it.index }, f.configs.map { it.index })
+        for ((offset, config) in f.configs.withIndex()) {
+            val actualSeeds = listOf(root, factory).flatMap { key -> p.programMethod(key).successors.indices.flatMap { n ->
+                config.seeds.at(key, p.inst(key, n))
+            } }.toSet()
+            assertEquals(direct.runs[offset].inputs.seeds.toSet(), actualSeeds,
+                "Exact selected incoming seeds at run ${offset + 1}")
+        }
+        assertTrue(direct.runs[0].observation.rawSummaries.any { it.method == factory && it.conclusion ==
+            Conclusion(PathFact(ret, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, true) })
+        assertTrue(direct.runs[2].observation.rawSummaries.any { it.method == factory && it.conclusion ==
+            Conclusion(PathFact(ret, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.of(intArrayOf(name, k)), false) })
         assertTrue(old.runs[0].observation.rawSummaries.any { it.method == factory && it.conclusion ==
             Conclusion(PathFact(ret, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.of(intArrayOf(name, k)), false) })
         assertTrue(old.runs[2].observation.rawSummaries.any { it.method == factory && it.conclusion.fact.base == ret &&

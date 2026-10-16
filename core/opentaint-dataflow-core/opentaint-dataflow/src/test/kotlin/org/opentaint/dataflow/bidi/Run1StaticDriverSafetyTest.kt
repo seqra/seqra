@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.*
@@ -11,6 +12,7 @@ import org.opentaint.dataflow.bidi.interp.StageKind.*
 import org.opentaint.dataflow.bidi.store.Record
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.test.*
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /** Exercise the actual driver, caller subscriptions, return continuations and native reader. */
@@ -19,7 +21,10 @@ class Run1StaticDriverSafetyTest {
     private data class ReadRecord(val run: Int, val part: Subscription, val record: Record,
                                   val catalogReleased: Boolean, val footprintPresent: Boolean)
     private data class ReadSummary(val run: Int, val part: Subscription, val publication: Publication)
+    private data class ReadView(val run: Int, val part: Subscription, val view: RecordLeafView)
     private class Observation {
+        val configs = arrayListOf<RunConfig>()
+        val views = ConcurrentLinkedQueue<ReadView>()
         val results = arrayListOf<RunResult<RunMethodAnalyzer>>()
         val processed = ConcurrentLinkedQueue<Processed>()
         val records = ConcurrentLinkedQueue<ReadRecord>()
@@ -27,11 +32,11 @@ class Run1StaticDriverSafetyTest {
         val invoked = arrayListOf<Int>()
     }
 
-    private fun execute(f: DriverFixtures, root: MethodKey, limits: List<Int>): Pair<Report, Observation> {
+    private fun execute(f: DriverFixtures, root: MethodKey, limits: List<Int>, replayBackward: Boolean = false): Pair<Report, Observation> {
         val seen = Observation()
         f.program.freshShared().use { owner ->
-            val driver = IterationDriver(FixedLimits(limits), owner, 20.seconds,
-                invokeRun = { config, shared, timeout ->
+            fun invoke(config: RunConfig, shared: SharedObjects, timeout: Duration): RunResult<RunMethodAnalyzer> {
+                    seen.configs += config
                     seen.invoked += config.index
                     if (!config.run1) assertNull(shared.run1StaticProfiles,
                         "The real completed-run barrier releases the request catalog")
@@ -42,6 +47,10 @@ class Run1StaticDriverSafetyTest {
                                 override fun applySummary(part: Subscription, pub: Publication, member: Int) {
                                     seen.summaries += ReadSummary(config.index,part,pub)
                                     service.applySummary(part,pub,member)
+                                }
+                                override fun applyRecordView(part: Subscription, view: RecordLeafView) {
+                                    seen.views += ReadView(config.index, part, view)
+                                    service.applyRecordView(part, view)
                                 }
                                 override fun applyRecord(part: Subscription, record: Record) {
                                     seen.records += ReadRecord(config.index, part, record,
@@ -59,11 +68,22 @@ class Run1StaticDriverSafetyTest {
                             }
                         })
                     }
-                    RunManager(config, shared, factory, quantum = 1).run(timeout).also { seen.results += it }
-                }, guardBarrier = { _, body -> body() })
+                    return RunManager(config, shared, factory, quantum = 1).run(timeout).also { seen.results += it }
+            }
+            val driver = IterationDriver(FixedLimits(limits), owner, 20.seconds,
+                invokeRun = ::invoke, guardBarrier = { _, body -> body() })
             val report = driver.analyze(listOf(root))
+            if (replayBackward) {
+                val backward = seen.configs.single { it.index == 2 }
+                // A fresh actual B4 engine reads completed B2 native records,
+                // independently of the driver's forward stop decision.
+                invoke(RunConfig(4, maxOf(4, backward.fieldLimit), backward.demand,
+                    owner.records.view(), backward.seeds, listOf(root)), owner, 20.seconds)
+            }
             assertEquals(RunStatus.COMPLETE, report.end.status)
             assertTrue(seen.results.all { it.status == RunStatus.COMPLETE })
+            assertTrue(seen.processed.none { it.run > 1 && it.delta.facts is FlowTree },
+                "Actual ZERO/concrete seeds and concrete query starts cannot execute a broad FLOW guide")
             return report to seen
         }
     }
@@ -97,7 +117,7 @@ class Run1StaticDriverSafetyTest {
             }
     }
 
-    @Test fun `actual driver field cleaner removes T without a root return restoring it and preserves U`() {
+    @Test fun `F1 cleaner candidates refine strongly without restoring T and preserve U`() {
         DriverFixtures().use { f ->
             val p = f.program
             val root = p.method("clean root",listOf(listOf(1),listOf(2),emptyList()),2).key()
@@ -112,19 +132,19 @@ class Run1StaticDriverSafetyTest {
             val removed = sink(f,"removed T",path,t); val kept = sink(f,"kept U",path,u)
             p.exit(root,2,ExitRules(RuleStatement(StatementSummary.EMPTY,StatementSummary.EMPTY,
                 listOf(removed,kept)),false,emptySet()))
-            val (report,seen) = execute(f,root,listOf(1))
+            val (report,seen) = execute(f,root,listOf(1,2,3))
             assertFalse(report.entries.any { it.key.rule == removed.rule })
             assertTrue(report.entries.any { it.key.rule == kept.rule })
-            assertFalse(hasTaint(f,seen.processed,1,root,2,path,t))
-            assertTrue(hasTaint(f,seen.processed,1,root,2,path,u))
-            val rootControl = seen.results.single().analyzers.single { it.key == callee }.summaries.all()
-                .filter { (premise,_) -> premise is InitialAp && isSpecialStaticRoot(premise) }.toList()
-            assertTrue(rootControl.any { hasStaticRootReturnEvidence(it.second) },
-                "A reached root control summary exists, but cannot supply the cleaned owned field")
+            assertTrue(hasTaint(f,seen.processed,1,root,2,path,t), "F1 default is provisional")
+            assertFalse(hasTaint(f,seen.processed,3,root,2,path,t))
+            assertTrue(hasTaint(f,seen.processed,3,root,2,path,u))
+            assertTrue(seen.results.first().witnessesByKey().any { it.key.rule == removed.rule })
+            assertTrue(seen.processed.none { it.run == 1 && it.delta.premise is InitialAp &&
+                isSpecialStaticRoot(it.delta.premise as InitialAp) }, "A stored default is not a root analysis")
         }
     }
 
-    @Test fun `actual driver strong static write removes f and frames untouched g despite coarse class E`() {
+    @Test fun `F1 writing default refines to a strong f kill and unchanged sibling g`() {
         DriverFixtures().use { f ->
             val p = f.program
             val root = p.method("write root",listOf(listOf(1),listOf(2),emptyList()),2).key()
@@ -141,19 +161,24 @@ class Run1StaticDriverSafetyTest {
             val killed = sink(f,"written f",fp,t); val preserved = sink(f,"untouched g",gp,t)
             p.exit(root,2,ExitRules(RuleStatement(StatementSummary.EMPTY,StatementSummary.EMPTY,
                 listOf(killed,preserved)),false,emptySet()))
-            val (report,seen) = execute(f,root,listOf(1))
+            val (report,seen) = execute(f,root,listOf(1,2,3))
             assertFalse(report.entries.any { it.key.rule == killed.rule })
             assertTrue(report.entries.any { it.key.rule == preserved.rule })
-            assertFalse(hasTaint(f,seen.processed,1,root,2,fp,t))
-            assertTrue(hasTaint(f,seen.processed,1,root,2,gp,t))
-            assertTrue(seen.results.single().analyzers.single { it.key == callee }.summaries.all().any { (premise,facts) ->
-                premise is InitialAp && isSpecialStaticRoot(premise) && facts is FlowTree &&
-                    hasStaticRootReturnEvidence(facts) && !facts.exclusion.admits(cls)
-            },"The actual raw root summary's coarse E must not erase g")
+            assertTrue(hasTaint(f,seen.processed,1,root,2,fp,t), "The F1 writing default is coarse")
+            assertFalse(hasTaint(f,seen.processed,3,root,2,fp,t))
+            assertTrue(hasTaint(f,seen.processed,3,root,2,gp,t))
+            assertTrue(seen.results.first().witnessesByKey().any { it.key.rule == killed.rule })
+            assertTrue(checkNotNull(seen.configs.single { it.index == 2 }.demand)
+                .near(callee, STATIC, null).any { it.entry.fact.path.isEmpty() &&
+                    it.entry.fact.mark == MarkSlot.STAR },
+                "A broad F1 root guide exists, but cannot become a strong FLOW start")
+            assertTrue(seen.results.filter { it.runIndex > 1 }.all { result ->
+                result.analyzers.single { it.key == callee }.nonZeroInitial
+            }, "Strong actual queries start even when F1 had no read request")
         }
     }
 
-    @Test fun `actual driver owned exact class cleaner removes T at the point and preserves U`() {
+    @Test fun `F1 class-point candidates refine to the exact T kill and preserve U`() {
         DriverFixtures().use { f ->
             val p = f.program
             val root = p.method("point clean root",listOf(listOf(1),listOf(2),emptyList()),2).key()
@@ -168,17 +193,18 @@ class Run1StaticDriverSafetyTest {
             val removed = sink(f,"removed point T",path,t); val kept = sink(f,"kept point U",path,u)
             p.exit(root,2,ExitRules(RuleStatement(StatementSummary.EMPTY,StatementSummary.EMPTY,
                 listOf(removed,kept)),false,emptySet()))
-            val (report,seen) = execute(f,root,listOf(1))
+            val (report,seen) = execute(f,root,listOf(1,2,3))
             assertFalse(report.entries.any { it.key.rule == removed.rule },
-                "The owned class point cannot regain T through its chain summary or the root frame")
+                "Strong class-point execution cannot regain cleaned T from a provisional F1 default")
             assertTrue(report.entries.any { it.key.rule == kept.rule },
                 "Direct class starts must include actual U although only T is named by the cleaner")
-            assertFalse(hasTaint(f,seen.processed,1,root,2,path,t))
-            assertTrue(hasTaint(f,seen.processed,1,root,2,path,u))
+            assertTrue(hasTaint(f,seen.processed,1,root,2,path,t), "F1 default is provisional")
+            assertFalse(hasTaint(f,seen.processed,3,root,2,path,t))
+            assertTrue(hasTaint(f,seen.processed,3,root,2,path,u))
         }
     }
 
-    @Test fun `broad class chain keeps ordinary PART demand residual while owned point gets no root frame`() {
+    @Test fun `broad class chain keeps ordinary PART demand residual without a propagated F1 root`() {
         DriverFixtures().use { f ->
             val p = f.program
             val root = p.method("broad point root",listOf(listOf(1),listOf(2),emptyList()),2).key()
@@ -211,15 +237,17 @@ class Run1StaticDriverSafetyTest {
             assertTrue(summaries.any { (premise,_) -> premise is InitialAp &&
                 premise.pathData.toList() == path && premise.tail == Tail.STAR && premise.mark == MarkSlot.Concrete(u) },
                 "All actual U is admitted without a class request key or a named U metadata need")
-            assertFalse(seen.summaries.any { row -> row.part.callee == callee &&
+            assertTrue(seen.summaries.any { row -> row.part.callee == callee &&
                 row.publication.premise is InitialAp && isSpecialStaticRoot(row.publication.premise as InitialAp) },
-                "The reader excludes the owned point before any root frame application")
+                "The ordinary default is applied without deriving a root method summary")
+            assertTrue(seen.processed.none { row -> row.delta.premise is InitialAp &&
+                isSpecialStaticRoot(row.delta.premise as InitialAp) })
             assertTrue(hasTaint(f,seen.processed,1,root,2,path,t))
             assertTrue(hasTaint(f,seen.processed,1,root,2,path,u))
         }
     }
 
-    @Test fun `actual driver nonreturning callee cannot authorize an untouched static frame`() {
+    @Test fun `F1 nonreturning default is only a candidate and strong execution has no return`() {
         DriverFixtures().use { f ->
             val p = f.program
             val root = p.method("noreturn root",listOf(listOf(1),listOf(2),emptyList()),2).key()
@@ -231,15 +259,18 @@ class Run1StaticDriverSafetyTest {
             val after = sink(f,"after nonreturn",path,t)
             p.exit(root,2,ExitRules(RuleStatement(StatementSummary.EMPTY,StatementSummary.EMPTY,
                 listOf(after)),false,emptySet()))
-            val (report,seen) = execute(f,root,listOf(1))
+            val (report,seen) = execute(f,root,listOf(1,2,3))
             assertFalse(report.entries.any { it.key.rule == after.rule })
-            assertFalse(hasTaint(f,seen.processed,1,root,2,path,t))
-            assertTrue(seen.results.single().analyzers.single { it.key == callee }.summaries.all().none(),
-                "Reaching the method input is not normal-return evidence")
+            assertTrue(hasTaint(f,seen.processed,1,root,2,path,t), "F1 defaults do not certify return")
+            assertFalse(hasTaint(f,seen.processed,3,root,2,path,t))
+            assertTrue(seen.results.first().witnessesByKey().any { it.key.rule == after.rule })
+            assertTrue(seen.results.filter { it.runIndex > 1 }.all { result ->
+                result.analyzers.single { it.key == callee }.summaries.all().none()
+            }, "No strong callee answer can be inferred from its missing normal-return path")
         }
     }
 
-    @Test fun `actual driver reads opposite and native root records after request catalog release`() {
+    @Test fun `only strong records are reusable and actual queries survive request catalog release`() {
         DriverFixtures().use { f ->
             val p = f.program
             val root = p.method("record root",listOf(listOf(1),listOf(2),emptyList()),2).key()
@@ -253,56 +284,94 @@ class Run1StaticDriverSafetyTest {
             p.statement(callee,1,MicroEdgeBuilder().apply {
                 write(STATIC,fp,weak=false,values=emptyList(),aliasPaths=emptyList())
             }.build())
-            val target = sink(f,"record survivor",gp,t,Tail.ANY)
+            // F1 still cuts the source, but the sink's exact deep requirement
+            // gives B2 a NORMAL exact query and therefore a reusable strong record.
+            val target = sink(f,"record survivor",gp+deeper,t)
             p.exit(root,2,ExitRules(RuleStatement(StatementSummary.EMPTY,StatementSummary.EMPTY,
                 listOf(target)),false,emptySet()))
-            val (report,seen) = execute(f,root,listOf(1,2,3))
-            assertEquals(listOf(1,2,3),seen.invoked)
+            val (report,seen) = execute(f,root,listOf(1,2,3),replayBackward=true)
+            assertEquals(listOf(1,2,3,4),seen.invoked)
             assertEquals(3,report.end.run)
-            for (result in seen.results.filter { it.runIndex > 1 }) {
-                assertFalse(result.analyzers.single { it.key == callee }.nonZeroInitial,
-                    "The restricted callee has no nonzero demand; its passive record channel must suffice")
-            }
-            val rootReads = seen.records.filter { it.record.method == callee && isSpecialStaticRoot(it.record.premise) }
-            for (run in listOf(2,3)) {
-                val reads = rootReads.filter { it.run == run && it.record.direction == Direction.FORWARD }
-                assertTrue(reads.isNotEmpty(),"Run $run must really enter the persisted F1 root record channel")
-                assertTrue(reads.all { it.catalogReleased && it.footprintPresent &&
-                    hasStaticRootReturnEvidence(it.record.conclusion) })
-                assertTrue(reads.any { read -> f.ops.leaves(read.part.added).any {
-                    it.fact.path.take(2) == gp && it.fact.mark == MarkSlot.Concrete(t)
-                } },"Root record reads keep the original g supplier, not an unmasked root identity")
-            }
-            assertTrue(hasTaint(f,seen.processed,2,root,0,gp,t),
-                "The opposite record must resume the actual backward caller continuation")
-            assertTrue(hasTaint(f,seen.processed,3,root,2,gp+deeper,t),
-                "The native record must resume the actual forward caller continuation")
-            assertTrue(seen.processed.filter { it.run > 1 }.all { row ->
-                val facts = row.delta.facts
-                facts !is FlowTree || facts.base != STATIC ||
-                    (facts.root.leaf.isEmpty && facts.root.childData.orEmpty().all { it.leaf.isEmpty })
-            },"Actual handoff/record routing must not seed restricted broad FLOW in this program")
+            assertTrue(seen.records.none { it.run == 2 })
+            assertTrue(seen.views.none { it.run == 2 }, "F1 has no executable native/opposite records")
+            assertTrue(seen.results.filter { it.runIndex in 2..3 }.all { result ->
+                result.analyzers.single { it.key == callee }.nonZeroInitial
+            }, "Actual callee queries are independent of missing F1 static field summaries")
+            assertTrue(seen.views.any { it.run == 3 && it.part.callee == callee },
+                "F3 can reuse a proven opposite B2 record")
+            assertTrue(seen.records.any { it.run == 4 && it.record.method == callee &&
+                it.record.direction == Direction.BACKWARD && it.catalogReleased },
+                "A fresh B4 engine can read completed B2 native records after catalog release")
+            assertTrue(hasTaint(f,seen.processed,2,root,0,gp+deeper,t))
+            assertTrue(hasTaint(f,seen.processed,3,root,2,gp+deeper,t))
             assertTrue(report.entries.any { it.key.rule == target.rule })
         }
     }
 
-    @Test fun `restricted strong keep disproves a primitive-only NORMAL broad FLOW preservation argument`() {
+    @Test fun `later strong root queries remain legal and can have a broad demand conclusion`() {
         DriverFixtures().use { f ->
             val cls = f.manager.accessors.index(ClassStaticAccessor("C")); val field = f.program.field("f")
             val initial = f.manager.initial(STATIC,null,Tail.STAR,ExclusionSet.Empty,MarkSlot.STAR)
             val keep = keepEdge(STATIC,listOf(cls),ExclusionSet.of(field))
-            val selected = CollectingOut()
-            f.ops.applyEdge(f.ops.startFact(initial),initial,keep,true,
-                ApMode(true,Direction.FORWARD,1),selected)
-            assertTrue(selected.results.isEmpty(),"The selected run-1 parent branch is suppressed")
             val restricted = CollectingOut()
             f.ops.applyEdge(f.ops.startFact(initial),initial,keep,true,
                 ApMode(false,Direction.BACKWARD,2),restricted)
             val result = assertIs<FlowTree>(restricted.results.single())
             assertEquals(Layer.DEMAND,result.layer)
             assertFalse(result.root.child(cls)!!.leaf.isEmpty)
-            // Thus later-reader safety needs the actual HandOff/no-broad-entry
-            // invariant, not a claim that every generic primitive preserves it.
+            // Later current-query closure permits broad static roots. The F1
+            // initial prohibition cannot be used to discard this computed result.
+        }
+    }
+
+    @Test fun `nested mixed-base actual queries reach the B2 source and authorize its exact F3 source edge`() {
+        DriverFixtures().use { f ->
+            val p = f.program
+            val root = p.method("mixed root", listOf(listOf(1), listOf(2), listOf(3), listOf(4), emptyList()), 4).key()
+            val middle = p.method("mixed middle", listOf(listOf(1), listOf(2), emptyList()), 2).key()
+            val leaf = p.method("mixed leaf", listOf(listOf(1), listOf(2), emptyList()), 2).key()
+            val cls = f.manager.accessors.index(ClassStaticAccessor("C"))
+            val fp = listOf(cls, p.field("f")); val gp = listOf(cls, p.field("g"))
+            val t = p.mark("T"); val mark = MarkSlot.Concrete(t)
+            val x = AccessPathBase.LocalVar(0); val y = AccessPathBase.LocalVar(1)
+            val arg = AccessPathBase.Argument(0); val ret = AccessPathBase.Return
+            val gen = PathEdge(ZERO_FACT, p.pattern(STATIC, fp, mark = mark).fact, ExclusionSet.Empty)
+            p.entry(root, RuleStatement(f.summary(ZERO_KEEP, gen), StatementSummary.EMPTY, emptyList()))
+            p.statement(root, 1, MicroEdgeBuilder().apply { read(x, STATIC, fp) }.build())
+
+            fun bound(callee: MethodKey, from: AccessPathBase, to: AccessPathBase): CallPlan =
+                CallPlan(setOf(STATIC, from, to), listOf(
+                    CallStage.Edges(BEFORE, BOUND, BIND_IN,
+                        f.summary(keepEdge(STATIC), ZERO_KEEP, starEdge(from, emptyList(), arg, emptyList()))),
+                    CallStage.Actions(BOUND, ADDED, emptyList()),
+                    CallStage.Callees(ADDED, RETURNED, listOf(callee)),
+                    CallStage.Actions(RETURNED, REWRITTEN, emptyList()),
+                    CallStage.Edges(REWRITTEN, AFTER, BIND_BACK,
+                        f.summary(keepEdge(STATIC), ZERO_KEEP, starEdge(ret, emptyList(), to, emptyList()))),
+                ), emptyList(), BEFORE, AFTER)
+
+            p.call(root, 2, bound(middle, x, y))
+            p.call(middle, 1, bound(leaf, arg, ret))
+            p.statement(leaf, 1, MicroEdgeBuilder().apply { move(ret, arg) }.build())
+            p.statement(root, 3, MicroEdgeBuilder().apply {
+                write(STATIC, gp, weak = false, values = listOf(y), aliasPaths = emptyList())
+            }.build())
+            val target = sink(f, "nested mixed target", gp, t)
+            p.exit(root, 4, ExitRules(RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY,
+                listOf(target)), false, emptySet()))
+            val (report, seen) = execute(f, root, listOf(1, 2, 3))
+            assertEquals(listOf(1, 2, 3), seen.invoked)
+            val backward = seen.results.single { it.runIndex == 2 }
+            val hits = backward.analyzers.flatMap { checkNotNull(it.sourceHits).entries().toList() }
+            assertTrue(hits.any { it.first == root && it.second == p.inst(root, 0) && it.third == gen })
+            val forward = seen.configs.single { it.index == 3 }
+            assertTrue(forward.seeds.allowsSource(root, p.inst(root, 0), gen),
+                "Actual B2 source hits supply the exact source gate; current queries do not bypass it")
+            assertTrue(seen.results.filter { it.runIndex > 1 }.all { result ->
+                listOf(middle, leaf).all { key -> result.analyzers.single { it.key == key }.nonZeroInitial }
+            })
+            assertTrue(hasTaint(f, seen.processed, 3, root, 4, gp, t))
+            assertTrue(report.entries.any { it.key.rule == target.rule })
         }
     }
 }

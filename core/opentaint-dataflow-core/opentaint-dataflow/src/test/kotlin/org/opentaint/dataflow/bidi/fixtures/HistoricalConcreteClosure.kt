@@ -81,6 +81,8 @@ class HistoricalConcreteClosure(private val program: FiniteProgramFixtures, priv
             } },
             sourceHit = { node, edge -> if (!forward) sourceHits += ObservedSourceHit(method, node, edge.forward) },
             manager = program.manager,
+            // Keep the pre-selective-preservation F1 transfer, including its native E.
+            historicalRun1 = true,
             conjunction = { edge, premise, conclusion, node, sink ->
                 check(forward) { "Backward forms have independent conjunction branches" }
                 for ((index, literal) in edge.literals.withIndex()) {
@@ -91,7 +93,7 @@ class HistoricalConcreteClosure(private val program: FiniteProgramFixtures, priv
                             LiteralInput(premise, checked))) {
                             val pr = union(combination.map { it.premise })
                             val demand = combination.any { it.conclusion.demand }
-                            sink(pr, normalize(edge.target, ExclusionSet.Empty, demand))
+                            sink(pr, HistoricalF71.normalize(edge.target, ExclusionSet.Empty, demand))
                         }
                     }
                 }
@@ -317,7 +319,7 @@ class HistoricalConcreteClosure(private val program: FiniteProgramFixtures, priv
         for (parts in product(choices)) if (joined.add(Joined(pub, part.call, parts))) {
             val pr = union(parts.map { it.premise })
             val demand = pub.conclusion.demand || parts.any { it.added.demand }
-            val result = normalize(pub.conclusion.fact, pub.conclusion.exclusion, demand)
+            val result = HistoricalF71.normalize(pub.conclusion.fact, pub.conclusion.exclusion, demand)
             resume(parts.first(), listOf(PlanItem(pr, result, false)))
         }
     }
@@ -427,11 +429,11 @@ class HistoricalConcreteClosure(private val program: FiniteProgramFixtures, priv
 
     private fun seedFacts(method: MethodKey, node: CommonInst): List<Pair<Set<Pattern>, Conclusion>> =
         inputs.seeds.filterIsInstance<Seed.Sink>().filter { it.method == method && it.statement == node }
-            .map { zero to limit(normalize(it.requirement.fact, ExclusionSet.Empty, false), config.fieldLimit) }
+            .map { zero to limit(HistoricalF71.normalize(it.requirement.fact, ExclusionSet.Empty, false), config.fieldLimit) }
 
     private fun triggerSeeds(method: MethodKey, node: CommonInst, sink: SinkRule): List<Pair<Set<Pattern>, Conclusion>> =
         if (!triggered.add(Triple(method, node, sink))) emptyList() else sink.seedPatterns().map {
-            zero to limit(normalize(it.fact, ExclusionSet.Empty, false), config.fieldLimit)
+            zero to limit(HistoricalF71.normalize(it.fact, ExclusionSet.Empty, false), config.fieldLimit)
         }
 
     private fun union(premises: List<Set<Pattern>>): Set<Pattern> {

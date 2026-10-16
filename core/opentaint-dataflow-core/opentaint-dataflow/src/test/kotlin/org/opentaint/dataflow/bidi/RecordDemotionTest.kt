@@ -90,7 +90,7 @@ class RecordDemotionTest {
             val sub = Subscription(record.method, CallerRef(f.key, f.manager.zero, Layer.NORMAL, f.inst(1)), added.layer, added)
             val actor = core(f)
             actor.applyRecord(sub, record)
-            val expected = setOf(Conclusion(PathFact(x, emptyList(), Tail.ANY, u), ExclusionSet.Empty, true))
+            val expected = setOf(Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, u), e, true))
             assertEquals(expected, leaves(f, actor.edges.edgesAt(f.inst(2), f.manager.zero).map { it.second }.toList()))
             assertEquals(expected, leaves(f, f.cuts.filter { it.first == Cut.CALL }.map { it.second }))
             assertEquals(1L, actor.recordCrossings)
@@ -121,15 +121,15 @@ class RecordDemotionTest {
             assertEquals(1, pendingBatch.size)
             assertTrue(insideBatch.single().identityCandidate == true && pendingBatch.single().identityCandidate == true)
             val wanted = setOf(Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), e, false),
-                Conclusion(PathFact(x, emptyList(), Tail.ANY, t), ExclusionSet.Empty, true),
-                Conclusion(PathFact(alias, emptyList(), Tail.ANY, t), ExclusionSet.Empty, true))
+                Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), e, true),
+                Conclusion(PathFact(alias, emptyList(), Tail.ANY_TAINT, t), e, true))
             assertEquals(wanted, expected(f, actor, callPlan, record, sub))
             actor.applyRecord(sub, record)
             assertEquals(wanted, actual(f, actor))
             assertEquals(wanted, leaves(f, f.cuts.filter { it.first == Cut.CALL }.map { it.second }))
             assertEquals(1L, actor.recordCrossings, "Two nonempty batches are one native record crossing")
             assertTrue(f.cuts.filter { it.first == Cut.CALL }.all { (_, value) ->
-                value.layer == Layer.NORMAL || (value as TaintTree).exclusion == ExclusionSet.Empty
+                (value as TaintTree).exclusion == e
             })
         }
     }
@@ -153,7 +153,7 @@ class RecordDemotionTest {
             val initial = batches(f, actor, record, sub).second.single()
             assertEquals(e, initial.c.exclusion)
             assertFalse(initial.c.demand)
-            val wanted = if (blocked) emptySet() else setOf(Conclusion(PathFact(x, emptyList(), Tail.ANY, u), ExclusionSet.Empty, true))
+            val wanted = if (blocked) emptySet() else setOf(Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, u), ExclusionSet.Empty, true))
             assertEquals(wanted, expected(f, actor, callPlan, record, sub))
             actor.applyRecord(sub, record)
             assertEquals(wanted, actual(f, actor))
@@ -178,7 +178,7 @@ class RecordDemotionTest {
             val callPlan = plan(f, listOf(write), summary(starEdge(returned, listOf(if (readWritten) a else c), x, emptyList())))
             f.call(1, callPlan)
             val actor = core(f)
-            val wanted = if (readWritten) emptySet() else setOf(Conclusion(PathFact(x, emptyList(), Tail.ANY, u), ExclusionSet.Empty, true))
+            val wanted = if (readWritten) emptySet() else setOf(Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, u), ExclusionSet.Empty, true))
             assertEquals(wanted, expected(f, actor, callPlan, record, sub))
             actor.applyRecord(sub, record)
             assertEquals(wanted, actual(f, actor))
@@ -206,8 +206,8 @@ class RecordDemotionTest {
             val callPlan = plan(f, listOf(action), aliases = summary(starEdge(returned, emptyList(), alias, emptyList())))
             f.call(1, callPlan)
             val actor = core(f)
-            val wanted = if (blocked) emptySet() else setOf(Conclusion(PathFact(x, listOf(a), Tail.ANY, u), ExclusionSet.Empty, true),
-                Conclusion(PathFact(alias, listOf(a), Tail.ANY, u), ExclusionSet.Empty, true))
+            val wanted = if (blocked) emptySet() else setOf(Conclusion(PathFact(x, listOf(a), Tail.ANY_TAINT, u), ExclusionSet.Empty, true),
+                Conclusion(PathFact(alias, listOf(a), Tail.ANY_TAINT, u), ExclusionSet.Empty, true))
             assertEquals(wanted, expected(f, actor, callPlan, record, sub))
             actor.applyRecord(sub, record)
             assertEquals(wanted, actual(f, actor))
@@ -244,7 +244,9 @@ class RecordDemotionTest {
             actor.applyRecord(sub, record)
             assertEquals(wanted, actual(f, actor))
             val beforeCallCut = leaves(f, f.cuts.filter { it.first == Cut.CALL }.map { it.second })
-            assertTrue(beforeCallCut.all { it.demand && it.exclusion == ExclusionSet.Empty })
+            assertTrue(beforeCallCut.all { it.demand })
+            assertEquals(if (kind == "must") setOf(ExclusionSet.of(b)) else setOf(ExclusionSet.Empty),
+                beforeCallCut.map { it.exclusion }.toSet())
             assertEquals(setOf(listOf(a, b)), beforeCallCut.map { it.fact.path }.toSet())
             assertEquals(1L, actor.recordCrossings)
         }

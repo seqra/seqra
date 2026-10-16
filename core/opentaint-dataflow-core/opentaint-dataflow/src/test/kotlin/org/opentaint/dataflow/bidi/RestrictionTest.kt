@@ -92,11 +92,11 @@ class RestrictionTest {
         when (value) {
             is Reach -> put(emptyList(), Tail.EXACT, MarkSlot.Concrete(TaintMark.ZERO))
             is FlowTree -> walk(value.root) { path, _ ->
-                put(path, if (demand) Tail.ANY else Tail.STAR, MarkSlot.Star(value.markExclusion), value.exclusion)
+                put(path, value.tail, MarkSlot.Star(value.markExclusion), value.exclusion)
             }
             is TaintTree -> walk(value.root) { path, leaf ->
                 for (id in leaf.exact.ids) put(path, Tail.EXACT, MarkSlot.Concrete(TaintMark(id)))
-                for (id in leaf.any.ids) put(path, if (demand) Tail.ANY else Tail.ANY_TAINT,
+                for (id in leaf.any.ids) put(path, value.anyTail,
                     MarkSlot.Concrete(TaintMark(id)), value.exclusion)
             }
         }
@@ -106,12 +106,13 @@ class RestrictionTest {
         return when {
             c.fact.base == AccessPathBase.Zero -> GroupKey(FactsKind.REACH, layer, c.fact.base)
             c.fact.mark is MarkSlot.Star -> GroupKey(FactsKind.FLOW, layer, c.fact.base, c.exclusion,
-                (c.fact.mark as MarkSlot.Star).excluded)
-            else -> GroupKey(FactsKind.TAINT, layer, c.fact.base, c.exclusion)
+                (c.fact.mark as MarkSlot.Star).excluded, c.fact.tail)
+            else -> GroupKey(FactsKind.TAINT, layer, c.fact.base, c.exclusion,
+                tail = if (c.fact.tail == Tail.EXACT) Tail.ANY_TAINT else c.fact.tail)
         }
     }
     private fun representable(c: Conclusion): Boolean = c.fact.mark !is MarkSlot.Star ||
-        (c.fact.tail == Tail.STAR && !c.demand) || (c.fact.tail == Tail.ANY && c.demand)
+        (c.fact.tail == Tail.STAR) || (c.fact.tail == Tail.ANY && c.demand)
     private fun check(initial: InitialAp, summary: Facts, demand: DemandPattern): List<Conclusion> {
         val expected = decode(summary).mapNotNull { restrict(initial.toPattern(), it, demand) }.toSet()
         val reference = ops.restrictReference(initial, summary, demand)

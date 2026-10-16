@@ -40,7 +40,7 @@ class ReportBuilder {
         val confirmed = LinkedHashMap(state.confirmed)
         val demand = LinkedHashMap<VulnerabilityKey, Report.Entry>()
         for ((key, witnesses) in result.witnessesByKey()) {
-            if (witnesses.any { it.confirmed }) {
+            if (!config.run1 && witnesses.any { it.confirmed }) {
                 confirmed.putIfAbsent(key, Report.Entry(key, ReportState.CONFIRMED, config.index, witnesses))
             } else if (key !in confirmed) {
                 demand[key] = Report.Entry(key, ReportState.DEMAND, config.index, witnesses)

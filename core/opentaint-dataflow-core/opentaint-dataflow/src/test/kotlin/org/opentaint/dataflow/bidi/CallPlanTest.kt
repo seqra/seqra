@@ -59,7 +59,7 @@ class CallPlanTest {
         val directed = if (index % 2 == 1) plan else plan.reversed()
         val mode = ApMode(index == 1, if (index % 2 == 1) Direction.FORWARD else Direction.BACKWARD, L)
         val hooks = PlanHooks(guards = index % 2 == 1, atBound = atBound,
-            clean = { cl, item -> cleanRes(cl, item.c).facts.map { item.copy(c = it) } },
+            clean = { cl, item -> cleanRes(cl, item.c, run1 = index == 1).facts.map { item.copy(c = it) } },
             statementCut = { it.copy(c = limit(it.c, L)) }, exit = { it.copy(c = limit(it.c, L)) })
         return FormsReference(f.ops, ReferenceAlgebra(mode, manager = f.manager))
             .run(directed, listOf(PlanItem(setOf(premise.toPattern()), input, null)),
@@ -218,7 +218,7 @@ class CallPlanTest {
             val (core, calls) = service(f)
             calls.process(EdgeDelta(initial, f.inst(1), f.fact(x, tail = Tail.ANY_TAINT, mark = mark, exclusion = e)))
             assertEquals(expected(f, plan, initial, input), stored(f, core))
-            assertEquals(setOf(setOf(initial.toPattern()) to input.copy(exclusion = e.union(ExclusionSet.of(field)))),
+            assertEquals(setOf(setOf(initial.toPattern()) to input.copy(exclusion = ExclusionSet.Empty, demand = true)),
                 stored(f, core))
             assertEquals(listOf(Cut.CALL), f.cuts.map { it.first })
         }

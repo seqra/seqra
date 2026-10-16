@@ -15,7 +15,7 @@ internal fun filterFacts(m: ApManager, c: Facts, f: TypeFilter): Facts? {
             var result = m.taintAlg.filterPath(m, c.root, f.may)
             val policy = f.markPolicy
             if (result != null && policy != null) result = markPolicyOnElements(m, result, policy)
-            result?.let { if (it === c.root) c else m.taintTree(c.base, c.layer, it, c.exclusion) }
+            result?.let { if (it === c.root) c else m.taintTree(c.base, c.layer, it, c.exclusion, c.anyTail) }
         }
     }
 }

@@ -93,7 +93,7 @@ class JIRStaticMetadataFallbackTest : BidiJIRTestUtils() {
         val checkedPath = listOf(org.opentaint.dataflow.ap.ifds.ClassStaticAccessor(fieldOwner),
             org.opentaint.dataflow.ap.ifds.FieldAccessor(fieldOwner, "sField", "java.lang.Object"))
         assertTrue(checkedPath in metadata.accesses)
-        assertTrue(checkedPath in metadata.abstractions)
+        assertFalse(checkedPath in metadata.abstractions, "ContainsMark contributes B, not a read-field gate")
         assertEquals(setOf(StaticMarkRole.SOURCE, StaticMarkRole.SINK), metadata.marks
             .filter { it.path == checkedPath && it.tail == Tail.EXACT && it.mark == "P" }.map { it.role }.toSet())
         assertFalse(assertNotNull(runtime.entries[key(m)].aliasAnalysis).hasComputedAliasInfo())
@@ -233,6 +233,7 @@ class JIRStaticMetadataFallbackTest : BidiJIRTestUtils() {
                     val profile = assertNotNull(shared.run1StaticProfiles)[m]
                     val slot = Run1Slot.StaticField(shared.ap.accessors.index(org.opentaint.dataflow.ap.ifds.ClassStaticAccessor(fieldOwner)),
                         shared.ap.accessors.index(org.opentaint.dataflow.ap.ifds.FieldAccessor(fieldOwner, "sField", "java.lang.Object")))
+                    assertFalse(profile.requestsField(slot), "Unknown-AA mark alternatives do not invent value reads")
                     for (name in listOf("SOURCE_POS", "SOURCE_NEG", "SINK_POS", "SINK_NEG"))
                         assertTrue(profile.covers(slot.initial(shared.ap), shared.ap.marks.mark(name)), name)
                     for (name in listOf("SOURCE_CONTRADICTION", "SOURCE_FALSE", "SINK_CONTRADICTION", "SINK_FALSE"))

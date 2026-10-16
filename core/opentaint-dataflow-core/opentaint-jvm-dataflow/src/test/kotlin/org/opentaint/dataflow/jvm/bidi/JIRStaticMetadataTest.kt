@@ -28,7 +28,7 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
     private val slot = listOf(cls, fld)
 
     @Test
-    fun `static transformed read and strong write distinguish field access and class keep abstraction`(): Unit {
+    fun `static read alone requests abstract field while strong write contributes only legal domain and effect`(): Unit {
         val collector = JIRStaticMetadataCollector(interp)
         val read = collector.collect(key(method("staticRead")))
         assertEquals(setOf(slot), read.accesses)
@@ -36,8 +36,9 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         assertTrue(read.marks.isEmpty())
         val write = collector.collect(key(method("staticWrite")))
         assertEquals(setOf(slot), write.accesses)
-        assertTrue(slot in write.abstractions)
-        assertTrue(listOf(cls) in write.abstractions)
+        assertTrue(write.abstractions.isEmpty())
+        assertFalse(read.staticMayWrite)
+        assertTrue(write.staticMayWrite)
         assertTrue(write.cleanerMarks.isEmpty())
     }
 
@@ -63,11 +64,12 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         assertEquals(setOf("T", "V"), metadata.marks.map { it.mark }.toSet())
         assertTrue(metadata.marks.any { it.role == StaticMarkRole.SOURCE && it.path.size == 3 && it.tail == Tail.EXACT })
         assertTrue(metadata.marks.any { it.role == StaticMarkRole.SINK && it.path == slot && it.tail == Tail.ANY })
+        assertTrue(metadata.abstractions.isEmpty(), "Source and sink ContainsMark create mark interest, never F")
         assertTrue(metadata.accesses.none { it.firstOrNull() == ClassStaticAccessor("never.Owner") })
     }
 
     @Test
-    fun `selected static cleaner stays base wide and all marks cleaner adds no mark interest`(): Unit {
+    fun `selected class cleaner keeps exact point scope and no cleaner target creates a read request`(): Unit {
         val v = JIRRuleTestFixtures(cp)
         val target = method("target", "sample.bidi.BidiPrescanSample")
         val selected = v.cleaner(listOf(RemoveMark(TaintMark("T"), ClassStatic(owner), org.opentaint.dataflow.configuration.TaintCleanReach.Exact)),
@@ -87,7 +89,8 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         assertTrue(queries.containsAll(listOf(false, true)))
         assertEquals(listOf(Triple(listOf(cls), Tail.EXACT, "T")), metadata.marks.map { Triple(it.path,it.tail,it.mark) })
         assertEquals(setOf(cls), metadata.classPoints)
-        assertTrue(listOf(cls) in metadata.abstractions)
+        assertTrue(metadata.abstractions.isEmpty())
+        assertTrue(metadata.staticMayWrite)
     }
 
     @Test
@@ -134,7 +137,8 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         for (name in listOf("read", "write", "writeConstant")) {
             val metadata = JIRStaticMetadataCollector(interp).collect(key(method(name, child)))
             assertEquals(setOf(path), metadata.accesses)
-            assertTrue(path in metadata.abstractions)
+            assertEquals(if (name == "read") setOf(path) else emptySet(), metadata.abstractions)
+            assertEquals(name != "read", metadata.staticMayWrite)
             assertTrue(metadata.accesses.none { it.firstOrNull() == ClassStaticAccessor(child) })
         }
     }
@@ -156,6 +160,7 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         val metadata = JIRStaticMetadataCollector(interp(rules)).collect(key(m))
         assertEquals(setOf(slot), metadata.accesses)
         assertEquals(setOf("BOUNDARY"), metadata.marks.map { it.mark }.toSet())
+        assertTrue(metadata.abstractions.isEmpty(), "Exit ContainsMark is not an abstract field read")
         assertTrue(metadata.marks.all { it.role == StaticMarkRole.SOURCE })
         assertTrue(metadata.accesses.none { it.firstOrNull() == ClassStaticAccessor("never.Owner") })
     }
@@ -171,9 +176,72 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         }
         val metadata = JIRStaticMetadataCollector(interp(rules)).collect(key(method("ruleCalls", "sample.bidi.BidiPrescanSample")))
         assertEquals(setOf(slot), metadata.accesses)
-        assertTrue(listOf(cls) in metadata.abstractions)
-        assertTrue(slot in metadata.abstractions)
+        assertTrue(metadata.abstractions.isEmpty())
+        assertTrue(metadata.staticMayWrite)
         assertTrue(metadata.cleanerMarks.isEmpty())
+    }
+
+    @Test
+    fun `field selected cleaner creates a scoped mark-only row and never a global field request`(): Unit {
+        val v = JIRRuleTestFixtures(cp)
+        val caller = method("callOnly")
+        val target = checkNotNull(caller.instList.instructions.first { it.callExpr != null }.callExpr).method.method
+        val position = PositionWithAccess(ClassStatic(owner),
+            PositionAccessor.FieldAccessor(owner, "sField", "java.lang.Object"))
+        val cleaner = v.cleaner(listOf(RemoveMark(TaintMark("T"), position,
+            org.opentaint.dataflow.configuration.TaintCleanReach.ExactAndAnyField)), mkTrue(), target)
+        val rules = object : org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider by NoTaintRules {
+            override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) =
+                if (method == target) listOf(cleaner) else emptyList()
+        }
+        val metadata = JIRStaticMetadataCollector(interp(rules)).collect(key(caller))
+        assertTrue(metadata.abstractions.isEmpty())
+        assertTrue(metadata.staticMayWrite)
+        assertEquals(setOf(slot), metadata.marks.map { it.path.take(2) }.toSet())
+        val ap = ApManager(Cancellation())
+        val compiled = metadata.compile(ap)
+        val selected = org.opentaint.dataflow.bidi.engine.Run1Slot.StaticField(ap.accessors.index(cls), ap.accessors.index(fld))
+        val other = org.opentaint.dataflow.bidi.engine.Run1Slot.StaticField(ap.accessors.index(cls),
+            ap.accessors.index(FieldAccessor(owner, "other", "java.lang.Object")))
+        val profile = org.opentaint.dataflow.bidi.engine.Run1StaticProfiles.build(ap, emptyMap(),
+            mapOf(caller to compiled), declaredFieldUniverse = setOf(selected, other))[caller]
+        assertTrue(profile.fieldReads.isEmpty())
+        assertTrue(profile.precomputedRequests.borrow(selected).containsId(ap.marks.mark("T").id))
+        assertFalse(profile.precomputedRequests.hasRow(other))
+        assertTrue(profile.wideRequests(ap.factsOf(org.opentaint.dataflow.bidi.ap.PathFact(
+            org.opentaint.dataflow.bidi.ap.STATIC, other.pathData.toList(), Tail.EXACT,
+            org.opentaint.dataflow.bidi.ap.MarkSlot.Concrete(ap.marks.mark("T"))),
+            org.opentaint.dataflow.bidi.ap.ExclusionSet.Empty, org.opentaint.dataflow.bidi.ap.Layer.NORMAL)).isEmpty())
+    }
+
+    @Test
+    fun `static write knowledge uses existing direct target evidence and treats virtual residuals as unknown`(): Unit {
+        val direct = method("ruleCalls", "sample.bidi.BidiPrescanSample")
+        val directCalls = direct.instList.instructions.filter { it.callExpr != null }.toSet<CommonInst>()
+        assertFalse(JIRStaticMetadataCollector(interp, resolvedCalls = directCalls).collect(key(direct)).staticMayWrite)
+        assertTrue(JIRStaticMetadataCollector(interp, resolvedCalls = emptySet()).collect(key(direct)).staticMayWrite)
+        val virtual = method("callOnly")
+        val virtualCalls = virtual.instList.instructions.filter { it.callExpr != null }.toSet<CommonInst>()
+        assertTrue(JIRStaticMetadataCollector(interp, resolvedCalls = virtualCalls).collect(key(virtual)).staticMayWrite,
+            "A subscribed virtual target does not certify absence of unknown residual targets")
+    }
+
+    @Test
+    fun `genuine static self-copy pass reads its field unlike syntactic write-preservation keeps`(): Unit {
+        val v = JIRRuleTestFixtures(cp)
+        val caller = method("callOnly")
+        val target = checkNotNull(caller.instList.instructions.first { it.callExpr != null }.callExpr).method.method
+        val field = PositionWithAccess(ClassStatic(owner),
+            PositionAccessor.FieldAccessor(owner, "sField", "java.lang.Object"))
+        val pass = v.pass(listOf(CopyAllMarks(field, field)), mkTrue(), target)
+        val rules = object : org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider by NoTaintRules {
+            override fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst?, fact: FactAp?, allRelevant: Boolean) =
+                if (method == target) listOf(pass) else emptyList()
+        }
+        val metadata = JIRStaticMetadataCollector(interp(rules)).collect(key(caller))
+        assertEquals(setOf(slot), metadata.abstractions, "A rule read stays a read even when its target is identical")
+        assertTrue(metadata.marks.isEmpty(), "CopyAllMarks does not manufacture concrete mark needs")
+        assertTrue(JIRStaticMetadataCollector(interp).collect(key(method("staticWrite"))).abstractions.isEmpty())
     }
 
     @Test

@@ -68,7 +68,7 @@ class SummaryKindsTest {
         }
         return m.taintTree(base, layer, build(root, m.taintAlg) {
             m.taintLeaves(MarkSet(it.exact.toIntArray()), MarkSet(it.any.toIntArray()))
-        }, e)
+        }, e, leaves.firstOrNull { it.fact.tail.isAny }?.fact?.tail ?: Tail.ANY_TAINT)
     }
     private fun <P : TrieLeaf> walk(root: TrieNode<P>, action: (List<Int>, P) -> Unit) {
         val pending = ArrayDeque<Pair<List<Int>, TrieNode<P>>>()
@@ -91,11 +91,11 @@ class SummaryKindsTest {
         when (facts) {
             is Reach -> put(emptyList(), Tail.EXACT, MarkSlot.Concrete(TaintMark.ZERO))
             is FlowTree -> walk(facts.root) { path, _ ->
-                put(path, if (demand) Tail.ANY else Tail.STAR, MarkSlot.Star(facts.markExclusion), facts.exclusion)
+                put(path, facts.tail, MarkSlot.Star(facts.markExclusion), facts.exclusion)
             }
             is TaintTree -> walk(facts.root) { path, leaf ->
                 for (id in leaf.exact.ids) put(path, Tail.EXACT, MarkSlot.Concrete(TaintMark(id)))
-                for (id in leaf.any.ids) put(path, if (demand) Tail.ANY else Tail.ANY_TAINT,
+                for (id in leaf.any.ids) put(path, facts.anyTail,
                     MarkSlot.Concrete(TaintMark(id)), facts.exclusion)
             }
         }
@@ -103,7 +103,7 @@ class SummaryKindsTest {
     private fun direct(input: Facts, premise: InitialAp, summary: Facts, mode: ApMode): Set<Conclusion> = buildSet {
         for (leaf in decode(input)) for (target in decode(summary)) {
             when (val result = concat(leaf, summaryEdge(premise.toPattern(), target),
-                edgeDemand = summary.layer == Layer.DEMAND, restricted = mode.restricted)) {
+                edgeDemand = summary.layer == Layer.DEMAND, restricted = mode.restricted, run1 = mode.run1)) {
                 is EdgeOutcome.Fact -> add(result.conclusion)
                 EdgeOutcome.None -> Unit
                 else -> error("A selected summary input must not produce a request: $result")
@@ -223,16 +223,23 @@ class SummaryKindsTest {
 
     private fun checkCombination(parts: List<Pair<Facts, InitialAp>>, target: TaintTree, mode: ApMode) {
         val joinedDemand = target.layer == Layer.DEMAND || parts.any { it.first.layer == Layer.DEMAND }
-        val expected = decode(target).map { normalize(it.fact, it.exclusion, joinedDemand) }.toSet()
+        val expected = decode(target).map {
+            val cover = mode.run1 && it.exclusion != empty
+            normalize(it.fact, if (cover) empty else it.exclusion, joinedDemand || cover)
+        }.toSet()
         for ((part, initial) in parts) {
-            val member = direct(part, initial, target, mode).map { normalize(it.fact, it.exclusion, joinedDemand) }.toSet()
+            val member = direct(part, initial, target, mode).map { normalize(it.fact, it.exclusion, joinedDemand || it.demand) }.toSet()
             assertEquals(expected, member, "Every matched member produces the same uncorrelated target")
         }
         val out = CollectingOut()
         ops.applyCombination(parts, target, mode, out)
         assertEquals(expected, out.results.flatMap { decode(it) }.toSet())
-        assertEquals(1, out.results.size)
-        assertSame(target.root, (out.results.single() as TaintTree).root)
+        if (mode.run1 && target.exclusion != empty) {
+            assertTrue(out.results.all { (it as TaintTree).exclusion == empty })
+        } else {
+            assertEquals(1, out.results.size)
+            assertSame(target.root, (out.results.single() as TaintTree).root)
+        }
         assertTrue(out.markRequests.isEmpty())
     }
 

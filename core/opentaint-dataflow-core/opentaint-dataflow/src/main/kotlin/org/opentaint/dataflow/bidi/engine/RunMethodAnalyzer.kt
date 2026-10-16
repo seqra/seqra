@@ -33,6 +33,7 @@ class RunMethodAnalyzer(
     val initials: InitialFactStore get() = checkNotNull(initialStore) { "The initial facts were released" }
     val summaries = RunSummaryStore(ap)
     val sourceHits: SourceHitStore? = if (forward) null else SourceHitStore()
+    private val currentQueries = if (config.restricted) StrongQueries(ops, mode) else null
     private var temporary = RequestStorage()
     private var temporarySinceNanos = 0L
     internal var abstraction: Run1Abstraction? = if (config.run1) Run1Abstraction(
@@ -73,6 +74,20 @@ class RunMethodAnalyzer(
     override var recordCrossings: Long = 0; private set
     var triggerSeeds: Long = 0; private set
 
+    private var initialized = false
+
+    /** Called only by the registered actor's owner; use the ordinary publication path. */
+    private fun initialize() {
+        if (initialized) return
+        initialized = true
+        if (!config.run1) return
+        val profile = context.shared.run1StaticProfiles?.get(key.method) ?: return
+        val identity = PathFact(STATIC, emptyList(), Tail.STAR, MarkSlot.STAR)
+        val premise = ap.initial(Pattern(identity, ExclusionSet.Empty))
+        summaryDelta(premise, ap.factsOf(identity, ExclusionSet.Empty,
+            if (profile.staticMayWrite) Layer.DEMAND else Layer.NORMAL))
+    }
+
     fun addRootZero(): Unit = addInitial(ap.zero)
 
     fun addZeroEntry() {
@@ -82,12 +97,38 @@ class RunMethodAnalyzer(
 
     fun addLink(ref: CallerRef, linkLayer: Layer, added: Facts) {
         ap.cancellation.checkpoint()
+        initialize()
         check(added.base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot enter an added link" }
         check(linkLayer == added.layer) { "The link layer must be the added fact's layer" }
         context.shared.abstractionStatistics?.arrival()
         // This is input presence for NO_DEMAND_EDGE, not a distinct retained-group count.
         if (added.layer == Layer.DEMAND && !sawDemandInput) { sawDemandInput = true; demandLayerEdges++ }
-        if (config.run1) checkNotNull(abstraction).emit(ref, added) else emit(added)
+        if (config.run1) checkNotNull(abstraction).emit(ref, added) else {
+            val guides = sequence {
+                val found = LinkedHashSet<DemandPattern>()
+                for (leaf in ops.leaves(added)) {
+                    ap.cancellation.checkpoint()
+                    found += checkNotNull(config.demand).near(key, leaf.fact.base, ap.path(leaf.fact.path))
+                }
+                for (guide in found) {
+                    ap.cancellation.checkpoint()
+                    context.shared.abstractionStatistics?.intersection()
+                    yield(guide)
+                }
+            }
+            val starts = checkNotNull(currentQueries).admit(added, guides)
+            if (starts.isNotEmpty()) {
+                // A prior guide may already have completed this premise. Its raw
+                // summary remains available even if its old exit hint rejected it.
+                for ((premise, facts) in summaries.all()) {
+                    ap.cancellation.checkpoint()
+                    if (currentQueries.permits(premise)) queuePublications(premise, facts)
+                }
+                starts.forEach(::addInitial)
+            }
+            // Concrete guide intersections refine actual queries. Abstract
+            // guidance must not start a wider executable FLOW transfer here.
+        }
     }
 
     private var sawDemandInput = false
@@ -108,6 +149,7 @@ class RunMethodAnalyzer(
     }
 
     internal fun collectRequests(slot: Run1Slot, offered: RequestMarkSelection) {
+        initialize()
         check(config.run1) { "Requests exist only in run 1" }
         val statistics = context.shared.abstractionStatistics
         val counts = statistics?.let { RequestAdmissionCounts() }
@@ -129,27 +171,9 @@ class RunMethodAnalyzer(
         }
     }
 
-    private fun emit(delta: Facts) {
-        ap.cancellation.checkpoint()
-        if (delta is Reach) {
-            addInitial(ap.zero)
-            return
-        }
-        val demand = checkNotNull(config.demand)
-        val found = LinkedHashSet<DemandPattern>()
-        for (leaf in ops.leaves(delta)) {
-            ap.cancellation.checkpoint()
-            found += demand.near(key, leaf.fact.base, ap.path(leaf.fact.path))
-        }
-        for (pattern in found) {
-            ap.cancellation.checkpoint()
-            context.shared.abstractionStatistics?.intersection()
-            for (initial in ops.emit(pattern, delta)) addInitial(initial)
-        }
-    }
-
     internal fun addInitial(initial: InitialAp) {
         ap.cancellation.checkpoint()
+        initialize()
         if (config.run1) {
             validateRun1Initial(initial, limit)
             check(initial.base != STATIC || context.shared.staticFootprint(key.method) != null) {
@@ -169,7 +193,9 @@ class RunMethodAnalyzer(
     }
 
     internal fun collect(premise: PremiseKey, input: Facts, sink: ResultSink): ApOut = object : ApOut {
-        override fun result(f: Facts): Unit = sink(premise, f)
+        override fun result(f: Facts) {
+            if (config.run1) ops.run1Cover(f) { sink(premise, it) } else sink(premise, f)
+        }
         override fun markRequest(mark: TaintMark): Unit = raiseMark(premise, input, mark)
     }
 
@@ -181,7 +207,9 @@ class RunMethodAnalyzer(
 
     internal fun cut(point: Cut, premise: PremiseKey, facts: Facts, sink: ResultSink) {
         runnerPort.onCut?.invoke(point, facts)
-        ops.limit(facts, limit, collect(premise, facts, sink))
+        val out = collect(premise, facts, sink)
+        if (config.run1) ops.run1Cover(facts) { ops.limit(it, limit, out) }
+        else ops.limit(facts, limit, out)
     }
 
     private val hasPendingAbstractionWork: Boolean get() =
@@ -242,7 +270,12 @@ class RunMethodAnalyzer(
         }
     }
 
-    internal fun emitAfter(premise: PremiseKey, node: CommonInst, facts: Facts) {
+    internal fun emitAfter(premise: PremiseKey, node: CommonInst, value: Facts) {
+        if (config.run1) ops.run1Cover(value) { emitCovered(premise, node, it) }
+        else emitCovered(premise, node, value)
+    }
+
+    private fun emitCovered(premise: PremiseKey, node: CommonInst, facts: Facts) {
         exitRulesAt(premise, node, facts)
         context.forEachSuccessor(node) { successor ->
             ap.cancellation.checkpoint()
@@ -274,6 +307,11 @@ class RunMethodAnalyzer(
     internal fun checkKinds(premise: PremiseKey, facts: Facts) {
         check((facts is FlowTree) == premise.isFlow) { "K6: the conclusion kind follows its premise" }
         check(premise !is PremiseSet || facts is TaintTree) { "A multi-premise edge must be TAINT" }
+        if (config.run1) when (facts) {
+            is FlowTree -> check(facts.exclusion == ExclusionSet.Empty) { "Run-1 FLOW has Empty field E" }
+            is TaintTree -> check(facts.exclusion == ExclusionSet.Empty) { "Run-1 TAINT has Empty field E" }
+            is Reach -> Unit
+        }
     }
 
     internal fun requestWork() { runnerPort.enqueue(this) }
@@ -365,14 +403,23 @@ class RunMethodAnalyzer(
         }
     }
 
-    internal fun summaryDelta(premise: PremiseKey, facts: Facts) {
+    internal fun summaryDelta(premise: PremiseKey, value: Facts) {
+        if (config.run1) ops.run1Cover(value) { retainSummary(premise, it) }
+        else retainSummary(premise, value)
+    }
+
+    private fun retainSummary(premise: PremiseKey, facts: Facts) {
         checkKinds(premise, facts)
         if (!context.shared.interpreter.isSummaryBase(facts.base)) return
         val delta = summaries.add(premise, facts) ?: return
         edgeDeltas++
         if (delta.layer == Layer.DEMAND) demandLayerEdges++
-        val selected = ops.demandPart(premise, delta, config.direction) != null
-        val publications = published(premise, delta)
+        queuePublications(premise, delta)
+    }
+
+    private fun queuePublications(premise: PremiseKey, facts: Facts) {
+        val selected = config.run1 || ops.demandPart(premise, facts, config.direction) != null
+        val publications = published(premise, facts)
         for (piece in publications) {
             ap.cancellation.checkpoint()
             pending += Publication(premise, piece)
@@ -382,7 +429,7 @@ class RunMethodAnalyzer(
     }
 
     private fun published(premise: PremiseKey, facts: Facts): Collection<Facts> = when {
-        config.run1 || (!forward && premise.isZero) -> listOf(facts)
+        config.run1 || (!forward && premise.isZero) || currentQueries?.permits(premise) == true -> listOf(facts)
         else -> LinkedHashSet<Facts>().also { out ->
             premise.forEachMember { member ->
                 ap.cancellation.checkpoint()
@@ -438,6 +485,7 @@ class RunMethodAnalyzer(
             pending = ArrayList()
             edgeStore = null
             initialStore = null
+            currentQueries?.clear()
             temporary = RequestStorage()
         }
         failure?.let { throw it }

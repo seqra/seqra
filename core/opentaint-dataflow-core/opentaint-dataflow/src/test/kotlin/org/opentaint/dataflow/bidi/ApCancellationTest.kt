@@ -150,9 +150,9 @@ class ApCancellationTest {
             val parts = listOf(pack(leaf(p(f), layer = left)) to initial[0],
                 pack(leaf(p(g), mark = mu, layer = right, base = y)) to initial[1])
             val demand = left == Layer.DEMAND || right == Layer.DEMAND
-            val expected = leaf(p(h), if (demand) Tail.ANY else Tail.ANY_TAINT,
+            val expected = leaf(p(h), Tail.ANY_TAINT,
                 layer = if (demand) Layer.DEMAND else Layer.NORMAL,
-                e = if (demand) ExclusionSet.Empty else ex(f), base = y)
+                e = ex(f), base = y)
             cancelledOutput(setOf(expected)) { out -> ops.applyCombination(parts, target, mode, out) }
         }
     }

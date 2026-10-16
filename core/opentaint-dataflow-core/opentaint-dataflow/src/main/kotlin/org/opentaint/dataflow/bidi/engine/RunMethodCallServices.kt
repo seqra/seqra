@@ -256,13 +256,6 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
     override fun applyRecord(part: Subscription, record: Record) {
         val core = active()
         val premise = record.premise
-        if (isSpecialStaticRoot(premise) && core.context.shared.staticFootprint(part.callee.method) != null) {
-            val frame = ArrayList<PlanFact>()
-            applyParts(part, premise, record.conclusion, frame)
-            if (frame.isNotEmpty()) core.countRecordCrossing()
-            resumeCallees(part.ref, frame)
-            return
-        }
         val native = ArrayList<PlanFact>()
         val pending = ArrayList<PlanFact>()
         if (premise.tail != Tail.ANY_TAINT) applyParts(part, premise, record.conclusion, native)
@@ -294,7 +287,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
     private fun toDemand(facts: Facts): Facts {
         val core = active()
         return when (facts) {
-            is TaintTree -> if (facts.layer == Layer.DEMAND) facts else core.ap.taintTree(facts.base, Layer.DEMAND, facts.root)
+            is TaintTree -> facts.withLayer(Layer.DEMAND)
             is Reach -> Reach.DEMAND
             is FlowTree -> error("A must record has TAINT results")
         }
@@ -313,15 +306,6 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
 
     private fun applyParts(part: Subscription, premise: InitialAp, conclusion: Facts, results: MutableList<PlanFact>) {
         val core = active()
-        if (isSpecialStaticRoot(premise) && core.context.shared.staticFootprint(part.callee.method) != null) {
-            // The caller reader already selected ONLY the footprint complement.
-            // Reached normal-exit publication/native provenance supplies return
-            // evidence. Its raw coarse root output is never applied as data.
-            if (hasStaticRootReturnEvidence(conclusion) && part.added.base == STATIC) {
-                results += PlanFact(part.ref.premise, part.added, true)
-            }
-            return
-        }
         for ((group, identity) in summaryParts(premise, conclusion)) {
             core.ap.cancellation.checkpoint()
             core.ops.applySummary(part.added, premise, group, core.mode, core.collect(part.ref.premise, part.added) { pr, result ->

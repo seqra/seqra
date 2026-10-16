@@ -93,6 +93,7 @@ class Run1StaticLocalProfile(
     wideClasses: Set<Int> = emptySet(),
     val allStatic: Boolean = false,
     classPoints: Set<Int> = emptySet(),
+    val staticMayWrite: Boolean = false,
 ) {
     val accesses: List<List<AccessorIdx>> = ownedList(accesses.map(::ownedSlot))
     val abstractions: List<List<AccessorIdx>> = ownedList(abstractions.map(::ownedSlot))
@@ -124,13 +125,16 @@ class Run1StaticProfile internal constructor(
     internal val effectWideClasses: PersistentSet<Int> = persistentHashSetOf(),
     internal val effectAllStatic: Boolean = false,
     internal val selectedClassPoints: PersistentSet<Int> = persistentHashSetOf(),
+    val staticMayWrite: Boolean = false,
 ) {
     private var frozen = false
     lateinit var precomputedRequests: FrozenRequestBase
         private set
     lateinit var footprint: Run1StaticFootprint
         private set
-    val structuralFieldSlots: Set<Run1Slot.StaticField> get() = footprint.fieldSlots
+    val fieldReads: Set<Run1Slot.StaticField> get() = footprint.fieldSlots
+    val structuralFieldSlots: Set<Run1Slot.StaticField> get() = fieldReads
+    fun requestsField(slot: Run1Slot.StaticField): Boolean = slot in fieldReads
     private var allWideMarks = org.opentaint.dataflow.bidi.store.RequestMarkSet.EMPTY
     private var classWideMarks: Map<Int, org.opentaint.dataflow.bidi.store.RequestMarkSet> = emptyMap()
     private var directClassMarks: Map<Int, org.opentaint.dataflow.bidi.store.RequestMarkSet> = emptyMap()
@@ -141,7 +145,9 @@ class Run1StaticProfile internal constructor(
 
     fun wideRequests(input: Facts): RequestRows {
         val result = LinkedHashMap<Run1Slot, org.opentaint.dataflow.bidi.store.RequestMarkSet>()
-        for (slot in footprint.selectedFields(input, cancellation::checkpoint)) {
+        for (slot in footprint.suppliedFields(input, cancellation::checkpoint) { cls, _ ->
+            !(classWideMarks[cls] ?: allWideMarks).isEmpty
+        }) {
             cancellation.checkpoint()
             val marks = classWideMarks[slot.cls] ?: allWideMarks
             if (!marks.isEmpty) result[slot] = marks
@@ -153,10 +159,12 @@ class Run1StaticProfile internal constructor(
     internal fun freezePlan(universe: Set<Run1Slot.StaticField>, classes: Set<Int>) {
         check(!this::precomputedRequests.isInitialized)
         val slots = LinkedHashSet<Run1Slot.StaticField>()
-        for (path in accesses + abstractions) {
+        val reads = LinkedHashSet<Run1Slot.StaticField>()
+        for (path in abstractions) {
             cancellation.checkpoint()
-            if (path.size == 2) slots += Run1Slot.StaticField(path[0], path[1])
+            if (path.size == 2) reads += Run1Slot.StaticField(path[0], path[1])
         }
+        slots.addAll(reads)
         val fieldMarks = LinkedHashMap<Run1Slot.StaticField, org.opentaint.dataflow.bidi.store.RequestMarkSet>()
         val wide = LinkedHashMap<Int, org.opentaint.dataflow.bidi.store.RequestMarkSet>()
         val points = LinkedHashMap<Int, org.opentaint.dataflow.bidi.store.RequestMarkSet>()
@@ -197,13 +205,14 @@ class Run1StaticProfile internal constructor(
             if (!marks.isEmpty) points[cls] = marks
         }
         directClassMarks = ownedMap(points)
-        footprint = Run1StaticFootprint(slots, !root.isEmpty || effectAllStatic,
-            wide.keys + effectWideClasses, universe,
+        // F is a read gate. Mark-wide scopes and mutation scopes never widen it.
+        footprint = Run1StaticFootprint(reads, false, emptySet(), universe,
             classPoints = if (effectAllStatic) classes else selectedClassPoints + points.keys + effectWideClasses,
             classUniverse = classes)
-        precomputedRequests = FrozenStaticRequests.freeze(footprint, root, classWideMarks, fieldMarks,
+        precomputedRequests = FrozenStaticRequests.freeze(slots, root, classWideMarks, fieldMarks,
             cancellation::checkpoint)
-        ownedClassPoints = if (footprint.allStatic) classes else ownedSet(footprint.classPoints + footprint.wideClasses)
+        ownedClassPoints = if (!rootClassMarks.isEmpty || effectAllStatic) classes
+            else ownedSet(footprint.classPoints + wide.keys)
         bySlot = persistentHashMapOf()
         cleanerIds = persistentHashSetOf()
         frozen = true
@@ -307,6 +316,7 @@ data class Run1StaticProfileStatistics(
     val commonClassMapRoots: Int = 0,
     val commonClassRows: Long = 0,
     val sparseFieldMapRoots: Int = 0,
+    val staticMayWriteMethods: Int = 0,
 )
 
 /** Immutable copied graph plus one profile per SCC. Release this owner after run-1 workers join. */
@@ -462,6 +472,7 @@ private class StaticProfileBuilder(private val ap: ApManager) {
         var wideClasses = persistentHashSetOf<Int>()
         var allStatic = false
         var classPoints = persistentHashSetOf<Int>()
+        var staticMayWrite = false
     }
 
     private fun addInterest(part: Part, value: StaticMarkInterest) {
@@ -549,8 +560,9 @@ private class StaticProfileBuilder(private val ap: ApManager) {
         var directInterests = 0L; var directCleaners = 0L; var directGroups = 0L
         for (index in methods.indices) {
             check()
-            val local = locals[methods[index]] ?: continue
             val part = direct[component[index]]
+            val local = locals[methods[index]]
+            if (local == null) { part.staticMayWrite = true; continue }
             var localAccesses = persistentHashSetOf<List<AccessorIdx>>()
             for (path in local.accesses) { check(); localAccesses = localAccesses.add(position(path)) }
             var localAbstractions = persistentHashSetOf<List<AccessorIdx>>()
@@ -576,6 +588,7 @@ private class StaticProfileBuilder(private val ap: ApManager) {
             part.wideClasses = union(part.wideClasses, persistentHashSetOf<Int>().addAll(local.wideClasses))
             part.allStatic = part.allStatic || local.allStatic
             part.classPoints = union(part.classPoints, persistentHashSetOf<Int>().addAll(local.classPoints))
+            part.staticMayWrite = part.staticMayWrite || local.staticMayWrite
         }
 
         val successors = Array(componentCount) { LinkedHashSet<Int>() }
@@ -611,6 +624,7 @@ private class StaticProfileBuilder(private val ap: ApManager) {
                 part.wideClasses = union(part.wideClasses, child.effectWideClasses)
                 part.allStatic = part.allStatic || child.effectAllStatic
                 part.classPoints = union(part.classPoints, child.selectedClassPoints)
+                part.staticMayWrite = part.staticMayWrite || child.staticMayWrite
             }
             // An unchanged inherited plan can share the whole immutable owner, not copy B per method.
             val inherited = successors[index].asSequence().map { checkNotNull(closed[it]) }.firstOrNull { child ->
@@ -618,9 +632,11 @@ private class StaticProfileBuilder(private val ap: ApManager) {
                     part.marks === child.directory() && part.cleaners === child.cleanerIds &&
                     part.wideClasses === child.effectWideClasses && part.allStatic == child.effectAllStatic
                     && part.classPoints === child.selectedClassPoints
+                    && part.staticMayWrite == child.staticMayWrite
             }
             closed[index] = inherited ?: Run1StaticProfile(part.accesses, part.abstractions, part.marks, part.markCount,
-                part.declarations, part.cleaners, cancellation, part.wideClasses, part.allStatic, part.classPoints)
+                part.declarations, part.cleaners, cancellation, part.wideClasses, part.allStatic, part.classPoints,
+                part.staticMayWrite)
             for (parent in parents[index]) { check(); if (--remaining[parent] == 0) ready.addLast(parent) }
         }
 
@@ -722,6 +738,7 @@ private class StaticProfileBuilder(private val ap: ApManager) {
             commonClassMapRoots = commonRoots.size, commonClassRows = commonRows, sparseFieldMapRoots = sparseRoots.size,
             logicalMethodRequestRows = logicalRows, logicalMethodRequestMembers = logicalMembers,
             runtimeMarkSetRoots = markSets.size, cancellationCheckpoints = checkpoints,
+            staticMayWriteMethods = byMethod.values.count { it.staticMayWrite },
             closureNanos = System.nanoTime() - started)
         return Run1StaticProfiles(ownedMap(byMethod), ownedMap(frozenEdges), statistics)
     }

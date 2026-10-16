@@ -37,7 +37,7 @@ class NaiveClosureTest {
     private fun check(f: FiniteProgramFixtures, config: RunConfig, fields: List<Int>, marks: List<TaintMark>,
                       sameUnit: Boolean = false, policy: SchedulePolicy = SchedulePolicy.FIFO,
                       catalogRefinement: Boolean = false): RunObservation {
-        val expected = NaiveClosure(f, config).run()
+        val expected = NaiveClosure(f, config, semantics = NaiveClosure.Semantics.SELECTED).run()
         val schedule = ProductionSchedule(f, config, sameUnit = sameUnit, policy = policy, quantum = 1)
         val actual = schedule.run()
         fun patterns(observation: RunObservation): List<Pattern> = buildList {
@@ -221,12 +221,13 @@ class NaiveClosureTest {
                 Conclusion(PathFact(returned, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty, false)))
             assertContains(actual.processed, ObservedEdge(caller, zero,
                 Conclusion(ZERO_FACT, ExclusionSet.Empty, false), main.inst(3)))
-            assertTrue(actual.requests.isEmpty() && actual.sourceHits.isEmpty() && actual.selectedDemand.isEmpty())
+            assertTrue(actual.requests.isEmpty() && actual.sourceHits.isEmpty())
+            assertEquals(actual.publications, actual.selectedDemand, "Every F1 publication is guidance")
         }
     }
 
     @Test
-    fun `restricted must emission keeps raw E separate from reduced publications across a real call`(): Unit {
+    fun `restricted actual query preserves raw E without adding old exit-guide exclusions`(): Unit {
         for (sameUnit in listOf(false, true)) FiniteProgramFixtures().use { f ->
             val main = f.method("mustCaller", listOf(listOf(1), listOf(2), listOf(3), emptyList()), 3)
             val getter = f.method("excludedGetter", listOf(listOf(1), emptyList()), 1)
@@ -252,11 +253,13 @@ class NaiveClosureTest {
             assertContains(actual.initials, ObservedInitial(callee, initial))
             assertContains(actual.rawSummaries, ObservedEdge(callee, setOf(initial),
                 Conclusion(PathFact(returned, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.of(b), false)))
-            val union = ExclusionSet.of(intArrayOf(a, b))
+            // Actual-current authorization publishes the complete computed result;
+            // prior exit guidance cannot add the unrelated exclusion a.
+            val outputExclusion = ExclusionSet.of(b)
             assertContains(actual.publications, ObservedEdge(callee, setOf(initial),
-                Conclusion(PathFact(returned, emptyList(), Tail.ANY_TAINT, t), union, false)))
+                Conclusion(PathFact(returned, emptyList(), Tail.ANY_TAINT, t), outputExclusion, false)))
             assertContains(actual.rawSummaries, ObservedEdge(caller, zero,
-                Conclusion(PathFact(y, emptyList(), Tail.ANY_TAINT, t), union, false)))
+                Conclusion(PathFact(y, emptyList(), Tail.ANY_TAINT, t), outputExclusion, false)))
             assertTrue(actual.requests.isEmpty() && actual.sourceHits.isEmpty() && actual.selectedDemand.isEmpty())
         }
     }
@@ -332,7 +335,7 @@ class NaiveClosureTest {
                 f.statement(callee, 0, summary(PathEdge(PathFact(static, path, Tail.EXACT, t),
                     PathFact(returned, emptyList(), Tail.EXACT, u), ExclusionSet.Empty)))
                 val config = f.config(roots = listOf(caller))
-                val scalar = NaiveClosure(f, config).run()
+                val scalar = NaiveClosure(f, config, semantics = NaiveClosure.Semantics.HISTORICAL).run()
                 val actual = check(f, config, path, listOf(t.mark, u.mark), sameUnit, policy, catalogRefinement = true)
                 val policyInitial = f.pattern(static, tail = Tail.STAR, mark = MarkSlot.STAR)
                 val positionInitial = f.pattern(static, path, Tail.STAR, MarkSlot.STAR)
@@ -458,7 +461,7 @@ class NaiveClosureTest {
                 Seed.Source(producer, producerMethod.inst(0), sourceB), Seed.Source(consumer, consumerMethod.inst(0), sourceA),
                 Seed.Source(consumer, consumerMethod.inst(0), sourceSignal))
             val config = f.config(index = 3, roots = listOf(producer, consumer), demand = demand, seeds = seeds)
-            val expected = NaiveClosure(f, config).run()
+            val expected = NaiveClosure(f, config, semantics = NaiveClosure.Semantics.SELECTED).run()
             val schedule = ProductionSchedule(f, config, sameUnit = sameUnit, policy = SchedulePolicy.NOTIFY_FIRST, quantum = 1)
             val actual = schedule.run()
             val universe = BoundedDenotation(listOf(AccessPathBase.Zero, x, y, returned, signal),
@@ -520,18 +523,18 @@ class NaiveClosureTest {
             val actual = check(f, f.config(index = index, roots = listOf(key), demand = if (index == 1) emptyList() else demand,
                 seeds = seeds), listOf(a, b), listOf(t.mark, u.mark))
             val must = ObservedEdge(key, zero, Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t),
-                ExclusionSet.of(intArrayOf(a, b)), false))
+                if (index == 1) ExclusionSet.Empty else ExclusionSet.of(intArrayOf(a, b)), index == 1))
             val may = ObservedEdge(key, zero, Conclusion(PathFact(x, listOf(a), Tail.ANY, u), ExclusionSet.Empty, true))
             assertContains(actual.rawSummaries, must)
             assertContains(actual.rawSummaries, may)
             assertContains(actual.selectedDemand, may)
-            assertTrue(actual.selectedDemand.none { it.conclusion.fact.mark == t })
+            assertEquals(index == 1, actual.selectedDemand.any { it.conclusion.fact.mark == t })
             assertTrue(actual.requests.isEmpty())
         }
     }
 
     @Test
-    fun `native must records retain E through returned reads then demote and admit sibling aliases`(): Unit {
+    fun `native must records retain E through returned reads and layer-only demotion while admitting sibling aliases`(): Unit {
         for (blocked in listOf(false, true)) FiniteProgramFixtures().use { f ->
             val main = f.method("pendingCaller", listOf(listOf(1), listOf(2), emptyList()), 2)
             val library = f.method("recordedLibrary", listOf(listOf(1), emptyList()), 1)
@@ -559,9 +562,9 @@ class NaiveClosureTest {
                 listOf(a, b), listOf(t.mark, u.mark))
             val outputs = actual.rawSummaries.filter { it.method == caller && it.conclusion.fact.mark == u }.toSet()
             val wanted = buildSet {
-                add(ObservedEdge(caller, zero, Conclusion(PathFact(alias, emptyList(), Tail.ANY, u), ExclusionSet.Empty, true)))
+                add(ObservedEdge(caller, zero, Conclusion(PathFact(alias, emptyList(), Tail.ANY_TAINT, u), ExclusionSet.of(b), true)))
                 if (!blocked) add(ObservedEdge(caller, zero,
-                    Conclusion(PathFact(y, emptyList(), Tail.ANY, u), ExclusionSet.Empty, true)))
+                    Conclusion(PathFact(y, emptyList(), Tail.ANY_TAINT, u), ExclusionSet.Empty, true)))
             }
             assertEquals(wanted, outputs)
             assertTrue(actual.sourceHits.isEmpty() && actual.requests.isEmpty())

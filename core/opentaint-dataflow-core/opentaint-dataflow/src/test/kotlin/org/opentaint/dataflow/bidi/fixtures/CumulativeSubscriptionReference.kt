@@ -12,18 +12,18 @@ class CumulativeSubscriptionReference(private val universe: BoundedDenotation) {
         val aPositions = universe.spatial(a)
         val applicable = universe.marked(premise).containsAll(universe.marked(a)) &&
             (premise.fact.tail !in listOf(Tail.ANY, Tail.ANY_TAINT) || a.fact.tail in listOf(Tail.ANY, Tail.ANY_TAINT))
-        if (!restricted) return applicable
         val inside = aPositions.containsAll(pPositions) &&
             universe.markedValues(premise.fact.mark).containsAll(universe.markedValues(a.fact.mark))
+        if (!restricted) return applicable || inside
         val canonicalFlow = premise.fact.tail == Tail.STAR && premise.exclusion == ExclusionSet.Empty &&
             premise.fact.mark == MarkSlot.STAR
         return if (canonicalFlow) pPositions.any { it in aPositions }
         else inside || (premise.fact.mark == MarkSlot.STAR && applicable)
     }
 
-    fun transfer(premise: Pattern, conclusion: Conclusion, added: Conclusion, restricted: Boolean): EdgeOutcome =
+    fun transfer(premise: Pattern, conclusion: Conclusion, added: Conclusion, restricted: Boolean, run1: Boolean = false): EdgeOutcome =
         concat(added, summaryEdge(premise, conclusion), edgeDemand = conclusion.demand,
-            staticIdentity = false, restricted = restricted)
+            staticIdentity = false, restricted = restricted, run1 = run1)
 
     private data class OutputScope(val base: AccessPathBase, val layer: Boolean, val component: String)
 

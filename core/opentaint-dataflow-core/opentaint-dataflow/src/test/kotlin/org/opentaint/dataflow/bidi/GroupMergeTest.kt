@@ -91,11 +91,11 @@ class GroupMergeTest {
         when (facts) {
             is Reach -> put(emptyList(), Tail.EXACT, MarkSlot.Concrete(TaintMark.ZERO))
             is FlowTree -> walk(facts.root) { path, _ ->
-                put(path, if (demand) Tail.ANY else Tail.STAR, MarkSlot.Star(facts.markExclusion), facts.exclusion)
+                put(path, facts.tail, MarkSlot.Star(facts.markExclusion), facts.exclusion)
             }
             is TaintTree -> walk(facts.root) { path, leaf ->
                 for (id in leaf.exact.ids) put(path, Tail.EXACT, MarkSlot.Concrete(TaintMark(id)))
-                for (id in leaf.any.ids) put(path, if (demand) Tail.ANY else Tail.ANY_TAINT,
+                for (id in leaf.any.ids) put(path, facts.anyTail,
                     MarkSlot.Concrete(TaintMark(id)), facts.exclusion)
             }
         }
@@ -335,7 +335,8 @@ class GroupMergeTest {
             taint(a(emptyList(), Tail.ANY_TAINT), e = ex(f)),
             taint(a(listOf(f), Tail.ANY_TAINT, u), e = ex(g)),
             taint(a(listOf(f), Tail.EXACT), a(listOf(g), Tail.EXACT, u)),
-            taint(a(emptyList(), Tail.ANY), a(listOf(g), Tail.EXACT, u), layer = Layer.DEMAND))
+            taint(a(emptyList(), Tail.ANY), layer = Layer.DEMAND),
+            taint(a(listOf(g), Tail.EXACT, u), layer = Layer.DEMAND))
         assertEquals(expected.toSet(), out.results.toSet())
         assertEquals(expected.size, out.results.size)
         assertEquals(out.results.size, out.results.map { it.groupKey }.toSet().size)

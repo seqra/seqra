@@ -55,7 +55,7 @@ class CutPointTest {
             f.drain(core, quantum = 1)
             val expected = Conclusion(PathFact(y, listOf(field), Tail.EXACT, mt), ExclusionSet.Empty, false)
             assertEquals(setOf(expected), methodLeaves(f.ops, f.cuts.filter { it.first == Cut.STATEMENT }.map { it.second }))
-            assertEquals(setOf(premise to expected), methodEntries(f.ops, core.summaries.all()))
+            assertEquals(setOf(premise to expected), methodEntries(f.ops, core.summaries.all().withoutPrecomputedStaticDefault()))
             assertEquals(0L, core.demandLayerEdges)
             assertTrue(f.requests.isEmpty())
         }
@@ -78,7 +78,7 @@ class CutPointTest {
             assertTrue(core.edges.edgesAt(f.inst(2), premise).none())
             assertTrue(f.cuts.none { it.first == Cut.STATEMENT })
             assertEquals(setOf(premise to Conclusion(PathFact(x, listOf(field), Tail.EXACT, mt), ExclusionSet.Empty, false)),
-                methodEntries(f.ops, core.summaries.all()))
+                methodEntries(f.ops, core.summaries.all().withoutPrecomputedStaticDefault()))
             assertEquals(1L, core.edgeDeltas, "Only the accepted end summary is stored")
         }
     }
@@ -140,7 +140,7 @@ class CutPointTest {
             ), methodLeaves(f.ops, entryCuts))
             assertEquals(setOf(f.manager.zero to Conclusion(ZERO_FACT, ExclusionSet.Empty, false),
                 f.manager.zero to Conclusion(PathFact(y, listOf(field), Tail.EXACT, mt), ExclusionSet.Empty, false)),
-                methodEntries(f.ops, forward.summaries.all()))
+                methodEntries(f.ops, forward.summaries.all().withoutPrecomputedStaticDefault()))
 
             f.cuts.clear()
             f.processed.clear()
@@ -155,7 +155,7 @@ class CutPointTest {
                 initialY to Conclusion(PathFact(y, listOf(field, g), Tail.EXACT, mt), ExclusionSet.Empty, false),
                 initialX to Conclusion(PathFact(x, listOf(g), Tail.EXACT, mt), ExclusionSet.Empty, false),
             )
-            assertEquals(backExpected, methodEntries(f.ops, backward.summaries.all()))
+            assertEquals(backExpected, methodEntries(f.ops, backward.summaries.all().withoutPrecomputedStaticDefault()))
             assertEquals(setOf(Triple(f.key, f.inst(0), deep.forward)), assertNotNull(backward.sourceHits).entries().toSet())
             assertTrue(f.cuts.any { it.first == Cut.ENTRY_RULES && it.second === Reach.NORMAL })
             assertTrue(f.requests.isEmpty())
@@ -187,7 +187,7 @@ class CutPointTest {
             assertEquals(expected, methodLeaves(f.ops, core.edges.edgesAt(f.inst(2), f.manager.zero).map { it.second }.toList()))
             f.drain(core, quantum = 1)
             assertEquals(setOf(f.manager.zero), core.initials.all().toSet())
-            assertEquals(expected.map { f.manager.zero to it }.toSet(), methodEntries(f.ops, core.summaries.all()))
+            assertEquals(expected.map { f.manager.zero to it }.toSet(), methodEntries(f.ops, core.summaries.all().withoutPrecomputedStaticDefault()))
             assertEquals(2L, core.demandLayerEdges)
             assertTrue(f.requests.isEmpty())
         }
@@ -212,9 +212,10 @@ class CutPointTest {
                 f.manager.zero to Conclusion(ZERO_FACT, ExclusionSet.Empty, false),
                 f.manager.zero to Conclusion(PathFact(y, listOf(field), Tail.ANY, mt), ExclusionSet.Empty, true),
             )
-            assertEquals(expected, methodEntries(f.ops, core.summaries.all()))
-            assertEquals(expected, methodEntries(f.ops, f.publications.flatten().asSequence().map { it.premise to it.conclusion }))
-            assertEquals(expected.filter { it.second.demand }.toSet(), methodEntries(f.ops, core.summaries.demandEdges()))
+            assertEquals(expected, methodEntries(f.ops, core.summaries.all().withoutPrecomputedStaticDefault()))
+            assertEquals(expected, methodEntries(f.ops, f.publications.flatten().withoutPrecomputedStaticDefault().asSequence().map { it.premise to it.conclusion }))
+            assertEquals(expected, methodEntries(f.ops, core.summaries.demandEdges().withoutPrecomputedStaticDefault()),
+                "Run-1 also retains normal rows as guidance")
             assertEquals(1L, core.demandLayerEdges, "The boundary result adds a summary delta without a successor edge")
             assertTrue(f.cuts.none { it.first == Cut.STATEMENT })
             assertTrue(f.requests.isEmpty())

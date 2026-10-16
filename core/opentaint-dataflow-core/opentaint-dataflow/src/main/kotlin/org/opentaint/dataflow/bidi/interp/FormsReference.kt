@@ -17,6 +17,7 @@ class ReferenceAlgebra(
     sourceHit: (CommonInst, MicroEdge) -> Unit = { _, _ -> },
     private val manager: ApManager,
     conjunction: (ConjunctiveEdge, Set<Pattern>, Conclusion, CommonInst, ReferenceSink) -> Unit = { _, _, _, _, _ -> },
+    private val historicalRun1: Boolean = false,
 ) : FactAlgebra<Set<Pattern>, Conclusion> {
     private val onRequest = request
     private val seedAllows = allowsSource
@@ -29,8 +30,9 @@ class ReferenceAlgebra(
     override fun filter(c: Conclusion, filter: TypeFilter): Conclusion? = c.takeIf { passes(filter, it) }
 
     override fun applyEdge(me: MicroEdge, c: Conclusion, premise: Set<Pattern>, statementEdge: Boolean, out: ReferenceSink) {
-        val identity = mode.run1 && statementEdge && isStaticIdentity(premise, c)
-        when (val o = concat(c, me.edge, edgeDemand = me.may, staticIdentity = identity, restricted = mode.restricted)) {
+        val identity = historicalRun1 && mode.run1 && statementEdge && isStaticIdentity(premise, c)
+        when (val o = concat(c, me.edge, edgeDemand = me.may, staticIdentity = identity, restricted = mode.restricted,
+            run1 = mode.run1 && !historicalRun1)) {
             is EdgeOutcome.Fact -> out(premise, o.conclusion)
             is EdgeOutcome.Request -> if (mode.run1) onRequest(premise, ReferenceRequestKind.Mark(o.mark))
             is EdgeOutcome.PositionRequest -> if (mode.run1) onRequest(premise, ReferenceRequestKind.Position(manager.path(o.path)!!))
@@ -122,8 +124,7 @@ class FormsReference(
         fun finish(i: PlanItem): PlanItem {
             val result = if (!pendingDemotion) i else {
                 check(i.c.fact.mark is MarkSlot.Concrete && i.c.fact.tail != Tail.STAR)
-                val f = if (i.c.fact.tail == Tail.ANY_TAINT) i.c.fact.copy(tail = Tail.ANY) else i.c.fact
-                i.copy(c = Conclusion(f, ExclusionSet.Empty, demand = true), identityCandidate = false)
+                i.copy(c = i.c.copy(demand = true), identityCandidate = false)
             }
             return hooks.exit(result)
         }

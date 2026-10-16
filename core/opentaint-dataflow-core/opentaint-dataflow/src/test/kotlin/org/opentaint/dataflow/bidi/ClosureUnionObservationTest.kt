@@ -69,7 +69,7 @@ class ClosureUnionObservationTest {
                 StatementSummary.EMPTY, listOf(SinkRule(rule, 3,
                     listOf(f.pattern(y, tail = Tail.EXACT, mark = mark)), emptyList()))), false, emptySet()))
             val config = f.config(roots = listOf(caller))
-            val expected = NaiveClosure(f, config).run()
+            val expected = NaiveClosure(f, config, semantics = NaiveClosure.Semantics.SELECTED).run()
             val schedule = ProductionSchedule(f, config, sameUnit = sameUnit, policy = policy, quantum = 1)
             val actual = schedule.run()
 
@@ -79,21 +79,21 @@ class ClosureUnionObservationTest {
                 for (link in links) {
                     assertEquals(caller, link.caller)
                     assertEquals(zero, link.premise)
-                    assertEquals(Layer.NORMAL, link.callerLayer)
+                    assertEquals(Layer.DEMAND, link.callerLayer)
                     assertSame(callerMethod.inst(1), link.call)
-                    assertEquals(Layer.NORMAL, link.linkLayer)
+                    assertEquals(Layer.DEMAND, link.linkLayer)
                     assertEquals(input, link.added.fact)
                 }
                 assertEquals(locations(input, ExclusionSet.Empty), links.flatMap {
                     locations(it.added.fact, it.added.exclusion)
                 }.toSet(), "Added facts preserve the complete independent must union")
                 assertTrue(observation.requests.isEmpty() && observation.sourceHits.isEmpty())
-                assertTrue(observation.selectedDemand.isEmpty())
+                assertEquals(observation.publications, observation.selectedDemand, "All F1 summaries are next-phase guidance")
                 assertEquals(setOf(ObservedInitial(callee, f.pattern(x, tail = Tail.STAR, mark = MarkSlot.STAR))),
                     observation.initials.filter { it.method == callee && it.initial.fact.base == x }.toSet(),
                     "Run1 uses one canonical policy initial, independently of the concrete exclusions")
                 if (!withSink) assertTrue(observation.witnesses.isEmpty()) else {
-                    assertTrue(observation.witnesses.isNotEmpty(), "The root EXACT literal holds on normal must support")
+                    assertTrue(observation.witnesses.isNotEmpty(), "The root EXACT literal remains candidate support after demand cover")
                     for (witness in observation.witnesses) {
                         assertSame(rule, witness.rule)
                         assertEquals(caller, witness.methodKey)
@@ -104,11 +104,11 @@ class ClosureUnionObservationTest {
                         assertTrue(witness.endFacts.isEmpty())
                         val edge = witness.edges.single()
                         assertEquals(zero, edge.premise)
-                        assertEquals(Layer.NORMAL, edge.layer)
+                        assertEquals(Layer.DEMAND, edge.layer)
                         assertTrue(edge.facts.isNotEmpty())
                         for (fact in edge.facts) {
                             assertEquals(result, fact.fact)
-                            assertFalse(fact.demand)
+                            assertTrue(fact.demand)
                         }
                     }
                     assertEquals(locations(result, ExclusionSet.Empty), observation.witnesses.flatMap { witness ->
@@ -118,11 +118,11 @@ class ClosureUnionObservationTest {
             }
             checkHeaders(expected)
             checkHeaders(actual)
-            assertEquals(setOf(ea, eb), expected.links.filter {
+            assertEquals(setOf(ExclusionSet.Empty), expected.links.filter {
                 it.callee == callee && it.added.fact.base == x
-            }.map { it.added.exclusion }.toSet(), "Raw reference operands remain separately visible")
+            }.map { it.added.exclusion }.toSet(), "The selected reference covers each E-producing result with EmptyE demand")
             assertTrue(actual.links.any { it.callee == callee && it.added.fact.base == x &&
-                it.added.exclusion == ExclusionSet.Empty }, "Actual upstream T2 is exercised before the call")
+                it.added.exclusion == ExclusionSet.Empty }, "Selected EmptyE cover is exercised before the call")
 
             try { expected.assertEquivalent(actual, universe) } catch (failure: AssertionError) {
                 val expectedSemantic = expected.semantic(universe)
@@ -140,11 +140,11 @@ class ClosureUnionObservationTest {
     }
 
     @Test
-    fun `upstream normal must T2 preserves the whole added-link union under both unit layouts and fixed schedules`(): Unit =
+    fun `run1 EmptyE cover preserves the whole added-link union and demand headers under both unit layouts`(): Unit =
         checkCases(withSink = false)
 
     @Test
-    fun `upstream normal must T2 preserves the whole root EXACT sink support union and headers`(): Unit =
+    fun `run1 EmptyE cover preserves the whole root EXACT sink support union and demand headers`(): Unit =
         checkCases(withSink = true)
 
     @Test
@@ -289,4 +289,26 @@ class ClosureUnionObservationTest {
                 "Both annotations remain active in the independent denotation")
         }
     }
+    @Test
+    fun `typed demand facts survive physical envelope normalization in witness comparisons`(): Unit {
+        FiniteProgramFixtures().use { f ->
+            val owner = f.method("typed demand support", listOf(emptyList()), 0).key()
+            val field = f.field("f")
+            val mark = MarkSlot.Concrete(f.mark("T"))
+            val universe = BoundedDenotation(listOf(x), listOf(field), listOf(mark.mark), 2)
+            val rule = sinkRule()
+            fun observation(tail: Tail, envelope: Tail): RunObservation {
+                val fact = Conclusion(PathFact(x, emptyList(), tail, mark), ExclusionSet.Empty, true)
+                val edge = ObservedSinkEdge(zero, Layer.DEMAND, setOf(fact),
+                    GroupKey(FactsKind.TAINT, Layer.DEMAND, x, tail = envelope))
+                return RunObservation(witnesses = setOf(ObservedWitness(rule, owner, owner.statement,
+                    0, 1, listOf(edge), emptySet())))
+            }
+            observation(Tail.EXACT, Tail.ANY).assertEquivalent(observation(Tail.EXACT, Tail.ANY_TAINT), universe)
+            assertNotEquals(observation(Tail.ANY, Tail.ANY).semantic(universe),
+                observation(Tail.ANY_TAINT, Tail.ANY_TAINT).semantic(universe),
+                "Normalizing a packed envelope must not relabel a may/must fact")
+        }
+    }
+
 }

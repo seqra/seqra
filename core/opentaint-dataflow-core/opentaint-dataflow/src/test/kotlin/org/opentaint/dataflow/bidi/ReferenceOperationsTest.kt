@@ -113,11 +113,11 @@ class ReferenceOperationsTest {
         assertClean(listOf(kept), null, cleaner(listOf(f), CleanReach.AT_AND_BELOW), must)
         assertClean(listOf(kept, c(listOf(f), Tail.EXACT)), null,
             cleaner(listOf(f), CleanReach.BELOW), must)
-        assertClean(listOf(c(emptyList(), Tail.ANY)), null, cleaner(listOf(f), CleanReach.EXACT), must)
+        assertClean(listOf(c(emptyList(), Tail.ANY_TAINT, exclusion = ex(g), demand = true)), null, cleaner(listOf(f), CleanReach.EXACT), must)
         val excluded = c(emptyList(), Tail.ANY_TAINT, exclusion = ex(f))
         for (reach in CleanReach.entries) {
             assertClean(listOf(excluded), null, cleaner(listOf(f), reach), excluded)
-            assertClean(listOf(c(emptyList(), Tail.ANY)), null, cleaner(listOf(f, g), reach), must)
+            assertClean(listOf(c(emptyList(), Tail.ANY_TAINT, exclusion = ex(g), demand = true)), null, cleaner(listOf(f, g), reach), must)
         }
     }
 
@@ -127,7 +127,7 @@ class ReferenceOperationsTest {
             cleaner(emptyList(), CleanReach.BELOW), c(emptyList(), Tail.ANY_TAINT, exclusion = ex(g)))
         assertClean(listOf(c(emptyList(), Tail.EXACT, demand = true)), null,
             cleaner(emptyList(), CleanReach.BELOW), c(emptyList(), Tail.ANY))
-        assertClean(listOf(c(emptyList(), Tail.ANY)), null,
+        assertClean(listOf(c(emptyList(), Tail.ANY_TAINT, exclusion = ex(g), demand = true)), null,
             cleaner(emptyList(), CleanReach.EXACT), c(emptyList(), Tail.ANY_TAINT, exclusion = ex(g)))
     }
 
@@ -135,7 +135,7 @@ class ReferenceOperationsTest {
     fun `AP 4_7 all-mark cleaner drops inside passes disjoint and normalizes partial abstract`() {
         val flow = c(emptyList(), Tail.STAR, MarkSlot.Star(marks(u.id)), ex(g))
         assertClean(emptyList(), null, cleaner(emptyList(), CleanReach.AT_AND_BELOW, null), flow)
-        assertClean(listOf(c(emptyList(), Tail.ANY, MarkSlot.Star(marks(u.id)))), null,
+        assertClean(listOf(c(emptyList(), Tail.STAR, MarkSlot.Star(marks(u.id)), ex(g), demand = true)), null,
             cleaner(listOf(f), CleanReach.EXACT, null), flow)
         val disjoint = c(listOf(g), Tail.STAR, MarkSlot.STAR, ex(h))
         assertClean(listOf(disjoint), null, cleaner(listOf(f), CleanReach.AT_AND_BELOW, null), disjoint)

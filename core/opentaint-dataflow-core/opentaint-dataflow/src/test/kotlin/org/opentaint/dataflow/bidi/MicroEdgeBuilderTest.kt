@@ -385,7 +385,7 @@ class MicroEdgeBuilderTest {
     }
 
     @Test
-    fun `static class field writes retain siblings and request only the class from a root identity`(): Unit {
+    fun `static field writes retain siblings and only exclusion requiring field residuals demote in run one`(): Unit {
         val builder = MicroEdgeBuilder()
         builder.write(STATIC, listOf(cls, f), weak = false, values = listOf(y), aliasPaths = emptyList())
         val form = builder.build()
@@ -394,11 +394,23 @@ class MicroEdgeBuilderTest {
         assertEquals(emptySet<Conclusion>() to emptyList(), effect(form, c(STATIC, listOf(cls, f, g))))
         val value = c(y, listOf(g))
         assertEquals(setOf(value, c(STATIC, listOf(cls, f, g))) to emptyList(), effect(form, value))
-        val root = c(STATIC, tail = Tail.STAR, mark = MarkSlot.STAR)
-        assertEquals(setOf(c(STATIC, tail = Tail.STAR, mark = MarkSlot.STAR, e = ExclusionSet.of(cls))) to
-            listOf(RequestKind.Position(m.path(listOf(cls))!!)), effect(form, root, run1 = true))
-        val classInput = c(STATIC, listOf(cls), Tail.STAR, MarkSlot.STAR)
-        assertEquals(setOf(c(STATIC, listOf(cls), Tail.STAR, MarkSlot.STAR, ExclusionSet.of(f))) to emptyList(),
-            effect(form, classInput, run1 = true, premise = Pattern(side(STATIC, listOf(cls)), empty)))
+        val nested = MicroEdgeBuilder().apply {
+            write(STATIC, listOf(cls, f, g), weak = false, values = listOf(y), aliasPaths = emptyList())
+        }.build()
+        val origin = Pattern(side(STATIC, listOf(cls, f)), empty)
+        for (demand in listOf(false,true)) {
+            val broad = c(STATIC,listOf(cls,f),Tail.STAR,MarkSlot.STAR,demand = demand)
+            assertEquals(setOf(broad.copy(demand = true)) to emptyList(), effect(nested,broad,run1 = true,premise = origin))
+            for (path in listOf(listOf(cls,f,g),listOf(cls,f,g,h))) {
+                val overwritten = c(STATIC,path,Tail.STAR,MarkSlot.STAR,demand = demand)
+                assertEquals(emptySet<Conclusion>() to emptyList(),effect(nested,overwritten,run1 = true,premise = origin))
+            }
+            val sibling = c(STATIC,listOf(cls,f,h),Tail.STAR,MarkSlot.STAR,demand = demand)
+            assertEquals(setOf(sibling) to emptyList(),effect(nested,sibling,run1 = true,premise = origin))
+            val exactAncestor = c(STATIC,listOf(cls,f),demand = demand)
+            val exactOrigin = Pattern(PathFact(STATIC,listOf(cls,f),Tail.EXACT,mt),empty)
+            assertEquals(setOf(exactAncestor) to emptyList(),effect(nested,exactAncestor,run1 = true,premise = exactOrigin))
+        }
+
     }
 }

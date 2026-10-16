@@ -164,22 +164,25 @@ class JIRStatementEffectTest : BasicTestUtils() {
         assertExpected(inst, sibling, setOf(sibling, c(source, p(field, g))))
     }
 
-    @Test fun `static read keeps static base and handles root identity request in run one`(): Unit {
+    @Test fun `static read keeps static base and consumes a selected field initial without position requests`(): Unit {
         val inst = fieldRead("staticRead")
         val field = field(inst.rhv as JIRFieldRef)
         val target = base(inst.lhv)
         val stat = AccessPathBase.ClassStatic
         val abstract = flow(stat, exclusion = ex(g), mark = mx)
         assertExpected(inst, abstract, setOf(abstract, c(target, tail = Tail.ANY, mark = mx)))
-        val identity = setOf(Pattern(PathFact(stat, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty))
-        assertExpected(inst, abstract, setOf(abstract), run1 = true, inputPremise = identity,
-            requests = listOf(RequestKind.Position(m.path(p(fixture.cls, field))!!)), runtimeRequests = emptyList())
+        val selected = flow(stat, p(fixture.cls, field), mark = mx)
+        val origin = setOf(Pattern(PathFact(stat, p(fixture.cls, field), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty))
+        assertExpected(inst, selected, setOf(selected, flow(target, mark = mx)), run1 = true,
+            inputPremise = origin, cut = 1)
+        val sibling = flow(stat, p(fixture.cls, g), mark = mx)
+        assertExpected(inst, sibling, setOf(sibling), run1 = true, inputPremise = origin, cut = 1)
         val concrete = must(stat, exclusion = ex(g), mark = mu)
         assertExpected(inst, concrete, setOf(concrete, must(target, mark = mu)))
         val exact = c(stat, p(fixture.cls, field, g))
         assertExpected(inst, exact, setOf(exact, c(target, p(g))))
         val excluded = flow(stat, exclusion = ex(fixture.cls), mark = mx)
-        assertExpected(inst, excluded, setOf(excluded), run1 = true, inputPremise = identity)
+        assertExpected(inst, excluded, setOf(excluded))
     }
 
     @Test fun `static write keeps two proper prefixes and cuts results without counting class`(): Unit {

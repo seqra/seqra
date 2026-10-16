@@ -100,7 +100,7 @@ class ReferenceSelectorsTest {
             val canonicalFlow = j.fact.tail == Tail.STAR && j.exclusion == ExclusionSet.Empty && j.fact.mark == MarkSlot.STAR
             val expectedRestricted = if (canonicalFlow) spatial.getValue(j).any { it in spatial.getValue(a) }
                 else expectedInside || (j.fact.mark == MarkSlot.STAR && expectedApplicable)
-            assertEquals(expectedApplicable, satisfies(j, a, restricted = false), "run1: j=$j a=$a")
+            assertEquals(expectedApplicable || expectedInside, satisfies(j, a, restricted = false), "run1: j=$j a=$a")
             assertEquals(expectedRestricted, satisfies(j, a, restricted = true), "restricted: j=$j a=$a")
         }
     }
@@ -222,7 +222,7 @@ class ReferenceSelectorsTest {
             assertEquals(expectedOverlap, overlap(j, a), "overlap: $label")
             assertEquals(expectedApplicable, applicable(j, a), "applicable: $label")
             assertEquals(expectedInside, inside(j, a), "inside: $label")
-            assertEquals(expectedApplicable, satisfies(j, a, restricted = false), "run1: $label")
+            assertEquals(expectedApplicable || expectedInside, satisfies(j, a, restricted = false), "run1: $label")
             assertEquals(expectedRestricted, satisfies(j, a, restricted = true), "restricted: $label")
         }
 

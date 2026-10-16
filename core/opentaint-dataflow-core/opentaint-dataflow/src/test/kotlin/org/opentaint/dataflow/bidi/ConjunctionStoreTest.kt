@@ -239,8 +239,8 @@ class ConjunctionStoreTest {
             fixture.ops.applyCombination(combo.mapIndexed { index, input -> input.facts!! to initial[index] }, stored, mode, out)
             val effective = if (publicationLayer == Layer.DEMAND || leftLayer == Layer.DEMAND || rightLayer == Layer.DEMAND)
                 Layer.DEMAND else Layer.NORMAL
-            val expected = leaf(p(g), if (effective == Layer.NORMAL) Tail.ANY_TAINT else Tail.ANY,
-                e = if (effective == Layer.NORMAL) ex(h) else ExclusionSet.Empty, layer = effective)
+            val expected = leaf(p(g), if (publicationLayer == Layer.NORMAL) Tail.ANY_TAINT else Tail.ANY,
+                e = if (publicationLayer == Layer.NORMAL) ex(h) else ExclusionSet.Empty, layer = effective)
             assertEquals(setOf(expected), out.results.flatMap { decoded(it) }.toSet())
             assertSame(callerPremises[1], combo.map { it.premise }.reduce(m::union))
             assertTrue(out.markRequests.isEmpty())

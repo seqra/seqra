@@ -18,26 +18,26 @@ class FlowGroup(private val m: ApManager, private val interner: TrieInterner<Flo
             m.cancellation.checkpoint()
             val i = list.indexOfFirst {
                 m.cancellation.checkpoint()
-                it.exclusion == pending.exclusion && it.markExclusion == pending.markExclusion
+                it.tail == pending.tail && it.exclusion == pending.exclusion && it.markExclusion == pending.markExclusion
             }
             if (i >= 0) {
                 val rest = subtractSubsumed(pending, list) ?: return null
                 val (merged, delta) = FlowAlgebra.mergeAddDelta(list[i].root, rest.root, m.cancellation)
                 if (delta == null) return null
                 list[i] = list[i].withRoot(interner.internIfRequired(merged))
-                return m.flowTree(pending.base, pending.layer, pending.exclusion, pending.markExclusion, delta)
+                return m.flowTree(pending.base, pending.layer, pending.exclusion, pending.markExclusion, delta, pending.tail)
             }
 
             val k = list.indexOfFirst {
                 m.cancellation.checkpoint()
-                it.root == pending.root &&
+                it.tail == pending.tail && it.root == pending.root &&
                     (it.markExclusion == pending.markExclusion || it.exclusion == pending.exclusion)
             }
             if (k >= 0) {
                 val stored = list[k]
                 val merged = m.flowTree(pending.base, pending.layer,
                     stored.exclusion.intersect(pending.exclusion),
-                    stored.markExclusion.intersect(pending.markExclusion), stored.root)
+                    stored.markExclusion.intersect(pending.markExclusion), stored.root, pending.tail)
                 if (merged.exclusion == stored.exclusion && merged.markExclusion == stored.markExclusion) return null
                 list.removeAt(k)
                 pending = merged
@@ -55,8 +55,9 @@ class FlowGroup(private val m: ApManager, private val interner: TrieInterner<Flo
         for (stored in others) {
             m.cancellation.checkpoint()
             val marks = stored.markExclusion.isSubsetOf(t.markExclusion)
-            val atOk = marks && (t.layer == Layer.DEMAND || stored.exclusion.isSubsetOf(t.exclusion))
-            val belowOk = marks && t.layer == Layer.DEMAND
+            val atOk = marks && (stored.tail == Tail.ANY ||
+                (t.tail == Tail.STAR && stored.exclusion.isSubsetOf(t.exclusion)))
+            val belowOk = marks && stored.tail == Tail.ANY
             root = FlowAlgebra.subtract(root, stored.root, FlowLeaf.NONE,
                 at = { if (atOk) it else FlowLeaf.NONE },
                 below = { if (belowOk) it else FlowLeaf.NONE },
@@ -80,19 +81,19 @@ class TaintGroup(private val m: ApManager, private val interner: TrieInterner<Ta
             m.cancellation.checkpoint()
             val sameKey = list.indexOfFirst {
                 m.cancellation.checkpoint()
-                it.exclusion == pending.exclusion
+                it.anyTail == pending.anyTail && it.exclusion == pending.exclusion
             }
             if (sameKey < 0) {
                 val k = list.indexOfFirst {
                     m.cancellation.checkpoint()
-                    it.root == pending.root
+                    it.anyTail == pending.anyTail && it.root == pending.root
                 }
                 if (k >= 0) {
                     val stored = list[k]
                     val exclusion = stored.exclusion.intersect(pending.exclusion)
                     if (exclusion == stored.exclusion) return null
                     list.removeAt(k)
-                    pending = m.taintTree(pending.base, pending.layer, stored.root, exclusion)
+                    pending = m.taintTree(pending.base, pending.layer, stored.root, exclusion, pending.anyTail)
                     continue
                 }
             }
@@ -101,7 +102,7 @@ class TaintGroup(private val m: ApManager, private val interner: TrieInterner<Ta
             // Subtraction can remove the last must leaf. Its canonical key is then Empty E.
             val i = list.indexOfFirst {
                 m.cancellation.checkpoint()
-                it.exclusion == rest.exclusion
+                it.anyTail == rest.anyTail && it.exclusion == rest.exclusion
             }
             if (i < 0) {
                 list += rest.withRoot(interner.internIfRequired(rest.root))
@@ -110,21 +111,23 @@ class TaintGroup(private val m: ApManager, private val interner: TrieInterner<Ta
             val (merged, delta) = alg.mergeAddDelta(list[i].root, rest.root, m.cancellation)
             if (delta == null) return null
             list[i] = list[i].withRoot(interner.internIfRequired(merged))
-            return m.taintTree(pending.base, pending.layer, delta, rest.exclusion)
+            return m.taintTree(pending.base, pending.layer, delta, rest.exclusion, rest.anyTail)
         }
     }
 
     private fun subtractSubsumed(t: TaintTree, others: List<TaintTree>): TaintTree? {
         val alg = m.taintAlg
-        val normal = t.layer == Layer.NORMAL
         var root = t.root
         for (stored in others) {
             m.cancellation.checkpoint()
-            val anyAt = stored.exclusion.isSubsetOf(t.exclusion)
+            val storedMay = stored.anyTail == Tail.ANY
+            val coversAny = storedMay || t.anyTail == Tail.ANY_TAINT
+            val anyAt = coversAny && (storedMay || stored.exclusion.isSubsetOf(t.exclusion))
             root = alg.subtract(root, stored.root, TaintLeaves.EMPTY,
-                at = { alg.leaves(if (normal) it.exact else it.exact + it.any,
+                at = { alg.leaves(if (storedMay) it.exact + it.any else it.exact,
                     if (anyAt) it.any else MarkSet.EMPTY) },
-                below = alg.belowIn(t.layer),
+                below = { alg.leaves(if (storedMay) it.any else MarkSet.EMPTY,
+                    if (coversAny) it.any else MarkSet.EMPTY) },
                 admits = stored.exclusion::admits,
                 cancellation = m.cancellation) ?: return null
         }

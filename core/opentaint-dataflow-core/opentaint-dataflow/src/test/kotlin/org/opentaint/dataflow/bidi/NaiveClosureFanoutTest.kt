@@ -79,7 +79,7 @@ class NaiveClosureFanoutTest {
                 caller to DemandPattern(ZERO_PATTERN, f.pattern(y, tail = Tail.ANY, mark = MarkSlot.STAR))
             }
             val config = f.config(index = 3, L = 1, roots = consumerKeys + producer, demand = demand, seeds = seeds)
-            val expected = NaiveClosure(f, config).run()
+            val expected = NaiveClosure(f, config, semantics = NaiveClosure.Semantics.SELECTED).run()
             val schedule = ProductionSchedule(f, config, sameUnit = sameUnit,
                 policy = SchedulePolicy.REPLAY_FIRST, quantum = 1)
             val actual = schedule.run()

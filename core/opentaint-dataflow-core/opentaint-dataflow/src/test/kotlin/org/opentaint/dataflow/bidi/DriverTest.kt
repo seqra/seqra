@@ -53,11 +53,11 @@ class DriverTest {
                 reads += index
                 check(reads.count { it == 1 } == 1) { "The first limit was sampled twice" }
                 1
-            }, next = { _, _, _ -> error("NO_DEMAND_EDGE precedes policy") })
+            }, next = { _, _, _ -> false })
             val driver = IterationDriver(p, f.shared, 5.seconds)
             val report = driver.analyze(listOf(c.root))
             assertEquals(listOf(1), reads)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.POLICY), report.end)
             val entry = report.entries.single()
             assertEquals(c.rule, entry.key.rule)
             assertEquals(ReportState.DEMAND, entry.state)
@@ -137,12 +137,12 @@ class DriverTest {
     }
 
     @Test
-    fun `normal unsupported joint support stops before policy despite demand report and outgoing sink seeds`(): Unit {
+    fun `normal unsupported joint support remains a candidate for policy and outgoing sink seeds`(): Unit {
         DriverFixtures().use { f ->
             val c = f.unsupportedJoint()
-            val driver = f.driver(policy(next = { _, _, _ -> error("NO_DEMAND_EDGE precedes policy") }))
+            val driver = f.driver(policy(next = { _, _, _ -> false }))
             val report = driver.analyze(listOf(c.root))
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.POLICY), report.end)
             assertEquals(ReportState.DEMAND, report.entries.single().state)
             assertEquals(c.rule, report.entries.single().key.rule)
             assertTrue(report.entries.single().witnesses.all { !it.confirmed })
@@ -228,7 +228,7 @@ class DriverTest {
                 30.seconds
             }), budget = 5.seconds)
             val report = driver.analyze(listOf(c.root))
-            assertEquals(EndReason.NO_DEMAND_EDGE, report.end.reason)
+            assertEquals(EndReason.POLICY, report.end.reason)
             assertEquals(1, remainingAtPolicy.size)
             assertEquals(1, f.timeouts.size)
             assertTrue(f.timeouts.single() > Duration.ZERO)

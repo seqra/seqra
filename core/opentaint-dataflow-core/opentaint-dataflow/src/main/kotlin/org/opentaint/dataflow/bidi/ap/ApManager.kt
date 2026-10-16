@@ -97,11 +97,14 @@ class ApManager(val cancellation: Cancellation, refManager: RefManager = RefMana
 
     val zero: InitialAp = initial(AccessPathBase.Zero, null, Tail.EXACT, ExclusionSet.Empty, MarkSlot.Concrete(TaintMark.ZERO))
 
-    fun flowTree(base: AccessPathBase, layer: Layer, exclusion: ExclusionSet, mx: MarkSet, root: FlowNode): FlowTree =
-        FlowTree(base, layer, if (layer == Layer.DEMAND) ExclusionSet.Empty else intern(exclusion), intern(mx), root)
+    fun flowTree(base: AccessPathBase, layer: Layer, exclusion: ExclusionSet, mx: MarkSet, root: FlowNode,
+                 tail: Tail = if (layer == Layer.NORMAL) Tail.STAR else Tail.ANY): FlowTree =
+        FlowTree(base, layer, if (tail == Tail.ANY) ExclusionSet.Empty else intern(exclusion), intern(mx), root, tail)
 
-    fun taintTree(base: AccessPathBase, layer: Layer, root: TaintNode, exclusion: ExclusionSet = ExclusionSet.Empty): TaintTree =
-        TaintTree(base, layer, root, if (layer == Layer.DEMAND || !root.hasAny) ExclusionSet.Empty else intern(exclusion))
+    fun taintTree(base: AccessPathBase, layer: Layer, root: TaintNode, exclusion: ExclusionSet = ExclusionSet.Empty,
+                  anyTail: Tail = if (layer == Layer.NORMAL) Tail.ANY_TAINT else Tail.ANY): TaintTree =
+        TaintTree(base, layer, root, if (anyTail == Tail.ANY || !root.hasAny) ExclusionSet.Empty else intern(exclusion),
+            if (root.hasAny) anyTail else Tail.ANY_TAINT)
 
     fun taintLeaves(exact: MarkSet, any: MarkSet): TaintLeaves = taintAlg.leaves(exact, any)
     fun newInterners(): StoreInterners = StoreInterners(softRefs, cancellation)
@@ -120,12 +123,13 @@ class ApManager(val cancellation: Cancellation, refManager: RefManager = RefMana
             is MarkSlot.Star -> {
                 check(c.fact.tail != Tail.EXACT) { "S8: a typed exact leaf needs a concrete mark" }
                 flowTree(f.base, resultLayer, c.exclusion, mark.excluded,
-                    FlowAlgebra.prepend(this, resultPath, FlowAlgebra.LEAF_NODE))
+                    FlowAlgebra.prepend(this, resultPath, FlowAlgebra.LEAF_NODE), c.fact.tail)
             }
             is MarkSlot.Concrete -> {
                 val payload = if (c.fact.tail == Tail.EXACT) taintLeaves(markSetOf(mark.mark), MarkSet.EMPTY)
                     else taintLeaves(MarkSet.EMPTY, markSetOf(mark.mark))
-                taintTree(f.base, resultLayer, taintAlg.prepend(this, resultPath, taintAlg.leafNode(payload)), c.exclusion)
+                taintTree(f.base, resultLayer, taintAlg.prepend(this, resultPath, taintAlg.leafNode(payload)), c.exclusion,
+                    if (c.fact.tail == Tail.EXACT) Tail.ANY_TAINT else c.fact.tail)
             }
         }
     }

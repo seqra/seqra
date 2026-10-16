@@ -5,6 +5,7 @@ import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.ap.ExclusionSet
 import org.opentaint.dataflow.bidi.engine.*
+import org.opentaint.dataflow.bidi.interp.StatementSummary
 import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
@@ -61,6 +62,11 @@ class RequestJoinTest {
             val u = f.mark("U")
             val atField = policy(f, static, listOf(cls, field))
             f.declareStaticDomain(listOf(cls, field))
+            // This barrier control needs real fact work; a write/request alone
+            // no longer starts an abstract static-field analysis.
+            f.statement(0, StatementSummary(setOf(STATIC), listOf(org.opentaint.dataflow.bidi.interp.MicroEdge.of(
+                org.opentaint.dataflow.bidi.interp.starEdge(STATIC, listOf(cls, field),
+                    AccessPathBase.LocalVar(0), emptyList()))), emptyList(), emptyMap()))
             val actor = core(f)
             request(actor, atField, RequestKind.Mark(u))
             var inserted = false
@@ -331,7 +337,7 @@ class RequestJoinTest {
                 arrive(f, actor, firstRequest, i, RequestKind.Mark(t), caller(f), added)
                 val expectedTail = if (tail == Tail.EXACT) Tail.EXACT else Tail.STAR
                 val answer = initial(f, static, listOf(cls, a), expectedTail, t)
-                assertEquals(setOf(policy(f, static), answer), actor.initials.all().toSet())
+                assertEquals(setOf(answer), actor.initials.all().toSet())
                 assertEquals(ExclusionSet.Empty, answer.exclusion)
                 assertEquals(listOf(cls, a), answer.path?.toList())
                 assertTrue(climbs(f).isEmpty())
@@ -355,7 +361,7 @@ class RequestJoinTest {
             val actor = core(f)
             arrive(f, actor, firstRequest, i, RequestKind.Mark(t), caller(f), added)
             val answer = initial(f, static, listOf(cls, a), Tail.STAR, t)
-            assertEquals(setOf(policy(f, static), answer), actor.initials.all().toSet())
+            assertEquals(setOf(answer), actor.initials.all().toSet())
             assertEquals(ExclusionSet.Empty, answer.exclusion)
             val start = assertIs<TaintTree>(actor.edges.edgesAt(f.inst(0), answer).single().second)
             assertEquals(Layer.DEMAND, start.layer)
@@ -473,7 +479,8 @@ class RequestJoinTest {
             val t = f.mark("T")
             assertFails { request(actor, i, RequestKind.Mark(t)) }
             f.admit(actor, caller(f, flow = true), Layer.NORMAL, f.fact(tail = Tail.STAR, mark = MarkSlot.STAR))
-            assertTrue(actor.initials.all().isEmpty())
+            assertEquals(setOf(i), actor.initials.all().toSet(),
+                "An actual later FLOW query starts without any old guide, but emits no mark requests")
             assertTrue(climbs(f).isEmpty())
             if (index == 2) assertNull(actor.localServices.conjunctions)
             else assertNotNull(actor.localServices.conjunctions)

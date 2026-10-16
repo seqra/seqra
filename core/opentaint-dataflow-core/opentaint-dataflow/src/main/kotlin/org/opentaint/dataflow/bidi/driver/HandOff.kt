@@ -44,7 +44,9 @@ class HandOff(val demand: DemandStore, val seeds: SeedIndex, demandEdges: Map<Me
                                counts: MutableMap<MethodKey, Int>): Pair<DemandStore, SeedIndex> {
             val demand = DemandStore.Builder(shared.ap)
             forEachDemandPiece(result, shared) { method, premise, piece ->
-                val entry = normalizeDemandMark(located(piece))
+                val entry = normalizeDemandMark(located(piece).let { p ->
+                    if (p.fact.tail == Tail.STAR) p.copy(fact = p.fact.copy(tail = Tail.ANY), exclusion = ExclusionSet.Empty) else p
+                })
                 premise.forEachMember { member ->
                     shared.cancellation.checkpoint()
                     val pattern = DemandPattern(entry, normalizeDemandMark(located(member.toPattern())))

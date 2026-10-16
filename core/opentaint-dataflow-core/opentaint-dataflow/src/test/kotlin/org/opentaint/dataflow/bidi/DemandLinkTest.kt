@@ -17,7 +17,7 @@ class DemandLinkTest {
             val report = driver.analyze(listOf(program.root))
             val argument = AccessPathBase.Argument(0)
             val mark = MarkSlot.Concrete(program.mark)
-            val coarseLink = Pattern(PathFact(argument, emptyList(), Tail.ANY, mark), ExclusionSet.Empty)
+            val coarseLink = Pattern(PathFact(argument, emptyList(), Tail.ANY_TAINT, mark), ExclusionSet.Empty)
             val exactSink = Pattern(PathFact(argument, listOf(program.g, program.h), Tail.EXACT, mark), ExclusionSet.Empty)
             assertEquals(listOf(1, 2, 3, 4, 5), f.configs.map { it.index })
             assertEquals(listOf(1, 2, 3, 4, 5), f.configs.map { it.fieldLimit })
@@ -30,7 +30,7 @@ class DemandLinkTest {
             assertTrue(runThree.analyzers.all { actor -> actor.summaries.all().all { it.second.layer == Layer.NORMAL } })
             val mThree = runThree.analyzers.single { it.key == program.sinkMethod }
             val demandLinks = f.links(3, mThree.key).asSequence().filter { it.linkLayer == Layer.DEMAND }.toList()
-            assertTrue(demandLinks.isNotEmpty(), "The primitive root EXACT cleaner demotes a must root to a may link")
+            assertTrue(demandLinks.isNotEmpty(), "The primitive root EXACT cleaner demotes the layer while retaining the must payload")
             assertTrue(demandLinks.any { it.addedFact == coarseLink })
             assertTrue(runThree.demandLayerEdges > 0L, "NO_DEMAND_EDGE includes accepted demand links")
             assertTrue(mThree.summaries.all().none(), "The throwing method has no reached normal exit summary")
@@ -55,7 +55,9 @@ class DemandLinkTest {
             assertTrue(f.results[4].witnessesByKey().getValue(key).all { !it.confirmed })
             assertEquals(ReportState.DEMAND, report.entries.single { it.key == key }.state)
             assertEquals(5, report.entries.single { it.key == key }.run)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 5, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertTrue(f.links(5, mFive.key).any { it.linkLayer == Layer.DEMAND && it.addedFact == coarseLink },
+                "The actual broad query remains additive to the precise guide refinement")
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 5, Direction.FORWARD, EndReason.POLICY), report.end)
             assertEquals(listOf(1, 2, 3, 4, 5), driver.frontiers.map { it.run })
             assertEquals(1, driver.frontiers[2].demandVulnerabilities)
             assertEquals(1, driver.frontiers[2].seeds)

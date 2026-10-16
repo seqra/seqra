@@ -394,13 +394,13 @@ class SubsumptionTest {
                 is Reach -> add(conclusion(emptyList(), Tail.EXACT, MarkSlot.Concrete(TaintMark.ZERO),
                     demand = demand, base = AccessPathBase.Zero))
                 is FlowTree -> walk(value.root) { path, leaf ->
-                    if (leaf == FlowLeaf.LEAF) add(conclusion(path, if (demand) Tail.ANY else Tail.STAR,
+                    if (leaf == FlowLeaf.LEAF) add(conclusion(path, value.tail,
                         MarkSlot.Star(value.markExclusion), value.exclusion, demand, value.base))
                 }
                 is TaintTree -> walk(value.root) { path, leaf ->
                     for (id in leaf.exact.ids) add(conclusion(path, Tail.EXACT, MarkSlot.Concrete(TaintMark(id)),
                         demand = demand, base = value.base))
-                    for (id in leaf.any.ids) add(conclusion(path, if (demand) Tail.ANY else Tail.ANY_TAINT,
+                    for (id in leaf.any.ids) add(conclusion(path, value.anyTail,
                         MarkSlot.Concrete(TaintMark(id)), value.exclusion, demand, value.base))
                 }
             }

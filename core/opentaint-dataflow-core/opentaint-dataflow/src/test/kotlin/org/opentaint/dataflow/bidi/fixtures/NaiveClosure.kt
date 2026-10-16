@@ -14,7 +14,12 @@ class NaiveClosure(
     private val program: FiniteProgramFixtures,
     private val config: RunConfig,
     private val initialAdmission: InitialAdmission = InitialAdmission.HISTORICAL,
+    private val semantics: Semantics = Semantics.HISTORICAL,
+    private val rawInputs: ProgramRunInputs? = null,
 ) {
+    enum class Semantics { HISTORICAL, SELECTED }
+    private val selected get() = semantics == Semantics.SELECTED
+
     /** Keep the scalar Position oracle available unchanged. The selected run-1 constructor
      *  admits nonexact concrete answers as STAR before starting their analyses; this is not
      *  a normalization of observations or of ordinary summary applicability. */
@@ -31,7 +36,11 @@ class NaiveClosure(
         }
     }
 
-    private val inputs = program.inputs(config)
+    private val inputs = rawInputs ?: program.inputs(config)
+    private val plan = if (selected && config.run1) SelectedScalarPlan(program) else null
+    private val reached = LinkedHashSet<MethodKey>()
+    private val currentStarts = LinkedHashMap<MethodKey, MutableSet<Pattern>>()
+    private val admittedRequests = LinkedHashMap<MethodKey, MutableMap<Pattern, MutableSet<TaintMark>>>()
     private val forward = config.direction == Direction.FORWARD
     private val zero = setOf(ZERO_PATTERN)
     private val work = ArrayDeque<() -> Unit>()
@@ -52,6 +61,7 @@ class NaiveClosure(
     private val predicateSupports = RawPredicateSupports(program.cancellation)
     private val algebras = HashMap<MethodKey, ReferenceAlgebra>()
     private val references = HashMap<MethodKey, FormsReference>()
+    private val selectedReferences = HashMap<MethodKey, SelectedFormsReference>()
     private var invoked = false
 
     private data class Part(
@@ -91,6 +101,7 @@ class NaiveClosure(
             } },
             sourceHit = { node, edge -> if (!forward) sourceHits += ObservedSourceHit(method, node, edge.forward) },
             manager = program.manager,
+            historicalRun1 = true,
             conjunction = { edge, premise, conclusion, node, sink ->
                 check(forward) { "Backward forms have independent conjunction branches" }
                 for ((index, literal) in edge.literals.withIndex()) {
@@ -113,7 +124,9 @@ class NaiveClosure(
     }
 
     private fun addInitial(method: MethodKey, offered: Pattern) {
-        val initial = initialAdmission.admit(offered, config.run1)
+        val initial = if (selected && config.run1) InitialAdmission.RUN1_CONCRETE_CHAIN.admit(offered, true)
+            else initialAdmission.admit(offered, config.run1)
+        reach(method)
         if (!program.isKnown(method) || !initials.add(ObservedInitial(method, initial))) return
         check(initial.fact.tail != Tail.ANY_TAINT || (config.restricted && forward))
         work += {
@@ -137,7 +150,7 @@ class NaiveClosure(
     }
 
     private fun putEdge(method: MethodKey, node: CommonInst, premise: Set<Pattern>, conclusion: Conclusion) {
-        val edge = ObservedEdge(method, premise, conclusion, node)
+        val edge = ObservedEdge(method, premise, cover(conclusion), node)
         if (processed.add(edge)) work += { process(edge) }
     }
 
@@ -171,13 +184,15 @@ class NaiveClosure(
             }
             return
         }
-        reference(edge.method).applier.statement(program.forms(edge.method).statement(config.direction, node),
+        applier(edge.method).statement(program.forms(edge.method).statement(config.direction, node),
             edge.premise, edge.conclusion, Place(node, config.run1, sources = true),
             sink = { pr, conclusion -> emitAfter(edge.method, node, pr, limit(conclusion, config.fieldLimit)) },
             untouched = { pr, conclusion -> emitAfter(edge.method, node, pr, conclusion) })
     }
 
     private fun emitAfter(method: MethodKey, node: CommonInst, premise: Set<Pattern>, conclusion: Conclusion) {
+        val value = cover(conclusion)
+        if (value != conclusion) { emitAfter(method, node, premise, value); return }
         val model = program.programMethod(method)
         val summaryEnd = if (forward) node.location.index == model.normalExit else node == method.statement
         val exceptional = forward && node.location.index == model.exceptionalExit
@@ -195,8 +210,28 @@ class NaiveClosure(
                 }
             }
         }
-        val next = if (forward) model.successors[node.location.index] else
-            model.successors.indices.filter { node.location.index in model.successors[it] }
+        val next = if (forward) model.successors[node.location.index] else buildList {
+            addAll(model.successors.indices.filter { node.location.index in model.successors[it] })
+            if (selected && model.backwardExitDiscovery && node.location.index == model.exceptionalExit) {
+                // Independent S11 oracle: search forward from each candidate, rather than
+                // reading the engine fixture's compact/wired backward graph.
+                val exits = setOf(model.normalExit, checkNotNull(model.exceptionalExit))
+                for (candidate in model.successors.indices) {
+                    val seen = HashSet<Int>()
+                    val todo = ArrayDeque<Int>()
+                    todo.addLast(candidate)
+                    var reachesExit = false
+                    while (todo.isNotEmpty()) {
+                        program.cancellation.checkpoint()
+                        val current = todo.removeFirst()
+                        if (!seen.add(current)) continue
+                        if (current in exits) { reachesExit = true; break }
+                        todo.addAll(model.successors[current])
+                    }
+                    if (!reachesExit) add(candidate)
+                }
+            }
+        }
         for (index in next) putEdge(method, program.inst(method, index), premise, conclusion)
     }
 
@@ -206,10 +241,10 @@ class NaiveClosure(
         val items = ArrayList<Pair<Set<Pattern>, Conclusion>>()
         val seen = HashSet<Pair<Set<Pattern>, Conclusion>>()
         val add: ReferenceSink = { pr, value ->
-            val item = pr to limit(value, config.fieldLimit)
+            val item = pr to cover(limit(value, config.fieldLimit))
             if (seen.add(item)) items += item
         }
-        val applier = reference(method).applier
+        val applier = applier(method)
         fun applyInput(pr: Set<Pattern>, value: Conclusion) =
             applier.statement(rules.summary, pr, value, Place(node, config.run1, sources = true), add)
         for ((pr, value) in startInputs) applyInput(pr, value)
@@ -234,8 +269,12 @@ class NaiveClosure(
     private fun summary(method: MethodKey, premise: Set<Pattern>, conclusion: Conclusion) {
         val raw = ObservedEdge(method, premise, conclusion)
         if (!rawSummaries.add(raw)) return
-        val selected = conclusion.demand || premise.size > 1 || (!forward && isZero(premise))
-        val pieces = if (config.run1 || (!forward && isZero(premise))) setOf(conclusion) else buildSet {
+        publish(method, premise, conclusion)
+    }
+
+    private fun publish(method: MethodKey, premise: Set<Pattern>, conclusion: Conclusion) {
+        val selected = (this.selected && config.run1) || conclusion.demand || premise.size > 1 || (!forward && isZero(premise))
+        val pieces = if (config.run1 || (!forward && isZero(premise)) || (this.selected && permitted(method, premise))) setOf(conclusion) else buildSet {
             for (member in premise) for ((target, demand) in inputs.demand) if (target == method)
                 restrict(member, conclusion, demand)?.let { add(it) }
         }
@@ -261,15 +300,14 @@ class NaiveClosure(
                 emptyList()
             },
             clean = { cleaner, item ->
-                val result = cleanRes(cleaner, item.c)
+                val result = cleanRes(cleaner, item.c, run1 = selected && config.run1)
                 if (config.run1) result.request?.let { raise(method, item.premise, RequestKind.Mark(it)) }
                 result.facts.map { item.copy(c = it) }
             },
-            statementCut = { item -> item.copy(c = limit(item.c, config.fieldLimit)) },
-            exit = { item -> item.copy(c = limit(item.c, config.fieldLimit)) },
+            statementCut = { item -> item.copy(c = cover(limit(item.c, config.fieldLimit))) },
+            exit = { item -> item.copy(c = cover(limit(item.c, config.fieldLimit))) },
             trigger = { sink -> triggerSeeds(method, node, sink).map { PlanItem(it.first, it.second, null) } })
-        for ((point, item) in reference(method).run(plan, items, Place(node, config.run1, sources = false),
-            hooks, from, pendingDemotion)) if (point == plan.exit)
+        for ((point, item) in runForms(method, plan, items, Place(node, config.run1, sources = false), hooks, from, pendingDemotion)) if (point == plan.exit)
             emitAfter(method, node, item.premise, item.c)
     }
 
@@ -279,14 +317,18 @@ class NaiveClosure(
         val link = ObservedLink(part.callee, part.caller, part.premise, part.callerLayer, part.call,
             layer(part.added), added)
         if (!links.add(link)) return
+        reach(part.callee)
         work += {
             when {
+                selected && config.run1 -> emitSelected(link)
+                selected -> admitCurrent(part.callee, added)
                 config.run1 -> addInitial(part.callee, policy(added))
                 added.fact.base == AccessPathBase.Zero -> addInitial(part.callee, ZERO_PATTERN)
                 else -> for ((method, demand) in inputs.demand) if (method == part.callee)
                     emit(demand.entry, added)?.let { addInitial(method, it) }
             }
-            for (request in requests.toList()) if (request.method == part.callee) act(request, link)
+            if (selected) replaySelected(link)
+            else for (request in requests.toList()) if (request.method == part.callee) act(request, link)
         }
     }
 
@@ -424,6 +466,7 @@ class NaiveClosure(
 
     private fun raise(method: MethodKey, premise: Set<Pattern>, kind: RequestKind) {
         check(config.run1) { "Restricted runs have no requests" }
+        if (selected) { collectSelected(method, premise, kind); return }
         val initial = premise.single()
         check(initial.fact.mark == MarkSlot.STAR && initial.fact.tail == Tail.STAR && initial.exclusion == ExclusionSet.Empty)
         val request = ObservedRequest(method, initial, kind)
@@ -451,6 +494,144 @@ class NaiveClosure(
             }
         }
     }
+
+    private fun cover(value: Conclusion): Conclusion =
+        if (selected && config.run1 && value.exclusion != ExclusionSet.Empty)
+            value.copy(exclusion = ExclusionSet.Empty, demand = true) else value
+
+    private fun selectedReference(method: MethodKey): SelectedFormsReference = selectedReferences.getOrPut(method) {
+        val algebra = SelectedReferenceAlgebra(config.mode,
+            request = { premise, request -> raise(method, premise, request) },
+            allows = { node, edge -> !config.seededSources || inputs.seeds.any { seed ->
+                seed is Seed.Source && seed.method == method && seed.statement == node && seed.edge == edge.forward
+            } },
+            hit = { node, edge -> if (!forward) sourceHits += ObservedSourceHit(method, node, edge.forward) },
+            manager = program.manager,
+            join = { edge, premise, conclusion, node, sink ->
+                check(forward)
+                for ((index, literal) in edge.literals.withIndex()) {
+                    val checked = checkLiteral(method, premise, conclusion, literal) ?: continue
+                    for (combination in literal(method, node, edge, edge.literals.size, index, LiteralInput(premise, checked)))
+                        sink(union(combination.map { it.premise }), normalize(edge.target, ExclusionSet.Empty,
+                            combination.any { it.conclusion.demand }))
+                }
+            })
+        SelectedFormsReference(program.ops, algebra)
+    }
+    private fun applier(method: MethodKey): FormApplier<Set<Pattern>, Conclusion> =
+        if (selected) selectedReference(method).applier else reference(method).applier
+    private fun runForms(method: MethodKey, plan: CallPlan, items: List<PlanItem>, at: Place,
+                         hooks: PlanHooks, from: CallPoint, pending: Boolean): List<Pair<CallPoint, PlanItem>> =
+        if (selected) selectedReference(method).run(plan, items, at, hooks, from, pending)
+        else reference(method).run(plan, items, at, hooks, from, pending)
+
+    /** Ordinary stored edge, independently generated when a reached owner is initialized. */
+    private fun reach(method: MethodKey) {
+        if (!selected || !config.run1 || !program.isKnown(method) || !reached.add(method)) return
+        val base = linkedMapOf<Pattern, MutableSet<TaintMark>>()
+        for ((slot, marks) in checkNotNull(plan).base(method)) base[slot] = marks.toMutableSet()
+        admittedRequests[method] = base
+        val root = SelectedScalarPlan.slot(STATIC)
+        summary(method, setOf(root), Conclusion(root.fact, ExclusionSet.Empty, checkNotNull(plan).writes(method)))
+    }
+    private fun permitted(method: MethodKey, premise: Set<Pattern>): Boolean {
+        val starts = currentStarts[method].orEmpty()
+        return if (isZero(premise)) starts.isNotEmpty() else premise.all { it in starts }
+    }
+    private fun admitCurrent(method: MethodKey, actual: Pattern) {
+        val input = limit(normalize(actual.fact, actual.exclusion, demand = actual.fact.tail == Tail.ANY), config.fieldLimit)
+        val leaf = Pattern(input.fact, input.exclusion)
+        val initial = if (leaf.fact.base == org.opentaint.dataflow.ap.ifds.AccessPathBase.Zero) ZERO_PATTERN else {
+            val query = Pattern(leaf.fact.copy(
+                tail = if (leaf.fact.tail == Tail.STAR || leaf.fact.tail == Tail.ANY_TAINT) Tail.ANY else leaf.fact.tail,
+                mark = if (leaf.fact.mark is MarkSlot.Star) MarkSlot.STAR else leaf.fact.mark),
+                if (leaf.fact.tail == Tail.EXACT) leaf.exclusion else ExclusionSet.Empty)
+            emit(query, leaf) ?: return
+        }
+        val candidates = linkedSetOf(initial)
+        // Guides may refine the actual concrete query; they never start FLOW.
+        for ((owner, guide) in inputs.demand) if (owner == method && guide.entry.fact.mark is MarkSlot.Concrete)
+            emit(guide.entry, leaf)?.let { answer ->
+                val bounded = limit(normalize(answer.fact, answer.exclusion, answer.fact.tail == Tail.ANY), config.fieldLimit)
+                candidates += Pattern(bounded.fact, bounded.exclusion)
+            }
+        val admitted = currentStarts.getOrPut(method) { linkedSetOf() }
+        val fresh = candidates.filter { admitted.add(it) }
+        if (fresh.isEmpty()) return
+        for (raw in rawSummaries.toList()) if (raw.method == method && permitted(method, raw.premise))
+            publish(method, raw.premise, raw.conclusion)
+        fresh.forEach { addInitial(method, it) }
+    }
+    private fun origin(premise: Set<Pattern>): Pattern? {
+        val p = premise.singleOrNull() ?: return null
+        if (p.fact.mark != MarkSlot.STAR || p.fact.tail != Tail.STAR || p.exclusion != ExclusionSet.Empty) return null
+        if (p.fact.base == org.opentaint.dataflow.ap.ifds.AccessPathBase.Zero) return null
+        if (p.fact.base == STATIC && p.fact.path.size != 2) return null
+        return p
+    }
+    private fun selectedRequests(method: MethodKey): MutableMap<Pattern, MutableSet<TaintMark>> {
+        reach(method)
+        return admittedRequests.getOrPut(method) { linkedMapOf() }
+    }
+    private fun admitRequest(method: MethodKey, slot: Pattern, mark: TaintMark, observed: Boolean) {
+        if (observed) requests += ObservedRequest(method, slot, RequestKind.Mark(mark))
+        if (!selectedRequests(method).getOrPut(slot) { linkedSetOf() }.add(mark)) return
+        work += { for (link in links.toList()) if (link.callee == method) actSelected(slot, mark, link) }
+    }
+    private fun collectSelected(method: MethodKey, premise: Set<Pattern>, kind: RequestKind) {
+        check(config.run1)
+        check(kind is RequestKind.Mark) { "The selected protocol has no Position requests" }
+        val slot = origin(premise) ?: return
+        admitRequest(method, slot, kind.mark, observed = true)
+    }
+    private fun emitSelected(link: ObservedLink) {
+        val input = link.added
+        if (input.fact.base == org.opentaint.dataflow.ap.ifds.AccessPathBase.Zero) {
+            addInitial(link.callee, ZERO_PATTERN); return
+        }
+        if (input.fact.base != STATIC) addInitial(link.callee, SelectedScalarPlan.slot(input.fact.base))
+        else {
+            val profile = checkNotNull(plan)
+            for (field in profile.fieldReads(link.callee)) {
+                val slot = SelectedScalarPlan.slot(STATIC, field)
+                if (SelectedScalarPlan.geometry(slot, input)) addInitial(link.callee, slot)
+            }
+            val mark = input.fact.mark as? MarkSlot.Concrete
+            if (mark != null) {
+                if (input.fact.path.size == 1 && input.fact.tail == Tail.EXACT)
+                    addInitial(link.callee, input.copy(exclusion = ExclusionSet.Empty))
+                else if (input.fact.path.size <= 1 && input.fact.tail != Tail.EXACT)
+                    for (cls in profile.points(link.callee)) if (input.fact.path.isEmpty() || input.fact.path[0] == cls)
+                        addInitial(link.callee, Pattern(PathFact(STATIC, listOf(cls), Tail.STAR, mark), ExclusionSet.Empty))
+            }
+            // Wide scopes activate only actual supplied coordinates, without adding an F gate.
+            for (field in profile.suppliedFields(input)) for (t in profile.wide(link.callee, field))
+                admitRequest(link.callee, SelectedScalarPlan.slot(STATIC, field), t, observed = false)
+        }
+    }
+    private fun replaySelected(link: ObservedLink) {
+        if (!config.run1) return
+        for ((slot, marks) in selectedRequests(link.callee).entries.toList())
+            for (mark in marks.toList()) actSelected(slot, mark, link)
+    }
+    private fun actSelected(slot: Pattern, mark: TaintMark, link: ObservedLink) {
+        if (!SelectedScalarPlan.geometry(slot, link.added)) return
+        when (val actual = link.added.fact.mark) {
+            is MarkSlot.Concrete -> if (actual.mark == mark) {
+                val exact = link.added.fact.tail == Tail.EXACT && link.added.fact.path == slot.fact.path
+                addInitial(link.callee, Pattern(slot.fact.copy(tail = if (exact) Tail.EXACT else Tail.STAR,
+                    mark = actual), ExclusionSet.Empty))
+            }
+            is MarkSlot.Star -> {
+                val target = origin(link.premise) ?: return
+                // Frozen B is inherited only on the unchanged queried slot, not on changed origins.
+                if (slot == target && mark in checkNotNull(plan).base(link.callee)[slot].orEmpty()) return
+                if (mark in selectedRequests(link.caller)[target].orEmpty()) return
+                admitRequest(link.caller, target, mark, observed = true)
+            }
+        }
+    }
+
 
     private fun seedFacts(method: MethodKey, node: CommonInst): List<Pair<Set<Pattern>, Conclusion>> =
         rawSinkSeedRequirements(program, inputs, method, node)

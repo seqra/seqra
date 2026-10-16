@@ -72,7 +72,7 @@ class Run1RequestMatchingTest {
         assertTrue(noNeeds.precomputedRequests.isEmpty,"Class point ownership creates no request key")
     }
 
-    @Test fun `demand FLOW cannot encode a class point by excluding owned field cylinders`() {
+    @Test fun `DEMAND dependencies retain their real field origin and never use a root origin`() {
         val f = StoreFixtures(); val m = f.manager
         val cls = m.accessors.index(ClassStaticAccessor("Box")); val field = f.field("f")
         val root = FlowAlgebra.prepend(m,m.path(cls,null),FlowAlgebra.LEAF_NODE)
@@ -80,7 +80,12 @@ class Run1RequestMatchingTest {
         validateRun1Input(m,broad) // accepted geometry alone is weaker than frontend reachability
         val special = m.initial(STATIC,null,Tail.STAR,ExclusionSet.Empty,MarkSlot.STAR)
         assertFailsWith<IllegalStateException> { validateRun1Supplier(m,special,broad) }
-        validateRun1Supplier(m,special,m.flowTree(STATIC,Layer.NORMAL,ExclusionSet.Empty,MarkSet.EMPTY,root))
+        assertFailsWith<IllegalStateException> {
+            validateRun1Supplier(m,special,m.flowTree(STATIC,Layer.NORMAL,ExclusionSet.Empty,MarkSet.EMPTY,root))
+        }
+        val origin = Run1Slot.StaticField(cls, field).initial(m)
+        validateRun1Supplier(m,origin,broad)
+        validateRun1Supplier(m,origin,m.flowTree(STATIC,Layer.NORMAL,ExclusionSet.Empty,MarkSet.EMPTY,root))
         val cannotMask = m.flowTree(STATIC,Layer.DEMAND,ExclusionSet.of(field),MarkSet.EMPTY,root)
         assertEquals(ExclusionSet.Empty,cannotMask.exclusion,
             "DEMAND FLOW canonicalization discards E instead of encoding a point-only mask")
@@ -90,7 +95,7 @@ class Run1RequestMatchingTest {
             "Raw class ANY includes the owned field, so it is not an untouched-frame fallback")
     }
 
-    @Test fun `generic class FLOW route demonstrates why the selected frontend bridge is required`() {
+    @Test fun `a changed static conclusion routes through its original nonstatic slot`() {
         val f = StoreFixtures(); val m = f.manager
         val cls = m.accessors.index(ClassStaticAccessor("Box")); val b = AccessPathBase.Argument(0)
         val initial = m.initial(b,null,Tail.STAR,ExclusionSet.Empty,MarkSlot.STAR)
@@ -99,7 +104,7 @@ class Run1RequestMatchingTest {
             false,ApMode(true,Direction.FORWARD,1),out)
         val input = out.results.single()
         validateRun1Input(m,input) // geometry alone does not prove JVM producer eligibility
-        assertFailsWith<IllegalStateException> { validateRun1Supplier(m,initial,input) }
+        validateRun1Supplier(m,initial,input)
         assertNotNull(normalRun1Slot(initial))
         assertTrue(RequestStorage().borrowMatchingRows(input,{}).isEmpty())
         assertTrue(out.markRequests.isEmpty())

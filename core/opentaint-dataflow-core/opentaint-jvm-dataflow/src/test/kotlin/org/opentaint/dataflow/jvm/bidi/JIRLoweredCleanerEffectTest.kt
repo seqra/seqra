@@ -69,17 +69,17 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
         val action = steps(listOf(selected(at(Argument(0), "f"))))
         val before = marks(u.id)
         val after = marks(t.id, u.id)
-        val input = flow(exclusion = ex(g), mark = before)
+        val input = flow(mark = before)
         val originalPremise = premise
-        val result = check(action, listOf(input), setOf(flow(exclusion = ex(f, g), mark = before),
+        val result = check(action, listOf(input), setOf(flow(mark = before).copy(demand = true),
             c(path = p(f), tail = Tail.ANY, mark = after)), run1 = true, inputPremise = originalPremise,
             expectedRequests = listOf(t))
         assertSame(originalPremise, result.requests.single().first)
         assertEquals(listOf(c(assertIs<CleanStep.Field>(action.single()).temporary, tail = Tail.ANY, mark = before)),
             result.temporaryInputs)
-        assertEquals(before, result.facts.single { !it.demand }.fact.mark)
+        assertEquals(before, result.facts.single { it.fact.path.isEmpty() }.fact.mark)
         val blocked = flow(exclusion = ex(f), mark = before)
-        val noRead = check(action, listOf(blocked), setOf(blocked), run1 = true)
+        val noRead = check(action, listOf(blocked), setOf(blocked))
         assertTrue(noRead.temporaryInputs.isEmpty())
     }
 
@@ -87,7 +87,7 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
         val input = must(exclusion = ex(g))
         val position = at(Argument(0), "f")
         val exact = steps(listOf(selected(position)))
-        check(exact, listOf(input), setOf(must(exclusion = ex(f, g)), c(path = p(f), tail = Tail.ANY)))
+        check(exact, listOf(input), setOf(must(exclusion = ex(f, g)), must(p(f)).copy(demand = true)))
         val below = steps(listOf(selected(any(position))))
         check(below, listOf(input), setOf(must(exclusion = ex(f, g)), c(path = p(f))))
         val subtree = steps(listOf(selected(position, reach = TaintCleanReach.ExactAndAnyField)))
@@ -102,7 +102,7 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
             val demand = tail == Tail.ANY
             val exclusion = if (demand) ExclusionSet.Empty else ex(g)
             val input = c(path = p(f), tail = tail, exclusion = exclusion, demand = demand)
-            check(steps(listOf(selected(position))), listOf(input), setOf(c(path = p(f), tail = Tail.ANY)))
+            check(steps(listOf(selected(position))), listOf(input), setOf(input.copy(demand = true)))
             check(steps(listOf(selected(any(position)))), listOf(input), setOf(c(path = p(f), demand = demand)))
             check(steps(listOf(selected(position, reach = TaintCleanReach.ExactAndAnyField))), listOf(input), emptySet())
             check(steps(listOf(selected(position, mark = "U"))), listOf(input), setOf(input))
@@ -144,7 +144,7 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
         val tracked = c(path = p(field), mark = mp)
         check(action, listOf(tracked), setOf(tracked), run1 = true)
         val abstractAction = steps(listOf(selected(position)))
-        check(abstractAction, listOf(flow()), setOf(flow(exclusion = ex(field)),
+        check(abstractAction, listOf(flow()), setOf(flow().copy(demand = true),
             c(path = p(field), tail = Tail.ANY, mark = marks(t.id))), run1 = true, expectedRequests = listOf(t))
     }
 
@@ -182,7 +182,7 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
         val input = flow(mark = before)
         for (limit in listOf(1, 2, 3)) {
             val target = if (limit == 1) p(next) else p(next, f)
-            check(action, listOf(input), setOf(flow(exclusion = ex(next), mark = before),
+            check(action, listOf(input), setOf(flow(mark = before).copy(demand = true),
                 c(path = p(next), tail = Tail.ANY, mark = before),
                 c(path = target, tail = Tail.ANY, mark = after)), fieldLimit = limit,
                 run1 = true, expectedRequests = listOf(t))
@@ -199,7 +199,10 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
             val expected = input.copy(fact = input.fact.copy(mark = marks(t.id, u.id).let {
                 if (input.fact.mark == marks(t.id)) marks(t.id) else it
             }))
-            val result = check(action, listOf(input), setOf(expected), run1 = true, inputPremise = originalPremise,
+            // Run-1 inputs have Empty field E; later strong controls retain the supplied E.
+            val run1Input = input.copy(exclusion = ExclusionSet.Empty)
+            val result = check(action, listOf(run1Input), setOf(expected.copy(exclusion = ExclusionSet.Empty)),
+                run1 = true, inputPremise = originalPremise,
                 expectedRequests = listOf(t))
             assertSame(originalPremise, result.requests.single().first)
             check(action, listOf(input), setOf(expected))
@@ -215,7 +218,7 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
         val bytes = idx("<string-bytes>", "byte[]", "java.lang.String")
         val input = flow(mark = marks(u.id))
         val originalPremise = premise
-        val result = check(action, listOf(input), setOf(flow(exclusion = ex(bytes), mark = marks(t.id, u.id)),
+        val result = check(action, listOf(input), setOf(flow(mark = marks(t.id, u.id)).copy(demand = true),
             c(path = p(bytes), tail = Tail.ANY, mark = marks(t.id, u.id))), run1 = true,
             inputPremise = originalPremise, expectedRequests = listOf(t, t))
         assertTrue(result.requests.all { it.first === originalPremise })
@@ -227,7 +230,7 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
 
     @Test fun `multiple field actions keep rule order and project each temporary before the next action`(): Unit {
         val action = steps(listOf(selected(at(Argument(0), "f")), selected(at(Argument(0), "g"), mark = "U")))
-        val result = check(action, listOf(flow()), setOf(flow(exclusion = ex(f, g)),
+        val result = check(action, listOf(flow()), setOf(flow().copy(demand = true),
             c(path = p(f), tail = Tail.ANY, mark = marks(t.id)),
             c(path = p(g), tail = Tail.ANY, mark = marks(u.id))), run1 = true, expectedRequests = listOf(t, u))
         val first = assertIs<CleanStep.Field>(action[0]).temporary
@@ -262,18 +265,20 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
         check(action, listOf(c(stat, p(cls, g))), setOf(c(stat, p(cls, g))))
     }
 
-    @Test fun `run one static kill keeps class exclusion and the scalar position on the original FLOW premise`(): Unit {
+    @Test fun `run one static kill drops the overwritten field and preserves siblings without position requests`(): Unit {
         val cls = m.accessors.index(ClassStaticAccessor(CLS))
+        val field = idx("sField")
         val stat = AccessPathBase.ClassStatic
         val action = steps(listOf(RemoveAllMarks(at(ClassStatic(CLS), "sField"))))
-        val originalPremise = setOf(Pattern(PathFact(stat, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty))
-        check(action, listOf(flow(exclusion = ex(g), base = stat)),
-            setOf(flow(exclusion = ex(cls, g), base = stat)), run1 = true, fieldLimit = 1,
-            inputPremise = originalPremise, expectedPositions = listOf(checkNotNull(m.path(p(cls)))),
-            runtimeRequests = emptyList())
-        val blocked = flow(exclusion = ex(cls), base = stat)
-        check(action, listOf(blocked), setOf(blocked), run1 = true, fieldLimit = 1,
-            inputPremise = originalPremise)
+        val originalPremise = setOf(Pattern(PathFact(stat, p(cls, field), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty))
+        for (demand in listOf(false, true)) {
+            val overwritten = flow(p(cls, field), base = stat).copy(demand = demand)
+            check(action, listOf(overwritten), emptySet(), run1 = true, fieldLimit = 1,
+                inputPremise = originalPremise)
+            val sibling = flow(p(cls, g), base = stat).copy(demand = demand)
+            check(action, listOf(sibling), setOf(sibling), run1 = true, fieldLimit = 1,
+                inputPremise = originalPremise)
+        }
     }
 
     @Test fun `backward field action reverses write clean read shares cached temporary and omits forward type policy`(): Unit {
@@ -326,7 +331,7 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
         val raw = oracle.run(plan, inputs.map { PlanItem(callerPremise, it, identityCandidate = true) }, place,
             PlanHooks(clean = { cleaner, item ->
                 if (item.c.fact.base is AccessPathBase.CleanerTemporary) temporaryInputs += item.c
-                val out = cleanRes(cleaner, item.c)
+                val out = cleanRes(cleaner, item.c, run1 = run1)
                 if (run1) out.request?.let { requests += item.premise to it }
                 out.facts.map { item.copy(c = it) }
             }, statementCut = { item -> cuts += item.c; item.copy(c = limit(item.c, fieldLimit)) }))

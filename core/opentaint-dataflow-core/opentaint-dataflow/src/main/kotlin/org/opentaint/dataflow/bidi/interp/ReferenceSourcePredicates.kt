@@ -74,8 +74,7 @@ internal class ReferenceSourcePredicates(private val manager: ApManager) {
             for (action in source.actions) {
                 manager.cancellation.checkpoint()
                 val target = action.target
-                val tail = if (demand && target.tail == Tail.ANY_TAINT) Tail.ANY else target.tail
-                out(pr, Conclusion(target.copy(tail = tail), ExclusionSet.Empty, demand))
+                out(pr, Conclusion(target, ExclusionSet.Empty, demand))
             }
         }
     }

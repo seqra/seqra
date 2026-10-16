@@ -71,8 +71,9 @@ class CurrentModeActionsTest {
             native(f, c, concreteResult, atArgument)
             assertTrue(f.summaries(2, c.callee, selected = true).none { it.conclusion.fact.base != AccessPathBase.Zero })
             assertTrue(f.patterns(3, c.callee, arg).isEmpty())
-            assertTrue(f.premises(3, c.callee).isEmpty())
-            assertContains(driver.frontiers[2].zeroOnly, c.callee)
+            assertEquals(setOf(atArgument), f.premises(3, c.callee),
+                "The actual concrete input starts independently of reusable native records")
+            assertContains(driver.frontiers[2].analysed, c.callee)
             assertTrue(f.actual.results[2].recordCrossings > 0)
             assertTrue(f.links.any { it.run == 1 && it.callee == c.callee && it.layer == Layer.NORMAL &&
                 it.added == atArgument })
@@ -117,23 +118,19 @@ class CurrentModeActionsTest {
             val gReturn = f.p(ret, listOf(g), mark = MarkSlot.Concrete(c.t))
             val gInput = f.p(arg, listOf(h, g), mark = MarkSlot.Concrete(c.t))
             val kInput = f.p(arg, listOf(h, k), mark = MarkSlot.Concrete(c.u))
-            val sharedReturn = f.p(ret, tail = Tail.STAR)
-            val outsideField = f.p(arg, listOf(h), Tail.STAR, exclusion = ExclusionSet.of(field))
+            val kReturn = f.p(ret, listOf(k), mark = MarkSlot.Concrete(c.u))
             native(f, c, gReturn, gInput)
-            native(f, c, sharedReturn, outsideField)
+            native(f, c, kReturn, kInput)
             assertContains(f.summaries(2, c.callee), CurrentSummary(setOf(gReturn), Conclusion(gInput.fact, ExclusionSet.Empty, false)))
-            assertContains(f.summaries(2, c.callee), CurrentSummary(setOf(sharedReturn),
-                Conclusion(outsideField.fact, outsideField.exclusion, false)))
-            assertTrue(f.premises(2, c.callee).none { it.fact.mark == MarkSlot.Concrete(c.u) },
-                "U comes from the shared abstract pattern, without a concrete U request")
+            assertContains(f.summaries(2, c.callee), CurrentSummary(setOf(kReturn), Conclusion(kInput.fact, ExclusionSet.Empty, false)))
+            assertTrue(f.premises(2, c.callee).all { it.fact.mark is MarkSlot.Concrete },
+                "Later phases preserve actual concrete marks instead of executing FLOW guidance")
             assertTrue(f.summaries(2, c.callee).none { it.conclusion.fact ==
                 PathFact(arg, listOf(h, field), Tail.EXACT, MarkSlot.Concrete(c.t)) })
-            assertEquals(setOf(
-                DemandPattern(f.p(arg, listOf(field), Tail.ANY), sharedReturn),
-                DemandPattern(f.p(arg, listOf(h, field), Tail.ANY), sharedReturn),
-            ), f.patterns(3, c.callee, arg), "Only cleaned-field FLOW publications request another analysis")
-            assertTrue(f.premises(3, c.callee).isEmpty())
-            assertContains(driver.frontiers[2].zeroOnly, c.callee)
+            assertTrue(f.patterns(3, c.callee, arg).all { it.entry.fact.mark is MarkSlot.Concrete },
+                "Any retained guidance is concrete; it never creates executable FLOW starts")
+            assertEquals(setOf(gInput, kInput), f.premises(3, c.callee))
+            assertContains(driver.frontiers[2].analysed, c.callee)
             for (expected in listOf(gInput, kInput)) {
                 assertTrue(f.links.any { it.run == 3 && it.callee == c.callee && it.layer == Layer.NORMAL &&
                     it.added == expected })

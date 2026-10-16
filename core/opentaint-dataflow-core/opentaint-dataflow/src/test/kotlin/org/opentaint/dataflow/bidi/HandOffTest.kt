@@ -186,7 +186,7 @@ class HandOffTest {
 
     @Test
     fun `sink handoff seeds every matching cached alternative at demand witness contexts with exact deduplication`(): Unit {
-        HandOffFixtures().use { f ->
+        HandOffFixtures(index = 3).use { f ->
             val a = f.key("A")
             val b = f.key("B")
             val absent = f.key("no witness")
@@ -333,13 +333,16 @@ class HandOffTest {
             val forward = f.core(forwardConfig, localFactory = local)
             forward.addInitial(a)
             f.drain(forward, quantum = 1)
-            assertTrue(forward.summaries.all().none(), "One literal alone cannot complete the conjunction")
+            assertTrue(forward.summaries.all().none { it.second.base == returned }, "One literal alone cannot complete the conjunction")
             forward.addInitial(b)
             f.drain(forward, quantum = 1)
             forward.freeze()
             val premise = f.manager.premiseOf(listOf(a, b))
             val normalTarget = Conclusion(target, ExclusionSet.Empty, false)
-            val forwardExpected = setOf<Pair<PremiseKey, Conclusion>>(premise to normalTarget)
+            val identity = PathFact(STATIC, emptyList(), Tail.STAR, MarkSlot.STAR)
+            val default = f.manager.initial(Pattern(identity, ExclusionSet.Empty)) to
+                Conclusion(identity, ExclusionSet.Empty, false)
+            val forwardExpected = setOf<Pair<PremiseKey, Conclusion>>(premise to normalTarget, default)
             assertEquals(forwardExpected, decoded(f.ops, forward.summaries.all()))
             assertEquals(forwardExpected, decoded(f.ops, forward.summaries.demandEdges()))
             val report = ReportBuilder()
@@ -347,7 +350,8 @@ class HandOffTest {
             val forwardHandOff = HandOff.of(forwardConfig, forwardResult, report, f.shared)
             assertEquals(setOf(DemandPattern(targetPattern, a.toPattern()), DemandPattern(targetPattern, b.toPattern())),
                 forwardHandOff.demand.near(f.key, returned, null).toSet())
-            assertEquals(mapOf(f.key to 2), forwardHandOff.demandEdges)
+            assertEquals(mapOf(f.key to 3), forwardHandOff.demandEdges, "Two conjunction members and one ordinary default guide")
+            // Component-level singleton filter; the real driver quarantines all F1 records.
             f.records.persist(Direction.FORWARD, sequenceOf(f.key to forward.summaries))
             assertTrue(f.records.byEntry(f.key, a.toPattern()).none())
             assertTrue(f.records.byEntry(f.key, b.toPattern()).none())

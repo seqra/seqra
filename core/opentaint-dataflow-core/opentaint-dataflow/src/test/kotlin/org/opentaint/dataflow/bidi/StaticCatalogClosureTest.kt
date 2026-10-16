@@ -44,7 +44,7 @@ class StaticCatalogClosureTest {
     private fun compare(f: FiniteProgramFixtures, config: RunConfig, fields: List<Int>, marks: List<TaintMark>,
                         sameUnit: Boolean, policy: SchedulePolicy, seed: Long = 0,
                         expectedRoot: ObservedEdge? = null): RunObservation {
-        val expected = NaiveClosure(f, config).run() // Frozen old scalar Position algorithm.
+        val expected = NaiveClosure(f, config, semantics = NaiveClosure.Semantics.SELECTED).run() // Independent selected scalar request/field/default semantics.
         expectedRoot?.let { assertContains(expected.rawSummaries, it, "The scalar program must return the wrapper value") }
         val scheduler = ProductionSchedule(f, config, sameUnit, policy, seed, quantum = 1,
             duplicateDeliveries = true, useStaticCatalog = true)
@@ -103,7 +103,7 @@ class StaticCatalogClosureTest {
     }
 
     @Test
-    fun `catalog root preserves untouched state and respects class keep strong writes and selected cleaners`(): Unit {
+    fun `ordinary static default demotes possible mutations without emitting a static root initial`(): Unit {
         for (effect in listOf("empty", "kill other field", "clean other field", "kill supplied field", "clean supplied field"))
             for (limit in 1..1) for (sameUnit in listOf(false, true)) FiniteProgramFixtures().use { f ->
                 val caller = f.method("caller $effect", listOf(listOf(1), listOf(2), emptyList()), 2).key("caller")
@@ -131,10 +131,14 @@ class StaticCatalogClosureTest {
                 ), emptyList(), BEFORE, AFTER))
                 val actual = compare(f, f.config(L = limit, roots = listOf(caller)), listOf(cls, field, other),
                     listOf(t.mark), sameUnit, SchedulePolicy.NOTIFY_FIRST)
-                val keeps = !effect.endsWith("supplied field")
-                val expected = ObservedEdge(caller, zero, Conclusion(source.to, ExclusionSet.Empty, false))
-                assertEquals(keeps, expected in actual.rawSummaries, effect)
-                assertContains(actual.initials, ObservedInitial(callee, f.pattern(STATIC, tail = Tail.STAR, mark = MarkSlot.STAR)))
+                val changedMethod = effect != "empty"
+                val expected = ObservedEdge(caller, zero, Conclusion(source.to, ExclusionSet.Empty, changedMethod))
+                assertContains(actual.rawSummaries, expected, effect)
+                assertTrue(actual.initials.none { it.method == callee && it.initial.fact.base == STATIC &&
+                    it.initial.fact.path.isEmpty() }, "Defaults are stored summaries, never root initials")
+                val root = f.pattern(STATIC, tail = Tail.STAR, mark = MarkSlot.STAR)
+                assertContains(actual.rawSummaries, ObservedEdge(callee, setOf(root),
+                    Conclusion(root.fact, ExclusionSet.Empty, changedMethod)))
                 assertTrue(actual.witnesses.isEmpty())
             }
     }

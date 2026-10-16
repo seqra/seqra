@@ -8,21 +8,14 @@ import org.opentaint.dataflow.bidi.ap.*
 internal fun normalRun1Slot(premise: PremiseKey): Run1Slot? =
     (premise as? InitialAp)?.let { Run1Slot.fromInitial(it) }
 
-/** The selected JVM producer invariant is stronger than generic AP geometry.
- * Its root/class FLOW components are normal control from the special S seed;
- * in particular a DEMAND class point has no lossless residual-frame codec. */
+/** Validate the actual origin before request eligibility. Layer changes do not
+ * change the origin or invalidate a surviving FLOW dependency. */
 internal fun validateRun1Supplier(ap: ApManager, premise: PremiseKey, input: Facts) {
+    ap.cancellation.checkpoint()
     check((input is FlowTree) == premise.isFlow) { "K6: input kind follows its original premise" }
-    if (input !is FlowTree || input.base != STATIC) return
-    var broad = !input.root.leaf.isEmpty
-    val children = input.root.childData
-    if (!broad && children != null) for (child in children) {
-        ap.cancellation.checkpoint()
-        if (!child.leaf.isEmpty) { broad = true; break }
-    }
-    if (broad) check(input.layer == Layer.NORMAL &&
-        premise is InitialAp && isSpecialStaticRoot(premise)) {
-        "A selected run-1 root/class FLOW must be NORMAL under its original static-root premise"
+    check(premise !is PremiseSet || input is TaintTree) { "A conjunctive supplier is concrete" }
+    if (input is FlowTree) check(normalRun1Slot(premise) != null) {
+        "A run-1 FLOW supplier needs an admitted original abstract slot"
     }
 }
 
@@ -153,7 +146,7 @@ internal fun validateRun1Initial(initial: InitialAp, fieldLimit: Int) {
     when (val mark = initial.mark) {
         is MarkSlot.Star -> {
             check(mark.excluded.isEmpty && initial.tail == Tail.STAR)
-            check(initial.base != STATIC || path.size != 1) { "Run 1 has no abstract class initial" }
+            check(initial.base != STATIC || path.size == 2) { "Run 1 has only abstract static-field initials" }
         }
         is MarkSlot.Concrete -> check(initial.base != STATIC || path.isNotEmpty()) {
             "Run 1 has no concrete empty static-root initial"

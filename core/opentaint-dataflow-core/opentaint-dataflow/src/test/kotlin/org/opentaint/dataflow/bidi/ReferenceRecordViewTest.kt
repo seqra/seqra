@@ -156,7 +156,8 @@ class ReferenceRecordViewTest {
         assertNull(reverseRecordLeaf(Direction.BACKWARD, exact, must))
         assertNull(reverseRecordLeaf(Direction.BACKWARD, sourceMust, c(y, listOf(g), Tail.EXACT, mt)))
         assertFails { c(y, listOf(g), Tail.EXACT, mt, ex(h)) }
-        assertFails { c(y, listOf(g), Tail.ANY_TAINT, mt, ex(h), demand = true) }
+        assertNull(reverseRecordLeaf(Direction.FORWARD, exact,
+            c(y, listOf(g), Tail.ANY_TAINT, mt, ex(h), demand = true)))
     }
 
     @Test

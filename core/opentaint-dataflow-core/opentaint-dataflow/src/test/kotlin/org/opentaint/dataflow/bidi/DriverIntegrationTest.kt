@@ -27,7 +27,7 @@ class DriverIntegrationTest {
             assertTrue(f.results.all { it.status == RunStatus.COMPLETE })
             assertEquals(listOf(1, 2, 3), driver.frontiers.map { it.run })
             assertEquals(setOf(Conclusion(coarse.fact, ExclusionSet.Empty, true)),
-                f.results[0].analyzers.single().summaries.demandEdges().flatMap { (_, facts) ->
+                f.results[0].analyzers.single().summaries.demandEdges().filter { (_, facts) -> facts.base == AccessPathBase.Return }.flatMap { (_, facts) ->
                     f.ops.leaves(facts).map { Conclusion(it.fact, it.exclusion, facts.layer == Layer.DEMAND) }
                 }.toSet())
             assertEquals(setOf(DemandPattern(coarse, zero)),
@@ -83,7 +83,7 @@ class DriverIntegrationTest {
             val program = f.confirmed()
             val driver = IterationDriver(FixedLimits(listOf(1)), f.shared, 5.seconds)
             val report = driver.analyze(listOf(program.root))
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.POLICY), report.end)
             assertEquals(ReportState.DEMAND, report.entries.single().state)
             assertEquals(1, driver.frontiers.single().run)
             assertEquals(0, driver.frontiers.single().confirmedVulnerabilities)

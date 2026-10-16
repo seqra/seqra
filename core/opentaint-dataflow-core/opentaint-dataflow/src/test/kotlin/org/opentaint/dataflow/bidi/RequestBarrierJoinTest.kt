@@ -128,7 +128,7 @@ class RequestBarrierJoinTest {
             f.admit(actor, ref, Layer.NORMAL, f.fact(base = STATIC, path = listOf(cls, g), tail = Tail.ANY_TAINT,
                 mark = MarkSlot.Concrete(t), exclusion = ExclusionSet.of(h)))
             flush(f, actor)
-            val expected = setOf(root, stat,
+            val expected = setOf(root,
                 f.manager.initial(f.pattern(mark = MarkSlot.Concrete(t))),
                 f.manager.initial(f.pattern(tail = Tail.STAR, mark = MarkSlot.Concrete(t))),
                 f.manager.initial(f.pattern(base = STATIC, path = listOf(cls, field), mark = MarkSlot.Concrete(t))),

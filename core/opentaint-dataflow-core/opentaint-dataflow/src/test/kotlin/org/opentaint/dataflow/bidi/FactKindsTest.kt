@@ -125,12 +125,16 @@ class FactKindsTest {
             f.admit(core, ref, Layer.DEMAND, added)
             f.drain(core, quantum = 1)
             assertEquals(1L, core.demandLayerEdges)
-            assertEquals(1L, core.edgeDeltas)
-            assertTrue(core.summaries.all().none())
-            assertTrue(f.publications.isEmpty())
+            assertEquals(2L, core.edgeDeltas, "One killed start plus the default schema")
+            val defaults = core.summaries.all().toList()
+            assertEquals(1, defaults.size)
+            assertEquals(AccessPathBase.ClassStatic, defaults.single().first.members.single().base)
+            assertEquals(emptyList(), defaults.single().first.members.single().pathArray.toList())
+            assertEquals(Layer.NORMAL, defaults.single().second.layer)
+            assertEquals(1, f.publications.flatten().size)
             f.admit(core, ref, Layer.DEMAND, added)
             assertEquals(1L, core.demandLayerEdges)
-            assertEquals(1L, core.edgeDeltas)
+            assertEquals(2L, core.edgeDeltas, "One killed start plus the default schema")
         }
     }
 

@@ -210,7 +210,7 @@ class FieldCleanStepTest {
                 val expected = if (selected == u) setOf(input) else when (reach) {
                     CleanReach.AT_AND_BELOW -> emptySet()
                     CleanReach.BELOW -> setOf(fact(path = path, demand = demand))
-                    CleanReach.EXACT -> setOf(fact(path = path, tail = Tail.ANY, demand = true))
+                    CleanReach.EXACT -> setOf(fact(path = path, tail = tail, exclusion = exclusion, demand = true))
                 }
                 val cleaned = ArrayList<PlanItem>()
                 val got = walk(step, listOf(item(input)), cleaned = cleaned).map { it.c }.toSet()

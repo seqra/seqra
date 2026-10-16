@@ -51,18 +51,18 @@ class LayerRulesTest {
     }
 
     @Test
-    fun `selected abstract cleaning preserves normal E until a counted field cut demotes it`() {
+    fun `selected abstract cleaning covers E and a counted field cut limits its path`() {
         val original = value(p(c, f, g), Tail.STAR, MarkSlot.Star(MarkSet(intArrayOf(u.id))), exclusion = ex(h))
         val input = assertIs<FlowTree>(facts(original))
         val cl = Cleaner(x, manager.path(p(h)), CleanReach.EXACT, t)
         val clean = cleaned(input, cl)
-        val expectedClean = cleanRes(cl, original).facts.single()
+        val expectedClean = cleanRes(cl, original, run1 = true).facts.single()
         assertEquals(setOf(expectedClean), decoded(clean.results))
         assertEquals(listOf(t), clean.markRequests)
         val normal = assertIs<FlowTree>(clean.results.single())
         assertSame(input.root, normal.root)
-        assertEquals(Layer.NORMAL, normal.layer)
-        assertEquals(ex(h), normal.exclusion)
+        assertEquals(Layer.DEMAND, normal.layer)
+        assertEquals(ExclusionSet.Empty, normal.exclusion)
         val cut = CollectingOut()
         ops.limit(normal, 1, cut)
         assertEquals(setOf(limit(expectedClean, 1)), decoded(cut.results))
@@ -84,14 +84,14 @@ class LayerRulesTest {
         val original = value(p(), Tail.ANY_TAINT, exclusion = ex(h))
         val cl = Cleaner(x, manager.path(p(f)), CleanReach.BELOW, t)
         val clean = cleaned(facts(original), cl)
-        assertEquals(cleanRes(cl, original).facts.toSet(), decoded(clean.results))
-        assertEquals(setOf(value(p(), Tail.ANY_TAINT, exclusion = ex(f, h)), value(p(f), Tail.EXACT)), decoded(clean.results))
+        assertEquals(cleanRes(cl, original, run1 = true).facts.toSet(), decoded(clean.results))
+        assertEquals(setOf(value(p(), Tail.ANY_TAINT, demand = true), value(p(f), Tail.EXACT)), decoded(clean.results))
         for (result in clean.results) {
-            assertEquals(Layer.NORMAL, result.layer)
+            assertEquals(if ((result as TaintTree).root.hasAny) Layer.DEMAND else Layer.NORMAL, result.layer)
             assertSame(result, ops.filter(result, acceptAll))
             val query = if ((result as TaintTree).root.hasAny) literal(p(g)) else literal(p(f))
             val holds = assertIs<MarkCheck.Holds>(ops.checkMark(result, query, run1))
-            assertEquals(Layer.NORMAL, holds.facts.layer)
+            assertEquals(result.layer, holds.facts.layer)
             assertEquals(decoded(listOf(result)), decoded(listOf(holds.facts)))
         }
         assertTrue(clean.markRequests.isEmpty())
@@ -102,8 +102,8 @@ class LayerRulesTest {
         val original = value(p(f), Tail.ANY_TAINT, exclusion = ex(h))
         val cl = Cleaner(x, manager.path(p(f, g)), CleanReach.EXACT, t)
         val clean = cleaned(facts(original), cl)
-        assertEquals(cleanRes(cl, original).facts.toSet(), decoded(clean.results))
-        assertEquals(setOf(value(p(f), Tail.ANY, demand = true)), decoded(clean.results))
+        assertEquals(cleanRes(cl, original, run1 = true).facts.toSet(), decoded(clean.results))
+        assertEquals(setOf(value(p(f), Tail.ANY_TAINT, demand = true)), decoded(clean.results))
         val demand = assertIs<TaintTree>(clean.results.single())
         assertEquals(ExclusionSet.Empty, demand.exclusion)
         for (mode in listOf(run1) + restricted) {
@@ -124,7 +124,7 @@ class LayerRulesTest {
             val clean = cleaned(facts(original), cl)
             val expected = value(p(f), Tail.EXACT, demand = demand)
             assertEquals(setOf(expected), decoded(clean.results))
-            assertEquals(cleanRes(cl, original).facts.toSet(), decoded(clean.results))
+            assertEquals(cleanRes(cl, original, run1 = true).facts.toSet(), decoded(clean.results))
             val result = clean.results.single()
             val holds = assertIs<MarkCheck.Holds>(ops.checkMark(result, literal(p(f)), run1))
             assertEquals(if (demand) Layer.DEMAND else Layer.NORMAL, holds.facts.layer)
@@ -133,7 +133,7 @@ class LayerRulesTest {
         val original = value(p(f), Tail.STAR, MarkSlot.STAR, exclusion = ex(h))
         val cl = Cleaner(x, manager.path(p(f)), CleanReach.BELOW, null)
         val clean = cleaned(facts(original), cl)
-        assertEquals(setOf(value(p(f), Tail.ANY, MarkSlot.STAR, demand = true)), decoded(clean.results))
+        assertEquals(setOf(value(p(f), Tail.STAR, MarkSlot.STAR, demand = true)), decoded(clean.results))
     }
 
     @Test

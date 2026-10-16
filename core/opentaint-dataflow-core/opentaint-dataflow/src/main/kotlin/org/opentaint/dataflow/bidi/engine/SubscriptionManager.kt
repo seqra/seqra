@@ -202,18 +202,10 @@ class SubscriptionManager(port: SubscriptionPort) {
 
     private fun applyMatch(part: Subscription, pub: Publication, member: Int) {
         val port = active()
-        if (isSpecialStaticRoot(pub.premise.member(member)) &&
-            port.staticFootprint(part.callee.method) != null && !hasStaticRootReturnEvidence(pub.conclusion)) return
-        val inputs = if (part.zeroOnly) listOf(part.added) else prepareStaticSummaryInputs(
-            port.ops.manager, part.added, pub.premise.member(member), port.staticFootprint(part.callee.method))
-        for (input in inputs) {
-            port.ops.manager.cancellation.checkpoint()
-            val prepared = part.copy(added = input)
-            val added = matches(prepared, pub, member, port.ops, port.config.mode) ?: continue
-            port.ops.manager.cancellation.checkpoint()
-            port.applier(part.caller).applySummary(prepared.copy(added = added), pub, member)
-            port.ops.manager.cancellation.checkpoint()
-        }
+        val added = matches(part, pub, member, port.ops, port.config.mode) ?: return
+        port.ops.manager.cancellation.checkpoint()
+        port.applier(part.caller).applySummary(part.copy(added = added), pub, member)
+        port.ops.manager.cancellation.checkpoint()
     }
 
     /** Native records and transient reversed views remain reads of the previous-run store. */
@@ -225,46 +217,23 @@ class SubscriptionManager(port: SubscriptionPort) {
         val ops = port.ops
         val cancellation = ops.manager.cancellation
         val applier = port.applier(part.caller)
-        val footprint = port.staticFootprint(part.callee.method)
         val seen = HashSet<Any>()
-        fun applyRecord(record: Record) {
-            cancellation.checkpoint()
-            if (isSpecialStaticRoot(record.premise) && footprint != null &&
-                !hasStaticRootReturnEvidence(record.conclusion)) return
-            for (input in prepareStaticSummaryInputs(ops.manager, part.added, record.premise, footprint)) {
-                cancellation.checkpoint()
-                val added = ops.satisfying(input, record.premise, mode, record = true) ?: continue
-                applier.applyRecord(part.copy(added = added), record)
-                cancellation.checkpoint()
-            }
-        }
-
         for (leaf in ops.leaves(part.added)) {
             cancellation.checkpoint()
             for (record in records.byEntry(part.callee, leaf)) {
                 cancellation.checkpoint()
-                if ((record.direction == direction || isSpecialStaticRoot(record.premise)) && seen.add(record)) {
-                    applyRecord(record)
-                }
+                if (record.direction != direction || !seen.add(record)) continue
+                val added = ops.satisfying(part.added, record.premise, mode, record = true) ?: continue
+                applier.applyRecord(part.copy(added = added), record)
             }
             for (record in records.byExit(part.callee, leaf)) {
                 cancellation.checkpoint()
                 if (record.direction == direction) continue
-                // Preserve the original normal-exit/root provenance. A reversed
-                // leaf view has no owner identity and cannot authorize a frame.
-                if (isSpecialStaticRoot(record.premise)) {
-                    if (seen.add(record)) applyRecord(record)
-                    continue
-                }
                 for (view in record.reversedAt(leaf)) {
                     cancellation.checkpoint()
                     if (!seen.add(view)) continue
-                    for (input in prepareStaticSummaryInputs(ops.manager, part.added, view.premise, footprint)) {
-                        cancellation.checkpoint()
-                        val added = ops.satisfying(input, view.premise, mode, record = true) ?: continue
-                        applier.applyRecordView(part.copy(added = added), view)
-                        cancellation.checkpoint()
-                    }
+                    val added = ops.satisfying(part.added, view.premise, mode, record = true) ?: continue
+                    applier.applyRecordView(part.copy(added = added), view)
                 }
             }
         }

@@ -14,6 +14,19 @@ import org.opentaint.dataflow.bidi.driver.Seed
 internal object HistoricalF71 {
     const val VERSION = "F71 concrete design / proof snapshot fb789d0ab"
 
+    /** Frozen pre-selective-preservation Reference.kt normalizer (fa0bd5887e7b25ef912852a19d701c0a21302bcb).
+     * Historical demotion changes the tail; the selected layer-only normalizer must not rewrite this oracle. */
+    fun normalize(f: PathFact, exclusion: ExclusionSet, demand: Boolean): Conclusion = when {
+        f.tail == Tail.ANY -> Conclusion(f, ExclusionSet.Empty, demand = true)
+        f.tail == Tail.ANY_TAINT -> {
+            check(f.mark is MarkSlot.Concrete)
+            if (demand) Conclusion(f.copy(tail = Tail.ANY), ExclusionSet.Empty, demand = true)
+            else Conclusion(f, exclusion, demand = false)
+        }
+        f.tail != Tail.STAR || (f.mark is MarkSlot.Star && !demand) -> Conclusion(f, exclusion, demand)
+        else -> Conclusion(f.copy(tail = Tail.ANY), ExclusionSet.Empty, demand = true)
+    }
+
     fun validate(program: FiniteProgramFixtures, inputs: ProgramRunInputs,
                  allowEndFacts: Boolean = false, allowMustSources: Boolean = false) {
         fun summary(s: StatementSummary) {

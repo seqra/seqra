@@ -63,24 +63,38 @@ class ReportTest {
         builder.build(end()).entries.associateBy { it.key }
 
     @Test
+    fun `run one keeps even an externally flagged normal confirmation provisional`() {
+        val builder = ReportBuilder()
+        val vulnerability = key()
+        val candidate = witness(1, confirmed = true)
+        put(vulnerability, candidate)
+        add(builder, 1)
+        val entry = entries(builder).getValue(vulnerability)
+        assertEquals(ReportState.DEMAND, entry.state)
+        assertSame(candidate, entry.witnesses.single())
+        assertEquals(0, builder.confirmedCount)
+        assertTrue(builder.hasDemandVulnerability())
+    }
+
+    @Test
     fun `a confirmed key keeps its first confirmed run and complete witnesses through later demand absence and confirmation`(): Unit {
         val builder = ReportBuilder()
         val vulnerability = key()
-        val first = witness(1, confirmed = true,
+        val first = witness(3, confirmed = true,
             endFacts = listOf(PathFact(y, listOf(f), Tail.EXACT, t)))
         put(vulnerability, first)
-        add(builder, 1)
+        add(builder, 3)
         val original = entries(builder).getValue(vulnerability)
         assertEquals(ReportState.CONFIRMED, original.state)
-        assertEquals(1, original.run)
+        assertEquals(3, original.run)
         assertSame(first, original.witnesses.single())
 
-        put(vulnerability, witness(3, method = fixture.key(context = "later demand")))
-        add(builder, 3)
+        put(vulnerability, witness(5, method = fixture.key(context = "later demand")))
         add(builder, 5)
-        put(vulnerability, witness(7, alternative = 1, confirmed = true,
-            method = fixture.key(context = "later confirmation")))
         add(builder, 7)
+        put(vulnerability, witness(9, alternative = 1, confirmed = true,
+            method = fixture.key(context = "later confirmation")))
+        add(builder, 9)
 
         assertSame(original, entries(builder).getValue(vulnerability))
         assertSame(first, entries(builder).getValue(vulnerability).witnesses.single())
@@ -126,21 +140,21 @@ class ReportTest {
         val builder = ReportBuilder()
         val vulnerability = key()
         val other = key(rule("still demand"))
-        val demand = witness(1, edges = listOf(edge(layer = Layer.DEMAND)),
+        val demand = witness(3, edges = listOf(edge(layer = Layer.DEMAND)),
             method = fixture.key(context = "demand context"))
-        val unsupportedNormal = witness(1, alternative = 1,
+        val unsupportedNormal = witness(3, alternative = 1,
             method = fixture.key(context = "unsupported normal context"))
-        val confirmed = witness(1, alternative = 2, confirmed = true,
+        val confirmed = witness(3, alternative = 2, confirmed = true,
             method = fixture.key(context = "confirmed context"))
-        val otherDemand = witness(1, edges = listOf(edge(mark = u)))
+        val otherDemand = witness(3, edges = listOf(edge(mark = u)))
         for (w in listOf(demand, unsupportedNormal, confirmed)) put(vulnerability, w)
         put(other, otherDemand)
-        add(builder, 1)
+        add(builder, 3)
 
         val report = builder.build(end())
         val confirmedEntry = report.entries.single { it.key == vulnerability }
         assertEquals(ReportState.CONFIRMED, confirmedEntry.state)
-        assertEquals(1, confirmedEntry.run)
+        assertEquals(3, confirmedEntry.run)
         assertEquals(setOf(demand, unsupportedNormal, confirmed), confirmedEntry.witnesses.toSet())
         assertEquals(listOf(other), builder.demandEntries().map { it.key })
         assertSame(otherDemand, builder.demandEntries().single().witnesses.single())
@@ -210,16 +224,16 @@ class ReportTest {
 
     @Test
     fun `every incomplete forward or backward status preserves both earlier report sets without adding evidence`(): Unit {
-        for (status in listOf(RunStatus.TIMEOUT, RunStatus.OOM, RunStatus.FAILED)) for (run in listOf(2, 3)) {
+        for (status in listOf(RunStatus.TIMEOUT, RunStatus.OOM, RunStatus.FAILED)) for (run in listOf(4, 5)) {
             val builder = ReportBuilder()
             val rows = ConcurrentVulnerabilityStore(manager)
             val confirmedKey = key(rule("confirmed $status $run"))
             val demandKey = key(rule("demand $status $run"))
             val forbiddenKey = key(rule("incomplete evidence $status $run"))
-            rows.add(confirmedKey, witness(1, confirmed = true))
-            rows.add(demandKey, witness(1, edges = listOf(edge(layer = Layer.DEMAND))))
+            rows.add(confirmedKey, witness(3, confirmed = true))
+            rows.add(demandKey, witness(3, edges = listOf(edge(layer = Layer.DEMAND))))
             rows.add(forbiddenKey, witness(run, confirmed = true))
-            add(builder, 1, witnesses = rows)
+            add(builder, 3, witnesses = rows)
             val before = entries(builder)
 
             add(builder, run, status, rows)
@@ -240,12 +254,12 @@ class ReportTest {
         val confirmedKey = key(rule("forward confirmed"))
         val demandKey = key(rule("forward demand"))
         val backwardKey = key(rule("backward evidence"))
-        put(confirmedKey, witness(1, confirmed = true))
-        put(demandKey, witness(1))
-        add(builder, 1)
+        put(confirmedKey, witness(3, confirmed = true))
+        put(demandKey, witness(3))
+        add(builder, 3)
         val before = entries(builder)
-        put(backwardKey, witness(2, confirmed = true))
-        add(builder, 2)
+        put(backwardKey, witness(4, confirmed = true))
+        add(builder, 4)
         val after = entries(builder)
         assertEquals(before.keys, after.keys)
         before.forEach { (key, entry) -> assertSame(entry, after.getValue(key)) }
@@ -277,11 +291,11 @@ class ReportTest {
         val builder = ReportBuilder()
         val confirmedKey = key(rule("confirmed"))
         val demandKey = key(rule("demand"))
-        val confirmed = witness(1, confirmed = true)
+        val confirmed = witness(3, confirmed = true)
         put(confirmedKey, confirmed)
-        put(demandKey, witness(1))
-        add(builder, 1)
+        put(demandKey, witness(3))
         add(builder, 3)
+        add(builder, 5)
         assertEquals(setOf(confirmedKey), entries(builder).keys)
         assertSame(confirmed, entries(builder).getValue(confirmedKey).witnesses.single())
         assertEquals(1, builder.confirmedCount)

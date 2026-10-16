@@ -30,7 +30,7 @@ internal fun markCheckFacts(m: ApManager, c: Facts, p: Pattern, mode: ApMode,
                 m.taintLeaves(gate.taintMarks(leaf.exact) ?: MarkSet.EMPTY,
                     gate.taintMarks(leaf.any) ?: MarkSet.EMPTY)
             } ?: return MarkCheck.None
-            MarkCheck.Holds(m.taintTree(c.base, c.layer, withT, c.exclusion))
+            MarkCheck.Holds(m.taintTree(c.base, c.layer, withT, c.exclusion, c.anyTail))
         }
     }
 }
@@ -38,7 +38,7 @@ internal fun markCheckFacts(m: ApManager, c: Facts, p: Pattern, mode: ApMode,
 /** Null preserves scalar behavior. A supplied initial certifies installed catalog coverage. */
 internal fun unchangedStaticFlowPath(c: FlowTree, initial: InitialAp?): IntArray? {
     if (initial == null || initial.base != STATIC || c.base != STATIC || initial.tail != Tail.STAR ||
-        initial.mark != MarkSlot.STAR || c.layer != Layer.NORMAL || c.exclusion != initial.exclusion ||
+        initial.mark != MarkSlot.STAR || c.tail != Tail.STAR || c.exclusion != initial.exclusion ||
         !c.markExclusion.isEmpty) return null
     return initial.pathData
 }
@@ -79,7 +79,7 @@ private fun flowRequests(m: ApManager, c: FlowTree, p: Pattern, unchanged: IntAr
     var hit = false
     val u = c.root.walk(path) { d, n ->
         m.cancellation.checkpoint()
-        if (!n.leaf.isEmpty && (c.layer == Layer.DEMAND || c.exclusion.admits(path[d])) &&
+        if (!n.leaf.isEmpty && c.exclusion.admits(path[d]) &&
             !sameFlowLeaf(m, unchanged, path, d)) hit = true
     }
     if (hit || u == null) return hit

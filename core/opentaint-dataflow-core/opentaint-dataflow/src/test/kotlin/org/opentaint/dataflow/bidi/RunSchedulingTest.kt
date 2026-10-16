@@ -33,7 +33,7 @@ class RunSchedulingTest {
             assertEquals(listOf(0, 1, 2), f.processed.map { it.node.location.index })
             assertTrue(f.processed.all { it.premise.isZero && it.facts == Reach.NORMAL })
             assertEquals(setOf(f.manager.zero to Conclusion(ZERO_FACT, ExclusionSet.Empty, false)),
-                methodEntries(f.ops, actor.summaries.all()))
+                methodEntries(f.ops, actor.summaries.all().withoutPrecomputedStaticDefault()))
             assertTrue(f.publications.isEmpty(), "The counted partial Work still owns its pending zero publication")
             assertFailsWith<IllegalStateException> { actor.freeze() }
 
@@ -41,11 +41,11 @@ class RunSchedulingTest {
             val expected = setOf(
                 f.manager.zero to Conclusion(ZERO_FACT, ExclusionSet.Empty, false),
                 initial to Conclusion(initial.toPattern().fact, ExclusionSet.Empty, false))
-            assertEquals(expected, methodEntries(f.ops, actor.summaries.all()))
+            assertEquals(expected, methodEntries(f.ops, actor.summaries.all().withoutPrecomputedStaticDefault()))
             assertEquals(6L, actor.steps)
             assertEquals(listOf(0, 1, 2), f.processed.filter { it.premise === initial }.map { it.node.location.index })
             assertEquals(1, f.publications.size)
-            assertEquals(expected, methodEntries(f.ops, f.publications.flatten().asSequence().map { it.premise to it.conclusion }))
+            assertEquals(expected, methodEntries(f.ops, f.publications.flatten().withoutPrecomputedStaticDefault().asSequence().map { it.premise to it.conclusion }))
             assertTrue(actor.work(1))
         }
     }
@@ -169,7 +169,7 @@ class RunSchedulingTest {
                     } else {
                         assertEquals(2, count)
                         assertEquals(listOf(0, 1, 2), processed.filter { it.premise === follow }.map { it.node.location.index })
-                        assertEquals(expected, methodEntries(f.ops, checkNotNull(actorRef.get()).summaries.all()))
+                        assertEquals(expected, methodEntries(f.ops, checkNotNull(actorRef.get()).summaries.all().withoutPrecomputedStaticDefault()))
                     }
                     step()
                     returned.incrementAndGet()
@@ -186,7 +186,7 @@ class RunSchedulingTest {
                         object : MethodLocalServices by delegate {
                             override fun freeze() {
                                 assertEquals(2, returned.get(), "Freeze follows both completed publication callbacks")
-                                assertEquals(expected, methodEntries(f.ops, actor.summaries.all()))
+                                assertEquals(expected, methodEntries(f.ops, actor.summaries.all().withoutPrecomputedStaticDefault()))
                                 delegate.freeze()
                                 localFrozen.incrementAndGet()
                             }
@@ -232,7 +232,7 @@ class RunSchedulingTest {
                     assertEquals(RunStatus.COMPLETE, result.status)
                     val actor = result.analyzers.single()
                     assertSame(actorRef.get(), actor)
-                    assertEquals(expected, methodEntries(f.ops, actor.summaries.all()))
+                    assertEquals(expected, methodEntries(f.ops, actor.summaries.all().withoutPrecomputedStaticDefault()))
                     assertEquals(6L, actor.steps)
                     assertEquals(2, notifications.get())
                     assertEquals(2, returned.get())

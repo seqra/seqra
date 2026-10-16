@@ -24,7 +24,13 @@ class Run1StaticFootprint(
     fun ownsPoint(cls: Int): Boolean = allStatic || cls in wideClasses || cls in classPoints
 
     /** Request-side structural supply ignores E. Ordinary summary projection must retain it. */
-    fun selectedFields(input: Facts, checkpoint: () -> Unit = {}): Set<Run1Slot.StaticField> = buildSet {
+    fun selectedFields(input: Facts, checkpoint: () -> Unit = {}): Set<Run1Slot.StaticField> =
+        suppliedFields(input, checkpoint, if (allStatic || wideClasses.isNotEmpty()) fieldUniverse else fieldSlots, ::owns)
+
+    /** Actual geometric supply, independently selected for F or a symbolic wide mark scope. */
+    internal fun suppliedFields(input: Facts, checkpoint: () -> Unit,
+                                candidates: Set<Run1Slot.StaticField> = fieldUniverse,
+                                select: (Int, Int) -> Boolean): Set<Run1Slot.StaticField> = buildSet {
         if (input.base != STATIC) return@buildSet
         val root: TrieNode<*> = when (input) {
             is FlowTree -> input.root
@@ -32,9 +38,9 @@ class Run1StaticFootprint(
             is Reach -> return@buildSet
         }
         fun fromUniverse(cls: Int? = null) {
-            for (slot in fieldUniverse) {
+            for (slot in candidates) {
                 checkpoint()
-                if ((cls == null || cls == slot.cls) && owns(slot.cls, slot.field)) add(slot)
+                if ((cls == null || cls == slot.cls) && select(slot.cls, slot.field)) add(slot)
             }
         }
         if (root.hasRequestBroadLeaf()) { fromUniverse(); return@buildSet }
@@ -44,7 +50,7 @@ class Run1StaticFootprint(
                 if (!child.isEmpty) {
                     val slot = Run1Slot.StaticField(cls, field)
                     check(slot in fieldUniverse) { "Static input field is absent from the frozen prescan universe: $slot" }
-                    if (owns(cls, field)) add(slot)
+                    if (select(cls, field)) add(slot)
                 }
             }
         }

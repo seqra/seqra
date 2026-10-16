@@ -1,6 +1,8 @@
 # Run-1 requests, field writes and static summaries
 
-Date: 16 October 2026. Status: complete selected proposal; **not implemented**.
+Date: 16 October 2026. Status: implemented; core validation passes; strict
+application precision remains open. See the
+[validation report](../reports/bidirectional-run1-selective-preservation-validation-20261016.md).
 This implementation proposal follows the single
 [Run-1 requests, field writes and static summaries specification](../../spec/run1-field-writes.md).
 That specification includes prescan, field/mark requests, replay and batching,
@@ -12,8 +14,9 @@ No IR-storage, reference-manager or identity-cache rewrite is included.
 
 Latest measured iteration: **run-1, FORWARD, limit 1; OOM**. No completed
 iteration or accepted forward report. Measurements execute `4acde739b`, captured
-at `05cf9ad62`; current `b6d39383a` has the same core tree. No performance result
-exists for this proposal. The target remains run-1 **engine time** within 60 seconds.
+at `05cf9ad62`. These measurements predate the selected implementation.
+No fresh project performance result is available. The target remains run-1
+**engine time** within 60 seconds.
 
 ## 1. What changes, and what stays the same
 
@@ -149,6 +152,34 @@ For an excluded-mark copy g→f, collect source interest g/T and route it to
 its actual original input; do not substitute output f for the source.
 
 ## 4. Mark requests: storage, barriers and propagation
+
+The [static request lifecycle](../../spec/run1-field-writes.md#221-static-request-lifecycle)
+is normative. Prescan builds F and B once; an owner borrows them before any
+input is visible. F is a read plan, not a stored mark request. B is part of R
+from construction, with no copy into P/dynamic R and no startup propagation.
+Only changed-origin or new dynamic interests need the barrier/notification
+path below. Both source and sink conditions use this workflow.
+
+```kotlin
+// Prescan closure uses the calls already resolved during prescan.
+val plans = closeStaticPlans(resolvedCalls, localReads, localMarkNeeds, localWrites)
+
+// Once per live full MethodKey. Contexts borrow the shared CommonMethod plan.
+val summaryStorage = SummaryStorage(
+    method = key, ap = ap, ops = ops, steps = steps,
+    precomputedRequests = plans[key.method].precomputedRequests,
+)
+var temporary = RequestStorage() // empty base; dynamic offers only
+
+// Input-side concrete emission reads effective B + dynamic rows under the lock.
+val rows = summaryStorage.borrowMatchingRequests(actualInput)
+// Consume immutable borrowed rows after unlocking; only actual TAINT supplies T.
+emitConcreteAnswers(actualInput, rows)
+```
+
+The closure/emitter names above are semantic pseudocode. SummaryStorage's
+constructor and borrowing API are the ordinary runtime APIs. Construction
+makes B visible immediately; it does not call `commit` for B or notify callers.
 
 One authoritative relation lives in live SummaryStorage:
 
@@ -493,6 +524,36 @@ witnesses. Synthetic virtual exits alone do not prove return. Only later
 strong publications from complete runs become reusable records under the
 existing full-premise, limit, demand and may/must read-view contracts.
 
+Later-run input admission uses the actual current query. Do not also start an
+old, wider guide as an executable initial for that input. The guide remains a
+phase/seed hint; a concrete guide may additionally refine the actual bounded
+input by intersection, retaining its supplied mark and creating no FLOW.
+This applies to every base. It prevents a precise field query
+from also receiving an unrelated coarse abstract-root response. Install the
+whole query batch before starting it; replay already computed raw responses
+when an initial first becomes authorized.
+
+Fresh production strong runs start from ZERO and concrete requirements.
+Current-query emission preserves those marks; K6 then preserves concrete
+nonzero support through the engine. External FLOW queries remain legal and
+have their own AP precision obligations. The implementation tests must check
+the production no-FLOW invariant without claiming that this proves the
+external broad-root case.
+
+Keep the existing I11(e) discovery graph and seed placement:
+
+```kotlin
+val backwardGraph = JIRExitWiredGraph(forwardGraph).reversed
+fun startNodes(zero: Boolean) = exits.filter { zero || !it.exceptional }
+// Backward ZERO reaches a call: its ordinary seed walk starts at BOUND.
+```
+
+Only the backward graph has exceptional completion links for nonreturning
+code. This lets ZERO discover sink sites and nested calls without a normal
+return; local seed preimages can reach an enclosing source. The forward
+normal-return relation stays unchanged. Tests must provide this discovery
+coverage and keep the normal exit unreachable for nonreturning controls.
+
 ## 10. Proofs, implementation order and validation
 
 The constructive laws are: separate least F/B/W closures; nine-family and
@@ -539,4 +600,4 @@ zero nonempty-E F1 payloads, zero propagated abstract roots, default summary
 rows and notifications per actor, run-1 versus later root initials,
 new analyses/input groups and retained bytes. Report reached, completed and
 accepted iteration on every measurement. IR storage and new cache/reference
-managers remain out of scope. Analyzer implementation is unchanged.
+managers remain out of scope.

@@ -4,7 +4,7 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.*
 import org.opentaint.dataflow.bidi.engine.*
-import org.opentaint.dataflow.bidi.fixtures.DriverFixtures
+import org.opentaint.dataflow.bidi.fixtures.*
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.interp.CallPoint.*
 import org.opentaint.dataflow.bidi.interp.StageKind.*
@@ -81,7 +81,7 @@ class CurrentSequenceTest {
     }
 
     @Test
-    fun `WRAP stays zero only after its normal record removes callee demand while root cuts refine through five runs`(): Unit {
+    fun `WRAP uses concrete current queries while source cuts refine through five runs`(): Unit {
         DriverFixtures().use { f ->
             val p = f.program
             val root = p.method("WRAP root", straight(3), 2).key()
@@ -105,20 +105,30 @@ class CurrentSequenceTest {
             val from = p.pattern(argument, tail = Tail.STAR, mark = MarkSlot.STAR)
             val to = Conclusion(PathFact(returned, listOf(field), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty, false)
             assertContains(raw(f, f.results[0], wrap), setOf(from) to to)
-            assertTrue(selected(f, f.results[0], wrap).isEmpty())
-            assertContains(driver.frontiers[0].analysed, wrap)
-            assertTrue(driver.frontiers[0].demandEdges[wrap] == null)
-            for (index in 1..4) {
-                assertContains(driver.frontiers[index].zeroOnly, wrap)
-                assertTrue(wrap !in driver.frontiers[index].analysed)
-                assertTrue(f.configs[index].demand!!.near(wrap, argument, null).isEmpty())
-                assertTrue(f.configs[index].demand!!.near(wrap, returned, null).isEmpty())
-                assertTrue(raw(f, f.results[index], wrap).all { it.first == setOf(ZERO_PATTERN) })
-                val selected = selected(f, f.results[index], wrap)
-                assertEquals(if (f.results[index].direction == Direction.BACKWARD)
-                    setOf(setOf(ZERO_PATTERN) to Conclusion(ZERO_FACT, ExclusionSet.Empty, false))
-                    else emptySet(), selected)
-                assertTrue(driver.frontiers[index].recordCrossings >= 1)
+            assertEquals(raw(f, f.results[0], wrap), selected(f, f.results[0], wrap),
+                "F1 normal summaries are candidate guidance, never executable native records")
+            val scalar = DirectCurrentIteration(p, listOf(root), listOf(1, 2, 3, 4, 5)).run()
+            assertEquals(f.results.map { it.runIndex }, scalar.runs.map { it.index })
+            val bases = listOf(AccessPathBase.Zero, STATIC, argument, returned, x, r, z)
+            val universe = BoundedDenotation(bases, listOf(a, b, c, field, p.field("fresh")),
+                listOf(mark.mark, p.mark("fresh"), TaintMark.ZERO), 4)
+            for ((actual, expected) in f.results.zip(scalar.runs)) {
+                val actualRows = actual.analyzers.flatMap { actor -> raw(f, actual, actor.key).map { (premise, value) ->
+                    ObservedEdge(actor.key, premise, value)
+                } }.toSet()
+                val actualGuides = actual.analyzers.flatMap { actor -> selected(f, actual, actor.key).map { (premise, value) ->
+                    ObservedEdge(actor.key, premise, value)
+                } }.toSet()
+                RunObservation(rawSummaries = expected.observation.rawSummaries,
+                    selectedDemand = expected.observation.selectedDemand).assertEquivalent(
+                    RunObservation(rawSummaries = actualRows, selectedDemand = actualGuides), universe)
+                if (actual.runIndex > 1) {
+                    val inputs = f.processed.filter { it.run == actual.runIndex && it.method == wrap }
+                    assertTrue(inputs.isNotEmpty())
+                    assertTrue(inputs.all { it.delta.premise.members.all { member -> member.isZero ||
+                        member.mark is MarkSlot.Concrete } }, "Strong production phases never execute FLOW guidance")
+                    assertContains(driver.frontiers[actual.runIndex - 1].analysed, wrap)
+                }
             }
             assertTrue(f.configs[2].seeds.allowsSource(root, root.statement, source))
             assertTrue(f.configs[4].seeds.allowsSource(root, root.statement, source))
@@ -126,10 +136,8 @@ class CurrentSequenceTest {
             assertTrue(f.results[0].witnessesByKey().values.flatten().all { !it.confirmed })
             assertTrue(f.results[2].witnessesByKey().values.flatten().all { !it.confirmed })
             assertTrue(f.results[4].witnessesByKey().values.flatten().all { !it.confirmed })
-            val records = f.records.byEntry(wrap, from).filter { it.direction == Direction.FORWARD }.toList()
-            val record = records.single { f.ops.leaves(it.conclusion).any { it.fact.base == returned } }
-            assertEquals(setOf(Pattern(to.fact, to.exclusion)), f.ops.leaves(record.conclusion).toSet())
-            assertTrue(records.any { f.ops.leaves(it.conclusion).any { it == from } })
+            assertTrue(f.records.byEntry(wrap, from).none { it.premise.toPattern() == from }, "F1 FLOW guidance is not persisted as a native record")
+            assertTrue(f.results.drop(1).all { result -> result.analyzers.any { it.key == wrap && it.nonZeroInitial } })
             assertTrue(f.results.filter { it.direction == Direction.BACKWARD }.all { it.witnessesByKey().isEmpty() })
         }
     }
@@ -139,7 +147,9 @@ class CurrentSequenceTest {
         DriverFixtures().use { f ->
             val p = f.program
             val root = p.method("worker caller", straight(3), 2).key()
-            val worker = p.method("nonreturning worker", listOf(listOf(1), listOf(2), listOf(1), emptyList()), 3).key()
+            val worker = p.method("nonreturning worker",
+                listOf(listOf(1), listOf(2), listOf(1), emptyList(), emptyList()),
+                normalExit = 3, exceptionalExit = 4, backwardExitDiscovery = true).key()
             val t = MarkSlot.Concrete(p.mark("worker T"))
             val source = PathEdge(ZERO_FACT, PathFact(x, emptyList(), Tail.EXACT, t), ExclusionSet.Empty)
             sources(f, root, source)
@@ -155,15 +165,38 @@ class CurrentSequenceTest {
             ), listOf(finding), BEFORE, AFTER))
             val driver = f.driver(FixedLimits(listOf(1, 2, 3)))
             val report = driver.analyze(listOf(root))
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 1, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            val sinkSeeds = f.configs[1].seeds.at(worker, p.inst(worker, 1))
+            assertTrue(sinkSeeds.any { it is Seed.Sink && it.rule === finding.rule &&
+                it.requirement == p.pattern(argument, mark = t) }, "F1 prepares the exact nonreturning-worker sink seed")
+            assertTrue(f.results[0].witnessesByKey().values.flatten().any { it.methodKey == worker &&
+                it.edges.any { edge -> edge.layer == Layer.NORMAL } }, "The original source really reaches the local sink")
+            assertTrue(f.processed.any { it.run == 2 && it.method == worker && it.delta.node == p.inst(worker, 1) },
+                "Backward ZERO discovers the sink through exceptional-only S11 wiring; " +
+                    "B2workerNodes=${f.processed.filter { it.run == 2 && it.method == worker }.map { it.delta.node.location.index }} " +
+                    "seeds=$sinkSeeds")
+            assertContains(f.results[1].analyzers.flatMap { it.sourceHits!!.entries().toList() },
+                Triple(root, root.statement, source))
+            assertTrue(f.configs[2].seeds.allowsSource(root, root.statement, source))
             assertEquals(listOf(finding.rule), report.entries.map { it.key.rule })
             assertEquals(ReportState.DEMAND, report.entries.single().state)
-            val actor = f.results.single().analyzers.single { it.key == worker }
-            assertTrue(actor.summaries.all().none())
+            assertEquals(3, report.entries.single().run)
+            val actor = f.results.first().analyzers.single { it.key == worker }
+            assertTrue(actor.summaries.all().all { (premise, facts) ->
+                premise is InitialAp && premise.base == STATIC && premise.path == null && facts.base == STATIC
+            }, "Only the F1 stored default exists; no actual normal-return result is fabricated")
+            assertTrue(f.results.last().analyzers.single { it.key == worker }.summaries.all().none())
             assertTrue(f.links(1, actor.key).asSequence().any { it.caller.caller == root && it.linkLayer == Layer.NORMAL })
             assertTrue(f.processed.any { it.method == worker && it.delta.node == p.inst(worker, 2) })
-            assertTrue(f.processed.none { it.method == worker && it.delta.node == p.inst(worker, 3) })
-            assertContains(driver.frontiers.single().analysed, worker)
+            assertTrue(f.processed.none { it.run % 2 == 1 && it.method == worker &&
+                it.delta.node in listOf(p.inst(worker, 3), p.inst(worker, 4)) },
+                "Discovery wiring never adds a forward normal or exceptional return")
+            val scalar = DirectCurrentIteration(p, listOf(root), listOf(1, 2, 3)).run()
+            assertEquals(mapOf(HistoricalFinding(finding.rule, p.inst(worker, 1)) to HistoricalState.DEMAND), scalar.findings)
+            assertContains(scalar.runs[1].observation.sourceHits, ObservedSourceHit(root, root.statement, source))
+            assertTrue(scalar.runs.last().observation.rawSummaries.none { it.method == worker },
+                "The independent scalar discovery graph also produces no forward worker summary")
+            assertContains(driver.frontiers.first().analysed, worker)
         }
     }
 

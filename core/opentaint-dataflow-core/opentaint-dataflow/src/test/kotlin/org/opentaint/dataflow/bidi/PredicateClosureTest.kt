@@ -93,7 +93,7 @@ class PredicateClosureTest {
         p.fields + f.program.field("fresh"), p.marks + f.program.mark("fresh") + TaintMark.ZERO, 2)
 
     private fun compare(f: DriverFixtures, p: Program, config: RunConfig): RunObservation {
-        val expected = NaiveClosure(f.program, config).run()
+        val expected = NaiveClosure(f.program, config, semantics = NaiveClosure.Semantics.SELECTED).run()
         val raw = RawCurrentClosure(f.program, config, f.program.inputs(config)).run()
         expected.assertEquivalent(raw, universe(f, p))
         for (sameUnit in listOf(false, true)) for (policy in listOf(SchedulePolicy.FIFO,
@@ -130,7 +130,7 @@ class PredicateClosureTest {
         for (limit in listOf(1)) DriverFixtures().use { f ->
             val p = program(f, width = 8)
             val config = f.program.config(L = limit, roots = listOf(p.root))
-            val expected = NaiveClosure(f.program, config).run()
+            val expected = NaiveClosure(f.program, config, semantics = NaiveClosure.Semantics.SELECTED).run()
             val raw = RawCurrentClosure(f.program, config, f.program.inputs(config)).run()
             expected.assertEquivalent(raw, universe(f, p))
             assertTrue(expected.requests.mapNotNull { (it.kind as? RequestKind.Mark)?.mark }
@@ -207,31 +207,43 @@ class PredicateClosureTest {
                         Pattern(edge.conclusion.fact, edge.conclusion.exclusion))
             } }
             val demand = canonical.flatMap { edge -> edge.premise.map { premise ->
-                edge.method to DemandPattern(Pattern(edge.conclusion.fact, edge.conclusion.exclusion), premise)
+                val value = edge.conclusion
+                val entry = Pattern(value.fact.copy(
+                    tail = if (value.fact.tail == Tail.STAR || value.fact.tail == Tail.ANY_TAINT) Tail.ANY else value.fact.tail,
+                    mark = if (value.fact.mark is MarkSlot.Star) MarkSlot.STAR else value.fact.mark),
+                    if (value.fact.tail == Tail.EXACT) value.exclusion else ExclusionSet.Empty)
+                edge.method to DemandPattern(entry, premise)
             } }.distinct()
-            // Caller: Y, result and END. Callee: Y's answer, three return-premise chains
-            // (X, Y, Z), and END. Repeated Y chains exact-deduplicate after expansion.
-            assertEquals(mapOf(p.root to 3, p.callee to 5), demand.groupingBy { it.first }.eachCount())
+            // All F1 normal publications and the stored static defaults join demand
+            // guidance. Repeated rows still exact-deduplicate after expansion.
+            assertEquals(mapOf(p.root to 7, p.callee to 12), demand.groupingBy { it.first }.eachCount())
             for ((method, pattern) in demand) assertContains(handoff.demand.near(method, pattern.entry.fact.base,
                 f.manager.path(pattern.entry.fact.path)), pattern)
             val bounded = universe(f, p)
             fun demandCells(values: List<Pair<MethodKey, DemandPattern>>) = values.groupBy { it.first to it.second.exit }
                 .mapValues { (_, rows) -> rows.flatMap { bounded.marked(it.second.entry) }.toSet() }
             val rawDemand = expected.selectedDemand.flatMap { edge -> edge.premise.map { premise ->
-                edge.method to DemandPattern(Pattern(edge.conclusion.fact, edge.conclusion.exclusion), premise)
+                val value = edge.conclusion
+                val entry = Pattern(value.fact.copy(
+                    tail = if (value.fact.tail == Tail.STAR || value.fact.tail == Tail.ANY_TAINT) Tail.ANY else value.fact.tail,
+                    mark = if (value.fact.mark is MarkSlot.Star) MarkSlot.STAR else value.fact.mark),
+                    if (value.fact.tail == Tail.EXACT) value.exclusion else ExclusionSet.Empty)
+                edge.method to DemandPattern(entry, premise)
             } }.distinct()
             assertEquals(demandCells(rawDemand), demandCells(demand), "Canonicalization preserves the complete required-location union")
             // Enumerate actual candidates only at this observation boundary. All L1 entries
             // lie in this independent universe, and covering excludes the implicit zero demand.
-            val observedDemand = listOf(p.root, p.callee).flatMap { method -> bounded.positions.flatMap { position ->
-                handoff.demand.covering(method, position.base, f.manager.path(position.path)).map { method to it }
-            } }.distinct()
+            val observedDemand = listOf(p.root, p.callee).flatMap { method ->
+                bounded.positions.flatMap { position ->
+                    handoff.demand.covering(method, position.base, f.manager.path(position.path)).map { method to it }
+                } + handoff.demand.covering(method, STATIC, null).map { method to it }
+            }.distinct()
             val earlierChild = p.root to DemandPattern(f.program.pattern(y, p.fields.take(1), Tail.ANY,
                 MarkSlot.Concrete(p.marks[1])), ZERO_PATTERN)
             assertContains(rawDemand, earlierChild, "The independent scalar history contains the cut Y child")
             val rawHandoff = (demand + earlierChild).toSet()
             assertEquals(rawHandoff, observedDemand.toSet(), "Pin every full method/exit/path/tail/mark/E of this schedule")
-            assertEquals(mapOf(p.root to 4, p.callee to 5), handoff.demandEdges)
+            assertEquals(mapOf(p.root to 8, p.callee to 12), handoff.demandEdges)
             assertEquals(demandCells(rawDemand), demandCells(observedDemand))
             val seed = Seed.PredicateSink(checkNotNull(p.sink.occurrenceId), p.callee, node)
             // Use the actual physical handoff. A covered child can still emit a narrower initial,
@@ -307,7 +319,7 @@ class PredicateClosureTest {
             val sink = SinkRule(f.rule("equal-looking proof sink"), 0, predicate.leaves, emptyList(), id, predicate)
             p.exit(root, 1, ExitRules(RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY, listOf(sink)), false, emptySet()))
             val config = p.config(roots = listOf(root))
-            val expected = NaiveClosure(p, config).run()
+            val expected = NaiveClosure(p, config, semantics = NaiveClosure.Semantics.SELECTED).run()
             val actual = ProductionSchedule(p, config, quantum = 1).run()
             val universe = BoundedDenotation(listOf(AccessPathBase.Zero, x), listOf(field, p.field("fresh")),
                 listOf(mark.mark, p.mark("fresh")), 2)
