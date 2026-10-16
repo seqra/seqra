@@ -34,6 +34,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.bidi.interp.JIRInterpreter
 import org.opentaint.dataflow.jvm.bidi.interp.JIRStaticMetadata
 import org.opentaint.dataflow.jvm.bidi.interp.JIRStaticMetadataCollector
+import org.opentaint.dataflow.jvm.bidi.interp.MetadataAliases
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.bidi.interp.JIRMethodEntries
 import org.opentaint.dataflow.jvm.bidi.interp.PrescanLambdas
@@ -105,19 +106,24 @@ class JIRBidiAnalysis internal constructor(
             JIRLocalAliasAnalysis.Params(useAliasAnalysis = false), cancellation, lambdas, formStatistics = null)
         val compiler = JIRInterpreter(scratch, taintConfig, source.factTypeChecker, callResolver, resolver,
             entries, params.defaultGetModel, externalMethodTracker = null)
-        val collector = JIRStaticMetadataCollector(compiler)
+        // Scratch forms disable AA construction. Metadata knowledge follows the real
+        // runtime policy, including methods with no retained prescan context/AA owner.
+        val aliasKnowledge = MetadataAliases.forRuntime(params.aliasAnalysisParams.useAliasAnalysis)
+        val collector = JIRStaticMetadataCollector(compiler, aliasKnowledge)
         val locals = LinkedHashMap<CommonMethod, JIRStaticMetadata>()
         var unknownAliasContexts = 0L
+        var graphOnlyMethods = 0L
         source.forEachPrescanContext { context ->
             cancellation.checkpoint()
             val key = context.methodEntryPoint
-            if (context.aliasAnalysis != null && context.aliasAnalysis.computedAliasInfo() == null) unknownAliasContexts++
-            val metadata = collector.collect(key, context.aliasAnalysis)
+            if (aliasKnowledge == MetadataAliases.Unknown) unknownAliasContexts++
+            val metadata = collector.collect(key)
             locals[key.method] = locals[key.method]?.union(metadata) ?: metadata
         }
         for (method in graph.methods + roots.map { it.method }) {
             cancellation.checkpoint()
             if (method in locals) continue
+            graphOnlyMethods++
             val jir = method as JIRMethod
             if (jir.instList.size == 0) { locals[method] = JIRStaticMetadata.EMPTY; continue }
             val keys = resolver.resolveEntryPoints(jir, EmptyMethodContext)
@@ -133,7 +139,8 @@ class JIRBidiAnalysis internal constructor(
             "localAbstractions=${locals.values.sumOf { it.abstractions.size.toLong() }}, " +
             "declaredMarks=${locals.values.sumOf { it.marks.size.toLong() }}, " +
             "potentialPassInputGates=${locals.values.sumOf { local -> local.marks.count { it.role == org.opentaint.dataflow.bidi.engine.StaticMarkRole.INPUT_GATE }.toLong() }}, " +
-            "unknownAliasContexts=$unknownAliasContexts, baseWideCleanerMarks=${locals.values.sumOf { it.cleanerMarks.size.toLong() }}; " +
+            "metadataAliasPolicy=$aliasKnowledge, contextsUnderUnknownAliasPolicy=$unknownAliasContexts, " +
+            "graphOnlyMethods=$graphOnlyMethods, baseWideCleanerMarks=${locals.values.sumOf { it.cleanerMarks.size.toLong() }}; " +
             "pass needs conservatively include potential unresolved branches" }
     }
 

@@ -10,6 +10,11 @@ without a completed iteration or accepted report. The selected frontend's domain
 construction is therefore not validated by the passing core tests. This normative
 contract does not imply that the measured implementation meets it end to end.
 
+The selected [static-domain and frozen-base change](../docs/design/bidirectional-static-domain-and-frozen-requests-20261016.md)
+adds the producer-domain and virtual-base obligations in §4. They are requirements
+for the implementation under development. This document records no completed
+runtime repair, new project result or new Lean validation receipt.
+
 Use this document with [ap.md](ap.md), [analyzer-core.md](analyzer-core.md) and
 [interpreter.md](interpreter.md). The constructive proof statements and checked
 scope are in [run1-request-proofs.md](run1-request-proofs.md). The formal modules
@@ -249,6 +254,63 @@ runtime target absent from that graph is a contract failure. Collect code reads,
 writes, transfers, cleaners, both source/sink positive condition leaves and concrete
 microedge input gates and every generic excluded-mark target. Keep original rule semantics outside the request plan.
 
+### 4.1 Producer domain is not method ownership
+
+Keep three finite sets separate:
+
+```text
+Sigma.classes     legal class-point coordinates a selected producer can deliver
+Sigma.fields      legal (class, first static field) coordinates it can deliver
+H[M]              transitive semantic ownership/read scopes of method M
+S[M]              resolved field slots used to construct frozen B[M]
+```
+
+Every `(C,f)` in Sigma.fields has C in Sigma.classes. A class can belong to
+Sigma.classes with no field in Sigma.fields. A domain-only coordinate adds no
+ownership, selected field, request or initial. Conversely, a repair must add H and
+mark needs when an omitted producer can affect that component; adding only Sigma
+does not make the untouched frame safe. Wide H scopes and actual relevant input
+activation do not make S equal to the whole domain.
+
+Construct Sigma from neutral, validated producer coordinates on the completed
+prescan graph, then remap their symbols through the runtime AP manager. Do not
+copy scratch-manager IDs. Preserve each class/field pair; separate class and field
+sets do not authorize their Cartesian product. Use an independent shared domain
+descriptor only when the existing method descriptors do not establish coverage.
+Do not enumerate arbitrary classpath fields or start new call resolution or alias
+analysis merely to populate the domain.
+
+The frontend bridge must cover these cases from the actual constructors:
+
+| Producer/route | Required coordinate argument |
+| --- | --- |
+| Static code reads/writes | Collected class and first-field symbols equal the emitted symbols |
+| Statement aliases and persisted call aliases | Alias conversion has a finite collected coordinate basis, including a first field created by a write or prefix composition |
+| Sources, sink end actions, pass and generated/native forms | Every possible accepted target and relevant condition scope is collected under the metadata policy |
+| Cleaners, strong writes and generic excluded targets | Affected components enter H and their required interest creators remain present |
+| Bindings, cuts and summary composition | Preserve an existing prefix or use a collected target; a cut is not a domain repair |
+| Initial constructors | Use supplied or selected coordinates; a request alone invents no supplier or coordinate |
+| Later native/opposite records | Keep the same coordinate and owner classification after request-plan release |
+
+For metadata predicates, distinguish runtime-disabled AA, unavailable AA and a
+completed result proved to cover later runtime outcomes. When runtime AA can run,
+null, uncomputed, failed or non-covering prescan knowledge is Unknown. A single
+prescan context is not a proof for all runtime contexts. Unknown alias-sensitive
+source **and** sink conditions keep their potential static effects/mark needs;
+absence of an AA object is not evidence that a branch is false. This approximation
+does not change ordinary runtime predicate evaluation or eligibility. Preserve
+signed NNF, raw validation before folding, false/contradictory branches and the
+distinct entry, ordinary predicate and source-rewriter policies.
+
+Prove domain closure by induction over the constructor cases and the actual call
+routes. A fixture-declared domain or a check that assumes each delivered coordinate
+is already in Sigma is insufficient. Keep the explicit class/field guards. An
+unknown component cannot be dropped, returned as identity or inserted into Sigma
+at runtime. The measured `4c64c579f` failures refute frontend conformance to this
+invariant; their unprinted producer remains unknown until the diagnostic identifies it.
+
+### 4.2 Closed needs and shared effective requests
+
 Build finite local descriptors and the least union closure over resolved calls:
 
 ```text
@@ -329,11 +391,64 @@ The skip is per queried slot, not per static input or per whole callee plan. If 
 input under original C.f has FLOW branches at both C.f and C.g, B[C.f] may skip,
 but B[C.g] can require a new mark on original C.f. Preserve that second join.
 
-The field universe Sigma is finite and complete for the selected program: resolved
-static fields in canonical prescan IR, rules, models and accessors, together with
-their legal class points. Every accepted runtime static position belongs to it.
-Reject a violation; do not silently omit a field. This condition bounds the model's
-domain, not the number of eagerly admitted `(field,T)` requests.
+The domain construction in §4.1 must establish that every accepted runtime static
+position belongs to Sigma. This bounds the model's domain, not the number of
+eagerly admitted `(field,T)` requests. It is a frontend proof and test obligation,
+not a consequence of the request-set or call-closure equations.
+
+### 4.3 Virtual frozen base
+
+The coverage-only version keeps a materialized map as the reference control.
+Once its producer-domain repair is validated, factoring changes only how the same
+logical B is represented. For s = StaticSlot(C,f), define:
+
+```text
+K[C] = rootMarks union classMarks[C]  // existing once-per-class common value
+B[M,s] = K[C] union fieldMarks[s], if s in S[M]
+         empty,                    otherwise.
+```
+
+Non-static Base slots have no frozen static B. Class-point mark metadata is
+separate: an exact class need creates no field request, and the field-request
+root includes cleaner marks that are not interchangeable with root class-point
+needs. No new request role or full query is introduced.
+
+Represent B by immutable selected slots, common values and sparse field needs.
+R borrows this same base value. A lookup outside S is empty even when root/class
+marks are nonempty. A later supplied outside-S field can activate a wide need
+through P and D; it does not mutate or bypass S. Do not retain both the expanded
+map and virtual representation, copy B into an actor, or cache merged rows.
+Temporary/dynamic deltas and event payloads remain ordinary immutable mark sets.
+
+A borrowed B row is a distinct union of its existing common and field sets.
+Membership and emptiness must not hide a linear union. Its cursor consumes the
+sorted source IDs, yields each ID once in ascending order and checks cancellation.
+A duplicate consumes a work unit even if it invokes no callback; step(1) must
+advance through duplicate-only input. Do not use a mark ID as a sentinel or compare
+IDs by subtraction. Exact cardinality is not the sum of overlapping segment sizes.
+Effective R retains the existing order: distinct sorted B, then disjoint sorted D;
+this does not assert that the combined R cursor is globally sorted.
+
+For a broad static candidate pass, enumerate nonempty B rows in the existing S
+order, then static D keys whose B row is empty. The second condition is not
+`key not in S`: a selected slot with empty B can acquire a nonempty D. Yield each
+effective static row once; non-static slots use their direct base lookup. Build matching descriptors
+under SummaryStorage's existing lock; each borrows immutable B and the captured
+immutable D value. Do not return an iterator over mutable additions after unlock.
+Narrow matching remains direct; a broad frozen-row pass scans S, not global Sigma.
+
+Every full MethodKey keeps its own D and P even when it shares B with another
+context, entry or SCC member. Updating, cancelling or releasing one owner cannot
+change another owner's relation or an earlier immutable view. Release mark-plan
+owners only after joined run-1 consumers finish. Later summary/record readers keep
+the stable mark-free H/Sigma footprint and normal-return guards. Do not mutate
+borrowed descriptor objects during release or retain new cursor/history owners.
+
+Logical row/member counts must still describe the complete B relation. Compute
+them from selected-class counts and sparse `fieldMarks[s] minus K[class(s)]`,
+with checked arithmetic and cancellation, without expanding all field/mark pairs.
+Measure physical descriptors, selected sets, sparse entries, views and query work
+separately. Zero expanded map rows is not zero requests or a measured net saving.
 
 ## 5. Static ownership and the untouched frame
 
@@ -425,6 +540,8 @@ immutable effective R values. R synchronization belongs to SummaryStorage. P has
 one actor writer. The immutable B is present in every R read, including an otherwise
 stale dynamic view; therefore P and D contain no B member. No second cumulative
 question table, per-subscriber copy or overlay materialization is permitted.
+If subtraction from R is empty, return without inserting into P or scheduling new
+request-only Work. This preserves the existing admission guard.
 
 At the method fact-queue-empty boundary, flush ordinary publications, then execute
 exactly this ownership sequence:
@@ -520,6 +637,23 @@ assume an abstract 'coverage' predicate with the desired final conclusion built 
 The read-time packed AP adapter, complete JVM metadata extraction, recursive engine
 closure, native/opposite record readers and scheduling refinement need their own
 bridges; a finite scalar theorem is not a full implementation proof.
+
+The selected domain/factoring change additionally requires constructor-based
+Sigma closure, independent corrected-map/virtual-base lookup and row-iteration
+equality, exact overlap handling, and isolated full-key residuals. Run the actual
+JVM producer through metadata and runtime output, including the null-AA gather
+fallback; do not prove coverage by supplying the expected coordinate as a fixture
+domain. Retain class points with no fields and supplied domain fields outside H.
+Use raw finite descriptors and an independent graph fixed point to expand the map
+oracle; it must not call the virtual lookup/union implementation.
+
+Validate the coverage-only map control first and record its strict main comparison
+and reached/completed/accepted scope. A resource-limited project prefix is not a
+completed report oracle and does not block testing the selected memory change;
+use completed independent finite controls for semantic equality. Compare factoring
+with that corrected control, not the aborted `4c64c579f` runs. Preserve all remaining
+strict losses and the eight recorded application precision failures. No receipt
+or runtime PASS for these new bridges is established by this specification.
 
 The closed initial grammar and precomputed lifecycle additionally require these
 separate obligations; their checked model/domain must be reported in

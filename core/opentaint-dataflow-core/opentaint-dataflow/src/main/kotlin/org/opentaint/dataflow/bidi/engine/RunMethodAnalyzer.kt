@@ -42,6 +42,7 @@ class RunMethodAnalyzer(
         collectRequests = ::collectRequests,
         statistics = context.shared.requestBatchStatistics,
         policyStatistics = context.shared.abstractionStatistics,
+        owner = key,
     ) else null
         private set
     internal fun releaseAbstraction() {

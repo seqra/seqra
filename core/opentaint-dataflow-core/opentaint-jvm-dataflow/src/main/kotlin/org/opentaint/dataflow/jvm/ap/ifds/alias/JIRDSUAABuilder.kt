@@ -233,7 +233,9 @@ private fun InstEvalContext.evalRefValue(value: JIRRef, loc: JIRInst): ExprOrVal
     return when (value) {
         is JIRFieldRef -> {
             if (value.field.isStatic) {
-                val type = value.field.enclosingType.typeName
+                // A static field belongs to its resolved declaring class, as in mkFieldAccess.
+                // The typed reference may name a subclass or use a dotted nested-class name.
+                val type = value.field.field.enclosingClass.name
                 Expr.FieldLoad(RefValue.Static(type), value.field.field)
             }
             else {

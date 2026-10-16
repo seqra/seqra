@@ -13,6 +13,7 @@ import org.opentaint.dataflow.jvm.bidi.fixtures.JIRRuleTestFixtures
 import org.opentaint.dataflow.jvm.bidi.fixtures.NoTaintRules
 import org.opentaint.dataflow.jvm.bidi.fixtures.JIRPrescanFixtures
 import org.opentaint.dataflow.jvm.bidi.interp.JIRStaticMetadataCollector
+import org.opentaint.dataflow.jvm.bidi.interp.MetadataAliases
 import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.ir.api.common.CommonMethod
@@ -200,7 +201,7 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
             val aliases = assertNotNull(f.context(m).aliasAnalysis)
             assertFalse(aliases.hasComputedAliasInfo())
             f.beforeResolve = { error("Metadata may not resolve a call") }
-            val metadata = JIRStaticMetadataCollector(interp(rules)).collect(key(m), aliases)
+            val metadata = JIRStaticMetadataCollector(interp(rules), MetadataAliases.Unknown).collect(key(m))
             assertFalse(aliases.hasComputedAliasInfo(), "Metadata must borrow, never initialize, alias analysis")
             assertEquals(setOf("P", "N"), metadata.marks.map { it.mark }.toSet())
         }

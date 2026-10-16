@@ -33,13 +33,16 @@ class JIRMarkAwareConditionRewriter(
 
     override fun rewriteAtom(atom: JirCondition, negated: Boolean): ExprOrConstant {
         // Metadata only. A missing prescan alias result cannot prove either signed branch impossible.
-        if (potentialUnknownAliases && mayNeedAlias(atom)) return trueExpr
+        if (isMetadataUnknown(atom)) return trueExpr
         if (!negated) {
             return rewriteAtom(atom, positiveAtomEvaluator)
         }
 
         return rewriteAtom(atom, negativeAtomEvaluator).negate()
     }
+
+    /** Metadata's symbolic-needs lane retains this signed atom instead of folding it to true. */
+    internal fun isMetadataUnknown(atom: JirCondition): Boolean = potentialUnknownAliases && mayNeedAlias(atom)
 
     private fun mayNeedAlias(atom: JirCondition): Boolean {
         val position = when (atom) {

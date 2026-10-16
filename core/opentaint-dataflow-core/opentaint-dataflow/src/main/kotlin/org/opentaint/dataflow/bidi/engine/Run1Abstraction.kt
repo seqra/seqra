@@ -13,6 +13,7 @@ internal class Run1Abstraction(
     private val collectRequests: (Run1Slot, RequestMarkSelection) -> Unit,
     private val statistics: RequestBatchStatistics? = null,
     private val policyStatistics: Run1AbstractionStatistics? = null,
+    private val owner: MethodKey? = null,
 ) {
     private var released = false
 
@@ -39,11 +40,11 @@ internal class Run1Abstraction(
             }
             root.requestChildren(ap.cancellation::checkpoint) { cls, node ->
                 check(cls in profile.footprint.classUniverse) {
-                    "Static input class is absent from the frozen prescan universe"
+                    staticDomainMissMessage(ap, owner, ref, input, profile.footprint, cls, node)
                 }
                 node.requestChildren(ap.cancellation::checkpoint) { field, _ ->
                     check(Run1Slot.StaticField(cls, field) in profile.footprint.fieldUniverse) {
-                        "Static input field is absent from the frozen prescan universe"
+                        staticDomainMissMessage(ap, owner, ref, input, profile.footprint, cls, node, field)
                     }
                 }
             }

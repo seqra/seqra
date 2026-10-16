@@ -17,7 +17,6 @@ import org.opentaint.dataflow.bidi.interp.RuleStatement
 import org.opentaint.dataflow.bidi.interp.SinkRule
 import org.opentaint.dataflow.bidi.interp.StatementSummary
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
-import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
@@ -75,12 +74,25 @@ internal class JIRStaticMetadata(
     }
 }
 
-/** Reuses effective forward forms and immediately discards each compiled form after reading its needs. */
-internal class JIRStaticMetadataCollector(private val interp: JIRInterpreter) {
-    fun collect(key: MethodKey, aliasAnalysis: JIRLocalAliasAnalysis? = null): JIRStaticMetadata {
+/** Prescan completion alone does not certify the outcomes of later, independently timed AA.
+ * A Known state requires that bridge; until then every enabled-AA runtime uses Unknown. */
+internal enum class MetadataAliases {
+    Disabled, Unknown;
+
+    companion object {
+        fun forRuntime(enabled: Boolean): MetadataAliases = if (enabled) Unknown else Disabled
+    }
+}
+
+/** Reuses effective forward forms and immediately discards each compiled form after reading its needs.
+ * No AA owner or completed payload is borrowed or initialized after prescan joins. */
+internal class JIRStaticMetadataCollector(
+    private val interp: JIRInterpreter,
+    private val aliases: MetadataAliases = MetadataAliases.forRuntime(interp.entries.aliasParams.useAliasAnalysis),
+) {
+    fun collect(key: MethodKey): JIRStaticMetadata {
         val ap = interp.manager
-        val availableAlias = aliasAnalysis?.takeIf { it.computedAliasInfo() != null }
-        val unknownAliases = aliasAnalysis != null && availableAlias == null
+        val unknownAliases = aliases == MetadataAliases.Unknown
         val accesses = LinkedHashSet<List<Accessor>>()
         val abstractions = LinkedHashSet<List<Accessor>>()
         val marks = LinkedHashSet<StaticMarkDescriptor>()
@@ -198,7 +210,8 @@ internal class JIRStaticMetadataCollector(private val interp: JIRInterpreter) {
         val method = key.method as JIRMethod
         if (method.instList.size == 0) return JIRStaticMetadata.EMPTY
         val entry = interp.entries[key]
-        val entryRules = JIRBoundaryForms.entryRules(interp, entry, key, availableAlias, unknownAliases)
+        val entryRules = JIRBoundaryForms.entryRules(interp, entry, key, aliasAnalysis = null,
+            potentialUnknownAliases = unknownAliases)
         rules(entryRules)
         val statements = JIRStatementForms(ap, interp.typeFilters, readSources = interp.ruleForms::readSources)
         for (node in method.instList.instructions) {
@@ -216,15 +229,22 @@ internal class JIRStaticMetadataCollector(private val interp: JIRInterpreter) {
             when (node) {
                 is JMethodEnterInst -> Unit
                 is JMethodExitNormalInst, is JMethodExitExceptionalInst ->
-                    rules(JIRBoundaryForms.exitRules(interp, entry, key, node, entryRules, availableAlias, unknownAliases).rules)
+                    rules(JIRBoundaryForms.exitRules(interp, entry, key, node, entryRules, aliasAnalysis = null,
+                        potentialUnknownAliases = unknownAliases).rules)
                 else -> {
                     val call = node.callExpr
                     if (call == null) summary(statements.build(node))
                     else JIRCallPlanBuilder(ap, interp.ruleForms, interp.checker, interp.typeFilters,
                         key, node, call, { _, _, _ -> error("Metadata must not resolve calls") },
-                        interp.epResolver, emptyMap(), aliasAnalysis = availableAlias,
+                        interp.epResolver, emptyMap(), aliasAnalysis = null,
                         defaultGetModel = interp.defaultGetModel, formOwner = interp.entries.formOwner,
-                        potentialUnknownAliases = unknownAliases)
+                        potentialUnknownAliases = unknownAliases,
+                        metadataSourceLiteral = if (unknownAliases) ({ fact ->
+                            literal(Pattern(fact, ExclusionSet.Empty), StaticMarkRole.SOURCE)
+                        }) else null,
+                        metadataSinkLiteral = if (unknownAliases) ({ fact ->
+                            literal(Pattern(fact, ExclusionSet.Empty), StaticMarkRole.SINK)
+                        }) else null)
                         .visitStaticMetadata(::summary, ::sink, ::clean)
                 }
             }

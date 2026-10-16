@@ -38,6 +38,8 @@ import org.opentaint.dataflow.bidi.interp.strongKeep
 import org.opentaint.dataflow.configuration.CommonCondition
 import org.opentaint.dataflow.configuration.TaintCleanReach
 import org.opentaint.dataflow.configuration.isTrue
+import org.opentaint.dataflow.configuration.mkFalse
+import org.opentaint.dataflow.configuration.mkTrue
 import org.opentaint.dataflow.configuration.jvm.Action
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.Condition
@@ -56,6 +58,7 @@ import org.opentaint.dataflow.configuration.jvm.TaintMark as RuleMark
 import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.accessPathBase
+import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionRewriter
 import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.resolveAp
@@ -127,11 +130,15 @@ internal class JIRRuleForms(
 
     /** Validate before folding; entry eligibility can inspect signed output before negative approximation. */
     fun rewriteSourceOrSink(rule: TaintConfigurationItem, rewriter: RuleConditionRewriter<JirCondition>,
-                            projectNegatives: Boolean = true): ExprOrConstant {
+                            projectNegatives: Boolean = true,
+                            potentialMarkLiteral: ((PathFact) -> Unit)? = null): ExprOrConstant {
         check(rule is TaintConfigurationSource || rule is TaintConfigurationSink)
         if (!valid(rule)) return RuleConditionRewriter.falseExpr
         val signed = SignedConditionNormalizer.normalize(rule.rawCondition, manager.cancellation)
-        val rewritten = rewriteStatic(signed, rewriter)
+        val symbolic: ((Condition) -> Unit)? = potentialMarkLiteral?.let { visit ->
+            { condition -> visitPotentialMarkLiterals(rule, condition, visit) }
+        }
+        val rewritten = rewriteStatic(signed, rewriter, symbolic)
         return normalizedSourceOrSink(rewritten, projectNegatives)
     }
 
@@ -144,8 +151,10 @@ internal class JIRRuleForms(
             negativeLiteralsAreTrue = projectNegatives))
     }
 
-    private fun rewriteStatic(condition: Condition, rewriter: RuleConditionRewriter<JirCondition>): ExprOrConstant {
+    private fun rewriteStatic(condition: Condition, rewriter: RuleConditionRewriter<JirCondition>,
+                              symbolicResult: ((Condition) -> Unit)? = null): ExprOrConstant {
         val done = IdentityHashMap<Condition, ExprOrConstant>()
+        val symbolic = symbolicResult?.let { IdentityHashMap<Condition, Condition>() }
         val todo = ArrayDeque<Pair<Condition, Boolean>>().also { it.add(condition to false) }
         while (todo.isNotEmpty()) {
             manager.cancellation.checkpoint()
@@ -174,8 +183,77 @@ internal class JIRRuleForms(
                 is CommonCondition.And -> markJunction(children.map { checkNotNull(done[it]) }, and = true)
                 is CommonCondition.Or -> markJunction(children.map { checkNotNull(done[it]) }, and = false)
             }
+            if (symbolic != null) {
+                fun atom(atom: JirCondition, negative: Boolean): Condition {
+                    if (atom is ContainsMark || atom is ContainsMarkOnAnyField ||
+                        (rewriter as? JIRMarkAwareConditionRewriter)?.isMetadataUnknown(atom) == true) {
+                        val leaf: Condition = CommonCondition.Atom(atom)
+                        return if (negative) CommonCondition.Not(leaf) else leaf
+                    }
+                    val result = checkNotNull(done[node])
+                    check(result.isTrue || result.isFalse) { "A known basic atom must be constant" }
+                    return if (result.isTrue) mkTrue() else mkFalse()
+                }
+                symbolic[node] = when (node) {
+                    is CommonCondition.True -> mkTrue()
+                    is CommonCondition.Atom -> atom(node.atom, negative = false)
+                    is CommonCondition.Not -> (node.arg as? CommonCondition.Atom)?.let { atom(it.atom, negative = true) }
+                        ?: mkFalse()
+                    is CommonCondition.And -> CommonCondition.And(children.map { checkNotNull(symbolic[it]) })
+                    is CommonCondition.Or -> CommonCondition.Or(children.map { checkNotNull(symbolic[it]) })
+                }
+            }
         }
+        if (symbolic != null) checkNotNull(symbolicResult)(checkNotNull(symbolic[condition]))
         return checkNotNull(done[condition])
+    }
+
+    /** Source/sink metadata needs retain unknown signed basic atoms. Only negative MARK
+     * literals receive the existing positive approximation, after signed falsity folding. */
+    private fun visitPotentialMarkLiterals(rule: TaintConfigurationItem, symbolic: Condition,
+                                           visit: (PathFact) -> Unit) {
+        val signed = SignedConditionNormalizer.normalize(symbolic, manager.cancellation)
+        val done = IdentityHashMap<Condition, Condition>()
+        val todo = ArrayDeque<Pair<Condition, Boolean>>().also { it.add(signed to false) }
+        while (todo.isNotEmpty()) {
+            manager.cancellation.checkpoint()
+            val (node, finish) = todo.removeLast()
+            if (done.containsKey(node)) continue
+            val children = when (node) {
+                is CommonCondition.And -> node.args
+                is CommonCondition.Or -> node.args
+                else -> emptyList()
+            }
+            if (!finish && children.isNotEmpty()) {
+                todo.add(node to true)
+                children.asReversed().forEach { todo.add(it to false) }
+                continue
+            }
+            done[node] = when (node) {
+                is CommonCondition.Not -> {
+                    val atom = (node.arg as? CommonCondition.Atom)?.atom
+                    if (atom is ContainsMark || atom is ContainsMarkOnAnyField) mkTrue() else node
+                }
+                is CommonCondition.And -> CommonCondition.And(children.map { checkNotNull(done[it]) })
+                is CommonCondition.Or -> CommonCondition.Or(children.map { checkNotNull(done[it]) })
+                else -> node
+            }
+        }
+        val projected = SignedConditionNormalizer.normalize(checkNotNull(done[signed]), manager.cancellation)
+        val remaining = ArrayDeque<Condition>().also { it.add(projected) }
+        while (remaining.isNotEmpty()) {
+            manager.cancellation.checkpoint()
+            when (val node = remaining.removeLast()) {
+                is CommonCondition.And -> remaining.addAll(node.args.asReversed())
+                is CommonCondition.Or -> remaining.addAll(node.args.asReversed())
+                is CommonCondition.Atom -> when (val atom = node.atom) {
+                    is ContainsMark -> visit(checkNotNull(pos(rule, atom.position)).fact(mark(atom.mark)))
+                    is ContainsMarkOnAnyField -> visit(checkNotNull(pos(rule, atom.position)).copy(any = true).fact(mark(atom.mark)))
+                    else -> Unit
+                }
+                else -> Unit
+            }
+        }
     }
 
     private fun markJunction(children: List<ExprOrConstant>, and: Boolean): ExprOrConstant {

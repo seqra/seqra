@@ -8,10 +8,18 @@ The measured implementation is `4c64c579f4c4a10fc8ffcc5bcd0bf1bcd45cf877`. The
 records its core checks. The [fresh project report](../docs/reports/bidirectional-run1-mark-request-performance-20261015.md)
 shows OWASP reaching run-5, completing run-4 and accepting run-3. Conductor,
 ThingsBoard and Stirling-PDF fail in run-1 with no complete/accepted iteration.
-Their static-class guard failures leave the frontend Sigma-construction obligation
-open. The conditional finite-model laws below do not prove that this collector
-contains every actual delivered class/field. No Lean receipt is extended by these
-measurements or documentation changes.
+Their static-class guard failures falsify that implementation's frontend domain
+bridge. Section 1.3 now gives the selected repaired constructor argument and the
+archived real-producer and symbolic-inventory regression evidence. The focused
+121-test and full 408-test JVM gates pass; repaired project validation remains
+pending. The finite Lean laws do not prove the JVM
+collector or extend a receipt through these documentation changes.
+
+The selected [domain/frozen-base implementation](../docs/design/bidirectional-static-domain-and-frozen-requests-20261016.md)
+adds §1.3's source-level frontend bridge and §4.2's representation laws. The latter are
+finite set arguments in this dossier, not new checked Lean statements or a JVM
+layout proof. The source repair's regression scope is stated separately; no
+successful repaired project result or new Lean receipt is claimed here.
 
 The proofs below concern a finite, accepted program and its request/initial and
 component-summary semantics. They do not prove a JVM implementation, a physical
@@ -31,12 +39,13 @@ bindings are fixed for each Key during a run. Their call targets belong to the
 prescan graph. Context-sensitive plans may be conservatively joined in prescan;
 the runtime retains its actual contexts and full caller premises.
 
-`Sigma` is the finite set of representable static `(class, field)` accessors in
-the accepted IR, effective rules, native models and canonical accessors. It is
-not a claim about all fields that arbitrary Java reflection could create. Every
-accepted static input field belongs to Sigma. A new accessor outside Sigma is a
-failed construction obligation, not permission to ignore the input. A class
-point is separate from its field points.
+`Sigma` consists of finite class coordinates Sigma.classes and paired static
+field coordinates Sigma.fields from the accepted IR, effective rules, native
+models and canonical accessors. Each `(C,f)` requires C in Sigma.classes, but a
+class point need not have any field. This is not a claim about fields that
+arbitrary Java reflection could create. Every accepted static input coordinate
+must belong to Sigma by the frontend construction proof in §1.3. The measured
+guard failures show that this bridge is not established for `4c64c579f`.
 
 The normal abstract initials have exactly these shapes:
 
@@ -64,7 +73,8 @@ and returns. The actor then replaces W with an empty instance. No callback may
 reenter the actor during this operation. R remains active after an answer.
 
 The proof uses these external construction assumptions, which are not request
-coverage hypotheses:
+coverage hypotheses. The frontend-to-enumerated-producer bridge in §1.3 remains
+a separate implementation obligation:
 
 1. Prescan includes every effective form and resolved target used by the run.
 2. The closed shape construction below, first field limit exactly 1, validated
@@ -206,6 +216,269 @@ create ordinary facts. Do not confuse them with new initial constructors. The
 production run-1 driver has no hand-off source/sink seeds; later restricted runs
 use a different initial policy. A manual RunConfig that inserts such seeds is not
 evidence that the accepted first-run constructor list has been proved for it.
+
+### 1.3 Selected-JVM producer-domain construction
+
+Distinguish Sigma from semantic ownership H[m] and frozen field selection S[m].
+H contains transitive read/write/cleaner scopes. S contains resolved structural
+and field-interest slots used to build B. A legal unowned coordinate in Sigma
+adds no H/S member, request or initial. A wide operation can own a newly relevant
+component, but that follows from its semantic scope, not domain membership.
+
+The finite basis contains paired class/first-field symbols from static accesses
+in the completed resolved method graph and from validated effective rule/model
+targets and condition/cleaner scopes. Class points contribute a class even when
+they have no field. Metadata retains neutral values; compilation remaps them
+through the runtime AP manager. There is no scratch numeric-ID copy, arbitrary
+classpath enumeration or Cartesian product of classes and fields. The complete
+resolved graph and validated selected-JVM producer grammar are the scope of the
+argument below. Additional frontend producers require their own constructor cases.
+
+#### Declaring-owner equality and the observed mismatch
+
+Direct access and AA access must use the resolved field's declaring class.
+[MethodFlowFunctionUtils.mkFieldAccess](../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/ap/ifds/MethodFlowFunctionUtils.kt)
+constructs both ClassStaticAccessor and FieldAccessor from the resolved field.
+The repaired
+[JIRDSUAABuilder.evalRefValue](../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/ap/ifds/alias/JIRDSUAABuilder.kt)
+now uses `value.field.field.enclosingClass.name` for its static container instead
+of the typed reference's `enclosingType`. `DSUAliasAnalysis.createFieldAlias`
+already uses the same resolved field for the field label. Conversion and
+`apAccessor` preserve those descriptors. Thus direct metadata and AA agree on
+the pair even for inherited fields and dotted versus binary nested-class names.
+
+This repairs a concrete constructor mismatch. The original `4c64c579f` failures
+did not print the offending class. The later fixed-config PDF diagnostic did:
+class `stirling.software.common.util.ProcessExecutor.Processes`, first field
+`stirling.software.common.util.ProcessExecutor$Processes#WEASYPRINT`. The delivery
+was DEMAND FLOW to `runCommandWithOutputHandling(List)`, entry 2 in the ArrayList
+argument context, from `FileToPdf.convertHtmlToPdf` call 48, with the special
+abstract S-root premise. The full key is in new evidence root J (defined below),
+`diagnostic-pdf/projects/Stirling-PDF/bidi/analyzer.log:750`. This names the
+observed mismatch, not its globally earliest producer or the other projects'
+unprinted inputs. The real producer fixtures reproduce the constructor defect;
+a successful repaired project result remains a separate measurement.
+
+#### Static-alias first-pair lemma
+
+An exposed static alias of a selected JVM local already has a named first field.
+The synthetic `RefValue.Static(C)` container alone is not a local value.
+
+**Proof.** `JIRDSUAABuilder.evalRefValue` creates a static container only inside
+`Expr.FieldLoad(Static(resolvedOwner), resolvedField)`. In
+[DSUAliasAnalysis](../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/ap/ifds/alias/DSUAliasAnalysis.kt),
+`evalFieldLoad` calls `evalHeapLoad`, which returns a HeapAlias with that field
+appended. Immediate/copy/call values are locals, arguments, this or constants;
+they do not name the synthetic static container. `WriteStatic` does not merge
+it into a local. External AA call-model positions explicitly reject ClassStatic
+in [JIRLocalAliasAnalysis.CallModelProvider](../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/ap/ifds/JIRLocalAliasAnalysis.kt).
+Converting the HeapAlias therefore appends Field(C,f) to Static(C) before any
+further suffix. The class-only result of `convertBaseAccessor` is an intermediate
+heap-parent conversion, not an exposed local-value constructor. Local copies,
+DSU value unions and call-model remaps preserve these whole value aliases; they
+do not strip the first field and return the synthetic container as a value.
+
+A statement alias write can append g or an element after C.f, but cannot invent
+a first field by appending to bare C. The first pair came from an actual static
+JIR field reference in the resolved body basis. A relevant resolved callee body
+is included in the complete graph basis; a custom AA call-body universe outside
+that graph needs an explicit domain extension. The before/after intersection in
+[aliasesPersistedThroughCall](../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/ap/ifds/analysis/JIRAliasUtil.kt)
+selects whole paths. Statement alias writes and `JIRCallPlanBuilder.aliases`
+retain those paths as prefixes, so a residual suffix cannot change their first
+pair. No prescan AA run, alias-payload copy or class-by-field expansion is needed
+for this source-level prefix argument.
+
+#### Validated rule and native/model target lemma
+
+Copying an arbitrary residual beneath a bare class is a generic AP operation,
+but is not a selected JVM pass-rule producer.
+
+**Proof.** [JIRRuleForms.validate](../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/bidi/interp/JIRRuleForms.kt)
+rejects CopyAllMarks and CopyMark when either endpoint is a bare class position
+(the pass branch near lines 298–307). `pass` checks this again before constructing
+an edge. A static field target already fixes [C,f]; a copied residual follows f.
+A non-static target creates no static prefix. Default static identity preserves
+an admitted prefix. Thus the generic `CopyAllMarks(Arg0, ClassStatic(C))`
+counterexample is rejected by this frontend. It does not justify a domain
+widening, nor make that generic AP constructor universally invalid.
+
+A class-point source or sink end-GEN is a different case. `markTarget` uses
+`sourceFact`: a validated class target is EXACT. A zero/end GEN has no input
+residual to append. Conditional SourceActions also use their declared target;
+validation rejects the AnyField-premise/class-target combination. These produce
+a class point, not an arbitrary field under that class. A field source target
+fixes its first pair. Cleaners remove or annotate existing payloads, and a strong
+write's static target comes from its declared position.
+
+The same restrictions cover generated/default/native forms. Entry and exit rules
+pass through `JIRBoundaryForms` validation. Call sources, sinks and cleaners use
+these same `JIRRuleForms`. `visitStaticMetadata` visits their summaries, sinks,
+bound cleaners, returned rewriters and pass rules. Generated native CallCleaners
+are not raw rules: their lowered CleanSteps are visited directly, so the collector
+reads their explicit affected scope. Both configured pass rules and
+`defaultGetModel.defaultPropagationRules` are filtered by `forms.valid` before
+pass compilation. Unresolved/native calls use those stages, not an independent
+unvalidated static generator. Static-field read sources are validated and generate
+at the local read result. Arbitrary hand-built AP edges remain outside this
+selected-JVM producer argument.
+
+#### Metadata predicate and ownership argument
+
+The code under development has explicit `MetadataAliases.Disabled` and `Unknown`.
+`JIRBidiAnalysis.gather` selects the policy from the actual runtime AA setting for
+both retained contexts and graph-only fallback methods. Scratch forms disable AA
+construction. Enabled runtime AA uses Unknown even when an earlier prescan AA
+completed: there is no Known state without an outcome-coverage certificate. Thus
+null, uncomputed, failed or independently timed enabled-AA states cannot silently
+select Disabled. No cancelled prescan owner is borrowed or restarted.
+
+Unknown requires two metadata views. A potential-effect view may replace an
+unknown basic atom U by possible/true to collect a possible action scope. That
+view cannot also supply the mark inventory: `U OR P` then becomes true and loses
+the P interest needed when runtime U is false. `NOT U OR P` has the same problem.
+The earlier 119-test focused and 406-test full JVM checkpoints passed without
+detecting this gap. They remain evidence for their checked sources, not a proof
+of complete metadata inventory.
+
+The repair uses a separate signed symbolic-needs view in
+`JIRRuleForms.rewriteSourceOrSink`. It is built only when the metadata CALL
+callback is nonnull. The existing static rewrite still computes each leaf's
+runtime/effect result. The parallel view uses that signed result for known basic
+atoms, retains mark atoms and retains both signs of an Unknown basic atom. It
+does not query providers again, run AA, or replace the returned runtime predicate.
+Its construction is:
+
+```text
+C0 = normalizeSigned(validated raw condition)
+C1 = retain signed Unknown/mark atoms; fold other atoms with their computed result
+C2 = normalizeSigned(C1)
+C3 = replace only negative MARK atoms of C2 by true
+C4 = normalizeSigned(C3)
+metadata needs = positive mark atoms remaining in C4.
+```
+
+The first normalization establishes signed falsity before approximation. Do not
+use a global negative-literal projection on C1: it would replace NOT U by true
+and lose P again. The positive inventory callback currently serves only metadata
+CALL source/sink sites using the default `projectNegatives=true` policy. This
+argument does not certify a future callback under a different projection policy.
+
+**Live-interest lemma.** For each possible runtime valuation of the retained
+Unknown atoms, any positive mark on which that call's normalized source/sink
+predicate can depend is included in the symbolic metadata inventory.
+
+**Proof.** Known atoms use the same signed constant result as the ordinary
+rewrite. Unknown atoms remain variables with their original sign, so any actual
+valuation can be substituted into C1. Signed normalization preserves this
+condition and cannot remove a genuinely dependent mark. Projection replaces
+negative mark atoms only, as the current CALL policy does; it does not assign
+Unknown variables. If a positive mark P were absent from C4, this projected
+condition would be independent of P for every valuation of its remaining
+variables. Substituting any actual Unknown valuation cannot introduce a new P
+dependence, contradicting a live runtime P interest. The callback visits every
+remaining positive mark with its existing position/mark lowering. Consequently
+its path contributes Sigma, H and the normal-slot need just as an ordinary live
+predicate leaf does. This is an inventory argument, not a predicate proof or a
+conjunctive combination of different runtime valuations.
+
+The concrete cases expose the required distinctions:
+
+| Condition/view | Symbolic mark inventory |
+| --- | --- |
+| U OR P; NOT U OR P | P retained for the runtime branch that needs it |
+| Known true OR P; known false AND P | No P: the predicate cannot depend on it |
+| U AND NOT U AND P; P AND NOT P | No P: signed falsity is proved before approximation |
+| Negative mark atom alone | No positive request introduced by the CALL negative-mark approximation |
+| Empty-action call source | No symbolic source callback: no source action can consume a mark proof |
+| Call sink with no end facts | Keep its symbolic sink needs: the finding still depends on its predicate |
+
+Callbacks are absent from ordinary runtime compilation, ENTRY, EXIT and returned
+rewriters. Entry-source, call-source/sink, returned-rewriter and cleaner
+eligibility keep their distinct effective-form rules. Potential metadata scopes
+and needs do not make a runtime rule unconditional or change occurrence/action
+identity. The new source is covered by the focused and full JVM receipts below.
+Fixed-project validation remains pending at this writing.
+Entry positions resolve to arguments/this rather than locals, and the basic
+evaluator consults AA only for locals. There is therefore no entry Unknown-local
+witness to invent. The entry control keeps its own signed-isTrue rule; the
+Unknown-local potential/runtime-conditionality witness belongs to a call site.
+
+The inventory also establishes local H: direct static reads/writes name the field;
+alias effects remain below the originating static first field; validated field
+actions/cleaners name the affected field; root/class effects carry their wide
+scope. The collector includes strong-write exclusions, generic excluded-target
+needs and F74 original static read scopes. Resolved-call closure unions these
+local effects into transitive H. Global Sigma can therefore contain a supplied
+field outside callee H without making it owned or selected. An omitted actual
+operation requires its H effects to be repaired as well as its coordinates before
+the untouched-frame theorem applies; domain insertion alone does not prove safety.
+
+#### Delivered-coordinate theorem
+
+Every explicit static class/first-field delivered by the selected repaired JVM
+constructors belongs to the finite collected basis.
+
+**Proof.** Induct on a finite fact-production derivation. Zero and special-root
+starts have no explicit class. Direct static access uses its collected resolved
+pair. The alias lemma reduces statement and persisted-call outputs to the same
+pair with possible suffixes. The rule lemma reduces generation to a collected
+point or fixed field target, and copying to a fixed target or admitted identity.
+The metadata policy includes each possible effective target without altering its
+runtime gate. S binding and identity preserve an admitted pair. Non-static
+binding changes a base, not a static coordinate; any later static target is one
+of the fixed-target or alias cases above. Suffix cuts shorten paths without
+inventing a different first pair. Initial emission uses actual supplied points
+or selected fields; a request alone supplies no path or concrete mark. Summary
+and record composition preserve admitted prefixes or apply the already covered
+target constructors. Union contributes no coordinate absent from its parts.
+These local cases compose through the complete resolved call graph. Each produced
+fact has a finite derivation, so recursion needs no acyclic-call premise. Neutral
+remapping preserves symbol pairs and their manager-local membership.
+
+This is a source-level constructor argument for the stated frontend and repair.
+The finite Lean receipts below do not machine-check JVM code, graph/metadata
+extraction, the new AA policy or the packed codec. Keep domain/layout guards.
+Dropping inputs, inserting runtime domain members, adding an emitter cut or using
+an identity fallback is not the repair proved here.
+
+#### Executable witnesses and validation scope
+
+Let J be
+`/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012/static-domain-frozen-requests/20261016T063718.860848Z`.
+The source inventory is `J/preparation/static-domain-source-review/inventory.md`.
+`J/validation/producer-after/receipt.json` pins the repaired AA builder, the then
+two-test producer fixture and sample source. Its archived result is 44 tests:
+2 real static producers, 10 call adapters and 32 alias samples, with zero
+failures/errors/skips. It links the preserved pre-repair red run. This validates
+the nested-enum and inherited-owner reproductions; it is not a receipt for later
+test edits, the new predicate policy or a successful fixed-project run.
+
+The current [JIRStaticDomainProducerTest](../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/test/kotlin/org/opentaint/dataflow/jvm/bidi/JIRStaticDomainProducerTest.kt)
+also adds class-pass rejection, actual local-write alias suffix preservation and
+class-point GEN controls. The new
+[JIRStaticMetadataFallbackTest](../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/test/kotlin/org/opentaint/dataflow/jvm/bidi/JIRStaticMetadataFallbackTest.kt)
+checks signed source/sink potentials, actual runtime conditionality and real
+gather fallback with a joined graph but no retained context for that method.
+The repaired symbolic inventory has a source-held focused receipt at
+`J/validation/symbolic-focused-1/receipt.json`, SHA-256
+`a857bb445cc3b662c7a7b1dda7926ca71013cc4aad687069ec8f31430dd62c8d`:
+121 tests in 8 suites, zero failures/errors/skips. This includes 5 producer
+controls, 10 metadata controls and 6 fallback controls. The red symbolic cases
+and the older 119/406 checkpoint erratum are preserved separately.
+The subsequent full gate at `J/validation/symbolic-full-jvm-1/receipt.json`,
+SHA-256 `dfa78d249597ac7dbd1e777815962ed6da80ade6f9aeb2fe619def520aefc5ea`,
+passes 408 tests in 33 suites with zero failures/errors/skips, also builds the
+module classes, and records unchanged source entries across the gate. These
+receipts validate their pinned sources and controls, not a global JVM theorem
+or a repaired project run. PDF's latest diagnostic still failed run-1 without a
+completed iteration or accepted report; the corrected map control is pending.
+Different AP interning orders,
+a no-fields class point and a supplied domain field outside H remain separate
+remapping/domain controls. A fixture that declares its expected coordinate does
+not exercise the actual JVM producer bridge. Completed repaired map-control and
+factored project results need their own bindings and reached/completed/accepted
+iteration evidence.
 
 ## 2. Exact two-slot request relation
 
@@ -439,8 +712,9 @@ section 8. The proof constructs the member; it does not assume plan coverage.
 ### 4.1 Full precomputed workflow without a duplicate store or initial propagation wave
 
 Use the closed normal-static slot→marks relation itself as the frozen base B of
-authoritative R. It is the same immutable map and mark-set objects owned by the
-method/SCC plan, borrowed by active full MethodKeys. Do not keep a separate
+authoritative R. R borrows the same immutable base value and mark segments owned
+by the method/SCC plan. The selected representation can expose this relation
+without a materialized row map, under §4.2's laws. Do not keep a separate
 full-query/role catalog containing another copy of those memberships, copy B into
 W, or populate D by repeatedly publishing B. Structural H and unresolved wide
 descriptors are different metadata; they are not a second admitted membership
@@ -547,6 +821,110 @@ and a caller FLOW input. A concrete current fact does not use this branch; its
 actual T can answer directly. The abstract root seed uses section 6's field-owner
 counterpart, not a guessed root request. Thus the two normal shapes exhaust the
 remaining abstract-origin cases.
+
+### 4.2 Virtual frozen-base refinement
+
+Use the coverage-corrected materialized map as the reference control. The aborted
+`4c64c579f` execution is not that control. The independent expected map expands
+raw descriptors after a finite graph fixed point; it never calls the virtual
+lookup, union cursor or matching implementation to compute expected values.
+
+For a method's closed descriptors let S be its resolved selected field slots,
+K[C] its existing common class marks (root marks included), and F[s] its sparse
+field-specific marks. Define the map and virtual relations by:
+
+```text
+Bmap[s] = K[C] union F[s], if s = F(C,f) and s in S
+          empty,          otherwise
+Bvirtual[s] = distinct borrowed view of those same segments, under the same guard.
+```
+
+Class-point metadata is not F or a normal request slot. Its root class marks do
+not include all of the field-request root's cleaner marks. Preserve it separately.
+
+**Lookup/empty law.** Bvirtual[s] and Bmap[s] have the same members and are empty
+for the same slots, including s outside S and ordinary non-static slots.
+
+**Proof.** Outside S the guarded definitions both return empty. Inside S, a mark
+is in either representation exactly when it is in K[C] or F[s]. Union duplicates
+do not change membership. Emptiness is the conjunction of segment emptiness,
+which requires no merged array or cardinality walk.
+
+**Ordered union law.** Merge the two sorted source arrays by their smallest
+remaining ID. Retain the last emitted ID and suppress a repeated ID. The cursor
+emits the sorted distinct union and terminates after at most |K[C]|+|F[s]| consumed
+source cells.
+
+**Proof.** At each step the consumed source prefixes contain exactly the already
+emitted union and any repeat of its last ID. The smallest next source cannot
+precede the last output. Emit it only if different, preserving this invariant.
+Every step consumes a source cell, including a suppressed duplicate. Thus a
+duplicate-only step(1) advances without a callback, and finite exhaustion visits
+every member once. Ordinary signed comparison handles ID 0 and boundary values;
+no arithmetic difference or sentinel is needed. Cancellation interrupts work
+without proving completed enumeration. This law is for B; the existing R cursor
+concatenates distinct B and disjoint D and need not be globally sorted.
+
+**Row-enumeration law.** For a broad static candidate pass let KB be the nonempty
+B slots and KD the nonempty static D keys. Enumerate KB in the existing S order,
+then `s in KD where B[s] is empty` in the existing D order. This gives every
+effective static R row once. Non-static matching uses its direct base lookup.
+
+**Proof.** The two enumerated sets are disjoint. Their union is KB union KD:
+each D key either already occurs as a B row or occurs in the second pass. In
+particular, `s in S, B[s]=empty, D[s]!=empty` belongs to the second pass. Testing
+only `s not in S` would lose it. Each returned descriptor contains that B view
+and the captured immutable D value; mutable directory iteration ends under the
+existing storage lock before any callback.
+
+**Storage refinement law.** Relate map and virtual states by equal D/W and the
+lookup law. Every collection/commit step preserves equal effective R and fresh
+notifications, with D and W disjoint from B.
+
+**Proof.** Equal R membership gives equal `offered minus R`; an empty residual
+returns before W insertion or new Work scheduling. The remaining contribution
+unions into equal W. Commit computes the same `fresh = W minus R`, installs the
+same immutable D union and queues the same logical fresh members. Each is absent
+from full B, so the disjointness invariant remains. W replacement and the shared
+base are unchanged. Binding B before input and the two current-R input arms
+reuse §4.1's no-initial-wave argument. Full MethodKeys keep separate D/W; sharing
+B does not relate one owner's mutable residual to another owner's residual.
+
+**Answer/climb refinement law.** Equal row enumeration and membership give equal
+requested concrete initial sets and climbed interests for each input/origin.
+
+**Proof.** The slot geometry and actual supplied mark are independent of B's
+representation. Their intersection with equal R therefore gives the same EXACT
+and STAR answers. FLOW still gives no concrete answer and uses the same full
+destination R difference. Caller inclusion and unchanged-slot B suppression are
+§4.1's laws applied to the same sets; changed origins, dynamic D and packed f+g
+still use their separate rows. Ordinary E/mx, premise, layer, predicate and record
+guards are unchanged. Induction over finite input/delivery/commit derivations
+lifts these steps to completed closure under the same candidate policy. It does
+not establish equal timeout prefixes, a wall-time bound or a new ND certificate.
+
+**Logical-count law.** Write S_C for selected slots in class C. Then:
+
+```text
+members(B) = sum_C |S_C| * |K[C]| + sum_(s in sparse F) |F[s] minus K[class(s)]|
+rows(B) = sum_C ( |S_C| if K[C] is nonempty,
+                  number of nonempty sparse field rows in C otherwise ).
+```
+
+**Proof.** For each selected slot, K and F-minus-K are disjoint and partition
+K-union-F. Sum their cardinalities, grouping the repeated K term by class. If K
+is nonempty every selected slot gives one row; otherwise exactly the nonempty
+F rows do. Sparse F slots are selected by construction. This permits exact
+logical totals without enumerating all virtual field/mark pairs. Use checked
+arithmetic and cancellation. Physical descriptor/set/entry costs and temporary
+view work remain separate measurements; this identity proves no saved bytes.
+
+**Remaining physical obligation.** Production keeps one virtual base, not a map
+plus a descriptor cache or per-context expanded mirror. Borrowed views are
+immutable, and release removes owner references rather than changing their
+values. After run-1, the stable mark-free H/Sigma footprint still supports
+return-guarded ordinary/native/opposite readers. Test shared-reference identity,
+full-key isolation and release separately from these extensional set laws.
 
 ## 5. Obligations 4, 5 and 6: two counterexamples that fix root composition
 
@@ -830,13 +1208,43 @@ a false COMPLETE state. A fresh run starts with fresh stores and reservations.
 
 ## 12. Executable witness matrix and formal scope
 
-**Current no-ANY correction: full validation passed on 15 October 2026.** The
+### 12.1 Selected repair and factoring checks
+
+The following checks are required for the selected 16 October implementation.
+The mathematical set arguments in §§1.3 and 4.2 do not supply a new Lean receipt,
+JVM conformance result, project result or physical-memory measurement.
+
+| Check | Independent witness and acceptance |
+| --- | --- |
+| Producer-domain coverage | Exercise actual direct, alias-generated and rule-generated static endpoints. Include the real gather fallback with null prescan AA but runtime AA enabled, both source and sink signed predicates, class points with no fields, inherited declarations and different AP interning orders. Compare emitted class/field coordinates to Sigma; domain-only fields must not enter H or S. A fixture that supplies its expected coordinates as declared domain is not this bridge proof. |
+| Virtual base oracle | Expand raw descriptors with ordinary sets after an independent finite graph fixed point. Compare every selected and nonselected slot to virtual membership, empty checks, distinct iteration, logical totals and answer/climb closure. Do not compute expectations with virtual lookup or the production union cursor. |
+| Sparse and overlapping segments | Root/class/field overlap, duplicate IDs, empty common segments, slots selected with empty B then nonempty D, wide scope outside S, mark 0 and signed boundary IDs; cursor budget 1 must advance even when it suppresses a duplicate. |
+| Protocol and original origin | Both arrival orders, late subscribers/input growth, mixed f→{f,g}, queued reentry, commit/install ordering and cancellation. Preserve exact initial shapes and full-key D/P isolation while contexts share only immutable B. |
+| Physical and lifetime checks | Assert no production materialized-map mirror, no full field×mark construction or logical-count traversal, shared immutable segments, and retained mark-free H/Sigma after run-1 release. Logical member totals are not physical cell/byte totals. |
+
+The existing common profile fixed-point oracle, request storage/pipeline tests,
+initial grammar/matching tests and static summary/driver tests provide distinct
+parts of this validation. The JVM metadata tests provide direct frontend cases.
+They must be extended where needed; their earlier passing receipts do not prove
+the new virtual representation or the null-AA producer bridge.
+
+First diagnose the fixed-config failure and validate a coverage-corrected
+materialized-map control. Then compare factoring to that corrected control under
+the same candidate policy and full semantic observations. A resource-limited map
+control can provide a labelled common prefix, but not a complete oracle result.
+Strict project/main identity, span and occurrence comparison remains separate;
+the known eight application precision regressions are not waived. Record actual
+latest reached, completed and accepted iterations for every measured side.
+
+### 12.2 Historical machine-checked model receipts
+
+**Ten-family no-ANY models: full validation passed on 15 October 2026.** The
 selected grammar has ten families and no ANY/ANY_TAINT InitialAp. `lake build`
 completed 125 jobs; `lake env lean audit.lean` checked 21,826 declarations with
 zero unexpected axioms. Only `propext` and `Quot.sound` were permitted. All
 executable audit groups passed, including ten-family supply/start checks and
 the nonexact field's abstract-only/requested-concrete-STAR cases. The immutable
-source/log-hashed receipt is under evidence root B from the performance report:
+source/log-hashed receipt is under the historical proof evidence root H:
 
 ```text
 report-preparation/run1-no-any-initials-20261015/
@@ -853,9 +1261,16 @@ report-preparation/run1-no-any-initials-20261015/
 SHA-256 fe94157bfa9482e2b8133bcd5f2a7d59027722eb943696d4b516cb875f9d83c9
 ```
 
-These checks validate the corrected finite models, not runtime implementation
-conformance. No analyzer run was made. The older receipts below bind earlier
-sources and remain historical evidence only.
+Here H is the fixed directory
+`/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012/added-facts-removal/20261015T090757.961708Z`.
+All receipt paths in this section are relative to H. They do not refer to the
+later run1-mark-requests performance batch.
+
+These checks validate the ten-family finite models, not runtime implementation
+conformance. They were proof checks before the later implementation and project
+measurements. They do not validate the new producer-domain bridge in §1.3 or
+the virtual frozen-base implementation in §4.2. The older receipts below bind
+earlier sources and remain historical evidence only.
 
 The constructive Lean work is split across
 [Run1Requests](lean/ApSpec/Run1Requests.lean) (slot/projector and form/graph closure),
@@ -877,7 +1292,7 @@ cd spec/lean && lake env lean /tmp/run1-requests-selected-vectors.lean
 The selected build completed 5 jobs. The audit checked 963 declarations with zero
 unexpected axiom dependencies; allowed dependencies were only `propext` and
 `Quot.sound`. Executable vectors passed. The source/log-hashed receipt is under
-evidence root B from the current performance report:
+the same historical evidence root H:
 
 ```text
 report-preparation/run1-request-proofs-20261015/
@@ -904,9 +1319,10 @@ report-preparation/run1-request-proofs-20261015/
 SHA-256 b97dfe560d1be29db6cac603722abcdb7468e2a231189b5fe680db478296ea6b
 ```
 
-Both receipts are under evidence root B from the current performance report.
-They are proof-build evidence, not runtime tests or JVM conformance. The runtime
-diff against measured `27e22bb1e` is empty for `core` and `rules`.
+Both receipts are under historical evidence root H. They are proof-build
+evidence, not runtime tests or JVM conformance. At that proof checkpoint the
+runtime still matched `27e22bb1e` for `core` and `rules`. That statement does not
+describe the later measured `4c64c579f` implementation or the selected repair.
 
 The superseded twelve-family shape extension passed its selected build and audit:
 
@@ -930,7 +1346,7 @@ The superseded twelve-family full-library check passed with both extensions: `la
 completed 125 jobs, and `lake env lean audit.lean` checked 21,810 declarations
 with zero unexpected axioms. Only `propext` and `Quot.sound` were permitted.
 All executable audit groups passed, including the shared-base and twelve-family
-initial-supply controls. Its source/log-hashed receipt is under evidence root B:
+initial-supply controls. Its source/log-hashed receipt is under evidence root H:
 
 ```text
 report-preparation/run1-request-shapes-precomputed-20261015/
@@ -940,11 +1356,12 @@ SHA-256 1334f8b247c8e94cf52186517b4a799c2efbffbdef89effb74d80ee5b8b36fa1
 
 The statement map is below. Names are in the corresponding `ApSpec` namespace.
 The first two receipts precede the shape and shared-base extensions; the later
-receipts validate their earlier twelve-family sources only. The fresh receipts
-at the start of this section validate the corrected ten-family/no-ANY sources.
-None of these checks proves
-current generic factories obey the F78 boundary. No analyzer run was made, and
-the runtime diff against measured `27e22bb1e` remains empty for `core` and `rules`.
+receipts validate their earlier twelve-family sources only. The ten-family
+receipts at the start of this section validate the corrected no-ANY models.
+None of these checks proves that current generic factories obey the F78
+boundary, that the frontend domain includes every delivered static coordinate,
+or that a virtual base physically shares its payloads. The later runtime and
+project evidence must be evaluated under their own source bindings.
 
 | Obligation | Lean statements and their actual scope |
 | --- | --- |

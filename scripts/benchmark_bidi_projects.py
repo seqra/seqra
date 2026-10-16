@@ -136,7 +136,7 @@ def run(args, project, side, config):
     init.write_text('gradle.projectsEvaluated {\n'
                     '  if (rootProject.name != "opentaint-jvm-sast") return\n'
                     '  rootProject.tasks.named("runProjectAnalyzer", JavaExec).configure {\n'
-                    f'    jvmArgs = ["-Xmx{memory}", '
+                    f'    jvmArgs = ["-Xmx{memory}", "-XX:FlightRecorderOptions=stackdepth=256", '
                     f'"-XX:StartFlightRecording=filename={directory}/continuous.jfr,settings=profile,dumponexit=true,maxsize=256m"{snapshot_arg}{statistics_arg}{optimization_statistics_arg}]\n'
                     f'    args = {json.dumps(runner_args)}\n'
                     '  }\n}\n')

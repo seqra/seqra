@@ -196,10 +196,53 @@ validation and the existing runtime rules:
   effect. `P AND NOT P -> false` remains valid. Validate raw actions/positions before
   folding. Conditions stay NNF; no cubes are introduced.
 
-Test the distinction directly: metadata may preserve an entry effect for
-`unknownStaticAtom OR ContainsMark(P)`. At runtime, if the static atom is false,
-the remaining mark literal is not signed `isTrue` and must not enable an entry
-GEN action or sink. Potential metadata coverage is not runtime eligibility.
+Test the distinction on actual frontend values. At a call, an unavailable local
+alias can make `unknownStaticAtom OR ContainsMark(P)` a potential metadata effect.
+If the runtime atom is false, the remaining mark predicate must stay conditional.
+Separately, test entry source and sink conditions with a false argument-constant
+atom OR `ContainsMark(P)`: neither metadata nor runtime may enable an entry GEN
+action or sink. The current entry resolver returns arguments/This, not local
+variables, while alias-dependent constant evaluation uses local variables only.
+Thus an unknown local-AA atom is not an actual entry case; do not invent one or
+broaden entry metadata to satisfy the test. Signed entry `isTrue` remains required.
+
+Potential action scopes and mark needs require separate metadata views. Replacing
+an unknown U by true can establish a potential action, but it turns `U OR P` into
+true and loses the P interest needed when runtime U is false. The same applies to
+`NOT U OR P`. Keep a signed symbolic condition for mark inventory before this
+fold. Reuse the computed atom results; do not evaluate atoms or query providers
+again:
+
+```kotlin
+fun rewriteSourceOrSink(
+    rule: TaintConfigurationItem,
+    rewriter: RuleConditionRewriter<JirCondition>,
+    projectNegatives: Boolean = true,
+    potentialMarkLiteral: ((PathFact) -> Unit)? = null,
+): ExprOrConstant
+
+// Metadata call inventory uses projectNegatives = true.
+// The runtime result keeps its current policy.
+val signed = normalizeSigned(rule.rawCondition)
+val symbolic = keepUnknownAndMarkAtomsFoldKnownAtoms(signed, computedAtomResults)
+val liveSigned = normalizeSigned(symbolic)
+if (!liveSigned.isFalse) {
+    val interests = normalizeSigned(projectNegativeMarkAtomsOnly(liveSigned))
+    visitPositiveMarkAtoms(interests, potentialMarkLiteral)
+}
+```
+
+Unknown static atoms, including their negative signs, remain symbolic. Do not use
+a projection that replaces every negative atom by true: that would erase P in
+`NOT U OR P` again. Prove signed falsity before the source/sink negative-mark
+projection. Known-true OR P, known-false AND P and contradictory mark branches
+still add no P need. This uses NNF and no cubes or raw-rule cache.
+
+Pass the optional inventory callbacks only through metadata call source/sink
+compilation. Lower surviving mark leaves with the existing position/literal code
+and SOURCE/SINK roles. Entry and exit resolvers have no alias-sensitive local
+value; their current effective-form inventory and eligibility stay in place.
+The ordinary runtime path has no callback or symbolic inventory allocation.
 
 The integration points are
 [JIRStaticMetadataCollector](../../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/bidi/interp/JIRStaticMetadata.kt),

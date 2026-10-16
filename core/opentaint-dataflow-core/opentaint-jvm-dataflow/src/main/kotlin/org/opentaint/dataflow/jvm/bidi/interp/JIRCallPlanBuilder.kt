@@ -7,6 +7,7 @@ import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodEntrypointResolver
 import org.opentaint.dataflow.bidi.ap.ApManager
 import org.opentaint.dataflow.bidi.ap.MethodKey
+import org.opentaint.dataflow.bidi.ap.PathFact
 import org.opentaint.dataflow.bidi.interp.CallCleaners
 import org.opentaint.dataflow.bidi.interp.ActionId
 import org.opentaint.dataflow.bidi.interp.ActionRole
@@ -77,6 +78,8 @@ internal class JIRCallPlanBuilder(
     private val formOwner: FormOwner = FormOwner(),
     potentialUnknownAliases: Boolean = false,
     private val requireCatalogTarget: (org.opentaint.ir.api.common.CommonMethod, org.opentaint.ir.api.common.CommonMethod) -> Unit = { _, _ -> },
+    private val metadataSourceLiteral: ((PathFact) -> Unit)? = null,
+    private val metadataSinkLiteral: ((PathFact) -> Unit)? = null,
 ) {
     private val lambdas: Map<Int, Set<JIRMethod>> = Collections.unmodifiableMap(lambdas.mapValues { (_, methods) ->
         Collections.unmodifiableSet(LinkedHashSet(methods))
@@ -127,7 +130,8 @@ internal class JIRCallPlanBuilder(
         return forms.rules.sinkRulesForMethod(callee, s, fact = null).withIndex()
             .flatMap { (ordinal, rule) ->
                 if (!forms.valid(rule)) emptyList() else forms.sinks(rule,
-                    forms.rewriteSourceOrSink(rule, rewriter), occurrence(RuleKind.CALL_SINK, ordinal), mayBeArray)
+                    forms.rewriteSourceOrSink(rule, rewriter, potentialMarkLiteral = metadataSinkLiteral),
+                    occurrence(RuleKind.CALL_SINK, ordinal), mayBeArray)
             }
     }
 
@@ -195,7 +199,8 @@ internal class JIRCallPlanBuilder(
         for ((ordinal, rule) in forms.rules.sourceRulesForMethod(callee, s, fact = null).withIndex()) {
             if (!forms.valid(rule)) continue
             forms.source(this, rule, occurrence(RuleKind.CALL_SOURCE, ordinal),
-                forms.rewriteSourceOrSink(rule, rewriter))
+                forms.rewriteSourceOrSink(rule, rewriter,
+                    potentialMarkLiteral = metadataSourceLiteral.takeIf { rule.actionsAfter.isNotEmpty() }))
         }
     }.buildStage()
 
