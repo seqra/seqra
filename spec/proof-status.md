@@ -1,5 +1,48 @@
 # Current proof status
 
+## Selected bottom-up static FLOW design
+
+The selected next-iteration contract is
+[run-1 bottom-up static FLOW](run1-bottom-up-static-propagation.md). It overrides
+the static transport/request/default/persistence parts of the
+[measured unified contract](run1-field-writes.md). It keeps selective local
+overwrites and layer-only demotion, removes field requests, makes static FLOW
+sticky DEMAND, uses universal ordinary DEMAND defaults and ordinary NORMAL
+persistence, and replaces transparent static carriers with exact shared transport.
+No S.* initial or normal-exit gate is introduced.
+
+The [new proof dossier](run1-bottom-up-static-proofs.md) maps every design
+obligation to its constructive model and states the remaining runtime adapters.
+It covers the nine initial families, executed relay checking, lossless full-port
+input coding, ordinary/contracted finite derivations, mutual ND clauses,
+symbolic mark lookup, two-sided replay, compaction, persistence and a strict
+cost improvement on transparent chains. Semantic report/source/sink identities
+and rule occurrences must agree; batch-dependent callback counts may differ,
+as selected by the user. The
+[validation report](../docs/reports/bidirectional-run1-bottom-up-static-proof-validation-20261017.md)
+binds the final sources and audit commands. Analyzer implementation is unchanged.
+
+This is a checked scalar/finite-derivation design, not a whole-engine proof.
+Frontend/model/alias and whole NNF/ND compilation, packed representation,
+actual scheduling/cancellation and complete persistence/handoff/driver refinement
+remain implementation obligations. No prior receipt establishes those adapters.
+
+Latest measured reached/completed/accepted iterations remain OWASP
+**run-7 / run-6 / run-5**, conductor **run-2 / run-1 / run-1**, ThingsBoard
+**run-1 / none / none**, and Stirling-PDF **run-2 / run-1 / run-1**, on runtime
+`28a123f0e`. No project measurement was repeated for this proof update.
+
+The foundation remains [ap.md](ap.md), [interpreter.md](interpreter.md),
+[analyzer-core.md](analyzer-core.md), [run-1 requests](run1-requests.md), and the
+selected overrides above. The older receipts below retain their original
+scope/source hashes; their field gates, root/frame, weak-write or persistence
+policies do not certify the new design.
+
+## Earlier unified-contract checkpoint
+
+This checkpoint and its normative references describe the earlier contract.
+The selected contract and proof scope above take precedence.
+
 The [unified proposal](../docs/design/bidirectional-request-gated-static-handling-20261016.md)
 uses ordinary stored N/D static identity summaries. Normal publication,
 subscription, application, demand selection and actor handoff handle them.

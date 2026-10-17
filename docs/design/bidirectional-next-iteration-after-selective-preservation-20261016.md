@@ -20,6 +20,15 @@ implementation. The [new static FLOW specification](../../spec/run1-bottom-up-st
 defines the proposed replacement and takes precedence for this next iteration.
 The older normal-exit gate and virtual-availability approximations are withdrawn.
 
+The [constructive proof dossier](../../spec/run1-bottom-up-static-proofs.md)
+now supplies the scalar/finite-derivation theorem map and exact implementation
+refinement boundary. The
+[validation report](../reports/bidirectional-run1-bottom-up-static-proof-validation-20261017.md)
+records its Lean build and complete declaration audits. This adds no analyzer
+implementation or project measurement. Semantic observation identities and
+rule occurrences are preserved; batch-dependent diagnostic callback counts
+may differ, including `ExternalMethodRecord.callSites`.
+
 ## Selected: equivalent bottom-up static FLOW
 
 **Current:** descendant read needs can start abstract field analysis throughout

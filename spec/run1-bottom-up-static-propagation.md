@@ -9,6 +9,34 @@ normal-exit gate and virtual-availability approximations. The
 uses this contract. IR storage and reference/cache manager changes are outside
 scope.
 
+The [constructive proof dossier](run1-bottom-up-static-proofs.md) gives the
+formal model, executable witnesses, theorem map, validation and exact limits.
+Use [the proof guide](proof-guide.md) for every change to this contract.
+
+## 0. Definitions and foundation boundary
+
+This file specifies the complete transport protocol. Its AP foundation is the
+scalar path calculus in [ap.md](ap.md): prefix-related paths, exact/abstract/
+uncorrelated tails, concrete marks, FLOW mark exclusions mx and field exclusions
+E. The model uses `PFact` and the executable micro-edge/summary operations in
+`lean/ApSpec/Basic.lean` and `Core.lean`. For this feature, the layer-independent
+wrapper in `Run1DefaultSummaryApplication.lean` and the selected overwrite
+operator in `Run1StrongPreservation.lean` override historical demand-to-ANY and
+blanket weak-write rules. They are declared primitive definitions, not a
+reference to an unspecified previous optimization.
+
+A full MethodKey K contains method, entry and context. A call port additionally
+contains caller K, call statement, full target K, call-plan stage and caller
+layer. An input contains that port, the complete original premise and current
+AP payload/layer. Origins are ZERO, a singleton abstract initial, or a complete
+concrete/ND premise. Never identify a port by method or field alone.
+
+Every local primitive returns zero or more full-payload results plus explicit
+request/observation events. Keep these events when a result is unchanged or
+killed. A source/rule action is not an implicit identity operation. Requests,
+sources, sinks, call boundaries and normal/exceptional exits are effect
+boundaries; a transparent segment cannot skip them.
+
 ## 1. Selected contract
 
 1. Run-1 has **mark requests only**. There is no static field-request relation,
@@ -78,6 +106,24 @@ all effects, but remove an unchanged singleton static FLOW identity already
 represented by that default. Compare normalized AP relations, not the number
 or insertion order of packed rows.
 
+The executable compaction test is on one normalized summary leaf:
+
+```text
+premise = singleton abstract static field i_f
+conclusion = FLOW at exactly i_f's base/path/STAR/EmptyE/* payload
+conclusion layer = DEMAND
+the owner's universal root default is present
+```
+
+All other rows are retained, including changed mark/tail/geometry, concrete
+NORMAL identity and whole ND rows. A root default is a separate summary
+constructor, not an admitted initial. Normalize duplicate/empty annotation
+representations before comparison; compaction is not a field-name-only test.
+Its denotation is the union with the already present root default. On a broad
+supplier, root and field identities can produce different literal AP lists;
+the root still supplies the field identity's transfer. Do not mistake those
+lists for an equality proof of one field application.
+
 For every reached full MethodKey K, the required result is:
 
 ```text
@@ -89,6 +135,15 @@ path, tail, marks/mx, field E, layer and whole ND support. Local source/sink
 observations and the final mark-request/answer relations must also agree.
 The optimization may change work order, duplicates and physical ownership.
 It may not add or remove nonidentity transfer behavior.
+
+Observation equality is equality of semantic identities: report/source/sink
+identities, rule occurrence IDs and their actual premise/value support.
+Preserve each derivation's before/after action ordering. Callback multiplicity,
+global delivery order and batch-dependent diagnostic counts may vary. In
+particular, `ExternalMethodRecord.callSites` counts growth callbacks, so one
+packed two-fact update and two single-fact updates may count as 1 and 2.
+This diagnostic difference is allowed by the selected contract; it must not
+change the semantic external-method observations or findings.
 
 The `Compact` qualification is necessary only because ordinary propagation
 can materialize `C.f -> C.f` beside `S -> S`. If both implementations use the
@@ -111,6 +166,37 @@ initial, no concrete empty S-root initial with any tail, and no ANY/ANY_TAINT
 run-1 initial. The supplied-input domain still excludes a tainted exact empty
 S-root; actual broad nonexact static TAINT is legal supplied data.
 Nonexact concrete field/class answers remain STAR initials, not `[any]`.
+
+The following nine families are exhaustive; all initial E and mx are Empty.
+`b` is a nonstatic/nonzero base, `C` a class accessor, and `T` a concrete mark.
+
+| Family | Base/path | Initial tail/mark | Start | Admission |
+| --- | --- | --- | --- | --- |
+| ZERO | ZERO / [] | EXACT / zero mark | REACH, NORMAL | Actual root/reach entry |
+| Nonstatic abstract | b / [] | STAR / * | FLOW, NORMAL | Actual supplied base geometry |
+| Static abstract | S / [C,f] | STAR / * | FLOW, DEMAND | Actual supplied field geometry; symbolic in a nonreader |
+| Nonstatic concrete exact | b / [] | EXACT / T | TAINT, NORMAL | Actual exact root T and mark request |
+| Nonstatic concrete chain | b / [] | STAR / T | TAINT ANY, DEMAND | Actual nonexact/descendant T and mark request |
+| Static concrete exact | S / [C,f] | EXACT / T | TAINT, NORMAL | Actual exact field T and mark request |
+| Static concrete chain | S / [C,f] | STAR / T | TAINT ANY, DEMAND | Actual nonexact/ancestor T and mark request |
+| Direct class exact | S / [C] | EXACT / T | TAINT, NORMAL | Actual exact class point; independent of field requests |
+| Direct class chain | S / [C] | STAR / T | TAINT ANY, DEMAND | Actual broad supply at a selected structural class point |
+
+For a static slot [C,f], a leaf supplies its geometry if its own path is at
+or below that slot, or its nonexact path is an ancestor of it. Wrong bases,
+classes and fields do not match. An exact root/class ancestor supplies no
+deeper field. Nonstatic projection requires the same base and produces its
+empty-path initial. For concrete answers, retain actual T, require its mark
+request, and use EXACT only for an exact supplied point at the initial path;
+otherwise use STAR. Incoming ANY/must is supplied data, never a new initial
+tail. No mark is obtained from FLOW.
+
+Direct exact class points bypass normal-slot mark requests. Broad root/class
+TAINT uses the structurally selected class-point inventory, projects every
+actual mark at that point and uses STAR. It creates no root/class request
+slot. That inventory contains actual code/rule/model class-point consumers
+and effects closed over resolved callees, independently of field reads.
+The same projector and selected inventory are used by both procedures.
 
 For one static field:
 
@@ -200,6 +286,23 @@ against legal supplied/consumed slots without a field-by-mark expansion.
 The logical frozen lookup must include every statically known matching mark
 interest; it cannot depend on membership of a removed F plan. Borrow B once;
 do not copy it into temporary/dynamic storage or send a startup wave.
+
+Precisely, a local frozen contributor is `(scope,T)`, where a static scope is
+all fields, one class's fields, or one class/field. Let `path(M,N)` be a finite
+path in the resolved call graph, including the empty path. Then:
+
+```text
+B(M, StaticSlot(C,f), T) iff
+  exists N, scope, path(M,N) and localMarkNeed(N,scope,T) and scope matches (C,f)
+B(M, BaseSlot(b), T) = false
+```
+
+This is a logical lookup, not materialized rows for every legal field. A
+membership witness contains the call path and local contributor. A root/class
+scope can be tested when a legal actual slot is supplied/consumed. Direct
+class-point needs stay separate. For an edge M->N, prepend that edge to prove
+`B(N,s) subset B(M,s)`. This law suppresses only unchanged-origin offers;
+it says nothing about a request whose current field differs from its origin.
 
 Request matching ignores incoming field E and FLOW mx. Actual summary and
 condition evaluation retain their ordinary AP semantics. A request is an
@@ -359,6 +462,23 @@ compact descriptors remains an implementation design bridge. Whichever is
 chosen must decode to exactly the reference input relation. Do not claim
 that all logical call-by-field reachability has been removed.
 
+For the formal executable reference, a local instruction has a full-result
+evaluator: input -> list of (output, request/observation events). Pass, selected
+overwrite plus pre-store values, matched mark clean, ordinary scalar AP
+effect, root-default application, observable action and unknown fallback are
+separate constructors. An instruction is certified transparent only when its
+evaluated full result is exactly one unchanged input with no event. Unknown
+operations cannot be certified. Sequence composition then derives the relay
+law. The implementation must refine these instructions; it cannot assume
+the final relay/input equality as its proof premise.
+
+The scalar transport normalizes static FLOW before primitive evaluation and
+again before output admission. Pre-store values and their observation supports
+are already evaluated under the same policy with their own original/layer.
+Opaque ordinary fallbacks and ND clients must join dependent layers correctly;
+an admission check on the current base cannot reconstruct lost static history.
+Independent source/RHS derivations retain their own support and layer.
+
 ### Derived W and ordinary inputs
 
 A derived `a -> C.f` value keeps a's actual original premise and its program
@@ -514,6 +634,13 @@ cancellation behavior. No new scheduler, pending-memory threshold or
 per-publication seen history is required. Finite fair processing proves a
 fixed point, not a 60-second bound.
 
+The work-accounting invariant is `reserved = queued + active`. Reserve child
+work before making it visible or releasing its active parent. Completion
+requires zero reserved work, flushed temporary request rows and no uncounted
+delivery. The finite fixed-point claim concerns normalized semantic facts,
+not an ever-growing trace of repeated loop visits. Proof histories are ghost
+certificates; they are not new retained runtime collections.
+
 ## 10. Persistence and later runs
 
 At a complete joined run-1 barrier, remove the driver-wide first-run skip:
@@ -545,7 +672,11 @@ No special exit check or static return-evidence store is added.
 
 ## 11. Required proofs and differential controls
 
-These are required proofs, not claims that executable proofs already pass:
+The [proof dossier](run1-bottom-up-static-proofs.md) discharges these obligations
+for the declared scalar-instruction/finite-derivation model. Its theorem map
+and [validation receipt](../docs/reports/bidirectional-run1-bottom-up-static-proof-validation-20261017.md)
+state the checked scope. Frontend/packed/scheduler/driver refinement remains
+required before claiming correctness of an implementation.
 
 1. **Domain and constructor closure.** Removing F changes no legal input,
    mark-request origin or initial tail. Activation never supplies a concrete
@@ -561,9 +692,12 @@ These are required proofs, not claims that executable proofs already pass:
    same reference input, original premise, summary and continuation. Each
    ordinary application is represented by an identity descriptor or full
    bound input. Prove both inclusion directions, not just true-flow coverage.
-5. **Identity compaction.** Root/default application and elided field identity
-   have the same full supplied payload at DEMAND. Same-position transforms,
-   NORMAL TAINT and ND do not satisfy this identity lemma.
+5. **Identity compaction.** On a canonical field lane the root default returns
+   that exact payload at DEMAND. For an arbitrary broad supplier, the field
+   identity's denotation is contained in the already present root default;
+   unioning with that default preserves the complete relation. Literal AP
+   result lists need not match. Same-position transforms, NORMAL TAINT and
+   ND do not satisfy the compaction predicate.
 6. **Mark/observation equality.** The new input representation yields the same
    final requests and actual answers, original-slot routing, full NNF/ND joins
    and source/sink observations. Preserve before/after action ordering.
@@ -679,5 +813,6 @@ Use the same fixed project configurations and strict main comparison. Record
 latest reached, completed and accepted iterations for every outcome. Measure
 run-1 engine time separately from prescan/setup/report barriers, and compare
 full normalized relations on completed finite differential controls first.
-No runtime tests, benchmarks or executable proof results are added by this
-specification update.
+This update adds executable Lean proofs and controls, recorded in the
+[validation report](../docs/reports/bidirectional-run1-bottom-up-static-proof-validation-20261017.md).
+It changes no analyzer implementation and adds no analyzer run or benchmark.

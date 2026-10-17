@@ -126,3 +126,9 @@ import ApSpec.RequestGatedStatics
 import ApSpec.Run1WeakFieldWrites
 import ApSpec.Run1DefaultSummaryApplication
 import ApSpec.Run1StrongPreservation
+import ApSpec.BottomUpStaticDomain
+import ApSpec.BottomUpStaticApplication
+import ApSpec.BottomUpStaticProtocol
+import ApSpec.BottomUpStaticTransport
+import ApSpec.BottomUpStaticRequests
+import ApSpec.BottomUpStaticModel
