@@ -5,12 +5,12 @@ import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.ir.api.common.cfg.CommonInst
 
-/** Independent OrdinaryD layer rule: an abstract static origin OR current
- * static FLOW is sticky DEMAND. Concrete/source support remains independent. */
+/** Independent concrete-static concept rule. Any static original/current value
+ * is DEMAND before evaluation. Ordinary layer joins keep its later local
+ * dependents DEMAND; unrelated nonstatic derivations remain independent. */
 internal fun scalarStaticFlow(run1: Boolean, premise: Set<Pattern>, value: Conclusion): Conclusion =
-    if (run1 && value.fact.mark is MarkSlot.Star && (value.fact.base == STATIC || premise.any {
-            it.fact.base == STATIC && it.fact.mark is MarkSlot.Star
-        })) value.copy(demand = true) else value
+    if (run1 && (value.fact.base == STATIC || premise.any { it.fact.base == STATIC }))
+        value.copy(demand = true) else value
 
 /** Scalar selected transfer: no packed AP kernel, emitter, request table or static-frame reader. */
 internal class SelectedReferenceAlgebra(

@@ -91,13 +91,13 @@ class StaticCatalogClosureTest {
                 f.exit(getter, 1, ExitRules(RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY,
                     listOf(sink)), false, emptySet()))
                 val expectedReturn = ObservedEdge(caller, zero,
-                    Conclusion(PathFact(result, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false))
+                    Conclusion(PathFact(result, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, true))
                 val actual = compare(f, f.config(L = limit, roots = listOf(caller)), path, listOf(t.mark, u.mark),
                     sameUnit, policy, expectedRoot = expectedReturn)
                 assertContains(actual.rawSummaries, expectedReturn)
                 assertTrue(actual.witnesses.isNotEmpty())
                 assertTrue(actual.witnesses.all { it.rule === sink.rule && it.methodKey == getter &&
-                    it.edges.all { edge -> edge.layer == Layer.NORMAL && edge.premise == setOf(f.pattern(STATIC, path, mark = t)) } })
+                    it.edges.all { edge -> edge.layer == Layer.DEMAND && edge.premise == setOf(f.pattern(STATIC, path, mark = t)) } })
                 assertTrue(actual.sourceHits.isEmpty())
             }
     }
@@ -168,10 +168,11 @@ class StaticCatalogClosureTest {
                 val original = f.pattern(originalBase, originalPath, Tail.STAR, MarkSlot.STAR)
                 assertContains(actual.requests, ObservedRequest(callee, original, RequestKind.Mark(t.mark)),
                     "The changed checked fact must request on the original $origin chain")
-                assertTrue(actual.witnesses.all { w -> w.edges.all { edge -> edge.layer == Layer.NORMAL &&
+                assertTrue(actual.witnesses.all { w -> w.edges.all { edge -> edge.layer == Layer.DEMAND &&
                     edge.premise == setOf(f.pattern(originalBase, originalPath, mark = t)) } })
+                val inputLayer = if (originalBase == STATIC) Layer.DEMAND else Layer.NORMAL
                 assertTrue(actual.links.any { it.callee == callee && it.caller == caller && it.call == f.inst(caller, 3) &&
-                    it.premise == zero && it.callerLayer == Layer.NORMAL && it.linkLayer == Layer.NORMAL &&
+                    it.premise == zero && it.callerLayer == inputLayer && it.linkLayer == inputLayer &&
                     it.added == Pattern(source.to, ExclusionSet.Empty) })
             }
     }

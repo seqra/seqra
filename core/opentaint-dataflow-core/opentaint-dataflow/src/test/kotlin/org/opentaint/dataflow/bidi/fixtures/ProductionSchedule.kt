@@ -31,15 +31,20 @@ class ProductionSchedule(
     val trace: List<String> get() = log.toList()
     private val registered = ArrayList<Subscription>()
     val subscriptions: List<Subscription> get() = registered.toList()
+    private val registeredConcrete = ArrayList<ConcreteStaticSubscription>()
+    val concreteSubscriptions: List<ConcreteStaticSubscription> get() = registeredConcrete.toList()
     private val ordinaryRelations = LinkedHashSet<Pair<MethodKey, CallerRef>>()
     private data class StaticRelation(val callee: MethodKey, val caller: MethodKey,
         val call: org.opentaint.ir.api.common.cfg.CommonInst,
         val from: org.opentaint.dataflow.bidi.interp.CallPoint,
-        val to: org.opentaint.dataflow.bidi.interp.CallPoint)
+        val to: org.opentaint.dataflow.bidi.interp.CallPoint,
+        val identityCandidate: Boolean? = null)
     private val staticRelations = LinkedHashMap<StaticRelation, FlowTree>()
+    private val concreteStaticRelations = LinkedHashMap<StaticRelation, TaintTree>()
     /** Physical protocol relations, excluding the decoded test-only history in [subscriptions]. */
     val physicalOrdinarySubscriptionCount: Int get() = ordinaryRelations.size
     val physicalStaticRelationCount: Int get() = staticRelations.size
+    val physicalConcreteStaticRelationCount: Int get() = concreteStaticRelations.size
     val physicalStaticEntryMembershipCount: Int get() = staticRelations.values.sumOf {
         StaticIdentityEntries(shared.ops).originals(it).count()
     }
@@ -56,6 +61,11 @@ class ProductionSchedule(
     }
     private val units = LinkedHashMap<Any, UnitPort>()
     private val storages = LinkedHashMap<MethodKey, SummaryStorage>()
+    private val needs = if (config.run1) StaticNeedRouter(shared.ap,
+        dispatch = { visit -> storage(visit.key.method).notifyStaticNeed(visit) },
+        onSourceChanged = { key, marks -> marks.forEachMark { mark ->
+            requests += ObservedRequest(key.method, key.slot.initial(shared.ap).toPattern(), RequestKind.Mark(mark))
+        } }) else null
     private val deferred = object : ProtocolSteps {
         override fun replay(step: () -> Unit) { pool += Pending(Kind.REPLAY, "replay", step) }
         override fun notify(step: () -> Unit) { pool += Pending(Kind.NOTIFY, "notify", step) }
@@ -64,11 +74,13 @@ class ProductionSchedule(
         val actual = RunMethodLocalServices(actor)
         object : MethodLocalServices by actual {
             override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
-                requests += ObservedRequest(actor.key, premise.toPattern(), RequestKind.Mark(mark))
+                if (premise.base != STATIC)
+                    requests += ObservedRequest(actor.key, premise.toPattern(), RequestKind.Mark(mark))
                 actual.addMarkRequest(premise, mark)
             }
             override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
-                marks.forEachMark { requests += ObservedRequest(actor.key, premise.toPattern(), RequestKind.Mark(it)) }
+                if (premise.base != STATIC) marks.forEachMark {
+                    requests += ObservedRequest(actor.key, premise.toPattern(), RequestKind.Mark(it)) }
                 actual.addMarkRequests(premise, marks)
             }
         }
@@ -84,6 +96,8 @@ class ProductionSchedule(
             "call=${event.ref.call},linkLayer=${event.linkLayer},added=${shared.ops.leaves(event.added).toList()})"
         is RunEvent.ZeroIn -> "Zero(${event.callee})"
         is RunEvent.StaticEntriesIn -> "StaticEntries(${event.callee},${shared.ops.leaves(event.entries).toList()})"
+        is RunEvent.ConcreteStaticEntriesIn -> "ConcreteStaticEntries(${event.callee},${shared.ops.leaves(event.entries).toList()})"
+        is RunEvent.StaticNeed -> "StaticNeed(${event.visit.key},${event.visit.marks})"
         is RunEvent.MarkRequestsIn -> "MarkRequests(${event.method},${event.rows})"
         is RunEvent.InitialAnswersIn -> "InitialAnswers(${event.method},${event.answers.map { it.toPattern() }})"
         is RunEvent.ChangedRequests -> "Requests(${event.callee},${event.rows})"
@@ -94,6 +108,7 @@ class ProductionSchedule(
     }
 
     private inner class UnitPort : RunnerPort<RunMethodAnalyzer> {
+        override val staticNeedRouter: StaticNeedRouter? get() = needs
         override val config get() = this@ProductionSchedule.config
         override val shared get() = this@ProductionSchedule.shared
         override val forms = shared.contexts.directed(config.direction)
@@ -106,7 +121,7 @@ class ProductionSchedule(
         fun postEvent(event: RunEvent) {
             pool += Pending(Kind.EVENT, description(event)) {
                 if (event is RunEvent.MarkRequestsIn) for ((slot, marks) in event.rows) {
-                    marks.forEachMark { requests += ObservedRequest(event.method,
+                    if (slot is Run1Slot.Base) marks.forEachMark { requests += ObservedRequest(event.method,
                         slot.initial(shared.ap).toPattern(), RequestKind.Mark(it)) }
                 }
                 handler.handle(event)
@@ -127,6 +142,12 @@ class ProductionSchedule(
         override fun post(event: RunEvent.ChangedRequests): Boolean {
             postEvent(event)
             if (duplicateDeliveries) postEvent(RunEvent.ChangedRequests(event.callee, event.rows))
+            return true
+        }
+
+        override fun post(event: RunEvent.StaticNeed): Boolean {
+            postEvent(event)
+            if (duplicateDeliveries) postEvent(RunEvent.StaticNeed(event.visit))
             return true
         }
 
@@ -152,9 +173,7 @@ class ProductionSchedule(
             return actors.getOrPut(key) { handler.createActor(key) }
         }
 
-        override fun summaryStorage(key: MethodKey): SummaryStorage =
-            storages.getOrPut(key) { SummaryStorage(key, shared.ap, ops, deferred,
-                if (config.run1) shared.run1StaticProfiles?.get(key.method)?.precomputedRequests ?: EmptyFrozenRequestBase else EmptyFrozenRequestBase) }
+        override fun summaryStorage(key: MethodKey): SummaryStorage = storage(key)
 
         override fun subscribe(sub: Subscription) {
             ordinaryRelations += sub.callee to sub.ref
@@ -181,6 +200,23 @@ class ProductionSchedule(
             (handler as SubscriptionHandler).subscribeStatic(sub)
         }
 
+        override fun subscribeConcreteStatic(sub: ConcreteStaticSubscription) {
+            registeredConcrete += sub
+            val codec = ConcreteStaticEntries(ops)
+            val relation = StaticRelation(sub.callee, sub.caller, sub.call, sub.stageFrom, sub.stageTo, sub.identityCandidate)
+            concreteStaticRelations[relation] = codec.merge(concreteStaticRelations[relation], sub.entries).first
+            for (initial in codec.originals(sub.entries)) {
+                val facts = codec.current(initial)
+                val ref = CallerRef(sub.caller, initial, Layer.DEMAND, sub.call)
+                registered += Subscription(sub.callee, ref, Layer.DEMAND, facts)
+                ops.leaves(facts).forEach { inputs += observedLink(sub.callee, Link(it, Layer.DEMAND, ref)) }
+            }
+            log += "subscribeConcreteStatic callee=${sub.callee} caller=${sub.caller} call=${sub.call} " +
+                "from=${sub.stageFrom} to=${sub.stageTo} identity=${sub.identityCandidate} " +
+                "entries=${ops.leaves(sub.entries).toList()}"
+            (handler as SubscriptionHandler).subscribeConcreteStatic(sub)
+        }
+
         override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
             ops.leaves(added).forEach { inputs += observedLink(callee, Link(it, linkLayer, ref)) }
             val destination = owner(callee)
@@ -200,11 +236,24 @@ class ProductionSchedule(
             }
         }
 
+        override val onConcreteStaticProcess: (MethodKey, org.opentaint.ir.api.common.cfg.CommonInst, TaintTree) -> Unit = { method, node, entries ->
+            val codec = ConcreteStaticEntries(ops)
+            for (initial in codec.originals(entries)) {
+                val rows = observedEdges(ops, method, initial, codec.current(initial), node)
+                processed += rows
+                log += "concrete static process $rows"
+            }
+        }
+
         override val onProcess: (MethodKey, EdgeDelta) -> Unit = { method, edge ->
             val rows = observedEdges(ops, method, edge.premise, edge.facts, edge.node)
             processed += rows
             log += "process $rows"
         }
+    }
+
+    private fun storage(key: MethodKey): SummaryStorage = storages.getOrPut(key) {
+        SummaryStorage(key, shared.ap, shared.ops, deferred, EmptyFrozenRequestBase)
     }
 
     private fun next(): Int = when (policy) {
@@ -241,6 +290,7 @@ class ProductionSchedule(
             }
             pool.clear()
             storages.clear()
+            needs?.clear()
             shared.close()
         }
     }
@@ -255,6 +305,11 @@ class ProductionSchedule(
             actor.initials.all().mapTo(initials) { ObservedInitial(method, it.toPattern()) }
             actor.staticEntryFacts()?.let { entries ->
                 StaticIdentityEntries(shared.ops).originals(entries).mapTo(initials) {
+                    ObservedInitial(method, it.toPattern())
+                }
+            }
+            actor.concreteStaticEntryFacts()?.let { entries ->
+                ConcreteStaticEntries(shared.ops).originals(entries).mapTo(initials) {
                     ObservedInitial(method, it.toPattern())
                 }
             }

@@ -37,14 +37,15 @@ class Run1StaticFlowPolicyTest {
         assertSame(local, normalizeRun1StaticFlow(ordinaryOrigin, local))
     }
 
-    @Test fun `concrete TAINT and ZERO are outside blanket static FLOW demotion`() {
+    @Test fun `concrete static TAINT is DEMAND while independent ZERO stays normal`() {
         val f = StoreFixtures()
         val cls = f.manager.accessors.index(ClassStaticAccessor("C"))
         val field = f.field("f")
         val pattern = f.pattern(STATIC, listOf(cls, field))
         val origin = f.manager.initial(pattern)
         val taint = f.manager.factsOf(pattern.fact, pattern.exclusion, Layer.NORMAL)
-        assertSame(taint, normalizeRun1StaticFlow(origin, taint))
+        assertEquals(Layer.DEMAND, normalizeRun1StaticFlow(origin, taint).layer)
+        assertSame((taint as TaintTree).root, (normalizeRun1StaticFlow(origin, taint) as TaintTree).root)
         assertSame(Reach.NORMAL, normalizeRun1StaticFlow(f.manager.zero, Reach.NORMAL))
     }
 

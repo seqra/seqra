@@ -62,6 +62,79 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         }
     }
 
+    override fun processConcreteStatic(node: CommonInst, entries: TaintTree) {
+        val core = active()
+        val call = checkNotNull(core.context.callAt(node))
+        core.forms.withCall(core.key, node, call) { plan ->
+            if (STATIC !in plan.touched) checkNotNull(core.concreteStaticFlow).after(node, entries)
+            else flowConcreteStatic(CallContext(node, call, plan, Layer.DEMAND), plan.entry, entries)
+        }
+    }
+
+    override fun resumeConcreteStatic(part: ConcreteStaticSubscription, entries: TaintTree) {
+        val core = active()
+        val call = checkNotNull(core.context.callAt(part.call))
+        core.forms.withCall(core.key, part.call, call) { plan ->
+            // Ordinary summaryParts classifies every DEMAND summary as an effect.
+            flowConcreteStatic(CallContext(part.call, call, plan, Layer.DEMAND), part.stageTo, entries, false)
+        }
+    }
+
+    /** Keep the whole port implicit only for unchanged singleton diagonals.
+     * Effects, observations and ND support always use the ordinary call walker. */
+    private data class ConcreteFrame(val point: CallPoint, val entries: TaintTree, val identityCandidate: Boolean?)
+    private fun flowConcreteStatic(ctx: CallContext, point: CallPoint, input: TaintTree, identityCandidate: Boolean? = null) {
+        val core = active()
+        val lane = checkNotNull(core.concreteStaticFlow)
+        val codec = lane.entries
+        val work = ArrayDeque<ConcreteFrame>()
+        work.addLast(ConcreteFrame(point, input, identityCandidate))
+        while (work.isNotEmpty()) {
+            core.ap.cancellation.checkpoint()
+            val (at, offered, candidate) = work.removeLast()
+            if (at == ctx.plan.exit) { lane.after(ctx.node, offered); continue }
+            var entries = offered
+            if (at == CallPoint.BOUND) {
+                val selected = codec.sinkEntries(ctx.plan.sinks, entries)
+                if (selected != null) {
+                    for (initial in codec.originals(selected))
+                        flow(ctx, at, listOf(PlanFact(initial, codec.current(initial), candidate)))
+                    entries = codec.remainder(entries, selected) ?: continue
+                }
+            }
+            // An unresolved-call observation is an ordinary concrete effect.
+            if (at == CallPoint.ADDED && core.context.shared.unresolvedObserver != null &&
+                ctx.plan.stagesFrom[CallPoint.ADDED].orEmpty().any { it is CallStage.Edges && it.kind == StageKind.UNRESOLVED }) {
+                for (initial in codec.originals(entries))
+                    flow(ctx, at, listOf(PlanFact(initial, codec.current(initial), candidate)))
+                continue
+            }
+            for (stage in ctx.plan.stagesAt(at)) {
+                core.ap.cancellation.checkpoint()
+                if (stage is CallStage.Callees) {
+                    for (callee in stage.callees) core.runnerPort.subscribeConcreteStatic(
+                        ConcreteStaticSubscription(callee, core.key, ctx.node, entries, stage.from, stage.to, candidate))
+                    continue
+                }
+                val selected = when (stage) {
+                    is CallStage.Edges -> if (stage.guard is Guard.SinkTriggered) continue
+                        else if (stage.trigger != null) entries else codec.affected(stage.summary, entries, stage = true)
+                    is CallStage.Actions -> codec.affected(stage.steps, entries)
+                    is CallStage.Callees -> error("Handled above")
+                }
+                val identities = codec.remainder(entries, selected)
+                if (selected != null) for (initial in codec.originals(selected)) {
+                    val current = codec.current(initial)
+                    val results = applyStage(ctx, stage, listOf(PlanFact(initial, current, candidate)), Triggers.NONE)
+                    if (results.isNotEmpty()) flow(ctx, stage.to, results)
+                }
+                val nextCandidate = if (stage is CallStage.Edges) stage.kind.identityCandidateOf(
+                    stage.summary.edgesOf(STATIC).firstOrNull { it.isIdentity }, candidate) else candidate
+                identities?.let { work.addLast(ConcreteFrame(stage.to, it, nextCandidate)) }
+            }
+        }
+    }
+
     /** Exact identity entries share call-plan work. Only affected originals
      * enter the ordinary evaluator; its effects run before repacking results. */
     private fun flowStatic(ctx: CallContext, point: CallPoint, input: FlowTree) {
@@ -264,6 +337,13 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
 
     private fun enterCallees(ctx: CallContext, stage: CallStage.Callees, fact: PlanFact) {
         val core = active()
+        val concrete = core.concreteStaticFlow?.entries
+        if (concrete != null && fact.identityCandidate == true && concrete.canonical(fact.premise, fact.facts)) {
+            for (callee in stage.callees) core.runnerPort.subscribeConcreteStatic(
+                ConcreteStaticSubscription(callee, core.key, ctx.node,
+                    concrete.single(fact.premise as InitialAp), stage.from, stage.to, fact.identityCandidate))
+            return
+        }
         if (core.config.run1 && fact.facts is FlowTree &&
             compactRun1StaticIdentity(core.ops, fact.premise, fact.facts) == null) {
             for (callee in stage.callees) core.runnerPort.subscribeStatic(
@@ -318,6 +398,18 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         val results = ArrayList<PlanFact>()
         applyParts(input, initial, pub.conclusion, results)
         resumeCallees(input.ref, results, returnPoint = part.stageTo)
+    }
+
+    override fun applyConcreteStaticSummary(part: ConcreteStaticSubscription, input: Subscription, pub: Publication, member: Int) {
+        active()
+        when (val premise = pub.premise) {
+            is PremiseSet -> ndMatch(input, pub, premise, member)
+            is InitialAp -> {
+                val results = ArrayList<PlanFact>()
+                applyParts(input, premise, pub.conclusion, results)
+                resumeCallees(input.ref, results, returnPoint = part.stageTo)
+            }
+        }
     }
 
     override fun applyRecord(part: Subscription, record: Record) {

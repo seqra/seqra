@@ -1,8 +1,10 @@
 # Constructive proofs for run-1 concrete static propagation
 
-Date: 17 October 2026. Scope: the proposed
+Date: 17 October 2026. Scope: the selected
 [concrete-static contract](run1-bottom-up-concrete-static-propagation.md),
-run-1 FORWARD, field limit 1. The analyzer is unchanged. This dossier follows
+run-1 FORWARD, field limit 1. The runtime adapters are described in the
+[implementation document](../docs/design/bidirectional-bottom-up-concrete-static-implementation-20261017.md).
+This dossier follows
 [proof-guide.md](proof-guide.md): define the ordinary concept, model the
 optimization separately, construct witnesses in both directions, check
 counterexamples, and state the remaining refinement obligations.

@@ -24,6 +24,7 @@ class RunMethodHandlers(
             override val config get() = active().config
             override val ops get() = active().ops
             override val steps get() = active().steps
+            override val staticNeedRouter get() = active().staticNeedRouter
             override val statistics get() = active().shared.n2Statistics
             override val abstractionStatistics get() = active().shared.abstractionStatistics
             override val requestBatchStatistics get() = active().shared.requestBatchStatistics
@@ -33,6 +34,7 @@ class RunMethodHandlers(
             override fun applier(key: MethodKey): SummaryApplier = active().analyzer(key)
             override fun post(event: RunEvent.Delivery): Boolean = active().post(event)
             override fun post(event: RunEvent.ChangedRequests): Boolean = active().post(event)
+            override fun post(event: RunEvent.StaticNeed): Boolean = active().post(event)
             override fun send(event: RunEvent): Boolean = active().send(event)
 
         })
@@ -51,6 +53,7 @@ class RunMethodHandlers(
                 is RunEvent.LinkIn -> port.analyzer(event.callee).addLink(event.ref, event.linkLayer, event.added)
                 is RunEvent.ZeroIn -> port.analyzer(event.callee).addZeroEntry()
                 is RunEvent.StaticEntriesIn -> port.analyzer(event.callee).addStaticEntries(event.entries)
+                is RunEvent.ConcreteStaticEntriesIn -> port.analyzer(event.callee).addConcreteStaticEntries(event.entries)
                 is RunEvent.MarkRequestsIn -> port.analyzer(event.method).addMarkRequests(event.rows)
                 is RunEvent.InitialAnswersIn -> for (initial in event.answers) {
                     port.shared.cancellation.checkpoint()
@@ -58,6 +61,7 @@ class RunMethodHandlers(
                 }
                 is RunEvent.Delivery -> checkNotNull(subscriptions).onDelivery(event.callee, event.publications)
                 is RunEvent.ChangedRequests -> checkNotNull(subscriptions).onRequests(event.callee, event.rows)
+                is RunEvent.StaticNeed -> checkNotNull(subscriptions).onStaticNeed(event.visit)
                 is RunEvent.Work -> error("Work is handled by its owning unit runner")
             }
         }
@@ -70,6 +74,11 @@ class RunMethodHandlers(
         override fun subscribeStatic(sub: StaticSubscription) {
             active()
             checkNotNull(subscriptions).subscribeStatic(sub)
+        }
+
+        override fun subscribeConcreteStatic(sub: ConcreteStaticSubscription) {
+            active()
+            checkNotNull(subscriptions).subscribeConcreteStatic(sub)
         }
 
         override fun freeze() {

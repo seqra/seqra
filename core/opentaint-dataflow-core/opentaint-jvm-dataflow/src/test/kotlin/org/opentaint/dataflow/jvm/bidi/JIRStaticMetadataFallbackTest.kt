@@ -23,6 +23,7 @@ import org.opentaint.dataflow.jvm.bidi.fixtures.JIRPrescanFixtures
 import org.opentaint.dataflow.jvm.bidi.fixtures.JIRRuleTestFixtures
 import org.opentaint.dataflow.jvm.bidi.fixtures.NoTaintRules
 import org.opentaint.dataflow.jvm.bidi.interp.JIRStaticMetadataCollector
+import org.opentaint.dataflow.jvm.bidi.interp.JIRStaticMetadata
 import org.opentaint.dataflow.jvm.bidi.interp.JIRBoundaryForms
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -242,14 +243,22 @@ class JIRStaticMetadataFallbackTest : BidiJIRTestUtils() {
                     assertEquals(setOf(read), profiles.localReads(m), "The actual Parent.inherited load stays local reader metadata")
                     assertFalse(slot in profiles.localReads(m), "The rule's ContainsMark needs no value-reader seed")
                     assertTrue(slot in profile.footprint.fieldUniverse, "A mark-only coordinate remains in the legal domain")
-                    for (name in listOf("SOURCE_POS", "SOURCE_NEG", "SINK_POS", "SINK_NEG"))
-                        assertTrue(profile.covers(slot.initial(shared.ap), shared.ap.marks.mark(name)), name)
-                    for (name in listOf("SOURCE_CONTRADICTION", "SOURCE_FALSE", "SINK_CONTRADICTION", "SINK_FALSE"))
-                        assertFalse(profile.covers(slot.initial(shared.ap), shared.ap.marks.mark(name)), name)
+                    assertTrue(profile.precomputedRequests.isEmpty,
+                        "The actual gather remap retains no inherited static mark plan")
+                    assertTrue(profile.markInterests.isEmpty())
                     inspected = true
                     IterationDriver(policy, shared, remaining)
                 })
             bidi.gather(f.manager, roots, resolved)
+            // Inspect the actual graph-only fallback output before prepareShared
+            // consumes it. A second synthetic collector would not test this route.
+            val copied = assertNotNull(JIRBidiAnalysis::class.java.getDeclaredField("prescan")
+                .also { it.isAccessible = true }.get(bidi))
+            val staticLocals = copied.javaClass.getDeclaredField("staticLocals")
+                .also { it.isAccessible = true }.get(copied) as Map<CommonMethod, JIRStaticMetadata>
+            val local = staticLocals.getValue(m)
+            assertEquals(setOf("SOURCE_POS", "SOURCE_NEG", "SINK_POS", "SINK_NEG"),
+                local.marks.map { it.mark }.toSet(), "Enabled unknown AA preserves exactly the live local need producers")
             f.manager.releasePrescan()
             f.engine.releasePrescan()
             assertEquals(RunStatus.TIMEOUT, bidi.run(Duration.ZERO).end.status)

@@ -76,7 +76,8 @@ class CallerStateAcceptanceTest {
                 assertTrue(f.records.byEntry(release, state).none(), "No previous-run record may mask state loss at release")
                 val actors = result.analyzers.associateBy { it.key }
                 val initial = f.manager.initial(state)
-                val expected = Conclusion(state.fact, ExclusionSet.Empty, false)
+                val stateLayer = if (index == 1) Layer.DEMAND else Layer.NORMAL
+                val expected = Conclusion(state.fact, ExclusionSet.Empty, index == 1)
                 for (callee in listOf(release, after)) {
                     val actor = actors.getValue(callee)
                     assertTrue(actor.summaries.all().any { (premise, facts) ->
@@ -86,10 +87,10 @@ class CallerStateAcceptanceTest {
                     }, "Caller-owned state must remain in $callee's nonzero raw summary in run $index")
                     val link = f.links(index, actor.key).asSequence().single {
                         it.addedFact == state && it.caller.caller == root &&
-                            it.linkLayer == Layer.NORMAL && it.caller.callerLayer == Layer.NORMAL
+                            it.linkLayer == stateLayer && it.caller.callerLayer == stateLayer
                     }
-                    assertEquals(Layer.NORMAL, link.linkLayer)
-                    assertEquals(Layer.NORMAL, link.caller.callerLayer)
+                    assertEquals(stateLayer, link.linkLayer)
+                    assertEquals(stateLayer, link.caller.callerLayer)
                     assertTrue(link.caller.premise.isZero)
                     assertEquals(f.program.inst(root, if (callee == release) 2 else 3), link.caller.call)
                     assertTrue(actor.summaries.all().any { (premise, facts) ->
@@ -104,11 +105,12 @@ class CallerStateAcceptanceTest {
                     assertTrue(rows.any { witness ->
                         witness.methodKey == expectedCallee && witness.edges.size == 2 &&
                             witness.edges.map { it.premise } == listOf(initial, f.manager.zero) &&
-                            witness.edges.all { it.layer == Layer.NORMAL && it.facts.layer == Layer.NORMAL } &&
+                            witness.edges.map { it.layer } == listOf(stateLayer, Layer.NORMAL) &&
+                            witness.edges.map { it.facts.layer } == listOf(stateLayer, Layer.NORMAL) &&
                             witness.edges.map { f.ops.leaves(it.facts).map { leaf -> leaf.fact }.toSet() } ==
                                 listOf(setOf(state.fact), setOf(returned.fact)) &&
                             witness.supportPremise(f.manager) == initial
-                    }, "Both sinks must receive the normal state in run $index")
+                    }, "Both sinks must receive caller state with its exact selected layer in run $index")
                 }
                 val report = ReportBuilder().also { it.add(config, result) }
                 assertTrue(report.hasDemandVulnerability())

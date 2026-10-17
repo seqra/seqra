@@ -272,9 +272,10 @@ class NaiveClosure(
         // exact unchanged field identity; requests/effects have run before here.
         val initial = premise.singleOrNull()
         if (selected && config.run1 && initial != null && initial.fact.base == STATIC &&
-            initial.fact.path.size == 2 && initial.fact.mark == MarkSlot.STAR &&
-            initial.fact.tail == Tail.STAR && initial.exclusion == ExclusionSet.Empty &&
-            result.fact == initial.fact && result.exclusion == ExclusionSet.Empty && result.demand) return
+            initial.fact.path.size == 2 && initial.exclusion == ExclusionSet.Empty &&
+            result.fact == initial.fact && result.exclusion == ExclusionSet.Empty && result.demand &&
+            ((initial.fact.mark == MarkSlot.STAR && initial.fact.tail == Tail.STAR) ||
+                (initial.fact.mark is MarkSlot.Concrete && initial.fact.tail == Tail.EXACT))) return
         val raw = ObservedEdge(method, premise, result)
         if (!rawSummaries.add(raw)) return
         publish(method, premise, result)
@@ -420,8 +421,7 @@ class NaiveClosure(
         when (val checked = markCheck(premise.first(), conclusion, literal, config.restricted)) {
             CheckResult.None -> null
             is CheckResult.Request -> {
-                if (!coveredStaticCheck(method, premise, conclusion, checked.mark))
-                    raise(method, premise, RequestKind.Mark(checked.mark))
+                raise(method, premise, RequestKind.Mark(checked.mark))
                 null
             }
             CheckResult.Holds -> conclusion.copy(demand = conjDemand(conclusion, literal))
@@ -510,19 +510,6 @@ class NaiveClosure(
     private fun staticFlow(premise: Set<Pattern>, value: Conclusion): Conclusion =
         if (selected) scalarStaticFlow(config.run1, premise, value) else value
 
-    /** Independent selected same-origin gate. B must really contain this mark;
-     * do not hide a missed prescan contributor. Only ordinary check requests are
-     * redundant; cleaner/excluded-target creator effects still call raise. */
-    private fun coveredStaticCheck(method: MethodKey, premise: Set<Pattern>, value: Conclusion,
-                                   mark: TaintMark): Boolean {
-        if (!selected || !config.run1) return false
-        val initial = premise.singleOrNull() ?: return false
-        if (initial.fact.base != STATIC || initial.fact.path.size != 2 || initial.fact.tail != Tail.STAR ||
-            initial.fact.mark != MarkSlot.STAR || initial.exclusion != ExclusionSet.Empty ||
-            value.fact != initial.fact || value.exclusion != ExclusionSet.Empty) return false
-        return mark in checkNotNull(plan).base(method)[initial].orEmpty()
-    }
-
     private fun cover(value: Conclusion): Conclusion =
         if (selected && config.run1 && value.exclusion != ExclusionSet.Empty)
             value.copy(exclusion = ExclusionSet.Empty, demand = true) else value
@@ -535,7 +522,6 @@ class NaiveClosure(
             } },
             hit = { node, edge -> if (!forward) sourceHits += ObservedSourceHit(method, node, edge.forward) },
             manager = program.manager,
-            coveredCheck = { premise, value, mark -> coveredStaticCheck(method, premise, value, mark) },
             join = { edge, premise, conclusion, node, sink ->
                 check(forward)
                 for ((index, literal) in edge.literals.withIndex()) {
@@ -557,9 +543,9 @@ class NaiveClosure(
     /** Ordinary stored edge, independently generated when a reached owner is initialized. */
     private fun reach(method: MethodKey) {
         if (!selected || !config.run1 || !program.isKnown(method) || !reached.add(method)) return
-        val base = linkedMapOf<Pattern, MutableSet<TaintMark>>()
-        for ((slot, marks) in checkNotNull(plan).base(method)) base[slot] = marks.toMutableSet()
-        admittedRequests[method] = base
+        // Expanded ordinary reference only: static interests traverse each
+        // actual caller input. There is no inherited B/startup interest wave.
+        admittedRequests[method] = linkedMapOf()
         val root = SelectedScalarPlan.slot(STATIC)
         summary(method, setOf(root), Conclusion(root.fact, ExclusionSet.Empty, true))
     }
@@ -623,8 +609,15 @@ class NaiveClosure(
             val profile = checkNotNull(plan)
             // OrdinaryD is exhaustive: every legal actual field is projected,
             // independently of the optimization's local reader/relay placement.
-            for (field in profile.suppliedFields(input))
+            for (field in profile.suppliedFields(input)) {
                 addInitial(link.callee, SelectedScalarPlan.slot(STATIC, field))
+                val actual = input.fact.mark as? MarkSlot.Concrete
+                if (actual != null) {
+                    val exact = input.fact.tail == Tail.EXACT && input.fact.path == field
+                    addInitial(link.callee, Pattern(PathFact(STATIC, field,
+                        if (exact) Tail.EXACT else Tail.STAR, actual), ExclusionSet.Empty))
+                }
+            }
             val mark = input.fact.mark as? MarkSlot.Concrete
             if (mark != null) {
                 if (input.fact.path.size == 1 && input.fact.tail == Tail.EXACT)
@@ -650,10 +643,11 @@ class NaiveClosure(
             }
             is MarkSlot.Star -> {
                 val target = origin(link.premise) ?: return
-                // Frozen B is inherited only on the unchanged queried slot, not on changed origins.
-                if (slot == target && mark in checkNotNull(plan).base(link.callee)[slot].orEmpty()) return
-                if (mark in selectedRequests(link.caller)[target].orEmpty()) return
-                admitRequest(link.caller, target, mark, observed = true)
+                // The expanded static walk is an independent reference, not
+                // the optimized storage protocol. Observe Base endpoints;
+                // intermediate static R/P rows have no public counterpart.
+                admitRequest(link.caller, target, mark,
+                    observed = target.fact.base != STATIC || slot.fact.base != STATIC)
             }
         }
     }

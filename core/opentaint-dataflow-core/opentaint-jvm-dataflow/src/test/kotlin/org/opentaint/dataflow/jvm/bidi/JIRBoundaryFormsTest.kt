@@ -433,7 +433,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
         }
         val i = interp(provider)
         val caller = setOf(Pattern(fact(arg1), empty), Pattern(fact(AccessPathBase.Argument(2), mark = u), empty))
-        val static = conclusion(fact(STATIC, listOf(cls, staticField)))
+        val static = conclusion(fact(STATIC, listOf(cls, staticField)), demand = true)
         val state = conclusion(fact(arg1, listOf(g)))
         val input = listOf(setOf(ZERO_PATTERN) to conclusion(ZERO_FACT), setOf(ZERO_PATTERN) to static, caller to state)
         for ((node, normal) in listOf(normalExit(m) to true, exceptionalExit(m) to false)) {
@@ -467,7 +467,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
         }
         val i = interp(provider)
         val caller = setOf(Pattern(fact(arg1), empty), Pattern(fact(AccessPathBase.Argument(2), mark = u), empty))
-        val static = conclusion(fact(STATIC, listOf(cls, staticField), mark = u))
+        val static = conclusion(fact(STATIC, listOf(cls, staticField), mark = u), demand = true)
         val state = conclusion(fact(arg1))
         for ((node, target, normal) in listOf(Triple(normalExit(m), ret, true), Triple(exceptionalExit(m), exc, false))) {
             val rules = end(i, m, node)
@@ -490,20 +490,22 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
             for (staticPremise in listOf(setOf(ZERO_PATTERN), caller)) {
                 val observed = executeBoundary(i, m, node, listOf(staticPremise to static, caller to state), normal)
                 val end = conclusion(fact(target, mark = w))
+                val dependentEnd = end.copy(demand = true)
                 val expected = buildSet {
                     add(caller to state)
                     add(setOf(ZERO_PATTERN) to end)
+                    add(setOf(ZERO_PATTERN) to dependentEnd)
                     if (staticPremise == caller) add(caller to static)
                 }
                 assertEquals(if (normal) expected else emptySet(), observed.summaries)
-                assertEquals(setOf(static, state, end), observed.beforeDrop)
+                assertEquals(setOf(static, state, end, dependentEnd), observed.beforeDrop)
                 assertEquals(2, observed.witnesses.size, "The A and A/AND/B proofs retain distinct support shapes")
                 val supports = observed.witnesses.map { witness ->
                     assertEquals(key(m), witness.methodKey)
                     assertEquals(1, witness.run)
                     assertEquals(listOf(fact(target, mark = w)), witness.endFacts)
                     witness.edges.map { edge ->
-                        assertEquals(Layer.NORMAL, edge.layer)
+                        assertEquals(if (edge.facts.base == STATIC) Layer.DEMAND else Layer.NORMAL, edge.layer)
                         edge.premise.members.map { it.toPattern() }.toSet() to
                             FormsReference(ops).conclusions(edge.facts).single()
                     }.toSet()

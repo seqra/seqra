@@ -8,7 +8,7 @@ import org.opentaint.dataflow.bidi.fixtures.StoreFixtures
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import kotlin.test.*
 
-/** F78 scalar answer relation, independent of the packed traversal being tested. */
+/** Independent scalar relations: Base answers use requests; static answers use actual marks. */
 class Run1ConcreteAnswerOracleTest {
     private val f = StoreFixtures()
     private val ap = f.manager
@@ -20,9 +20,19 @@ class Run1ConcreteAnswerOracleTest {
     private val t = f.mark("T")
     private val u = f.mark("U")
 
+    private val staticProfile by lazy {
+        Run1StaticProfiles.build(ap,emptyMap(),mapOf(f.commonMethod to Run1StaticLocalProfile.EMPTY),
+            declaredFieldUniverse=setOf(Run1Slot.StaticField(c,a),Run1Slot.StaticField(c,z),Run1Slot.StaticField(d,a)))[f.commonMethod]
+    }
+
     private fun answers(input: Facts, slot: Run1Slot, marks: RequestMarkSet,
                         counts: RequestBatchStatistics.Counts? = null): Set<InitialAp> = buildSet {
-        forEachConcreteAnswer(ap, input, listOf(RequestedRow(slot, RequestRowView(marks, RequestMarkSet.EMPTY))), counts) { add(it) }
+        if (slot is Run1Slot.StaticField) {
+            if (input is TaintTree && input.base == STATIC) forEachActualStaticInitial(ap,input,staticProfile,counts) {
+                if (it.pathData.toList() == slot.pathData.toList()) add(it)
+            }
+        } else if (input.base != STATIC)
+            forEachConcreteAnswer(ap, input, listOf(RequestedRow(slot, RequestRowView(marks, RequestMarkSet.EMPTY))), counts) { add(it) }
     }
 
     @Test
@@ -45,7 +55,8 @@ class Run1ConcreteAnswerOracleTest {
                     if (same && tail == Tail.EXACT) Tail.EXACT else Tail.STAR,
                     ExclusionSet.Empty, MarkSlot.Concrete(t)))
                 assertEquals(expected, answers(input, slot, requested), "$slot <- $base/$path/$tail/$layer")
-                assertTrue(answers(input, slot, RequestMarkSet.of(u)).isEmpty())
+                if (slot is Run1Slot.Base) assertTrue(answers(input, slot, RequestMarkSet.of(u)).isEmpty())
+                else assertEquals(expected,answers(input,slot,RequestMarkSet.of(u)),"Static answers ignore mark-request membership")
             }
         }
     }

@@ -10,7 +10,7 @@ import org.opentaint.dataflow.bidi.store.*
 import kotlin.test.*
 
 class Run1RequestMatchingTest {
-    @Test fun `actual requested marks produce all exact and STAR alternatives never ANY`() {
+    @Test fun `all actual static marks produce exact and STAR alternatives without requests or invented marks`() {
         val f = StoreFixtures(); val m = f.manager
         val cls = m.accessors.index(ClassStaticAccessor("Box")); val field = f.field("f")
         val t = f.mark("T"); val u = f.mark("U"); val absent = f.mark("absent")
@@ -20,8 +20,10 @@ class Run1RequestMatchingTest {
         val input = m.taintTree(STATIC,Layer.NORMAL,
             m.taintAlg.prepend(m,m.path(slot.pathData),m.taintAlg.leafNode(leaves)))
         val answers = linkedSetOf<InitialAp>()
-        forEachConcreteAnswer(m,input,listOf(RequestedRow(slot,RequestRowView(
-            RequestMarkSet.fromIds(intArrayOf(t.id,u.id,absent.id)),RequestMarkSet.EMPTY)))) { answers += it }
+        val profile=Run1StaticProfiles.build(m,emptyMap(),mapOf(f.commonMethod to Run1StaticLocalProfile.EMPTY),
+            declaredFieldUniverse=setOf(slot))[f.commonMethod]
+        forEachActualStaticInitial(m,input,profile) { answers += it }
+        assertTrue(answers.none { it.mark == MarkSlot.Concrete(absent) })
         assertEquals(setOf(Tail.EXACT to t,Tail.EXACT to u,Tail.STAR to t), answers.map {
             it.tail to (it.mark as MarkSlot.Concrete).mark }.toSet())
         assertTrue(answers.all { it.path == m.path(slot.pathData) && it.exclusion == ExclusionSet.Empty })
@@ -51,7 +53,8 @@ class Run1RequestMatchingTest {
             StaticMarkRole.INPUT_GATE,RequestMarkSet.of(t))
         val profile = Run1StaticProfiles.build(m,emptyMap(),mapOf(f.commonMethod to
             Run1StaticLocalProfile(marks=listOf(need))))[f.commonMethod]
-        assertTrue(t in profile.classPointMarks(cls)); assertFalse(u in profile.classPointMarks(cls))
+        assertTrue(profile.footprint.ownsPoint(cls))
+        assertTrue(profile.classPointMarks(cls).isEmpty, "Class metadata retains coordinates, not inherited marks")
         val supplied = m.markSetOf(t) + u
         for (path in listOf(emptyList(),listOf(cls))) {
             val tree = m.taintAlg.prepend(m,m.path(path),

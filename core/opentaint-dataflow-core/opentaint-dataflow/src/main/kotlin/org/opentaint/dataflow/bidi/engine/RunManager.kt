@@ -60,6 +60,8 @@ class RunManager<A : RunActor>(
         if (status.compareAndSet(null, RunStatus.COMPLETE)) completion.complete(RunStatus.COMPLETE)
     }
     val forms: DirectedForms = shared.contexts.directed(config.direction)
+    val staticNeedRouter: StaticNeedRouter? = if (config.run1)
+        StaticNeedRouter(shared.ap, { visit -> summaryStorage(visit.key.method).notifyStaticNeed(visit) }) else null
     private val memory = MemoryManager(shared.refManager, OOM_THRESHOLD) { fail(RunStatus.OOM) }
 
     /** All units in this run share one storage for the complete callee key. */
@@ -67,8 +69,7 @@ class RunManager<A : RunActor>(
         check(!ended) { "The run has ended" }
         shared.cancellation.checkpoint()
         storages.computeIfAbsent(key) { SummaryStorage(it, shared.ap, shared.ops, steps,
-            if (config.run1) shared.run1StaticProfiles?.get(it.method)?.precomputedRequests ?: EmptyFrozenRequestBase else EmptyFrozenRequestBase,
-            shared.abstractionStatistics) }
+            EmptyFrozenRequestBase, shared.abstractionStatistics) }
     }
 
     fun route(event: RunEvent): Boolean {
@@ -197,7 +198,7 @@ class RunManager<A : RunActor>(
             synchronized(admission) {
                 runners.clear()
                 runnerJobs.clear()
-                if (joined) storages.clear()
+                if (joined) { storages.clear(); staticNeedRouter?.clear() }
             }
         }
         failure?.let { throw it }

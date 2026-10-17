@@ -48,61 +48,43 @@ class Run1RequestStorageTest {
         assertFails { (temporary.pendingRows() as MutableMap<Run1Slot, RequestMarkSet>).clear() }
     }
 
-    @Test fun `packed narrow and broad classes return each B plus D row once without unrelated classes`() {
-        val f = StoreFixtures(); val m = f.manager
-        val c = m.accessors.index(ClassStaticAccessor("C")); val d = m.accessors.index(ClassStaticAccessor("D"))
-        val other = m.accessors.index(ClassStaticAccessor("Other"))
-        val x = f.field("x"); val y = f.field("y"); val z = f.field("z")
-        val t = f.mark("T"); val u = f.mark("U")
-        val cx = Run1Slot.StaticField(c,x); val cy = Run1Slot.StaticField(c,y)
-        val dz = Run1Slot.StaticField(d,z); val ox = Run1Slot.StaticField(other,x)
-        val storage = RequestStorage(freezeRequestRows(mapOf(cx to RequestMarkSet.of(t), cy to RequestMarkSet.of(t),
-            dz to RequestMarkSet.of(t), ox to RequestMarkSet.of(t))))
-        storage.addAll(cx, RequestMarkSet.of(u)); storage.addAll(cy, RequestMarkSet.of(u))
-        val broadC = f.fact(STATIC,listOf(c),Tail.ANY,MarkSlot.Concrete(t)) as TaintTree
-        val narrowD = f.fact(STATIC,listOf(d,z),Tail.EXACT,MarkSlot.Concrete(t)) as TaintTree
-        val packed = m.taintTree(STATIC,Layer.NORMAL,m.taintAlg.mergeAdd(broadC.root,narrowD.root),ExclusionSet.of(c))
+    @Test fun `ordinary R and P reject static rows and do not scan static suppliers`() {
+        val f = StoreFixtures(); val m = f.manager; val t = f.mark("T")
+        val c = m.accessors.index(ClassStaticAccessor("C")); val slot = Run1Slot.StaticField(c,f.field("f"))
+        assertFailsWith<IllegalStateException> { RequestStorage(mapOf(slot to RequestMarkSet.of(t))) }
+        val storage = RequestStorage()
+        assertFailsWith<IllegalArgumentException> { storage.addAll(slot,RequestMarkSet.of(t)) }
         val counts = RequestMatchCounts()
-        val rows = storage.borrowMatchingRows(packed,{},counts)
-        assertEquals(setOf(cx,cy,dz),rows.map { it.slot }.toSet())
-        assertEquals(3,rows.size, "B and D contribute two segments to one descriptor, never duplicate slots")
-        assertEquals(setOf(t.id,u.id),ids(rows.single { it.slot == cx }.marks))
-        assertEquals(1L,counts.directLookups); assertEquals(1L,counts.broadScans)
-        assertEquals(6L,counts.scannedKeys) // four B keys and two overlapping D keys
+        assertTrue(storage.borrowMatchingRows(f.fact(STATIC,tail=Tail.ANY),{},counts).isEmpty())
+        assertEquals(0L,counts.scannedKeys)
+        assertTrue(storage.borrow(slot).isEmpty)
     }
 
-    @Test fun `request matching ignores field and mark exclusions but exact ancestor is not a supplier`() {
+    @Test fun `static need geometry ignores field and mark exclusions but exact ancestor is not a supplier`() {
         val f = StoreFixtures(); val m = f.manager
         val c = m.accessors.index(ClassStaticAccessor("C")); val x = f.field("x"); val t = f.mark("T")
         val slot = Run1Slot.StaticField(c,x)
-        val storage = RequestStorage(freezeRequestRows(mapOf(slot to RequestMarkSet.of(t))))
         val excludedFlow = f.fact(STATIC,emptyList(),Tail.STAR,MarkSlot.Star(m.markSetOf(t)),ExclusionSet.of(c))
-        assertEquals(listOf(slot),storage.borrowMatchingRows(excludedFlow,{}).map { it.slot })
+        assertTrue(slotMatches(slot,excludedFlow))
         val excludedMay = f.fact(STATIC,listOf(c),Tail.ANY,MarkSlot.Concrete(t),ExclusionSet.of(x))
-        assertEquals(listOf(slot),storage.borrowMatchingRows(excludedMay,{}).map { it.slot })
+        assertTrue(slotMatches(slot,excludedMay))
         val exactAncestor = f.fact(STATIC,listOf(c),Tail.EXACT,MarkSlot.Concrete(t))
-        assertTrue(storage.borrowMatchingRows(exactAncestor,{}).isEmpty())
-        val explicitChild = f.fact(STATIC,slot.pathData.toList(),Tail.EXACT,MarkSlot.Concrete(t)) as TaintTree
-        val exact = exactAncestor as TaintTree
-        val withChild = m.taintTree(STATIC,Layer.NORMAL,m.taintAlg.mergeAdd(exact.root,explicitChild.root))
-        assertEquals(listOf(slot),storage.borrowMatchingRows(withChild,{}).map { it.slot })
+        assertFalse(slotMatches(slot,exactAncestor))
+        val explicit = f.fact(STATIC,slot.pathData.toList(),Tail.EXACT,MarkSlot.Concrete(t)) as TaintTree
+        val withChild = m.taintTree(STATIC,Layer.NORMAL,m.taintAlg.mergeAdd((exactAncestor as TaintTree).root,explicit.root))
+        assertTrue(slotMatches(slot,withChild))
     }
 
-    @Test fun `ordinary base lookup stays direct and matching checks cancellation for wide scans`() {
-        val f = StoreFixtures(); val m = f.manager; val t = f.mark("T")
+    @Test fun `ordinary base lookup remains direct and cancellation runs before matching`() {
+        val f = StoreFixtures(); val t = f.mark("T")
         val base = Run1Slot.Base(AccessPathBase.Argument(0))
-        val c = m.accessors.index(ClassStaticAccessor("C"))
-        val fields = (0 until 64).map { Run1Slot.StaticField(c,f.field("f$it")) }
-        val storage = RequestStorage(freezeRequestRows((fields + base).associateWith { RequestMarkSet.of(t) }))
+        val storage = RequestStorage(); storage.addAll(base,RequestMarkSet.of(t))
         val counts = RequestMatchCounts()
         assertEquals(listOf(base),storage.borrowMatchingRows(f.fact(),{},counts).map { it.slot })
         assertEquals(1L,counts.directLookups); assertEquals(0L,counts.scannedKeys)
-        val broad = f.fact(STATIC,tail=Tail.ANY)
-        var visits = 0
         assertFailsWith<Cancellation.Cancelled> {
-            storage.borrowMatchingRows(broad, { if (++visits == 7) f.cancellation.cancel(); f.cancellation.checkpoint() })
+            storage.borrowMatchingRows(f.fact(), { throw Cancellation.Cancelled() })
         }
-        assertEquals(7,visits)
     }
 
     @Test fun `only actual normal initial slots can become request keys`() {

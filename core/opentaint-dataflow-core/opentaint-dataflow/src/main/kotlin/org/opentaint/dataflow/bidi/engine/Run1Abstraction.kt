@@ -69,9 +69,18 @@ internal class Run1Abstraction(
                 staticEntries.invoke(
                     ap.flowTree(STATIC, Layer.DEMAND, ExclusionSet.Empty, MarkSet.EMPTY, geometry, Tail.STAR))
             }
-            forEachDirectClassInitial(ap, input, profile, answer)
+            if (input is TaintTree) {
+                // Actual static marks do not wait for an R/B membership or a
+                // later request. Ordinary initial/transport dedup owns them.
+                val counts = statistics?.let { RequestBatchStatistics.Counts() }
+                forEachActualStaticInitial(ap, input, profile, counts) { initial ->
+                    if (counts != null) counts.answers++
+                    answer(initial)
+                }
+                if (counts != null) statistics?.record(counts)
+            }
         }
-        if (input is TaintTree) {
+        if (input is TaintTree && input.base != STATIC) {
             // Read after any synchronous abstraction starts; later P admission is
             // covered by registered caller-input replay, never by an emitter memo.
             val rows = borrowRequests(input)

@@ -76,6 +76,18 @@ class SummaryStorage(
         synchronized(lock) { subscribers.add(subscriber) }
     }
 
+    /** Shared published routing metadata; publisher never reads caller state. */
+    fun notifyStaticNeed(visit: StaticNeedVisit) {
+        check(visit.key.method == method)
+        val recipients = synchronized(lock) { subscribers.toList() }
+        steps.notify {
+            for (subscriber in recipients) {
+                ap.cancellation.checkpoint()
+                subscriber.notifyStaticNeed(visit)
+            }
+        }
+    }
+
     fun candidates(part: Subscription, mode: ApMode): List<Pair<Publication, Int>> =
         synchronized(lock) { published.candidates(part, mode) }
 }

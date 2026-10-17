@@ -107,13 +107,15 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         assertEquals(setOf(cls), metadata.classPoints)
         assertTrue(metadata.wideClasses.isEmpty()); assertFalse(metadata.allStatic)
         val ap = ApManager(Cancellation())
+        val compiled = metadata.compile(ap)
+        assertTrue(compiled.marks.single().marks.containsId(0), "Local producer metadata keeps the admitted mark ID")
         val profile = org.opentaint.dataflow.bidi.engine.Run1StaticProfiles.build(ap, emptyMap(),
-            mapOf(caller to metadata.compile(ap)))[caller]
+            mapOf(caller to compiled))[caller]
         val classId = ap.accessors.index(cls)
         assertEquals(setOf(classId), profile.classPointClasses)
         assertTrue(profile.precomputedRequests.isEmpty, "No class request slot or field product is introduced")
         assertTrue(metadata.abstractions.isEmpty())
-        assertTrue(profile.classPointMarks(classId).containsId(0))
+        assertTrue(profile.classPointMarks(classId).isEmpty, "Structural class consumers retain no mark payload")
     }
 
     @Test
@@ -182,7 +184,7 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
     }
 
     @Test
-    fun `field selected cleaner creates a scoped mark-only row and never a global field request`(): Unit {
+    fun `field selected cleaner keeps local producer metadata without a frozen mark row`(): Unit {
         val v = JIRRuleTestFixtures(cp)
         val caller = method("callOnly")
         val target = checkNotNull(caller.instList.instructions.first { it.callExpr != null }.callExpr).method.method
@@ -206,7 +208,11 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         val profile = org.opentaint.dataflow.bidi.engine.Run1StaticProfiles.build(ap, emptyMap(),
             mapOf(caller to compiled), declaredFieldUniverse = setOf(selected, other))[caller]
         assertTrue(compiled.abstractions.isEmpty())
-        assertTrue(profile.precomputedRequests.borrow(selected).containsId(ap.marks.mark("T").id))
+        assertTrue(compiled.marks.any { it.pattern.fact.path.take(2) == selected.pathData.toList() &&
+            it.marks.containsId(ap.marks.mark("T").id) }, "The actual cleaner remains a local need producer")
+        assertEquals(setOf(selected, other), profile.footprint.fieldUniverse)
+        assertTrue(profile.precomputedRequests.isEmpty)
+        assertTrue(profile.precomputedRequests.borrow(selected).isEmpty)
         assertFalse(profile.precomputedRequests.hasRow(other))
         assertTrue(profile.wideRequests(ap.factsOf(org.opentaint.dataflow.bidi.ap.PathFact(
             org.opentaint.dataflow.bidi.ap.STATIC, other.pathData.toList(), Tail.EXACT,

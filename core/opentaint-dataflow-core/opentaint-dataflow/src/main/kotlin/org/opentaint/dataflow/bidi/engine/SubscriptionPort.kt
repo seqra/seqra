@@ -9,6 +9,7 @@ interface SubscriptionPort {
     val config: RunConfig
     val ops: ApOps
     val steps: ProtocolSteps
+    val staticNeedRouter: StaticNeedRouter? get() = null
     val statistics: N2Statistics? get() = null
     val abstractionStatistics: Run1AbstractionStatistics? get() = null
     val requestBatchStatistics: RequestBatchStatistics? get() = null
@@ -17,6 +18,7 @@ interface SubscriptionPort {
     fun applier(key: MethodKey): SummaryApplier
     fun post(event: RunEvent.Delivery): Boolean
     fun post(event: RunEvent.ChangedRequests): Boolean = error("Request delivery needs its subscribed runner")
+    fun post(event: RunEvent.StaticNeed): Boolean = error("Static need delivery needs its subscribed runner")
     /** Must enqueue, including same-unit answers/climbs; never invoke an actor inline during a visit. */
     fun send(event: RunEvent): Boolean = error("Question results need counted queued delivery")
 }
@@ -25,5 +27,6 @@ interface SubscriptionPort {
 interface SubscriptionHandler {
     fun subscribe(sub: Subscription)
     fun subscribeStatic(sub: StaticSubscription): Unit = error("Static identity transport is unavailable")
+    fun subscribeConcreteStatic(sub: ConcreteStaticSubscription): Unit = error("Concrete static transport is unavailable")
     fun freeze()
 }

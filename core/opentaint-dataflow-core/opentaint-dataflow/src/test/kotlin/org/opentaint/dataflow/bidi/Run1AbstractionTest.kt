@@ -32,12 +32,16 @@ class Run1AbstractionTest {
     private fun caller(f: MethodAnalysisFixtures, p: List<Int>? = null, context: String = "supplier"): CallerRef =
         CallerRef(f.store.key(context), p?.let { abstract(f, it) } ?: f.manager.zero, Layer.NORMAL, f.inst(1))
     private fun barrier(f: MethodAnalysisFixtures, core: RunMethodAnalyzer) = f.flushRequests(core, 2)
-    private fun answers(core: RunMethodAnalyzer): Set<InitialAp> =
-        core.initials.all().filter { it.mark is MarkSlot.Concrete }.toSet()
+    private fun answers(f: MethodAnalysisFixtures, core: RunMethodAnalyzer): Set<InitialAp> =
+        initials(f, core).filter { it.mark is MarkSlot.Concrete && !it.isZero }.toSet()
 
     private fun initials(f: MethodAnalysisFixtures, core: RunMethodAnalyzer): Set<InitialAp> = buildSet {
         addAll(core.initials.all().toList())
         core.staticEntryFacts()?.let { tree -> f.ops.leaves(tree).forEach { add(f.manager.initial(it)) } }
+        core.concreteStaticEntryFacts()?.let { tree -> f.ops.leaves(tree).forEach { leaf ->
+            add(f.manager.initial(leaf.copy(fact = leaf.fact.copy(
+                tail = if (leaf.fact.tail == Tail.EXACT) Tail.EXACT else Tail.STAR))))
+        } }
     }
 
     @Test
@@ -46,7 +50,10 @@ class Run1AbstractionTest {
             val core = actor(f)
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, path(f, "g")))
             barrier(f, core)
-            assertEquals(setOf(abstract(f, path(f, "g"))), initials(f, core))
+            val concrete = f.manager.initial(STATIC, f.manager.path(path(f, "g")), Tail.EXACT,
+                ExclusionSet.Empty, MarkSlot.Concrete(f.mark("T")))
+            assertEquals(setOf(abstract(f, path(f, "g")), concrete), initials(f, core))
+            assertEquals(Layer.DEMAND, assertNotNull(core.concreteStaticEntryFacts()).layer)
             val default = core.summaries.all().single { (premise, _) ->
                 premise is InitialAp && isSpecialStaticRoot(premise)
             }
@@ -67,14 +74,16 @@ class Run1AbstractionTest {
             assertEquals(setOf(abstract(f, fp), abstract(f, gp)), initials(f, core).toSet())
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, gp))
             barrier(f, core)
-            assertEquals(setOf(abstract(f, fp), abstract(f, gp)), initials(f, core).toSet())
-            assertTrue(answers(core).isEmpty())
+            val actualT = f.manager.initial(STATIC, f.manager.path(gp), Tail.EXACT,
+                ExclusionSet.Empty, MarkSlot.Concrete(f.mark("T")))
+            assertEquals(setOf(abstract(f, fp), abstract(f, gp), actualT), initials(f, core).toSet())
+            assertEquals(setOf(actualT), answers(f, core))
             assertTrue(f.events.filterIsInstance<RunEvent.MarkRequestsIn>().isEmpty())
         }
     }
 
     @Test
-    fun `entry bindings ignore reader placement while concrete answers require a mark request`(): Unit {
+    fun `actual static admission ignores reader placement and mark-interest metadata`(): Unit {
         for (read in listOf(false, true)) for (mark in listOf(false, true)) {
             fixture(marks = mark, reads = read).use { f ->
                 val core = actor(f)
@@ -84,7 +93,7 @@ class Run1AbstractionTest {
                 barrier(f, core)
                 val initials = initials(f, core).toSet()
                 assertContains(initials, abstract(f, fp), "A supplied field is admitted independently of local reads")
-                assertEquals(mark, initials.any { it.mark == MarkSlot.Concrete(t) })
+                assertTrue(initials.any { it.mark == MarkSlot.Concrete(t) })
                 assertTrue(initials.none { it.base == STATIC && it.path == null })
                 assertTrue(initials.all { it.exclusion == ExclusionSet.Empty })
             }
@@ -92,7 +101,7 @@ class Run1AbstractionTest {
     }
 
     @Test
-    fun `precomputed interest adds only supplied requested marks and keeps each abstract initial`(): Unit {
+    fun `actual unrequested marks start immediately and duplicate callers do not restart the same initial`(): Unit {
         fixture(marks = true).use { f ->
             val core = actor(f)
             val fp = path(f, "f")
@@ -100,12 +109,14 @@ class Run1AbstractionTest {
             val u = f.mark("U")
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, fp, mark = MarkSlot.Concrete(u)))
             barrier(f, core)
-            assertTrue(answers(core).isEmpty())
+            val suppliedU = f.manager.initial(STATIC, f.manager.path(fp), Tail.EXACT,
+                ExclusionSet.Empty, MarkSlot.Concrete(u))
+            assertEquals(setOf(suppliedU), answers(f, core))
             val abstracts = initials(f, core).toSet()
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, fp, mark = MarkSlot.Concrete(t)))
             val expected = f.manager.initial(STATIC, f.manager.path(fp), Tail.EXACT,
                 ExclusionSet.Empty, MarkSlot.Concrete(t))
-            assertEquals(setOf(expected), answers(core), "A new concrete supplier reads already installed B immediately")
+            assertEquals(setOf(suppliedU, expected), answers(f, core), "Every actual mark starts without static B/R membership")
             barrier(f, core)
             assertEquals(abstracts + expected, initials(f, core).toSet())
             val deltas = core.edgeDeltas
@@ -119,7 +130,7 @@ class Run1AbstractionTest {
     }
 
     @Test
-    fun `dynamic marks are additive separate alternatives and process existing and late suppliers`(): Unit {
+    fun `source needs and actual static suppliers are independent in both arrival orders`(): Unit {
         fixture().use { f ->
             val core = actor(f)
             val gp = path(f, "g")
@@ -130,29 +141,29 @@ class Run1AbstractionTest {
             barrier(f, core)
             core.addMarkRequests(origin, RequestMarkSet.fromIds(intArrayOf(t.id, u.id)))
             barrier(f, core)
-            assertEquals(setOf(t), answers(core).map { (it.mark as MarkSlot.Concrete).mark }.toSet())
+            assertEquals(setOf(t), answers(f, core).map { (it.mark as MarkSlot.Concrete).mark }.toSet())
             assertContains(initials(f, core), origin)
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, gp, mark = MarkSlot.Concrete(u)))
             barrier(f, core)
-            assertEquals(setOf(t, u), answers(core).map { (it.mark as MarkSlot.Concrete).mark }.toSet())
-            assertTrue(answers(core).all { it.tail == Tail.EXACT })
+            assertEquals(setOf(t, u), answers(f, core).map { (it.mark as MarkSlot.Concrete).mark }.toSet())
+            assertTrue(answers(f, core).all { it.tail == Tail.EXACT })
             assertContains(initials(f, core), origin)
         }
     }
 
     @Test
-    fun `catalog covered targets produce no empty delivery and retain interest for late facts`(): Unit {
+    fun `mark templates create no static request wave and actual late facts start directly`(): Unit {
         fixture(marks = true).use { f ->
             val core = actor(f)
             val fp = path(f, "f")
             f.admit(core, caller(f, fp), Layer.NORMAL,
                 f.fact(STATIC, fp, Tail.STAR, MarkSlot.STAR))
             barrier(f, core)
-            assertTrue(f.events.filterIsInstance<RunEvent.MarkRequestsIn>().isEmpty(), "The exact original abstraction is covered by its installed catalog")
-            assertTrue(answers(core).isEmpty())
+            assertTrue(f.events.filterIsInstance<RunEvent.MarkRequestsIn>().isEmpty(), "No local operation was configured to produce a need")
+            assertTrue(answers(f, core).isEmpty())
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, fp))
             barrier(f, core)
-            assertEquals(1, answers(core).size)
+            assertEquals(1, answers(f, core).size)
         }
     }
 
@@ -177,9 +188,10 @@ class Run1AbstractionTest {
             val ref = caller(f, gp)
             f.admit(core, ref, Layer.NORMAL, f.fact(STATIC, gp, Tail.STAR, MarkSlot.STAR))
             f.drain(core)
-            val request = f.events.filterIsInstance<RunEvent.MarkRequestsIn>().single()
-            assertEquals(ref.caller, request.method)
-            assertEquals(mapOf<Run1Slot, RequestMarkSet>(Run1Slot.StaticField(gp[0], gp[1]) to RequestMarkSet.of(f.mark("T"))), request.rows)
+            assertTrue(f.events.filterIsInstance<RunEvent.MarkRequestsIn>().isEmpty(),
+                "Static-origin interest is not an ordinary static R/P delivery")
+            assertEquals(RequestMarkSet.of(f.mark("T")),
+                f.requestRow(core, Run1Slot.StaticField(gp[0], gp[1])).toRequestMarkSet {})
             assertTrue(f.vulnerabilities.witnessesOf(1).none(), "An abstract check supplies no predicate proof")
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, gp))
             f.drain(core)
@@ -204,7 +216,7 @@ class Run1AbstractionTest {
             assertEquals(0L, emitter.pendingAnswerMarkCount)
             core.addMarkRequests(abstract(f, gp), RequestMarkSet.of(f.mark("T")))
             barrier(f, core)
-            assertEquals(1, answers(core).size)
+            assertEquals(1, answers(f, core).size)
             core.releaseAbstraction()
             assertNull(core.abstraction)
             assertFailsWith<IllegalStateException> { emitter.emit(ref, input) }

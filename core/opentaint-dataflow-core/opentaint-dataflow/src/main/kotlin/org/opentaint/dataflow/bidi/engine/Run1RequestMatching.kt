@@ -47,7 +47,8 @@ internal fun forEachConcreteAnswer(
     ap: ApManager, input: Facts, rows: List<RequestedRow>,
     statistics: RequestBatchStatistics.Counts? = null, emit: (InitialAp) -> Unit,
 ) {
-    if (input !is TaintTree || rows.isEmpty()) return
+    if (input !is TaintTree || input.base == STATIC || rows.isEmpty()) return
+    check(rows.all { it.slot is Run1Slot.Base }) { "Static marks are admitted without ordinary requests" }
     val stack = ArrayDeque<Pair<TaintNode, IntArray>>()
     stack.addLast(input.root to EMPTY_PATH)
     while (stack.isNotEmpty()) {

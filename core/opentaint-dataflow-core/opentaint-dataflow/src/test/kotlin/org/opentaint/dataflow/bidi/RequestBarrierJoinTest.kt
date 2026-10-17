@@ -45,18 +45,18 @@ class RequestBarrierJoinTest {
                 f.admit(actor, caller(f), Layer.NORMAL, f.fact(mark = MarkSlot.Concrete(u)))
             }
             if (requestsFirst) { addRequests(); addLinks() } else { addLinks(); addRequests() }
-            assertEquals(setOf(i), actor.initials.all().toSet())
+            assertEquals(setOf(i), f.initials(actor))
             assertFails { actor.freeze() }
             assertTrue(f.enqueued.isNotEmpty(), "The phase has counted Work ownership")
             flush(f, actor)
             val expected = setOf(i, f.manager.initial(f.pattern(mark = MarkSlot.Concrete(t))),
                 f.manager.initial(f.pattern(mark = MarkSlot.Concrete(u))))
-            assertEquals(expected, actor.initials.all().toSet())
+            assertEquals(expected, f.initials(actor))
             assertTrue(climbs(f).isEmpty())
             actor.addMarkRequests(i, marks)
             f.admit(actor, caller(f), Layer.NORMAL, f.fact(mark = MarkSlot.Concrete(t)))
             flush(f, actor)
-            assertEquals(expected, actor.initials.all().toSet(), "Repeated input may repeat intersection but not method starts")
+            assertEquals(expected, f.initials(actor), "Repeated input may repeat intersection but not method starts")
         }
     }
 
@@ -87,7 +87,7 @@ class RequestBarrierJoinTest {
             assertEquals(1, batches.size, "Equal full request targets combine in one replay visit")
             assertEquals(32, batches.single().rows.getValue(assertNotNull(Run1Slot.fromInitial(i))).size)
             assertEquals(setOf(a, b), f.links(actor).asSequence().map { it.caller }.toSet())
-            assertEquals(setOf(i), actor.initials.all().toSet())
+            assertEquals(setOf(i), f.initials(actor))
         }
     }
 
@@ -102,7 +102,7 @@ class RequestBarrierJoinTest {
             assertTrue(climbs(f).isEmpty())
             f.admit(actor, caller(f), Layer.NORMAL, f.fact(mark = MarkSlot.Concrete(t)))
             flush(f, actor)
-            assertEquals(setOf(i, f.manager.initial(f.pattern(mark = MarkSlot.Concrete(t)))), actor.initials.all().toSet())
+            assertEquals(setOf(i, f.manager.initial(f.pattern(mark = MarkSlot.Concrete(t)))), f.initials(actor))
         }
     }
 
@@ -128,12 +128,12 @@ class RequestBarrierJoinTest {
             f.admit(actor, ref, Layer.NORMAL, f.fact(base = STATIC, path = listOf(cls, g), tail = Tail.ANY_TAINT,
                 mark = MarkSlot.Concrete(t), exclusion = ExclusionSet.of(h)))
             flush(f, actor)
-            val expected = setOf(root,
+            val expected = setOf(root,policy(f,STATIC,listOf(cls,field)),policy(f,STATIC,listOf(cls,g)),
                 f.manager.initial(f.pattern(mark = MarkSlot.Concrete(t))),
                 f.manager.initial(f.pattern(tail = Tail.STAR, mark = MarkSlot.Concrete(t))),
                 f.manager.initial(f.pattern(base = STATIC, path = listOf(cls, field), mark = MarkSlot.Concrete(t))),
                 f.manager.initial(f.pattern(base = STATIC, path = listOf(cls, g), tail = Tail.STAR, mark = MarkSlot.Concrete(t))))
-            assertEquals(expected, actor.initials.all().toSet())
+            assertEquals(expected, f.initials(actor))
             assertTrue(climbs(f).isEmpty())
         }
     }
@@ -179,14 +179,14 @@ class RequestBarrierJoinTest {
             actor.addMarkRequest(slot, t)
             flush(f, actor)
             val chain = f.manager.initial(STATIC, slot.path, Tail.STAR, ExclusionSet.Empty, MarkSlot.Concrete(t))
-            assertContains(actor.initials.all(), chain, "Request matching ignores the supplier E")
+            assertContains(f.initials(actor), chain, "Request matching ignores the supplier E")
             val child = f.fact(STATIC, listOf(cls, g), mark = MarkSlot.Concrete(t))
             val root = f.manager.taintAlg.mergeAddDelta(assertIs<TaintTree>(must).root, assertIs<TaintTree>(child).root).first
             f.admit(actor, ref, Layer.NORMAL, f.manager.taintTree(STATIC, Layer.NORMAL, root, e))
             flush(f, actor)
             val exact = f.manager.initial(STATIC, slot.path, Tail.EXACT, ExclusionSet.Empty, MarkSlot.Concrete(t))
-            assertContains(actor.initials.all(), exact)
-            assertContains(actor.initials.all(), chain)
+            assertContains(f.initials(actor), exact)
+            assertContains(f.initials(actor), chain)
             assertTrue(f.links(actor).any { it.addedFact.fact.path == listOf(cls, g) })
             assertTrue(f.links(actor).any { it.addedFact.exclusion == e && it.addedFact.fact.tail == Tail.ANY_TAINT })
         }

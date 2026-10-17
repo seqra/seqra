@@ -12,6 +12,9 @@ sealed interface RunEvent {
     data class LinkIn(val callee: MethodKey, val ref: CallerRef, val linkLayer: Layer, val added: Facts) : RunEvent
     data class ZeroIn(val callee: MethodKey) : RunEvent
     data class StaticEntriesIn(val callee: MethodKey, val entries: org.opentaint.dataflow.bidi.ap.FlowTree) : RunEvent
+    data class ConcreteStaticEntriesIn(val callee: MethodKey, val entries: org.opentaint.dataflow.bidi.ap.TaintTree) : RunEvent
+    /** Posted only to subscribed caller owners; the wave contains no concrete evidence. */
+    data class StaticNeed(val visit: StaticNeedVisit) : RunEvent
 
     /** A detached immutable batch addressed to the full method owner. */
     data class MarkRequestsIn(val method: MethodKey, val rows: RequestRows) : RunEvent
@@ -37,8 +40,9 @@ fun RunEvent.target(): MethodKey = when (this) {
     is RunEvent.LinkIn -> callee
     is RunEvent.ZeroIn -> callee
     is RunEvent.StaticEntriesIn -> callee
+    is RunEvent.ConcreteStaticEntriesIn -> callee
     is RunEvent.MarkRequestsIn -> method
     is RunEvent.InitialAnswersIn -> method
-    is RunEvent.Delivery, is RunEvent.ChangedRequests, is RunEvent.Work ->
+    is RunEvent.Delivery, is RunEvent.ChangedRequests, is RunEvent.StaticNeed, is RunEvent.Work ->
         error("Delivery and Work require their owning runner")
 }

@@ -3,11 +3,12 @@ package org.opentaint.dataflow.bidi.engine
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldAccessor
 import org.opentaint.dataflow.bidi.ap.*
 
-/** Run-1 layers are independent of AP geometry. Concrete TAINT has its own path. */
+/** Demote before evaluation, without changing AP geometry or its annotations. */
 internal fun normalizeRun1StaticFlow(premise: PremiseKey, facts: Facts, input: Facts? = null): Facts {
-    if (facts !is FlowTree || facts.layer == Layer.DEMAND) return facts
-    val staticOrigin = premise is InitialAp && premise.isFlow && premise.base == STATIC
-    val demandSupport = input is FlowTree && (input.layer == Layer.DEMAND || input.base == STATIC)
+    if (facts.layer == Layer.DEMAND) return facts
+    var staticOrigin = false
+    for (index in 0 until premise.size) if (premise.member(index).base == STATIC) { staticOrigin = true; break }
+    val demandSupport = input != null && (input.layer == Layer.DEMAND || input.base == STATIC)
     return if (staticOrigin || facts.base == STATIC || demandSupport) facts.withLayer(Layer.DEMAND) else facts
 }
 
@@ -15,6 +16,15 @@ internal fun normalizeRun1StaticFlow(premise: PremiseKey, facts: Facts, input: F
  * The owner's unconditional root default covers this transfer. Operations and
  * their requests have already run before this summary-retention boundary. */
 internal fun compactRun1StaticIdentity(ops: ApOps, premise: PremiseKey, facts: Facts): Facts? {
+    // Exact concrete identity is covered by the correlated root default.
+    // STAR -> ANY is an effect: it loses suffix correlation and must remain.
+    if (premise is InitialAp && premise.base == STATIC && premise.tail == Tail.EXACT &&
+        premise.exclusion == ExclusionSet.Empty && premise.mark is MarkSlot.Concrete &&
+        premise.pathData.size == 2 && premise.pathData[0].isClass() && premise.pathData[1].isFieldAccessor() &&
+        facts is TaintTree && facts.base == STATIC && facts.layer == Layer.DEMAND &&
+        facts.exclusion == ExclusionSet.Empty) {
+        return ops.without(facts, ops.startFact(premise).withLayer(Layer.DEMAND))
+    }
     if (premise !is InitialAp || premise.base != STATIC || premise.tail != Tail.STAR ||
         premise.exclusion != ExclusionSet.Empty || premise.mark != MarkSlot.STAR ||
         premise.pathData.size != 2 || !premise.pathData[0].isClass() || !premise.pathData[1].isFieldAccessor() ||

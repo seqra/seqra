@@ -43,6 +43,17 @@ data class StaticSubscription(
     val stageTo: org.opentaint.dataflow.bidi.interp.CallPoint = org.opentaint.dataflow.bidi.interp.CallPoint.RETURNED,
 )
 
+/** Field/mark/kind diagonals share the full call port, never their originals. */
+data class ConcreteStaticSubscription(
+    val callee: MethodKey,
+    val caller: MethodKey,
+    val call: CommonInst,
+    val entries: org.opentaint.dataflow.bidi.ap.TaintTree,
+    val stageFrom: org.opentaint.dataflow.bidi.interp.CallPoint,
+    val stageTo: org.opentaint.dataflow.bidi.interp.CallPoint,
+    val identityCandidate: Boolean? = null,
+)
+
 /** Tests can control replay and notification timing without changing protocol operations. */
 interface ProtocolSteps {
     fun replay(step: () -> Unit)
@@ -63,4 +74,8 @@ interface SummaryApplier {
         error("Static identity transport is unavailable")
     fun applyStaticSummary(part: StaticSubscription, input: Subscription, pub: Publication): Unit =
         applySummary(input, pub, 0)
+    fun applyConcreteStaticDefault(part: ConcreteStaticSubscription, entries: org.opentaint.dataflow.bidi.ap.TaintTree): Unit =
+        error("Concrete static transport is unavailable")
+    fun applyConcreteStaticSummary(part: ConcreteStaticSubscription, input: Subscription, pub: Publication, member: Int): Unit =
+        applySummary(input, pub, member)
 }

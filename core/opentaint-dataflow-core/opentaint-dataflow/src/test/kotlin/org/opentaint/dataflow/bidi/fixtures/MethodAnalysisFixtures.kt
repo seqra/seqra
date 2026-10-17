@@ -174,10 +174,23 @@ class MethodAnalysisFixtures(
     private val questionManagers = IdentityHashMap<RunMethodAnalyzer, SubscriptionManager>()
     private val questionQueue = ArrayDeque<() -> Unit>()
     private val summaryStores = LinkedHashMap<MethodKey, SummaryStorage>()
+    val staticNeedRouter = StaticNeedRouter(manager, { visit ->
+        summaryStores[visit.key.method]?.notifyStaticNeed(visit)
+    })
     var onRequestNotification: ((RunEvent.ChangedRequests) -> Unit)? = null
 
-    fun requestRow(core: RunMethodAnalyzer, slot: Run1Slot): RequestRowView =
-        summaryStores.getValue(core.key).borrowRequest(slot)
+    fun requestRow(core: RunMethodAnalyzer, slot: Run1Slot): RequestRowView = when (slot) {
+        is Run1Slot.Base -> summaryStores.getValue(core.key).borrowRequest(slot)
+        is Run1Slot.StaticField -> RequestRowView(RequestMarkSet.EMPTY,
+            staticNeedRouter.sourcesSnapshot()[StaticNeedKey(core.key, slot)] ?: RequestMarkSet.EMPTY)
+    }
+
+    /** Decode both transport descriptors into their logical initial identities. */
+    fun initials(core: RunMethodAnalyzer): Set<InitialAp> = buildSet {
+        addAll(core.initials.all())
+        core.staticEntryFacts()?.let { addAll(StaticIdentityEntries(ops).originals(it)) }
+        core.concreteStaticEntryFacts()?.let { addAll(ConcreteStaticEntries(ops).originals(it)) }
+    }
 
     /** Test-owned arrival observations; actors retain none of this input history. */
     fun links(core: RunMethodAnalyzer): List<Link> = inputRows[core].orEmpty().distinct()
@@ -251,6 +264,11 @@ class MethodAnalysisFixtures(
             override val forms = contexts.directed(config.direction)
             override val ops = this@MethodAnalysisFixtures.ops
             override val steps = ProtocolSteps.Inline
+            override val staticNeedRouter get() = this@MethodAnalysisFixtures.staticNeedRouter
+            override fun post(event: RunEvent.StaticNeed): Boolean {
+                questionQueue += { questionManagers.getValue(actor).onStaticNeed(event.visit) }
+                return true
+            }
             override fun send(event: RunEvent): Boolean { events += event; return true }
             override fun post(event: RunEvent.Delivery): Boolean {
                 events += event
@@ -269,6 +287,9 @@ class MethodAnalysisFixtures(
                 val receive = checkNotNull(onSubscribe) { "Subscriptions require an explicit protocol fixture" }
                 subscriptions += sub
                 receive(sub)
+            }
+            override fun subscribeConcreteStatic(sub: ConcreteStaticSubscription) {
+                questionManagers.getValue(actor).subscribeConcreteStatic(sub)
             }
             override fun subscribeStatic(sub: StaticSubscription) {
                 staticSubscriptions += sub
@@ -299,6 +320,14 @@ class MethodAnalysisFixtures(
                     this@MethodAnalysisFixtures.onProcess?.invoke(key, edge)
                 }
             }
+            override val onConcreteStaticProcess: (MethodKey, CommonInst, TaintTree) -> Unit = { key, node, entries ->
+                val codec = ConcreteStaticEntries(ops)
+                for (initial in codec.originals(entries)) {
+                    val edge = EdgeDelta(initial, node, codec.current(initial))
+                    processed += edge
+                    this@MethodAnalysisFixtures.onProcess?.invoke(key, edge)
+                }
+            }
             override val onCut: (Cut, Facts) -> Unit = { point, facts ->
                 cuts += point to facts
                 this@MethodAnalysisFixtures.onCut?.invoke(point, facts)
@@ -318,6 +347,8 @@ class MethodAnalysisFixtures(
             override val config = config
             override val ops = this@MethodAnalysisFixtures.ops
             override val steps = ProtocolSteps.Inline
+            override val staticNeedRouter get() = this@MethodAnalysisFixtures.staticNeedRouter
+            override fun post(event: RunEvent.StaticNeed): Boolean = port.post(event)
             override fun summaryStorage(key: MethodKey): SummaryStorage = port.summaryStorage(key)
             override fun staticFootprint(method: org.opentaint.ir.api.common.CommonMethod): Run1StaticFootprint? =
                 shared.run1StaticProfiles?.get(method)?.footprint
@@ -327,6 +358,12 @@ class MethodAnalysisFixtures(
             override fun send(event: RunEvent): Boolean {
                 events += event
                 when (event) {
+                    is RunEvent.MarkRequestsIn -> if (event.method == actor.key)
+                        questionQueue += { event.rows.forEach { (slot, marks) -> actor.collectRequests(slot, marks) } }
+                    is RunEvent.ConcreteStaticEntriesIn -> {
+                        check(event.callee == actor.key)
+                        questionQueue += { actor.addConcreteStaticEntries(event.entries) }
+                    }
                     is RunEvent.InitialAnswersIn -> if (event.method == actor.key)
                         questionQueue += { event.answers.forEach(actor::addInitial) }
                     is RunEvent.StaticEntriesIn -> {
@@ -437,6 +474,7 @@ class MethodAnalysisFixtures(
         questionManagers.clear()
         questionQueue.clear()
         summaryStores.clear()
+        staticNeedRouter.clear()
         inputRows.clear()
         if (sharedOwner.isInitialized()) sharedOwner.value.close()
     }

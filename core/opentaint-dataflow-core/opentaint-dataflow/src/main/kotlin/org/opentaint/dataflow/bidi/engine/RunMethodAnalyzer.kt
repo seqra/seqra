@@ -35,9 +35,12 @@ class RunMethodAnalyzer(
     val sourceHits: SourceHitStore? = if (forward) null else SourceHitStore()
     private val currentQueries = if (config.restricted) StrongQueries(ops, mode) else null
     private var temporary = RequestStorage()
+    private var temporaryStatic = LinkedHashMap<Run1Slot.StaticField, RequestMarkSetBuilder>()
     private var temporarySinceNanos = 0L
     internal val staticFlow = if (config.run1) Run1StaticFlow(this) else null
+    internal val concreteStaticFlow = if (config.run1) Run1ConcreteStaticFlow(this) else null
     internal fun staticEntryFacts(): FlowTree? = staticFlow?.entryFacts()
+    internal fun concreteStaticEntryFacts(): TaintTree? = concreteStaticFlow?.entryFacts()
     internal var abstraction: Run1Abstraction? = if (config.run1) Run1Abstraction(
         ops, context.shared.run1StaticProfiles?.get(key.method),
         answer = ::addInitial,
@@ -52,6 +55,8 @@ class RunMethodAnalyzer(
     internal fun releaseAbstraction() {
         abstraction?.release(); abstraction = null
         staticFlow?.clear()
+        concreteStaticFlow?.clear()
+        temporaryStatic.clear()
         if (!temporary.isEmpty) {
             context.shared.abstractionStatistics?.temporaryChanged(-temporary.dynamicRows.toLong(), -temporary.dynamicMembers)
             temporary = RequestStorage()
@@ -59,7 +64,7 @@ class RunMethodAnalyzer(
         temporarySinceNanos = 0L
     }
     internal fun unchangedStaticInitial(premise: PremiseKey): InitialAp? =
-        if (config.run1 && context.shared.run1StaticProfiles != null) premise as? InitialAp else null
+        null // Static interests now originate here; no inherited B justifies suppression.
 
     private var publicationSink: PublicationSink? = publisher
     private var local: MethodLocalServices? = localFactory.create(this)
@@ -98,6 +103,16 @@ class RunMethodAnalyzer(
         checkNotNull(staticFlow).add(entries)
     }
 
+    internal fun addConcreteStaticEntries(entries: TaintTree) {
+        initialize()
+        nonZeroInitial = true
+        val lane = checkNotNull(concreteStaticFlow)
+        // TAINT supplies geometry as well as actual T; bypassing LinkIn must
+        // preserve the abstraction's independent abstract dependency lane.
+        addStaticEntries(lane.entries.abstractEntries(entries))
+        lane.add(entries)
+    }
+
     internal fun startStaticScalar(initial: InitialAp, node: CommonInst) {
         val fresh = initials.add(initial)
         context.shared.abstractionStatistics?.initial(fresh)
@@ -107,8 +122,11 @@ class RunMethodAnalyzer(
     internal fun processStaticScalar(item: EdgeDelta) = runStatement(item)
     internal fun finishStaticScalar(initial: InitialAp, node: CommonInst, facts: FlowTree) =
         endAt(initial, node, facts, summary = context.isEnd(node))
+    internal fun finishConcreteStaticScalar(initial: InitialAp, node: CommonInst, facts: TaintTree) =
+        endAt(initial, node, facts, summary = context.isEnd(node))
     internal fun processStaticCall(node: CommonInst, entries: FlowTree) = callServices.processStatic(node, entries)
     internal fun resumeStaticCall(part: StaticSubscription, entries: FlowTree) = callServices.resumeStatic(part, entries)
+    internal fun processConcreteStaticCall(node: CommonInst, entries: TaintTree) = callServices.processConcreteStatic(node, entries)
 
     fun addZeroEntry() {
         check(!forward) { "Only a backward callee has a direct zero entry" }
@@ -171,6 +189,16 @@ class RunMethodAnalyzer(
     internal fun collectRequests(slot: Run1Slot, offered: RequestMarkSelection) {
         initialize()
         check(config.run1) { "Requests exist only in run 1" }
+        if (slot is Run1Slot.StaticField) {
+            val pending = temporaryStatic.getOrPut(slot, ::RequestMarkSetBuilder)
+            val cursor = offered.cursor()
+            while (!cursor.isComplete) {
+                ap.cancellation.checkpoint()
+                cursor.step(256) { pending.add(it) }
+            }
+            if (!pending.isEmpty) requestWork()
+            return
+        }
         val statistics = context.shared.abstractionStatistics
         val counts = statistics?.let { RequestAdmissionCounts() }
         val beforeRows = temporary.dynamicRows
@@ -201,6 +229,11 @@ class RunMethodAnalyzer(
             }
         }
         check(forward || initial.tail != Tail.ANY_TAINT) { "A backward run has no must premise" }
+        if (concreteStaticFlow?.entries?.accepts(initial) == true) {
+            nonZeroInitial = true
+            concreteStaticFlow.add(initial)
+            return
+        }
         val fresh = initials.add(initial)
         context.shared.abstractionStatistics?.initial(fresh)
         if (!fresh) return
@@ -238,10 +271,16 @@ class RunMethodAnalyzer(
     }
 
     private val hasPendingAbstractionWork: Boolean get() =
-        !temporary.isEmpty
+        !temporary.isEmpty || temporaryStatic.isNotEmpty()
 
     private fun commitRequests() {
-        if (!config.run1 || temporary.isEmpty) return
+        if (!config.run1) return
+        if (temporaryStatic.isNotEmpty()) {
+            val rows = temporaryStatic.mapValues { it.value.takeSnapshot() }
+            checkNotNull(runnerPort.staticNeedRouter) { "Run-1 static needs require their counted router" }.commit(key, rows)
+            temporaryStatic = LinkedHashMap()
+        }
+        if (temporary.isEmpty) return
         if (temporarySinceNanos != 0L)
             context.shared.requestBatchStatistics?.serviceDelay(System.nanoTime() - temporarySinceNanos)
         runnerPort.summaryStorage(key).commit(temporary)
@@ -275,14 +314,23 @@ class RunMethodAnalyzer(
                 staticFlow.work()
                 if (!worklist.isEmpty) break
             }
+            while (concreteStaticFlow?.isEmpty == false) {
+                if (zeroAtStart || processed >= quantum) return false
+                processed++
+                steps++
+                concreteStaticFlow.work()
+                if (!worklist.isEmpty || staticFlow?.isEmpty == false) break
+            }
             if (!worklist.isEmpty) continue
+            if (staticFlow?.isEmpty == false) continue
             flushPublications()
             ap.cancellation.checkpoint()
             if (!worklist.isEmpty || pending.isNotEmpty()) continue
             commitRequests()
             ap.cancellation.checkpoint()
             // Retain the counted Work reservation through P commit/replacement and sends.
-            if (worklist.isEmpty && pending.isEmpty() && !hasPendingAbstractionWork && staticFlow?.isEmpty != false) return true
+            if (worklist.isEmpty && pending.isEmpty() && !hasPendingAbstractionWork &&
+                staticFlow?.isEmpty != false && concreteStaticFlow?.isEmpty != false) return true
         }
     }
 
@@ -311,6 +359,7 @@ class RunMethodAnalyzer(
 
     private fun emitCovered(premise: PremiseKey, node: CommonInst, facts: Facts) {
         if (staticFlow?.capture(premise, node, facts) == true) return
+        if (concreteStaticFlow?.capture(premise, node, facts) == true) return
         exitRulesAt(premise, node, facts)
         context.forEachSuccessor(node) { successor ->
             ap.cancellation.checkpoint()
@@ -321,6 +370,7 @@ class RunMethodAnalyzer(
     internal fun emitUnchanged(item: EdgeDelta) {
         val normalized = normalizeFlow(item.premise, item.facts)
         if (staticFlow?.capture(item.premise, item.node, normalized) == true) return
+        if (concreteStaticFlow?.capture(item.premise, item.node, normalized) == true) return
         exitRulesAt(item.premise, item.node, normalized)
         context.forEachSuccessor(item.node) { successor ->
             ap.cancellation.checkpoint()
@@ -349,7 +399,10 @@ class RunMethodAnalyzer(
                 check(facts.exclusion == ExclusionSet.Empty) { "Run-1 FLOW has Empty field E" }
                 check(normalizeRun1StaticFlow(premise, facts) === facts) { "Run-1 static FLOW is DEMAND before admission" }
             }
-            is TaintTree -> check(facts.exclusion == ExclusionSet.Empty) { "Run-1 TAINT has Empty field E" }
+            is TaintTree -> {
+                check(facts.exclusion == ExclusionSet.Empty) { "Run-1 TAINT has Empty field E" }
+                check(normalizeRun1StaticFlow(premise, facts) === facts) { "Run-1 static TAINT is DEMAND before admission" }
+            }
             is Reach -> Unit
         }
     }
@@ -494,6 +547,10 @@ class RunMethodAnalyzer(
     override fun applyStaticDefault(part: StaticSubscription, entries: FlowTree) = resumeStaticCall(part, entries)
     override fun applyStaticSummary(part: StaticSubscription, input: Subscription, pub: Publication) =
         callServices.applyStaticSummary(part, input, pub)
+    override fun applyConcreteStaticDefault(part: ConcreteStaticSubscription, entries: TaintTree) =
+        callServices.resumeConcreteStatic(part, entries)
+    override fun applyConcreteStaticSummary(part: ConcreteStaticSubscription, input: Subscription, pub: Publication, member: Int) =
+        callServices.applyConcreteStaticSummary(part, input, pub, member)
     internal fun countRecordCrossing() { recordCrossings++ }
     internal fun countTriggerSeed() { triggerSeeds++ }
 
@@ -527,6 +584,8 @@ class RunMethodAnalyzer(
             currentQueries?.clear()
             temporary = RequestStorage()
             staticFlow?.clear()
+            concreteStaticFlow?.clear()
+            temporaryStatic.clear()
         }
         failure?.let { throw it }
     }

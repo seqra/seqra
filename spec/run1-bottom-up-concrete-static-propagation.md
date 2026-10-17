@@ -1,12 +1,12 @@
 # Run-1 bottom-up propagation of concrete static marks
 
-Date: 17 October 2026. Status: **proposed; analyzer implementation unchanged**.
+Date: 17 October 2026. Status: **implemented; core validation passed, project measurements pending**.
 Scope: run-1 FORWARD, field limit 1. Run-2 and later use their ordinary
 demand-driven analysis. IR storage and reference/cache managers are outside
 scope.
 
-This proposal extends [bottom-up static FLOW](run1-bottom-up-static-propagation.md)
-to concrete static marks. On implementation, it replaces that contract's
+This contract extends [bottom-up static FLOW](run1-bottom-up-static-propagation.md)
+to concrete static marks. It replaces that contract's
 concrete-static admission, static mark-request plan and static-origin request
 transport. Its other requirements still apply. The complete selected workflow
 is below. The [proof dossier](run1-bottom-up-concrete-static-proofs.md) states

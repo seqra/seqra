@@ -164,13 +164,12 @@ class GeneratedCurrentProgramTest {
             val config = f.config(index, L = if (index == 1) 1 else path.size, roots = listOf(caller),
                 demand = if (index == 1) emptyList() else listOf(callee to d),
                 seeds = listOf(Seed.Source(caller, root.inst(0), source)))
-            // Keep scalar Position discovery, with the selected concrete initial constructor.
-            // STAR participates in closure: relabeling an old ANY premise afterwards would miss
-            // its different ordinary summary applicability. Restricted runs stay strict.
+            // Run 1 uses actual static-T admission and early sticky D; later runs
+            // keep ordinary strong current queries. Initial STAR is not an ANY key.
             val actual = compare(f, config, seed + 100L, listOf(cls) + fields, listOf(t.mark, u.mark),
                 catalogRefinement = index == 1)
             if ((index == 1 && path.size == 2) || (index != 1 && !abstract)) assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(ZERO_PATTERN),
-                Conclusion(PathFact(ret, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false)),
+                Conclusion(PathFact(ret, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, index == 1)),
                 "seed=$seed index=$index full static path=$path")
             if (index == 3 && abstract) {
                 assertTrue(actual.requests.isEmpty())

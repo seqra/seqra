@@ -209,7 +209,7 @@ class ScheduleFuzzerTest {
                 }
                 assertTrue(actual.requests.none { it.kind is RequestKind.Position })
                 assertContains(actual.rawSummaries, ObservedEdge(caller, zero,
-                    Conclusion(PathFact(y, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false)))
+                    Conclusion(PathFact(y, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, true)))
                 assertTrue(actual.sourceHits.isEmpty())
             }
         }

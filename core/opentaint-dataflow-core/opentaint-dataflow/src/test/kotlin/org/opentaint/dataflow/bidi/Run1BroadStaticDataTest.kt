@@ -55,7 +55,7 @@ class Run1BroadStaticDataTest {
                 PathFact(ret, emptyList(), Tail.EXACT, MarkSlot.Concrete(u)), ExclusionSet.Empty)
             val core = f.core()
             val expected = CollectingOut()
-            f.ops.applyEdge(input, f.manager.zero, edge, false, core.mode, expected)
+            f.ops.applyEdge(input.withLayer(Layer.DEMAND), f.manager.zero, edge, false, core.mode, expected)
             val actual = ArrayList<Facts>()
             core.applier.stage(summary(edge), f.manager.zero, input, Place(f.inst(0), false, false)) {
                     premise, value, _ ->
@@ -88,7 +88,7 @@ class Run1BroadStaticDataTest {
             val actual = compare(f, key, listOf(t, u))
             assertEquals(setOf(entrySink.rule, exitSink.rule), actual.witnesses.map { it.rule }.toSet())
             assertTrue(actual.witnesses.all { w -> w.edges.all { edge ->
-                edge.premise == setOf(ZERO_PATTERN) && edge.layer == Layer.NORMAL
+                edge.premise == setOf(ZERO_PATTERN) && edge.layer == Layer.DEMAND
             } })
         }
     }

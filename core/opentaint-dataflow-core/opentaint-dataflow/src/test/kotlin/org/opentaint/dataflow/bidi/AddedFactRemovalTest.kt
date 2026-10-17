@@ -49,7 +49,7 @@ class AddedFactRemovalTest {
         }
     }
 
-    @Test fun `supplier E does not reject a requested static field but a missing mark still cannot answer`(): Unit {
+    @Test fun `actual static marks admit without requests and an absent mark is never fabricated`(): Unit {
         Run1RequestPipelineFixtures().use { h ->
             val f = h.f
             val cls = f.ap.accessors.index(ClassStaticAccessor("C"))
@@ -58,21 +58,23 @@ class AddedFactRemovalTest {
             h.declareIdentityStaticDomain(slot)
             val t = f.store.mark("T")
             val u = f.store.mark("U")
-            h.publish(slot, t.id)
             h.submit(f.subscription(f.store.fact(STATIC, listOf(cls), Tail.ANY_TAINT,
                 MarkSlot.Concrete(u), ExclusionSet.of(field))))
             h.drain()
-            assertTrue(h.initials.none { it.second.mark is MarkSlot.Concrete })
+            val suppliedU = f.ap.initial(STATIC, f.ap.path(slot.pathData), Tail.STAR,
+                ExclusionSet.Empty, MarkSlot.Concrete(u))
+            assertEquals(setOf(suppliedU), h.initials.map { it.second }.filter { it.mark is MarkSlot.Concrete }.toSet())
             h.submit(f.subscription(f.store.fact(STATIC, listOf(cls), Tail.ANY_TAINT,
                 MarkSlot.Concrete(t), ExclusionSet.of(field)), call = 2))
             h.drain()
             val expected = f.ap.initial(STATIC, f.ap.path(slot.pathData), Tail.STAR,
                 ExclusionSet.Empty, MarkSlot.Concrete(t))
-            assertEquals(setOf(expected), h.initials.map { it.second }.filter { it.mark is MarkSlot.Concrete }.toSet())
+            assertEquals(setOf(suppliedU, expected), h.initials.map { it.second }.filter { it.mark is MarkSlot.Concrete }.toSet())
+            assertTrue(h.storage().borrowRequest(slot).isEmpty, "No static ordinary request row was retained")
         }
     }
 
-    @Test fun `a static sibling request cannot consume another field supplier and later matching request still answers`(): Unit {
+    @Test fun `actual static siblings retain their own geometry without a request rendezvous`(): Unit {
         Run1RequestPipelineFixtures().use { h ->
             val f = h.f
             val cls = f.ap.accessors.index(ClassStaticAccessor("C"))
@@ -81,13 +83,17 @@ class AddedFactRemovalTest {
             h.declareIdentityStaticDomain(first, second)
             val t = f.store.mark("T")
             h.submit(f.subscription(f.store.fact(STATIC, first.pathData.toList(), mark = MarkSlot.Concrete(t))))
-            h.drain(); h.publish(second, t.id); h.drain()
-            assertTrue(h.initials.none { it.second.mark is MarkSlot.Concrete })
-            h.publish(first, t.id); h.drain()
+            h.drain()
             val expected = f.ap.initial(STATIC, f.ap.path(first.pathData), Tail.EXACT,
                 ExclusionSet.Empty, MarkSlot.Concrete(t))
             assertEquals(setOf(expected), h.initials.map { it.second }.filter { it.mark is MarkSlot.Concrete }.toSet())
-            assertTrue(t in h.storage().borrowRequest(second), "Unanswered sibling interest remains active")
+            assertTrue(h.initials.none { it.second.pathData.contentEquals(second.pathData) },
+                "No actual sibling mark was supplied")
+            assertTrue(h.storage().borrowRequest(first).isEmpty)
+            assertTrue(h.storage().borrowRequest(second).isEmpty)
+            h.submit(f.subscription(f.store.fact(STATIC, first.pathData.toList(), mark = MarkSlot.Concrete(t)), call = 2))
+            h.drain()
+            assertEquals(setOf(expected), h.initials.map { it.second }.filter { it.mark is MarkSlot.Concrete }.toSet())
         }
     }
 

@@ -35,6 +35,7 @@ class UnitRunner<A : RunActor> internal constructor(
     override val forms get() = run.forms
     override val ops get() = shared.ops
     override val steps get() = run.steps
+    override val staticNeedRouter get() = run.staticNeedRouter
 
     internal fun postEvent(event: RunEvent): Boolean = run.accept {
         !closed.get() && channel.trySend(event).isSuccess
@@ -42,6 +43,7 @@ class UnitRunner<A : RunActor> internal constructor(
 
     override fun post(event: RunEvent.Delivery): Boolean = postEvent(event)
     override fun post(event: RunEvent.ChangedRequests): Boolean = postEvent(event)
+    override fun post(event: RunEvent.StaticNeed): Boolean = postEvent(event)
     override fun send(event: RunEvent): Boolean = run.route(event)
 
     override fun summaryStorage(key: MethodKey): SummaryStorage = run.summaryStorage(key)
@@ -66,6 +68,12 @@ class UnitRunner<A : RunActor> internal constructor(
         check(!run.ended && !closed.get())
         shared.cancellation.checkpoint()
         checkNotNull(handler as? SubscriptionHandler).subscribeStatic(sub)
+    }
+
+    override fun subscribeConcreteStatic(sub: ConcreteStaticSubscription) {
+        check(!run.ended && !closed.get())
+        shared.cancellation.checkpoint()
+        checkNotNull(handler as? SubscriptionHandler).subscribeConcreteStatic(sub)
     }
 
     override fun analyzer(key: MethodKey): A {

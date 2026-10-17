@@ -102,8 +102,19 @@ class Run1BottomUpStaticTransportTest {
                 f.ops.leaves(part.added).single().fact.path, "Packing cannot create off-diagonal field relations")
             assertEquals(2, schedule.physicalStaticRelationCount)
             assertTrue(schedule.physicalStaticRelationCount < packedLinks.size)
-            assertEquals(3, schedule.physicalOrdinarySubscriptionCount,
-                "Concrete first-hop members share the ZERO caller ref; each call still has its ordinary ZERO relation")
+            assertEquals(4, schedule.physicalOrdinarySubscriptionCount,
+                "The first hop keeps distinct NORMAL ZERO and DEMAND static-source caller refs; downstream ZERO refs remain")
+            val concreteLinks = schedule.subscriptions.filter { it.caller in keys.drop(1) &&
+                it.ref.premise is InitialAp && !(it.ref.premise as InitialAp).isFlow && it.added.base == STATIC }
+            assertEquals(32, concreteLinks.size)
+            for (part in concreteLinks) {
+                val initial = part.ref.premise as InitialAp
+                val current = f.ops.leaves(part.added).single().fact
+                assertEquals(initial.pathData.toList(), current.path)
+                assertEquals(initial.mark, current.mark, "Concrete packing is diagonal in field and mark")
+                assertEquals(Layer.DEMAND, part.linkLayer)
+            }
+            assertEquals(2, schedule.physicalConcreteStaticRelationCount)
             assertEquals(32, schedule.physicalStaticEntryMembershipCount)
         }
     }

@@ -56,37 +56,34 @@ class Run1RequestPipelineIntegrationTest {
             h.collect(f.callee, first, RequestMarkSet.of(t))
             h.collect(f.callee, second, RequestMarkSet.of(u))
             h.commit(); h.drain()
-            assertEquals(1L, h.statistics.snapshot().replayCandidates)
-            val batch = h.sent.filterIsInstance<RunEvent.MarkRequestsIn>().single()
-            assertEquals(setOf<Run1Slot>(original), batch.rows.keys)
-            assertEquals(RequestMarkSet.fromIds(intArrayOf(t.id, u.id)), batch.rows.getValue(original))
+            val batches = h.sent.filterIsInstance<RunEvent.MarkRequestsIn>()
+            assertTrue(batches.all { it.rows.keys == setOf(original) })
+            h.commit(f.caller)
+            assertEquals(RequestMarkSet.fromIds(intArrayOf(t.id,u.id)),h.storage(f.caller).borrowRequest(original).dynamic)
+            assertEquals(2,h.staticNeedRouter.sourcesSnapshot().size)
+            assertTrue(h.storage().borrowRequest(first).isEmpty)
+            assertTrue(h.storage().borrowRequest(second).isEmpty)
             assertEquals(setOf<Triple<MethodKey, Run1Slot, Int>>(Triple(f.caller, original, t.id), Triple(f.caller, original, u.id)), h.climbs)
         }
     }
 
-    @Test fun `inherited precomputed segment skips only unchanged queried slot and still routes changed static origin`(): Unit {
+    @Test fun `canonical static sources are never suppressed and changed fields route without intermediate storage`(): Unit {
         Run1RequestPipelineFixtures().use { h ->
-            val f = h.f
-            val cls = f.ap.accessors.index(ClassStaticAccessor("C"))
-            val first = Run1Slot.StaticField(cls, f.store.field("f"))
-            val second = Run1Slot.StaticField(cls, f.store.field("g"))
-            h.declareIdentityStaticDomain(first, second)
-            val t = f.store.mark("T")
-            val u = f.store.mark("U")
-            val frozen: RequestRows = mapOf(first to RequestMarkSet.of(t), second to RequestMarkSet.of(u))
-            h.bases[f.callee] = frozen
-            h.bases[f.caller] = frozen
-            val a = f.store.fact(STATIC, first.pathData.toList(), Tail.STAR, MarkSlot.STAR) as FlowTree
-            val b = f.store.fact(STATIC, second.pathData.toList(), Tail.STAR, MarkSlot.STAR) as FlowTree
-            val input = a.withRoot(FlowAlgebra.mergeAdd(a.root, b.root))
-            h.submit(f.subscription(input, first.initial(f.ap))); h.drain()
-            assertEquals(setOf<Triple<MethodKey, Run1Slot, Int>>(Triple(f.caller, first, u.id)), h.climbs,
-                "Inherited g/U does not mean that the original f/U interest is admitted")
-            assertSame(frozen.getValue(first), h.storage().borrowRequest(first).precomputed)
-            assertTrue(h.storage().borrowRequest(first).dynamic.isEmpty)
-            assertTrue(h.events.isEmpty(), "B generates no initial ChangedRequests wave")
-            h.commit(f.caller)
-            assertEquals(RequestMarkSet.of(u), h.storage(f.caller).borrowRequest(first).dynamic)
+            val f=h.f;val cls=f.ap.accessors.index(ClassStaticAccessor("C"))
+            val first=Run1Slot.StaticField(cls,f.store.field("f"));val second=Run1Slot.StaticField(cls,f.store.field("g"))
+            h.declareIdentityStaticDomain(first,second)
+            val t=f.store.mark("T");val u=f.store.mark("U")
+            val a=f.store.fact(STATIC,first.pathData.toList(),Tail.STAR,MarkSlot.STAR) as FlowTree
+            val b=f.store.fact(STATIC,second.pathData.toList(),Tail.STAR,MarkSlot.STAR) as FlowTree
+            h.submit(f.subscription(a.withRoot(FlowAlgebra.mergeAdd(a.root,b.root)),first.initial(f.ap)));h.drain()
+            h.collect(f.callee,first,RequestMarkSet.of(t));h.collect(f.callee,second,RequestMarkSet.of(u))
+            h.commit();h.drain()
+            assertEquals(RequestMarkSet.of(t),h.needs(f.callee,first))
+            assertEquals(RequestMarkSet.of(u),h.needs(f.callee,second))
+            assertEquals(2,h.staticNeedRouter.sourcesSnapshot().size)
+            assertTrue(h.sent.filterIsInstance<RunEvent.MarkRequestsIn>().isEmpty(),"Static relay nodes never enter R/P")
+            assertTrue(h.storage(f.caller).borrowRequest(first).isEmpty)
+            assertEquals(0L,h.statistics.snapshot().inheritedBaseRowsSkipped)
         }
     }
 

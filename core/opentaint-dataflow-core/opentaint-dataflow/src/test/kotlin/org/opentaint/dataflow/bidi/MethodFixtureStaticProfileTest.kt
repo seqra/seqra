@@ -41,7 +41,7 @@ class MethodFixtureStaticProfileTest {
                 PathFact(STATIC, to.pathData.toList(), Tail.STAR, MarkSlot.Star(f.manager.markSetOf(t))),
                 ExclusionSet.Empty)
             f.statement(0, StatementSummary(setOf(STATIC), listOf(MicroEdge.of(edge)), emptyList(), emptyMap()))
-            f.core()
+            val actor = f.core(localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
             val profile = assertNotNull(f.shared.run1StaticProfiles)[f.key.method]
             assertContains(assertNotNull(f.shared.run1StaticProfiles).localReads(f.key.method), from)
             assertFalse(profile.footprint.owns(from.cls, from.field))
@@ -49,8 +49,15 @@ class MethodFixtureStaticProfileTest {
             assertTrue(profile.staticMayWrite)
             assertFalse(profile.footprint.owns(untouched.cls, untouched.field))
             assertTrue(untouched in profile.footprint.fieldUniverse)
-            assertEquals(RequestMarkSet.of(t), profile.precomputedRequests.borrow(from).toRequestMarkSet {},
-                "A generic excluded target requests its actual original static origin")
+            assertTrue(profile.precomputedRequests.isEmpty, "Prescan does not precompute static mark requests")
+            val origin = from.initial(f.manager)
+            val supplier = org.opentaint.dataflow.bidi.store.CallerRef(f.store.key("supplier"), origin,
+                Layer.DEMAND, f.inst(1))
+            f.admit(actor, supplier, Layer.DEMAND,
+                f.fact(STATIC, from.pathData.toList(), Tail.STAR, MarkSlot.STAR, layer = Layer.DEMAND))
+            f.drain(actor)
+            assertEquals(RequestMarkSet.of(t), f.requestRow(actor, from).toRequestMarkSet {},
+                "The reached generic exclusion creator records its actual original source need")
             val footprint = f.shared.staticFootprint(f.key.method)
             f.shared.releaseRun1StaticProfiles()
             assertNull(f.shared.run1StaticProfiles)
@@ -72,6 +79,7 @@ class MethodFixtureStaticProfileTest {
                 Layer.NORMAL, f.inst(1))
             f.admit(actor, ref, Layer.NORMAL, f.fact(STATIC, slot.pathData.toList()))
             assertNotNull(actor.staticEntryFacts(), "The actual supplied field has a symbolic entry independent of local reads")
+            assertNotNull(actor.concreteStaticEntryFacts(), "The actual supplied mark also starts without a request")
             assertTrue(actor.initials.all().isEmpty(), "No scalar field reader is started in an identity-only method")
             assertFailsWith<IllegalStateException> { f.declareStaticDomain(slot.pathData.toList()) }
         }

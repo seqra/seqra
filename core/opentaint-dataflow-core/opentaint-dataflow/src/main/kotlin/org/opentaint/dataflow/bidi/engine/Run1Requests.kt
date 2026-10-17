@@ -11,7 +11,7 @@ import org.opentaint.dataflow.bidi.store.RequestMarkSelection
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import org.opentaint.dataflow.bidi.store.RequestMarkSetBuilder
 
-/** F78 has two request slots. Full MethodKey ownership belongs to SummaryStorage. */
+/** Base coordinates name ordinary requests; static coordinates name source-once needs. */
 sealed interface Run1Slot {
     val base: AccessPathBase
     val pathData: IntArray
@@ -119,9 +119,10 @@ internal fun unionRequestMarks(a: RequestMarkSet, b: RequestMarkSet, checkpoint:
     }.takeSnapshot()
 }
 
-/** One writer. R borrows a frozen base; P uses this same class with the empty base. */
+/** Ordinary BaseSlot requests only. Static interests belong to StaticNeedRouter. */
 class RequestStorage(private val sharedBase: FrozenRequestBase = EmptyFrozenRequestBase) {
     constructor(sharedBase: RequestRows) : this(MapFrozenRequestBase(sharedBase))
+    init { sharedBase.forEachStaticRow({}) { error("Static needs cannot be installed in ordinary R/P") } }
     private val additions = LinkedHashMap<Run1Slot, RequestMarkSet>()
     private var addedMembers = 0L
     val isEmpty: Boolean get() = sharedBase.isEmpty && additions.isEmpty()
@@ -139,6 +140,7 @@ class RequestStorage(private val sharedBase: FrozenRequestBase = EmptyFrozenRequ
 
     internal fun addAll(slot: Run1Slot, offered: RequestMarkSelection, counts: RequestAdmissionCounts?,
                         checkpoint: () -> Unit): RequestMarkSet {
+        require(slot is Run1Slot.Base) { "Static interests must use StaticNeedRouter" }
         val old = borrow(slot)
         val fresh = RequestMarkSetBuilder()
         val cursor = offered.cursor()
@@ -184,35 +186,11 @@ class RequestStorage(private val sharedBase: FrozenRequestBase = EmptyFrozenRequ
             val row = borrow(slot)
             if (!row.isEmpty) add(RequestedRow(slot, row))
         }
-        if (input.base != STATIC) { if (counts != null) counts.directLookups++; addSlot(Run1Slot.Base(input.base)); return@buildList }
-        if (root.hasRequestBroadLeaf()) {
-            forEachStaticSlot(checkpoint, counts) { addSlot(it) }
-            return@buildList
-        }
-        var broadClass = false
-        root.requestChildren(checkpoint) { cls, node ->
-            if (node.hasRequestBroadLeaf()) broadClass = true
-            else node.requestChildren(checkpoint) { field, child ->
-                if (!child.isEmpty) { if (counts != null) counts.directLookups++; addSlot(Run1Slot.StaticField(cls, field)) }
-            }
-        }
-        if (broadClass) forEachStaticSlot(checkpoint, counts) { slot ->
-            if (root.child(slot.cls)?.hasRequestBroadLeaf() == true) addSlot(slot)
-        }
+        if (input.base == STATIC) return@buildList
+        if (counts != null) counts.directLookups++
+        addSlot(Run1Slot.Base(input.base))
     }
 
-    private fun forEachStaticSlot(checkpoint: () -> Unit, counts: RequestMatchCounts?, visit: (Run1Slot.StaticField) -> Unit) {
-        if (counts != null) counts.broadScans++
-        sharedBase.forEachStaticRow({
-            checkpoint()
-            if (counts != null) { counts.scannedKeys++; counts.frozenSlotsExamined++ }
-        }, visit)
-        for (slot in additions.keys) {
-            checkpoint()
-            if (counts != null) { counts.scannedKeys++; counts.dynamicKeysExamined++ }
-            if (slot is Run1Slot.StaticField && !sharedBase.hasRow(slot)) visit(slot)
-        }
-    }
 }
 
 /** Per-call numeric aggregation; no atomic operation for individual candidate rows. */

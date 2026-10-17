@@ -57,6 +57,8 @@ interface MethodCallServices : SummaryApplier {
     fun process(item: EdgeDelta)
     fun processStatic(node: CommonInst, entries: FlowTree): Unit = error("Static identity transport is unavailable")
     fun resumeStatic(part: StaticSubscription, entries: FlowTree): Unit = error("Static identity transport is unavailable")
+    fun processConcreteStatic(node: CommonInst, entries: TaintTree): Unit = error("Concrete static transport is unavailable")
+    fun resumeConcreteStatic(part: ConcreteStaticSubscription, entries: TaintTree): Unit = error("Concrete static transport is unavailable")
     fun freeze()
 }
 

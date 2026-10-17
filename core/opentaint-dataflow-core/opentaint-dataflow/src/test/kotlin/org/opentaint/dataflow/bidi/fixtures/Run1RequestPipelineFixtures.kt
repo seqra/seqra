@@ -21,6 +21,10 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
     val frozenBases = LinkedHashMap<MethodKey, FrozenRequestBase>()
     private val stores = LinkedHashMap<MethodKey, SummaryStorage>()
     private val temporary = LinkedHashMap<MethodKey, RequestStorage>()
+    private val temporaryStatic = LinkedHashMap<MethodKey, MutableMap<Run1Slot.StaticField, RequestMarkSet>>()
+    val staticNeedRouter = StaticNeedRouter(f.ap, { storage(it.key.method).notifyStaticNeed(it) })
+    fun needs(method: MethodKey, slot: Run1Slot.StaticField): RequestMarkSet =
+        staticNeedRouter.sourcesSnapshot()[StaticNeedKey(method, slot)] ?: RequestMarkSet.EMPTY
     private val emitters = LinkedHashMap<MethodKey, Run1Abstraction>()
     var acceptSends = true
     var acceptNotifications = true
@@ -44,6 +48,12 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
     private val port = object : SubscriptionPort by f.port {
         override val abstractionStatistics get() = this@Run1RequestPipelineFixtures.statistics
         override val requestBatchStatistics get() = batchStatistics
+        override val staticNeedRouter get() = this@Run1RequestPipelineFixtures.staticNeedRouter
+        override fun post(event: RunEvent.StaticNeed): Boolean {
+            if (!acceptNotifications) return false
+            events += event
+            return true
+        }
         override fun summaryStorage(key: MethodKey): SummaryStorage = storage(key)
         override fun post(event: RunEvent.ChangedRequests): Boolean {
             if (!acceptNotifications) return false
@@ -77,12 +87,19 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
     }
 
     fun collect(method: MethodKey, slot: Run1Slot, marks: RequestMarkSelection) {
+        if (slot is Run1Slot.StaticField) {
+            val pending = temporaryStatic.getOrPut(method, ::LinkedHashMap)
+            val old = pending[slot] ?: RequestMarkSet.EMPTY
+            pending[slot] = unionRequestMarks(old, marks.toRequestMarkSet {}, f.ap.cancellation::checkpoint)
+            return
+        }
         val fresh = marks.minus(storage(method).borrowRequest(slot), f.ap.cancellation::checkpoint)
         if (!fresh.isEmpty) temporary.getOrPut(method, ::RequestStorage).addAll(slot, fresh)
     }
 
     /** The test explicitly chooses the method-empty barrier, not an alternate scheduler. */
     fun commit(method: MethodKey = f.callee) {
+        temporaryStatic.remove(method)?.let { staticNeedRouter.commit(method, it) }
         val pending = temporary[method] ?: return
         storage(method).commit(pending)
         temporary[method] = RequestStorage()
@@ -109,6 +126,7 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
         while (events.isNotEmpty()) {
             check(++count < 100_000) { "Finite request pipeline did not close" }
             when (val event = events.removeFirst()) {
+                is RunEvent.StaticNeed -> subscriptions.onStaticNeed(event.visit)
                 is RunEvent.ChangedRequests -> subscriptions.onRequests(event.callee, event.rows)
                 is RunEvent.LinkIn -> emitter(event.callee).emit(event.ref, event.added)
                 is RunEvent.StaticEntriesIn -> observeStatic(event.callee, event.entries)
@@ -129,6 +147,7 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
     override fun close() {
         emitters.values.forEach(Run1Abstraction::release)
         subscriptions.freeze()
+        staticNeedRouter.clear()
         f.close()
     }
 }

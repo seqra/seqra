@@ -186,21 +186,22 @@ class SinkEndFactTest {
             core.emitAfter(premise, f.inst(2), input)
             f.drain(core)
             assertTrue(f.vulnerabilities.witnessesOf(1).none())
-            val expectedStatic = if (zeroPremise) setOf(Conclusion(retained, ExclusionSet.Empty, true))
-                else setOf(Conclusion(consumed, ExclusionSet.Empty, false), Conclusion(retained, ExclusionSet.Empty, true))
+            // Zero removes the evaluated static input. The exact nonzero
+            // identity is covered by the ordinary root DEMAND default.
+            val expectedStatic = setOf(Conclusion(retained, ExclusionSet.Empty, true))
             assertEquals(expectedStatic.map { premise to it }.toSet(), methodEntries(f.ops, core.summaries.all().withoutPrecomputedStaticDefault()))
             core.emitAfter(second, f.inst(2), f.fact(argument, mark = v))
             f.drain(core)
             val witness = f.vulnerabilities.witnessesOf(1).single().second
             assertEquals(listOf(premise, second), witness.edges.map { it.premise })
-            assertEquals(setOf(Conclusion(consumed, ExclusionSet.Empty, false)), methodLeaves(f.ops, listOf(witness.edges[0].facts)))
+            assertEquals(setOf(Conclusion(consumed, ExclusionSet.Empty, true)), methodLeaves(f.ops, listOf(witness.edges[0].facts)))
             assertEquals(ExclusionSet.Empty, (witness.edges[0].facts as TaintTree).exclusion)
             assertEquals(setOf(Conclusion(second.toPattern().fact, ExclusionSet.Empty, false)),
                 methodLeaves(f.ops, listOf(witness.edges[1].facts)))
             assertSame(if (zeroPremise) second else f.manager.union(callerInitial, second), witness.supportPremise(f.manager))
             assertEquals(expectedStatic.map { premise to it }.toSet() + setOf(
                 second to Conclusion(second.toPattern().fact, ExclusionSet.Empty, false),
-                f.manager.zero to Conclusion(endTarget, ExclusionSet.Empty, false)), methodEntries(f.ops, core.summaries.all().withoutPrecomputedStaticDefault()))
+                f.manager.zero to Conclusion(endTarget, ExclusionSet.Empty, true)), methodEntries(f.ops, core.summaries.all().withoutPrecomputedStaticDefault()))
         }
     }
 
