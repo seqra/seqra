@@ -2,13 +2,16 @@
 
 Date: 17 October 2026. Scope: the implementation of the
 [selected contract](../../spec/run1-bottom-up-static-propagation.md).
-Project measurements are pending. This report does not assign performance
-results from the previous runtime to the new implementation.
+The implementation is committed at `ab6c3cd00`. The
+[closed project report](bidirectional-run1-bottom-up-static-20261017.md)
+records later performance, exact findings, profiles and retained owners.
 
-The latest measured project reached/completed/accepted iterations are still
-OWASP **run-7 / run-6 / run-5**, conductor **run-2 / run-1 / run-1**,
-ThingsBoard **run-1 / none / none**, and Stirling-PDF **run-2 / run-1 / run-1**.
-Those measurements used `28a123f0e`; they are historical context only.
+Latest reached/completed/accepted iterations are OWASP **run-7 / run-6 / run-5**,
+conductor **run-2 / run-1 / run-1**, ThingsBoard **run-1 / none / none**, and
+Stirling-PDF **run-2 / run-1 / run-1**. Those measurements use `ab6c3cd00`.
+Conductor and PDF meet the 60-second run-1 engine target; every candidate
+invocation ends abnormally. The runtime checks below remain distinct from
+project acceptance.
 
 ## Change and reference
 
@@ -119,8 +122,10 @@ with several ordinary callee stages are outside this adapter check.
 
 ## Fixed project measurements
 
-Commit the implementation before the four candidate measurements. Use the
-fixed OWASP, conductor, ThingsBoard and Stirling-PDF configurations, direct
-`runProjectAnalyzer`, a fresh main comparison and the existing profile/heap
-controls. Record reached, completed and accepted iteration for each outcome.
-Keep run-1 engine time separate from prescan and report barriers.
+The committed runtime was measured on the fixed OWASP, conductor,
+ThingsBoard and Stirling-PDF configurations, with direct
+`runProjectAnalyzer`, fresh main and the specified profiles/guard heaps.
+The [project report](bidirectional-run1-bottom-up-static-20261017.md) keeps
+engine time, prescan, metadata setup, report barriers and failed outcomes
+separate. It records the latest reached/completed/accepted iterations and
+16 missing main identities plus 342 additional unconfirmed candidates.

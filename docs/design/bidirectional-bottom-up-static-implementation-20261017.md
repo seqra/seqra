@@ -1,7 +1,7 @@
 # Bottom-up static FLOW implementation
 
 This document refines [the selected contract](../../spec/run1-bottom-up-static-propagation.md).
-Status: implemented candidate, 17 October 2026; project measurements pending.
+Status: implemented at `ab6c3cd00`, 17 October 2026; project measurements closed.
 It adds no new approximation. The checked scalar evaluator remains the reference.
 
 ## Packed identity lane
@@ -79,11 +79,14 @@ recursion, actual concrete answers and whole ND conditions. Representation
 tests must show that a transparent chain with many fields uses per-location
 descriptor relations rather than per-field input subscriptions.
 
-The implementation commit must precede measurements. Use only the fixed OWASP, conductor,
-ThingsBoard and Stirling-PDF configurations in task.md. Record latest reached,
-completed and accepted iterations. No runtime measurement exists for this
-refinement yet; the latest baseline reaches OWASP run-7, conductor run-2,
-ThingsBoard run-1 and Stirling-PDF run-2.
+The implementation was committed before the fixed project measurements.
+The [project report](../reports/bidirectional-run1-bottom-up-static-20261017.md)
+records OWASP **run-7 / run-6 / run-5**, conductor **run-2 / run-1 / run-1**,
+ThingsBoard **run-1 / none / none**, and Stirling-PDF **run-2 / run-1 / run-1**
+as latest reached/completed/accepted iterations. Conductor and PDF complete
+run-1 within 60 seconds. OWASP takes 265.789 seconds; ThingsBoard fails in
+run-1. All four candidate invocations end abnormally. Physical factoring is
+measured, but overall project performance/precision acceptance is not met.
 
 ## Code map and checked boundary
 

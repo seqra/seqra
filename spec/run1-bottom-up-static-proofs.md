@@ -13,10 +13,12 @@ and the remaining implementation refinements. The
 binds the checked sources and commands. Only `propext` and `Quot.sound` are
 permitted; classical choice, admitted proofs and new axioms are forbidden.
 
-Latest measured reached/completed/accepted iterations remain: OWASP
+Latest measured reached/completed/accepted iterations are: OWASP
 **run-7 / run-6 / run-5**, conductor **run-2 / run-1 / run-1**, ThingsBoard
 **run-1 / none / none**, Stirling-PDF **run-2 / run-1 / run-1**. These are
-measurements of `28a123f0e`, not of this design or its formal model.
+measurements of runtime `ab6c3cd00`, not of the formal model. See the
+[current project report](../docs/reports/bidirectional-run1-bottom-up-static-20261017.md).
+The checked Lean sources and proof receipt are unchanged.
 
 ## 1. Formal objects and exact scope
 

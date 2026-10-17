@@ -114,18 +114,18 @@ checks also removed classical library dependencies in the graph path proof.
 
 ## Latest analyzer measurements
 
-No measurements changed. Current measured runtime is
-`28a123f0eac937e8f2feca9ee5dd84e38fa8f979`.
+The proof sources and receipt above are unchanged. Later project
+measurements use runtime `ab6c3cd006cb62e6a017c0e3c32d96573d2214e3`.
 
 | Project | Latest reached | Latest completed | Latest accepted forward report | Run-1 engine seconds |
 | --- | --- | --- | --- | ---: |
-| OWASP | run-7 FORWARD; timeout | run-6 BACKWARD | run-5 FORWARD | 263.421, complete |
-| conductor | run-2 BACKWARD; OOM | run-1 FORWARD | run-1 FORWARD | 49.567, complete |
-| ThingsBoard | run-1 FORWARD; OOM | none | none | 176.913, incomplete |
-| Stirling-PDF | run-2 BACKWARD; OOM | run-1 FORWARD | run-1 FORWARD | 36.586, complete |
+| OWASP | run-7 FORWARD; timeout | run-6 BACKWARD | run-5 FORWARD | 265.789, complete |
+| conductor | run-2 BACKWARD; OOM | run-1 FORWARD | run-1 FORWARD | 44.385, complete |
+| ThingsBoard | run-1 FORWARD; OOM | none | none | 322.250, incomplete |
+| Stirling-PDF | run-2 BACKWARD; OOM | run-1 FORWARD | run-1 FORWARD | 39.951, complete |
 
-ThingsBoard's incomplete run-1 time includes 37.94 seconds of heap capture.
-Engine times exclude prescan/report barriers. The
-[closed measurement report](bidirectional-run1-selective-preservation-20261016.md)
-contains configurations, comparison evidence and failure scope. No memory or
-time improvement is claimed for an unimplemented design.
+ThingsBoard's incomplete timer includes 41.830 seconds of heap capture.
+Engine times exclude prescan/setup/report barriers. The
+[closed project report](bidirectional-run1-bottom-up-static-20261017.md)
+contains configurations, exact comparisons and failure scope. These
+measurements do not extend the formal proof's runtime adapter boundary.

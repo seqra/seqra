@@ -1,13 +1,13 @@
 # Run-1 bottom-up static FLOW propagation
 
-Date: 17 October 2026. Status: implemented candidate; project measurements pending.
+Date: 17 October 2026. Status: implemented at `ab6c3cd00`; project measurements closed.
 
 The [runtime refinement](../docs/design/bidirectional-bottom-up-static-implementation-20261017.md)
 maps this contract to the packed identity lane and ordinary effect boundaries.
 The constructive model remains the specification oracle. Runtime tests check
 the adapters; they do not establish whole-JVM formal verification.
 
-This proposal replaces the static FLOW transport in the
+This contract replaces the static FLOW transport in the
 [current run-1 contract](run1-field-writes.md). It also replaces the earlier
 normal-exit gate and virtual-availability approximations. The
 [next-iteration proposal](../docs/design/bidirectional-next-iteration-after-selective-preservation-20261016.md)
@@ -754,73 +754,52 @@ ordinary scalar boundary with its complete original and payload. Independent
 finite differential tests check those adapters. These tests do not replace
 the formal model or permit an extra DEMAND approximation.
 
-## 12. Expected improvement and measurement limits
+## 12. Current measurements and validation limits
 
-Latest project measurements are for runtime `28a123f0e`, before this implementation:
+The measured runtime is `ab6c3cd006cb62e6a017c0e3c32d96573d2214e3`.
+Use the [closed project report](../docs/reports/bidirectional-run1-bottom-up-static-20261017.md)
+for fixed configurations, fresh-main comparisons, profiles and guard heaps.
+Earlier runtime measurements do not establish this implementation's result.
 
-| Project | Latest reached / completed / accepted report | Run-1 engine seconds |
+| Project | Latest reached / completed / accepted forward report | Run-1 engine seconds |
 | --- | --- | ---: |
-| OWASP | run-7 / run-6 / run-5; timeout | 263.421, complete |
-| conductor | run-2 / run-1 / run-1; OOM in run-2 | 49.567, complete |
-| ThingsBoard | run-1 / none / none; OOM | 176.913, incomplete |
-| Stirling-PDF | run-2 / run-1 / run-1; OOM in run-2 | 36.586, complete |
+| OWASP | run-7 / run-6 / run-5; timeout | 265.789, complete |
+| conductor | run-2 / run-1 / run-1; OOM in run-2 | 44.385, complete |
+| ThingsBoard | run-1 / none / none; OOM | 322.250, incomplete |
+| Stirling-PDF | run-2 / run-1 / run-1; OOM in run-2 | 39.951, complete |
 
-The failed ThingsBoard timer includes 37.94 seconds of heap capture. See the
-[closed report](../docs/reports/bidirectional-run1-selective-preservation-20261016.md)
-for configuration, failures, strict finding identities and engine/barrier scope.
-No project measurement of this implementation exists yet.
+The failed ThingsBoard timer includes 41.830 seconds of heap capture. Its
+pre-capture run-1 interval is 280.354 seconds, still incomplete. Engine times
+exclude prescan, metadata setup and report barriers. Conductor and PDF meet
+the 60-second run-1 engine target; no candidate analysis completes overall.
 
-The old field-request metadata shows the inherited workload to replace:
+The packed lane admits 1,651,801 fresh entry memberships and 4,777,011 fresh
+call-relation memberships on ThingsBoard. These cumulative counts overlap
+expanded scalar starts and are not unique facts or saved bytes. Its guard
+heap retains 248,875,032 bytes in the combined packed owner-root selection.
+The ordinary caller-storage union retains 2,483,244,144 bytes, including a
+1,772,407,456-byte candidate index. Conclusion owners retain 2,216,875,536
+bytes in another overlapping view. Only mark requests remain; the inherited
+field-request relation is absent.
 
-| Project | Local method/field read memberships | Transitive memberships |
-| --- | ---: | ---: |
-| OWASP | 2,148 | 6,255 |
-| conductor | 6,192 | 1,298,007 |
-| ThingsBoard | 33,240 | 15,706,500 |
-| Stirling-PDF | 19,874 | 40,182 |
+The complete ordinary caller census has 2,981,381 groups, of which 84.932%
+have static originals. Concrete static originals outnumber abstract static
+originals. Most remaining rows are not plain unchanged identity carriers.
+Do not infer savings by deleting these rows or by adding overlapping owner
+unions. The [next proposal](../docs/design/bidirectional-next-iteration-after-bottom-up-statics-20261017.md)
+uses the new measurements and keeps additional optimizations unselected.
 
-These are historical CommonMethod metadata counts, not runtime contexts,
-initials, transfer counts or bytes. The source is `Bidi static catalog setup`
-(`directAbstractions`, `transitiveAbstractions`) in
-`selected-current/projects/{OWASP,conductor,thingsboard,Stirling-PDF}/bidi/analyzer.log`
-under `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012/run1-selective-preservation-preparation/verification-20261016T202647.993220Z`.
-The new design does not retain this transitive relation as a field-request gate.
+The strict main comparison has 16 missing identities and 342 additional
+unconfirmed candidates. Fourteen losses follow ThingsBoard's failure before
+an accepted report. Two PDF losses have a verified synthetic-exit location
+mechanism; equality of their underlying path sets remains unproved. These
+results do not establish the no-loss/few-false-positives project target.
 
-ThingsBoard's run-1 heap has 372,664 static abstract initial memberships
-(69.57% of 535,668), and 3,797,487 caller-input groups with static abstract
-origins (80.66% of 4,707,790). Currently static FLOW accounts for 3,767,181
-groups (80.02%). These overlap and are not saving estimates. There are also
-45,964 currently nonstatic FLOW groups with static abstract origins; their
-nonidentity value propagation must remain.
-
-The caller-store union retains about 2.323 GB, including 1.443 GB of indices.
-The conclusion union retains about 2.391 GB. Those owner views overlap.
-Conductor/PDF heaps are from run-2 and OWASP has no corresponding run-1 heap;
-do not apply ThingsBoard's percentages to those projects.
-
-Expected benefit, in order:
-
-1. Remove inherited full static FLOW input groups/index postings where a
-   transparent identity binding suffices; retain real W/transformed inputs.
-2. Avoid field reader seeds and CFG carrier work in intermediate transparent
-   methods. Compute reader effects locally and compose them bottom-up.
-3. Remove redundant field identity summaries, publications and joins.
-4. Remove the transitive static field-request plan/gate and its maintenance.
-   Local read indices and mark requests still have their own costs.
-
-The local-versus-inherited initial split, transparent-versus-nontransparent
-call split and resulting net saving are not measured. Count compact reachability
-state, reverse fanout, reader summaries, bound W inputs and later refinement
-as costs. No memory percentage or 60-second prediction follows from the old
-metadata ratio. Equality forbids improving run-1 time by dropping flow-sensitive
-input distinctions or adding extra DEMAND summaries.
-
-Use the same fixed project configurations and strict main comparison. Record
-latest reached, completed and accepted iterations for every outcome. Measure
-run-1 engine time separately from prescan/setup/report barriers, and compare
-full normalized relations on completed finite differential controls first.
-The executable Lean proofs and controls are recorded in the
-[proof validation report](../docs/reports/bidirectional-run1-bottom-up-static-proof-validation-20261017.md).
-The runtime refinement records the implemented adapters and their test scope.
-Project performance and strict finding comparisons remain pending; no new
-project iteration or benchmark result is claimed here.
+The [proof validation report](../docs/reports/bidirectional-run1-bottom-up-static-proof-validation-20261017.md)
+records the unchanged executable Lean modules and declaration audits.
+[Runtime validation](../docs/reports/bidirectional-run1-bottom-up-static-validation-20261017.md)
+checks selected storage, lowering and scheduler adapters against an
+independent scalar oracle. Its application gate still has nine known strict
+precision failures. Neither the mathematical model nor these finite tests
+prove every Kotlin execution or JVM form. No new DEMAND approximation or
+loss of flow-sensitive input distinctions is allowed by this contract.

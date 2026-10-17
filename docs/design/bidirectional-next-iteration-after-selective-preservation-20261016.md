@@ -1,20 +1,17 @@
 # Next analyzer-core iteration after selective preservation
 
 Date: 16 October 2026. Measurement runtime: `28a123f0eac937e8f2feca9ee5dd84e38fa8f979`.
-Updated: 17 October 2026. Selected design: equivalent bottom-up run-1 static
-FLOW, universal DEMAND static defaults, mark requests only and ordinary NORMAL
-persistence. These selected parts are implemented in the
-[runtime refinement](bidirectional-bottom-up-static-implementation-20261017.md);
-new project measurements remain pending. Other candidates remain proposals.
+Updated: 17 October 2026. Historical selected proposal. Its static transport,
+DEMAND defaults, mark-only requests and NORMAL persistence are implemented at
+`ab6c3cd00`; see the [runtime refinement](bidirectional-bottom-up-static-implementation-20261017.md).
+The measurements and remaining rankings below describe `28a123f0e` and are
+stale for the current runtime.
 
-The [latest measurements](../reports/bidirectional-run1-selective-preservation-20261016.md)
-replace earlier runtime reports. Latest reached/completed/accepted iterations
-are OWASP **run-7 / run-6 / run-5**, conductor **run-2 / run-1 / run-1**,
-ThingsBoard **run-1 / none / none**, and Stirling-PDF **run-2 / run-1 / run-1**.
-OWASP times out; the other three run out of memory. Conductor and PDF meet
-the 60-second run-1 engine target; OWASP and ThingsBoard do not. All three
-normal heap reports and the targeted weighted-input/publication checks are
-complete. There is no measurement of the new design.
+Use the [new measurements](../reports/bidirectional-run1-bottom-up-static-20261017.md)
+and [next proposal](bidirectional-next-iteration-after-bottom-up-statics-20261017.md).
+Latest reached/completed/accepted iterations are OWASP **run-7 / run-6 / run-5**,
+conductor **run-2 / run-1 / run-1**, ThingsBoard **run-1 / none / none**, and
+Stirling-PDF **run-2 / run-1 / run-1**. All candidate invocations end abnormally.
 
 The scope is analyzer execution/storage; IR storage is outside scope. The
 [unified contract](../../spec/run1-field-writes.md) describes the measured
