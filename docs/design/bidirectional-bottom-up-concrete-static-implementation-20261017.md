@@ -1,6 +1,6 @@
 # Bottom-up concrete static propagation implementation
 
-Date: 17 October 2026. Status: implemented; project measurements pending.
+Date: 17 October 2026. Status: implemented; measured, resource/acceptance gates failed.
 The [selected specification](../../spec/run1-bottom-up-concrete-static-propagation.md)
 defines behavior. The [proof dossier](../../spec/run1-bottom-up-concrete-static-proofs.md)
 defines the checked finite models and the remaining runtime bridge. This document
@@ -8,6 +8,12 @@ maps that design to the runtime APIs. It adds no approximation or workload resul
 The [runtime validation report](../reports/bidirectional-run1-bottom-up-concrete-static-validation-20261017.md)
 records the passed core/consumer checks and the unchanged application precision
 failures.
+
+The [current project report](../reports/bidirectional-run1-bottom-up-concrete-static-20261017.md)
+binds runtime `6b9291d7d`. Latest reached/completed/accepted forward iterations:
+OWASP run-8/run-7/run-7; conductor run-1/none/none; ThingsBoard
+run-1/none/none; Stirling-PDF run-2/run-1/run-1. No measured project meets
+the 60-second run-1 engine target. Further changes require a new selection.
 
 The layout reduction applies to certified transparent cohorts. A returning
 method with a STAR concrete initial has a STAR-to-ANY exit effect. That exit

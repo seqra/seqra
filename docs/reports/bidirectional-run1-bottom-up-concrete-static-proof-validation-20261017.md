@@ -4,6 +4,14 @@ Date: 17 October 2026. Status: **formal-model validation passed; proposal only**
 Analyzer implementation, IR storage and reference/cache managers are unchanged.
 No analyzer project run or performance benchmark was made for this proposal.
 
+This is the historical proof-only check at the revision below. The runtime
+is now implemented at `6b9291d7d`; see the
+[runtime validation](bidirectional-run1-bottom-up-concrete-static-validation-20261017.md)
+and [current project measurements](bidirectional-run1-bottom-up-concrete-static-20261017.md).
+Latest reached/completed/accepted forward: OWASP run-8/run-7/run-7;
+conductor run-1/none/none; ThingsBoard run-1/none/none; Stirling-PDF
+run-2/run-1/run-1. Resource and project acceptance gates failed.
+
 The [specification](../../spec/run1-bottom-up-concrete-static-propagation.md)
 defines the selected concept and optimization. The
 [proof dossier](../../spec/run1-bottom-up-concrete-static-proofs.md) maps the

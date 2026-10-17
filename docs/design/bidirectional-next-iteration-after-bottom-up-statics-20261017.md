@@ -5,6 +5,13 @@ is implemented or selected. It uses runtime `ab6c3cd00` and the
 [current project report](../reports/bidirectional-run1-bottom-up-static-20261017.md).
 Earlier runtime rankings are stale. IR storage is outside scope.
 
+**Superseded:** this ranking uses runtime `ab6c3cd00`. The
+[new proposal](bidirectional-next-iteration-after-concrete-statics-20261017.md)
+uses fresh measurements of `6b9291d7d`. Its latest reached/completed/accepted
+forward iterations are OWASP run-8/run-7/run-7, conductor run-1/none/none,
+ThingsBoard run-1/none/none and Stirling-PDF run-2/run-1/run-1. Keep the older
+numbers below as historical evidence only.
+
 | Project | Latest reached / completed / accepted forward report | Run-1 engine |
 | --- | --- | --- |
 | OWASP | run-7 / run-6 / run-5 | 265.789 s, complete |

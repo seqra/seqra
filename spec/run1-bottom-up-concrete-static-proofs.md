@@ -14,10 +14,12 @@ records exact commands, checked sources and the axiom audit. Only `propext`
 and `Quot.sound` are allowed. No classical choice, admitted proof or new axiom
 is accepted.
 
-Latest existing measured reached/completed iterations: OWASP **run-7/run-6**,
-conductor **run-2/run-1**, ThingsBoard **run-1/none**, Stirling-PDF
-**run-2/run-1**, at runtime `ab6c3cd00`. They are not measurements of this
-proposal; see the [project report](../docs/reports/bidirectional-run1-bottom-up-static-20261017.md).
+Latest measured reached/completed/accepted forward iterations at runtime
+`6b9291d7d`: OWASP **run-8/run-7/run-7**, conductor **run-1/none/none**,
+ThingsBoard **run-1/none/none**, Stirling-PDF **run-2/run-1/run-1**. See the
+[current project report](../docs/reports/bidirectional-run1-bottom-up-concrete-static-20261017.md).
+Resource and project acceptance gates failed; the finite constructive proofs
+do not guarantee whole-project completion or a 60-second run-1.
 
 ## 1. Objects and boundary
 

@@ -2,7 +2,8 @@
 
 Date: 17 October 2026. Scope: the selected
 [concrete-static contract](../../spec/run1-bottom-up-concrete-static-propagation.md).
-Implementation is complete. Project measurements follow these checks.
+Implementation is complete. Fresh project measurements follow these checks
+in the [current project report](bidirectional-run1-bottom-up-concrete-static-20261017.md).
 IR storage and reference/cache managers are unchanged.
 
 The [implementation map](../design/bidirectional-bottom-up-concrete-static-implementation-20261017.md)
@@ -98,9 +99,14 @@ unions and routing waves; they cannot measure total request work on their own.
 
 ## Project measurement state
 
-No project workload has run for this implementation yet. Latest reached,
-completed and accepted forward iterations are therefore **not available** for
-each of OWASP, conductor, ThingsBoard and Stirling-PDF on the new runtime.
+All four current workloads and fresh main baselines have run at the fixed
+configurations. Candidate runtime is `6b9291d7d`. Latest reached/completed/
+accepted forward: OWASP **run-8/run-7/run-7**; conductor **run-1/none/none**;
+ThingsBoard **run-1/none/none**; Stirling-PDF **run-2/run-1/run-1**.
+OWASP times out; the other three OOM. The resource and project acceptance
+gates fail, and no project meets the 60-second run-1 engine target.
+Core/formal validation does not establish project performance. The current
+report contains the locations, profiles and live-heap investigation.
 Previous-commit project reports are not acceptance evidence for this change.
 
 The previous iteration's raw snapshots, JFR/native profiles and reproducible

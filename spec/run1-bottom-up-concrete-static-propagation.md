@@ -1,9 +1,16 @@
 # Run-1 bottom-up propagation of concrete static marks
 
-Date: 17 October 2026. Status: **implemented; core validation passed, project measurements pending**.
+Date: 17 October 2026. Status: **implemented; core validation passed; project resource/acceptance gates failed**.
 Scope: run-1 FORWARD, field limit 1. Run-2 and later use their ordinary
 demand-driven analysis. IR storage and reference/cache managers are outside
 scope.
+
+Measured runtime: `6b9291d7d`. Latest reached/completed/accepted forward:
+OWASP run-8/run-7/run-7; conductor run-1/none/none; ThingsBoard
+run-1/none/none; Stirling-PDF run-2/run-1/run-1. See the
+[current project report](../docs/reports/bidirectional-run1-bottom-up-concrete-static-20261017.md).
+The 60-second run-1 engine target is not met. These results do not change
+the selected semantic contract.
 
 This contract extends [bottom-up static FLOW](run1-bottom-up-static-propagation.md)
 to concrete static marks. It replaces that contract's
