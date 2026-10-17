@@ -10,6 +10,7 @@ interface SubscriptionPort {
     val ops: ApOps
     val steps: ProtocolSteps
     val staticNeedRouter: StaticNeedRouter? get() = null
+    val pendingNeedReplay: PendingNeedReplay? get() = null
     val statistics: N2Statistics? get() = null
     val abstractionStatistics: Run1AbstractionStatistics? get() = null
     val requestBatchStatistics: RequestBatchStatistics? get() = null

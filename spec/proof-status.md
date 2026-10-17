@@ -1,12 +1,15 @@
 # Current proof status
 
-## Current static-need replay batching specification
+## Current static-need replay batching implementation
 
 The [batched replay contract](run1-static-need-replay-batching.md) extends
 the [implemented concrete-static contract](run1-bottom-up-concrete-static-propagation.md).
 It batches graph growth at each owner-turn boundary and shares a fresh
 multi-start traversal only for equal selected mark sets. Source marks still
-commit at method-empty. The runtime is unchanged by this specification.
+commit at method-empty. The
+[implementation map](../docs/design/bidirectional-static-need-replay-batching-implementation-20261017.md)
+and [runtime validation](../docs/reports/bidirectional-static-need-replay-batching-validation-20261017.md)
+record the selected runtime changes and their checks.
 
 The [proof dossier](run1-static-need-replay-batching-proofs.md) defines the
 logical terminal candidate relation before committed-R filtering, gives
@@ -22,11 +25,18 @@ equivalence, source/delta union, serialized registration/flush coverage,
 committed-R filtering and scoped cost laws. Live overlapping owner waves and
 coroutine lifecycle refinement remain explicit implementation obligations.
 
-No project run was repeated. Latest reached / completed / accepted forward
-on runtime `6b9291d7dd69ae5f6a1260c7f1021c7500fa56b8`:
+The model was rerun: 303 declarations, 28 controls, zero unexpected axioms.
+Runtime checks pass: 1,585 common tests, 411 JVM tests and the consumer jar.
+Two later test-only additions pass in the final 19-case batching/runner
+selection; production sources are unchanged. Application acceptance is
+reported separately. The finite model does not certify the Kotlin scheduler.
+
+Fresh project measurements are pending. Latest reached/completed/accepted
+iterations for the batching implementation are unavailable on all four projects.
+Historical observations on runtime `6b9291d7dd69ae5f6a1260c7f1021c7500fa56b8`:
 OWASP run-8 / run-7 / run-7; conductor run-1 / none / none;
 ThingsBoard run-1 / none / none; Stirling-PDF run-2 / run-1 / run-1.
-See the [current report](../docs/reports/bidirectional-run1-bottom-up-concrete-static-20261017.md).
+See the [historical report](../docs/reports/bidirectional-run1-bottom-up-concrete-static-20261017.md).
 
 ## Selected bottom-up static FLOW design
 

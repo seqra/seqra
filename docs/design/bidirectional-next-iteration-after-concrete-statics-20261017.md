@@ -1,6 +1,10 @@
 # Next iteration after concrete static propagation
 
-Date: 17 October 2026. Status: proposal only; no change below is implemented.
+Date: 17 October 2026. Status: historical ranking; order 1 is now implemented.
+Its [runtime validation](../reports/bidirectional-static-need-replay-batching-validation-20261017.md)
+records the checks. Fresh project measurements are pending. The remaining
+items below are unselected proposals; this old ranking is not current evidence
+for their impact after batching.
 Order 1 now has a [complete specification](../../spec/run1-static-need-replay-batching.md)
 and [proof dossier](../../spec/run1-static-need-replay-batching-proofs.md).
 Evidence: runtime `6b9291d7dd69ae5f6a1260c7f1021c7500fa56b8` and the
@@ -66,7 +70,7 @@ per-mark request rows at every intermediate method.
 The [complete specification](../../spec/run1-static-need-replay-batching.md)
 defines the owner-turn barrier, exact grouping, live-graph proof, reservation
 lifecycle and acceptance checks. The sketch below explains the proposal;
-the complete specification controls its detailed behavior. Runtime is unchanged.
+the complete specification controls its detailed behavior. This item is now implemented.
 
 **Current:** every fresh packed static relation, or ordinary static FLOW
 admission with a valid abstract original, calls `graphChanged()`. That call

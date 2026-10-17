@@ -61,7 +61,8 @@ class RunManager<A : RunActor>(
     }
     val forms: DirectedForms = shared.contexts.directed(config.direction)
     val staticNeedRouter: StaticNeedRouter? = if (config.run1)
-        StaticNeedRouter(shared.ap, { visit -> summaryStorage(visit.key.method).notifyStaticNeed(visit) }) else null
+        StaticNeedRouter(shared.ap, { visit -> summaryStorage(visit.key.method).notifyStaticNeed(visit) },
+            statistics = shared.abstractionStatistics?.staticNeedReplay) else null
     private val memory = MemoryManager(shared.refManager, OOM_THRESHOLD) { fail(RunStatus.OOM) }
 
     /** All units in this run share one storage for the complete callee key. */

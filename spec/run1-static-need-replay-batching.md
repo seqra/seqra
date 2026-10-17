@@ -1,6 +1,6 @@
 # Run-1 static needs: batch graph replay and merge equal-mark traversals
 
-Date: 17 October 2026. Status: **specification; runtime unchanged**.
+Date: 17 October 2026. Status: **implemented; core validation passed; fresh project measurements pending**.
 Scope: run-1 FORWARD, field limit 1. This selects the first optimization in
 the [next-iteration proposal](../docs/design/bidirectional-next-iteration-after-concrete-statics-20261017.md).
 It changes scheduling and traversal sharing, not the static analysis rules.
@@ -8,12 +8,19 @@ Follow [proof-guide.md](proof-guide.md). The
 [proof dossier](run1-static-need-replay-batching-proofs.md) separates checked
 finite models from the required runtime refinements.
 
-The measured runtime is `6b9291d7dd69ae5f6a1260c7f1021c7500fa56b8`.
+The [implementation map](../docs/design/bidirectional-static-need-replay-batching-implementation-20261017.md)
+and [runtime validation](../docs/reports/bidirectional-static-need-replay-batching-validation-20261017.md)
+record the actual adapters and executed checks. Fresh project measurements
+have not started; latest reached/completed/accepted iterations for this
+implementation are unavailable on all four projects.
+
+The historical design baseline is `6b9291d7dd69ae5f6a1260c7f1021c7500fa56b8`.
 Latest reached / completed / accepted forward: OWASP run-8 / run-7 / run-7;
 conductor run-1 / none / none; ThingsBoard run-1 / none / none;
 Stirling-PDF run-2 / run-1 / run-1. No new project run measures this design.
-The [current report](../docs/reports/bidirectional-run1-bottom-up-concrete-static-20261017.md)
-has the measurements and failed resource/acceptance gates.
+The [baseline report](../docs/reports/bidirectional-run1-bottom-up-concrete-static-20261017.md)
+has those historical measurements and failed resource/acceptance gates.
+They cannot establish acceptance for the new implementation.
 
 ## 1. Purpose and reference behavior
 
@@ -498,7 +505,8 @@ Measure the result before selecting a global epoch or an edge-delta index.
 
 ## 10. Runtime refinement and implementation order
 
-The following is an implementation plan, not an analyzer patch:
+The implementation followed this sequence. The implementation map above
+identifies the landed runtime adapters:
 
 1. Add the constructive finite model and negative controls. Check the
    equal-mark multi-start law, update batching, late arrivals and scoped costs.

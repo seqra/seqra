@@ -80,11 +80,25 @@ class SummaryStorage(
     fun notifyStaticNeed(visit: StaticNeedVisit) {
         check(visit.key.method == method)
         val recipients = synchronized(lock) { subscribers.toList() }
-        steps.notify {
-            for (subscriber in recipients) {
-                ap.cancellation.checkpoint()
-                subscriber.notifyStaticNeed(visit)
+        // Deferred test adapters own this notification until their callback ends;
+        // subscriber posts acquire their own owners before this one is released.
+        visit.wave.queuedWork()
+        var entered = false
+        try {
+            steps.notify {
+                entered = true
+                try {
+                    for (subscriber in recipients) {
+                        ap.cancellation.checkpoint()
+                        subscriber.notifyStaticNeed(visit)
+                    }
+                } finally {
+                    visit.wave.finishedWork()
+                }
             }
+        } catch (error: Throwable) {
+            if (!entered) visit.wave.finishedWork()
+            throw error
         }
     }
 

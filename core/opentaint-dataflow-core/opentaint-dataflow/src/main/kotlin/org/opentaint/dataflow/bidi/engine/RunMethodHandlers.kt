@@ -25,6 +25,7 @@ class RunMethodHandlers(
             override val ops get() = active().ops
             override val steps get() = active().steps
             override val staticNeedRouter get() = active().staticNeedRouter
+            override val pendingNeedReplay get() = active().pendingNeedReplay
             override val statistics get() = active().shared.n2Statistics
             override val abstractionStatistics get() = active().shared.abstractionStatistics
             override val requestBatchStatistics get() = active().shared.requestBatchStatistics

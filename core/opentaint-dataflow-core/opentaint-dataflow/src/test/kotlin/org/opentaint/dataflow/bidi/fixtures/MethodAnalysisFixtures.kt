@@ -172,6 +172,7 @@ class MethodAnalysisFixtures(
     val addedLinks = ArrayList<Triple<CallerRef, Layer, Facts>>()
     private val inputRows = IdentityHashMap<RunMethodAnalyzer, MutableList<Link>>()
     private val questionManagers = IdentityHashMap<RunMethodAnalyzer, SubscriptionManager>()
+    private val questionReplays = IdentityHashMap<RunMethodAnalyzer, PendingNeedReplay>()
     private val questionQueue = ArrayDeque<() -> Unit>()
     private val summaryStores = LinkedHashMap<MethodKey, SummaryStorage>()
     val staticNeedRouter = StaticNeedRouter(manager, { visit ->
@@ -204,6 +205,7 @@ class MethodAnalysisFixtures(
             Subscription(core.key, ref, layer, facts, zeroOnly = false))
         (core.localServices as? ScalarPositionLocalServices)?.onInput(ref, facts)
         core.addLink(ref, layer, facts)
+        questionReplays.getValue(core).flush(staticNeedRouter)
     }
 
     /** Queued question delivery never calls an actor during a captured N2 visit. */
@@ -212,6 +214,7 @@ class MethodAnalysisFixtures(
         while (questionQueue.isNotEmpty()) {
             check(++count <= 100_000) { "Finite question routing did not close" }
             questionQueue.removeFirst().invoke()
+            questionReplays.values.forEach { it.flush(staticNeedRouter) }
         }
         return count != 0
     }
@@ -265,6 +268,7 @@ class MethodAnalysisFixtures(
             override val ops = this@MethodAnalysisFixtures.ops
             override val steps = ProtocolSteps.Inline
             override val staticNeedRouter get() = this@MethodAnalysisFixtures.staticNeedRouter
+            override val pendingNeedReplay = PendingNeedReplay(manager)
             override fun post(event: RunEvent.StaticNeed): Boolean {
                 questionQueue += { questionManagers.getValue(actor).onStaticNeed(event.visit) }
                 return true
@@ -348,6 +352,7 @@ class MethodAnalysisFixtures(
             override val ops = this@MethodAnalysisFixtures.ops
             override val steps = ProtocolSteps.Inline
             override val staticNeedRouter get() = this@MethodAnalysisFixtures.staticNeedRouter
+            override val pendingNeedReplay get() = port.pendingNeedReplay
             override fun post(event: RunEvent.StaticNeed): Boolean = port.post(event)
             override fun summaryStorage(key: MethodKey): SummaryStorage = port.summaryStorage(key)
             override fun staticFootprint(method: org.opentaint.ir.api.common.CommonMethod): Run1StaticFootprint? =
@@ -376,6 +381,7 @@ class MethodAnalysisFixtures(
             }
         })
         questionManagers[actor] = questions
+        questionReplays[actor] = port.pendingNeedReplay
         return actor
     }
 
@@ -455,6 +461,7 @@ class MethodAnalysisFixtures(
             cancellation.checkpoint()
             check(++attempts <= 10000) { "The finite method fixture did not reach closure" }
             val complete = core.work(quantum)
+            questionReplays.getValue(core).flush(staticNeedRouter)
             val delivered = pumpQuestions()
             // An answer delivered after work() returned can schedule a new initial/fact delta.
             if (complete && !delivered && !core.localServices.hasPendingRequests && questionQueue.isEmpty()) return attempts
@@ -472,6 +479,8 @@ class MethodAnalysisFixtures(
     override fun close() {
         questionManagers.values.forEach { it.freeze() }
         questionManagers.clear()
+        questionReplays.values.forEach(PendingNeedReplay::clear)
+        questionReplays.clear()
         questionQueue.clear()
         summaryStores.clear()
         staticNeedRouter.clear()

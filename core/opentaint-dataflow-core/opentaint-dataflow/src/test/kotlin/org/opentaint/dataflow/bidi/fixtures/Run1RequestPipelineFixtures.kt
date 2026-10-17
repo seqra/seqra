@@ -23,6 +23,7 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
     private val temporary = LinkedHashMap<MethodKey, RequestStorage>()
     private val temporaryStatic = LinkedHashMap<MethodKey, MutableMap<Run1Slot.StaticField, RequestMarkSet>>()
     val staticNeedRouter = StaticNeedRouter(f.ap, { storage(it.key.method).notifyStaticNeed(it) })
+    val pendingNeedReplay = PendingNeedReplay(f.ap)
     fun needs(method: MethodKey, slot: Run1Slot.StaticField): RequestMarkSet =
         staticNeedRouter.sourcesSnapshot()[StaticNeedKey(method, slot)] ?: RequestMarkSet.EMPTY
     private val emitters = LinkedHashMap<MethodKey, Run1Abstraction>()
@@ -49,6 +50,7 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
         override val abstractionStatistics get() = this@Run1RequestPipelineFixtures.statistics
         override val requestBatchStatistics get() = batchStatistics
         override val staticNeedRouter get() = this@Run1RequestPipelineFixtures.staticNeedRouter
+        override val pendingNeedReplay get() = this@Run1RequestPipelineFixtures.pendingNeedReplay
         override fun post(event: RunEvent.StaticNeed): Boolean {
             if (!acceptNotifications) return false
             events += event
@@ -99,10 +101,11 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
 
     /** The test explicitly chooses the method-empty barrier, not an alternate scheduler. */
     fun commit(method: MethodKey = f.callee) {
-        temporaryStatic.remove(method)?.let { staticNeedRouter.commit(method, it) }
-        val pending = temporary[method] ?: return
-        storage(method).commit(pending)
-        temporary[method] = RequestStorage()
+        temporaryStatic.remove(method)?.let {
+            pendingNeedReplay.sourcesCommitted(staticNeedRouter.commitSourceUnions(method, it))
+        }
+        temporary.remove(method)?.let { storage(method).commit(it) }
+        pendingNeedReplay.flush(staticNeedRouter)
     }
 
     fun publish(slot: Run1Slot, vararg ids: Int, method: MethodKey = f.callee) {
@@ -114,11 +117,13 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
     fun submit(part: Subscription) {
         subscriptions.subscribe(part)
         events += RunEvent.LinkIn(part.callee, part.ref, part.linkLayer, part.added)
+        pendingNeedReplay.flush(staticNeedRouter)
     }
 
     fun submitStatic(part: StaticSubscription) {
         // SubscriptionManager queues the destination batch itself, after registration.
         subscriptions.subscribeStatic(part)
+        pendingNeedReplay.flush(staticNeedRouter)
     }
 
     fun drain() {
@@ -141,12 +146,14 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
                 is RunEvent.Delivery -> subscriptions.onDelivery(event.callee, event.publications)
                 else -> error("Unexpected request pipeline event: $event")
             }
+            pendingNeedReplay.flush(staticNeedRouter)
         }
     }
 
     override fun close() {
         emitters.values.forEach(Run1Abstraction::release)
         subscriptions.freeze()
+        pendingNeedReplay.clear()
         staticNeedRouter.clear()
         f.close()
     }

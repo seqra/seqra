@@ -1,16 +1,20 @@
 # Proofs for batched static-need replay
 
 Date: 17 October 2026. Status: **design proofs and finite formal model;
-runtime unchanged**. Contract:
+runtime adapters implemented and tested**. Contract:
 [run1-static-need-replay-batching.md](run1-static-need-replay-batching.md).
 This dossier follows [proof-guide.md](proof-guide.md). It distinguishes the
 ordinary request closure, the scheduling optimization and their implementation.
 
-No new analyzer measurement was made. Latest reached / completed / accepted
-forward on runtime `6b9291d7dd69ae5f6a1260c7f1021c7500fa56b8`:
+The [runtime validation](../docs/reports/bidirectional-static-need-replay-batching-validation-20261017.md)
+records the implementation checks. They do not convert the finite model into
+a proof of every Kotlin coroutine schedule. Fresh project measurements are
+pending; latest reached/completed/accepted iterations for this implementation
+are unavailable on all four projects. Historical observations on runtime
+`6b9291d7dd69ae5f6a1260c7f1021c7500fa56b8`:
 OWASP run-8 / run-7 / run-7; conductor run-1 / none / none;
 ThingsBoard run-1 / none / none; Stirling-PDF run-2 / run-1 / run-1.
-See the [current project report](../docs/reports/bidirectional-run1-bottom-up-concrete-static-20261017.md).
+See the [historical project report](../docs/reports/bidirectional-run1-bottom-up-concrete-static-20261017.md).
 
 ## 1. Model and reference
 

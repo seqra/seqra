@@ -28,6 +28,8 @@ class UnitRunner<A : RunActor> internal constructor(
     private val actors = LinkedHashMap<MethodKey, A>()
     private val queued = Collections.newSetFromMap(IdentityHashMap<A, Boolean>())
     private val closed = AtomicBoolean()
+    override val pendingNeedReplay = if (run.config.run1)
+        PendingNeedReplay(run.shared.ap, run.shared.abstractionStatistics?.staticNeedReplay) else null
     private val handler = factory.create(this)
 
     override val config get() = run.config
@@ -116,6 +118,8 @@ class UnitRunner<A : RunActor> internal constructor(
                         handler.handle(event)
                         true
                     }
+                    // The executing parent still owns replay until all child visits are posted.
+                    pendingNeedReplay?.flush(checkNotNull(staticNeedRouter))
                     if (complete) {
                         if (event is RunEvent.Work) {
                             check(queued.remove(event.analyzer)) { "Work was not queued" }
@@ -152,6 +156,7 @@ class UnitRunner<A : RunActor> internal constructor(
         try {
             (handler as? SubscriptionHandler)?.freeze()
         } finally {
+            pendingNeedReplay?.clear()
             queue.clear()
             queued.clear()
             for (actor in actors.values) (actor as? RunMethodAnalyzer)?.releaseAbstraction()

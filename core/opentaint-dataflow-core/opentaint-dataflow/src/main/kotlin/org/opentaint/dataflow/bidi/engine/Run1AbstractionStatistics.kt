@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 /** Numeric counters do not retain methods, initials, suppliers or profile objects. */
 class Run1AbstractionStatistics {
+    val staticNeedReplay = StaticNeedReplayStatistics()
     private val inputArrivals = AtomicLong()
     private val restrictedIntersections = AtomicLong()
     private val initialCandidates = AtomicLong()
@@ -76,6 +77,7 @@ class Run1AbstractionStatistics {
     }
 
     internal fun requestCommit(rows: Int, marks: Long, createdRows: Int) {
+        staticNeedReplay.baseCommit(marks)
         requestCommits.incrementAndGet(); freshRequestRows.addAndGet(rows.toLong())
         freshRequestMembers.addAndGet(marks); createdDynamicRows.addAndGet(createdRows.toLong())
     }
@@ -139,6 +141,7 @@ class Run1AbstractionStatistics {
         val staticRelationKeys: Long, val freshStaticRelationMembers: Long,
         val staticDefaultApplications: Long, val currentStaticNodeBindings: Long,
         val peakStaticNodeBindings: Long,
+        val staticNeedReplay: StaticNeedReplayStatistics.Snapshot,
     )
 
     fun snapshot(): Snapshot = Snapshot(inputArrivals.get(), restrictedIntersections.get(),
@@ -152,5 +155,5 @@ class Run1AbstractionStatistics {
         freshFlowInputReads.get(), growthFlowInputReads.get(), requestFrozenSlotsExamined.get(), requestDynamicKeysExamined.get(),
         staticEntryBatches.get(), freshStaticEntryMembers.get(), staticNodeBatches.get(), staticScalarEvaluations.get(),
         staticRelationKeys.get(), freshStaticRelationMembers.get(), staticDefaultApplications.get(), staticNodeBindings.get(),
-        peakStaticNodeBindings.get())
+        peakStaticNodeBindings.get(), staticNeedReplay.snapshot())
 }

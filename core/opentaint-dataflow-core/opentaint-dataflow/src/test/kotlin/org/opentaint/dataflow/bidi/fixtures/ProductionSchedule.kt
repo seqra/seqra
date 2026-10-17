@@ -27,6 +27,16 @@ class ProductionSchedule(
     private class Pending(val kind: Kind, val description: String, val action: () -> Unit)
     private val random = Random(seed)
     private val pool = ArrayList<Pending>()
+    private var activeOwner: UnitPort? = null
+    private fun turn(kind: Kind, description: String, owner: UnitPort, action: () -> Unit) =
+        Pending(kind, description) {
+            check(activeOwner == null) { "Deferred work needs its own admitted turn" }
+            activeOwner = owner
+            try {
+                action()
+                owner.finishNeedReplay()
+            } finally { activeOwner = null }
+        }
     private val log = ArrayList<String>()
     val trace: List<String> get() = log.toList()
     private val registered = ArrayList<Subscription>()
@@ -67,8 +77,12 @@ class ProductionSchedule(
             requests += ObservedRequest(key.method, key.slot.initial(shared.ap).toPattern(), RequestKind.Mark(mark))
         } }) else null
     private val deferred = object : ProtocolSteps {
-        override fun replay(step: () -> Unit) { pool += Pending(Kind.REPLAY, "replay", step) }
-        override fun notify(step: () -> Unit) { pool += Pending(Kind.NOTIFY, "notify", step) }
+        override fun replay(step: () -> Unit) {
+            pool += turn(Kind.REPLAY, "replay", checkNotNull(activeOwner), step)
+        }
+        override fun notify(step: () -> Unit) {
+            pool += turn(Kind.NOTIFY, "notify", checkNotNull(activeOwner), step)
+        }
     }
     private val factories = RunMethodHandlers(MethodLocalServicesFactory { actor ->
         val actual = RunMethodLocalServices(actor)
@@ -109,6 +123,7 @@ class ProductionSchedule(
 
     private inner class UnitPort : RunnerPort<RunMethodAnalyzer> {
         override val staticNeedRouter: StaticNeedRouter? get() = needs
+        override val pendingNeedReplay = if (config.run1) PendingNeedReplay(shared.ap) else null
         override val config get() = this@ProductionSchedule.config
         override val shared get() = this@ProductionSchedule.shared
         override val forms = shared.contexts.directed(config.direction)
@@ -119,7 +134,7 @@ class ProductionSchedule(
         val handler = factories.create(this)
 
         fun postEvent(event: RunEvent) {
-            pool += Pending(Kind.EVENT, description(event)) {
+            pool += turn(Kind.EVENT, description(event), this) {
                 if (event is RunEvent.MarkRequestsIn) for ((slot, marks) in event.rows) {
                     if (slot is Run1Slot.Base) marks.forEachMark { requests += ObservedRequest(event.method,
                         slot.initial(shared.ap).toPattern(), RequestKind.Mark(it)) }
@@ -152,6 +167,7 @@ class ProductionSchedule(
         }
 
         override fun enqueue(analyzer: RunMethodAnalyzer): Boolean {
+            check(activeOwner === this)
             check(actors[analyzer.key] === analyzer)
             if (!queued.add(analyzer)) return false
             postWork(analyzer)
@@ -159,15 +175,20 @@ class ProductionSchedule(
         }
 
         private fun postWork(actor: RunMethodAnalyzer) {
-            pool += Pending(Kind.WORK, "Work(${actor.key})") {
+            pool += turn(Kind.WORK, "Work(${actor.key})", this) {
                 val amount = if (policy == SchedulePolicy.SEEDED) 1 + random.nextInt(quantum) else quantum
                 log += "quantum=$amount key=${actor.key}"
-                if (actor.work(amount)) check(queued.remove(actor))
+                val complete = actor.work(amount)
+                finishNeedReplay()
+                if (complete) check(queued.remove(actor))
                 else postWork(actor)
             }
         }
 
+        fun finishNeedReplay() { needs?.let { pendingNeedReplay?.flush(it) } }
+
         override fun analyzer(key: MethodKey): RunMethodAnalyzer {
+            check(activeOwner === this)
             check(owner(key) === this)
             // Actor construction cannot queue work before this registration completes.
             return actors.getOrPut(key) { handler.createActor(key) }
@@ -176,6 +197,7 @@ class ProductionSchedule(
         override fun summaryStorage(key: MethodKey): SummaryStorage = storage(key)
 
         override fun subscribe(sub: Subscription) {
+            check(activeOwner === this)
             ordinaryRelations += sub.callee to sub.ref
             registered += sub
             log += "subscribe callee=${sub.callee} caller=${sub.caller} " +
@@ -186,6 +208,7 @@ class ProductionSchedule(
         }
 
         override fun subscribeStatic(sub: StaticSubscription) {
+            check(activeOwner === this)
             val codec = StaticIdentityEntries(ops)
             val relation = StaticRelation(sub.callee, sub.caller, sub.call, sub.stageFrom, sub.stageTo)
             staticRelations[relation] = codec.merge(staticRelations[relation], sub.entries).first
@@ -201,6 +224,7 @@ class ProductionSchedule(
         }
 
         override fun subscribeConcreteStatic(sub: ConcreteStaticSubscription) {
+            check(activeOwner === this)
             registeredConcrete += sub
             val codec = ConcreteStaticEntries(ops)
             val relation = StaticRelation(sub.callee, sub.caller, sub.call, sub.stageFrom, sub.stageTo, sub.identityCandidate)
@@ -218,6 +242,7 @@ class ProductionSchedule(
         }
 
         override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
+            check(activeOwner === this)
             ops.leaves(added).forEach { inputs += observedLink(callee, Link(it, linkLayer, ref)) }
             val destination = owner(callee)
             val event = RunEvent.LinkIn(callee, ref, linkLayer, added)
@@ -286,6 +311,7 @@ class ProductionSchedule(
             for (unit in units.values) {
                 if (closed) for (actor in unit.actors.values) actor.freeze()
                 (unit.handler as SubscriptionHandler).freeze()
+                unit.pendingNeedReplay?.clear()
                 unit.actors.clear()
             }
             pool.clear()

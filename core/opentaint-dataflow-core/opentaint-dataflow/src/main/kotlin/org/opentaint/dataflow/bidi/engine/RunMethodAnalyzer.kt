@@ -277,7 +277,9 @@ class RunMethodAnalyzer(
         if (!config.run1) return
         if (temporaryStatic.isNotEmpty()) {
             val rows = temporaryStatic.mapValues { it.value.takeSnapshot() }
-            checkNotNull(runnerPort.staticNeedRouter) { "Run-1 static needs require their counted router" }.commit(key, rows)
+            val fresh = checkNotNull(runnerPort.staticNeedRouter) { "Run-1 static needs require their counted router" }
+                .commitSourceUnions(key, rows)
+            checkNotNull(runnerPort.pendingNeedReplay) { "Static source replay needs its runner owner" }.sourcesCommitted(fresh)
             temporaryStatic = LinkedHashMap()
         }
         if (temporary.isEmpty) return

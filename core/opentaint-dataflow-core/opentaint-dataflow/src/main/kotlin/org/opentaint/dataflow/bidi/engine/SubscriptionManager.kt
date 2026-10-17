@@ -46,7 +46,7 @@ class SubscriptionManager(port: SubscriptionPort) {
                 applyStatic(fresh, pub)
         }
         check(port.send(RunEvent.StaticEntriesIn(sub.callee, delta))) { "A run rejected static entry delivery" }
-        port.staticNeedRouter?.graphChanged()
+        checkNotNull(port.pendingNeedReplay) { "Static route replay needs its runner owner" }.graphChanged()
     }
 
     private fun applyStatic(part: StaticSubscription, pub: Publication) {
@@ -80,7 +80,7 @@ class SubscriptionManager(port: SubscriptionPort) {
         }
         val admitted = entry.admit(sub) ?: return
         if (port.config.run1 && admitted.fresh.added is FlowTree && admitted.fresh.added.base == STATIC &&
-            normalRun1Slot(admitted.fresh.ref.premise) != null) port.staticNeedRouter?.graphChanged()
+            normalRun1Slot(admitted.fresh.ref.premise) != null) checkNotNull(port.pendingNeedReplay) { "Static route replay needs its runner owner" }.graphChanged()
         val statistics = port.statistics
         if (statistics == null) {
             port.steps.replay { replay(storage, admitted) }
@@ -216,6 +216,9 @@ class SubscriptionManager(port: SubscriptionPort) {
                 ap.cancellation.checkpoint()
                 check(accepted) { "An active run rejected a request delivery" }
                 if (batch != null) batch.acceptedBatch(rowsToSend.values.sumOf { it.size })
+                port.staticNeedRouter?.statistics?.requestEnvelope(
+                    rowsToSend.keys.count { it is Run1Slot.Base },
+                    rowsToSend.keys.count { it is Run1Slot.StaticField })
             }
             for ((method, values) in answers) {
                 ap.cancellation.checkpoint()
@@ -252,15 +255,32 @@ class SubscriptionManager(port: SubscriptionPort) {
     /** Publisher-side notification contains no read of this caller-owned graph. */
     fun notifyStaticNeed(visit: StaticNeedVisit): Boolean {
         val port = active()
-        val accepted = port.post(RunEvent.StaticNeed(visit))
-        port.ops.manager.cancellation.checkpoint()
-        check(accepted) { "An active run rejected a static need visit" }
-        return accepted
+        visit.wave.queuedWork()
+        var accepted = false
+        try {
+            accepted = port.post(RunEvent.StaticNeed(visit))
+            if (accepted) port.staticNeedRouter?.statistics?.subscriberDelivery()
+            port.ops.manager.cancellation.checkpoint()
+            check(accepted) { "An active run rejected a static need visit" }
+            return accepted
+        } finally {
+            // A successful post transfers telemetry ownership even if the next
+            // checkpoint cancels; only its receiver or joined clear releases it.
+            if (!accepted) visit.wave.finishedWork()
+        }
     }
 
     /** Only the subscribed runner visits its actual current FLOW inputs. All
      * effects, including same-unit routes, are secured after the finite visit. */
     fun onStaticNeed(visit: StaticNeedVisit) {
+        try {
+            onStaticNeedOwned(visit)
+        } finally {
+            visit.wave.finishedWork()
+        }
+    }
+
+    private fun onStaticNeedOwned(visit: StaticNeedVisit) {
         val port = active()
         check(port.config.run1)
         val router = checkNotNull(port.staticNeedRouter)
@@ -268,33 +288,46 @@ class SubscriptionManager(port: SubscriptionPort) {
         val endpoints = LinkedHashSet<ClimbTarget>()
         val row = RequestedRow(slot, RequestRowView(
             org.opentaint.dataflow.bidi.store.RequestMarkSet.EMPTY, visit.marks))
-        byCallee[visit.key.method]?.visitRequestBatch(listOf(row)) { part ->
-            port.ops.manager.cancellation.checkpoint()
-            checkKinds(part)
-            if (!part.zeroOnly && part.added is FlowTree && slotMatches(slot, part.added)) {
-                normalRun1Slot(part.ref.premise)?.let { original ->
-                    endpoints += ClimbTarget(part.ref.caller, original)
+        var ordinaryScans = 0L
+        var packedScans = 0L
+        try {
+            byCallee[visit.key.method]?.visitRequestBatch(listOf(row)) { part ->
+                port.ops.manager.cancellation.checkpoint()
+                ordinaryScans++
+                checkKinds(part)
+                if (!part.zeroOnly && part.added is FlowTree && slotMatches(slot, part.added)) {
+                    normalRun1Slot(part.ref.premise)?.let { original ->
+                        endpoints += ClimbTarget(part.ref.caller, original)
+                    }
                 }
             }
-        }
-        // These packed bindings are exact diagonal originals, not a shared
-        // FLOW premise. Full call/stage keys remain in staticByCallee.
-        for (part in staticByCallee[visit.key.method]?.values?.toList().orEmpty()) {
-            port.ops.manager.cancellation.checkpoint()
-            if (part.entries.root.child(slot.cls)?.child(slot.field)?.leaf == FlowLeaf.LEAF)
-                endpoints += ClimbTarget(part.caller, slot)
-        }
-        for (target in endpoints) {
-            port.ops.manager.cancellation.checkpoint()
-            when (val original = target.slot) {
-                is Run1Slot.StaticField -> router.forward(visit, target.method, original)
-                is Run1Slot.Base -> {
-                    val fresh = visit.marks.minus(port.summaryStorage(target.method).borrowRequest(original),
-                        port.ops.manager.cancellation::checkpoint)
-                    if (!fresh.isEmpty) check(port.send(RunEvent.MarkRequestsIn(
-                        target.method, mapOf(original to fresh)))) { "A run rejected a BaseSlot need" }
+            // Exact diagonal originals keep all full call/stage keys.
+            for (part in staticByCallee[visit.key.method]?.values?.toList().orEmpty()) {
+                port.ops.manager.cancellation.checkpoint()
+                packedScans++
+                if (part.entries.root.child(slot.cls)?.child(slot.field)?.leaf == FlowLeaf.LEAF)
+                    endpoints += ClimbTarget(part.caller, slot)
+            }
+            for (target in endpoints) {
+                port.ops.manager.cancellation.checkpoint()
+                when (val original = target.slot) {
+                    is Run1Slot.StaticField -> router.forward(visit, target.method, original)
+                    is Run1Slot.Base -> {
+                        router.statistics?.baseOffer(visit.marks.size)
+                        val fresh = visit.marks.minus(port.summaryStorage(target.method).borrowRequest(original),
+                            port.ops.manager.cancellation::checkpoint)
+                        if (!fresh.isEmpty) {
+                            check(port.send(RunEvent.MarkRequestsIn(target.method, mapOf(original to fresh)))) {
+                                "A run rejected a BaseSlot need"
+                            }
+                            router.statistics?.baseDelivery(fresh.size)
+                            router.statistics?.requestEnvelope(1, 0)
+                        }
+                    }
                 }
             }
+        } finally {
+            router.statistics?.bindingScans(ordinaryScans, packedScans)
         }
     }
 
