@@ -1,7 +1,9 @@
 # Next iteration after concrete static propagation
 
-Date: 17 October 2026. Status: proposal only; no change below is selected or
-implemented. Evidence: runtime `6b9291d7dd69ae5f6a1260c7f1021c7500fa56b8` and the
+Date: 17 October 2026. Status: proposal only; no change below is implemented.
+Order 1 now has a [complete specification](../../spec/run1-static-need-replay-batching.md)
+and [proof dossier](../../spec/run1-static-need-replay-batching-proofs.md).
+Evidence: runtime `6b9291d7dd69ae5f6a1260c7f1021c7500fa56b8` and the
 [current project report](../reports/bidirectional-run1-bottom-up-concrete-static-20261017.md).
 The previous [optimization ranking](bidirectional-next-iteration-after-bottom-up-statics-20261017.md)
 uses another runtime and is stale. IR storage is outside scope.
@@ -60,6 +62,11 @@ carrier. Change when and where the engine repeats a traversal. Do not add
 per-mark request rows at every intermediate method.
 
 ## Batch route growth before replaying static needs
+
+The [complete specification](../../spec/run1-static-need-replay-batching.md)
+defines the owner-turn barrier, exact grouping, live-graph proof, reservation
+lifecycle and acceptance checks. The sketch below explains the proposal;
+the complete specification controls its detailed behavior. Runtime is unchanged.
 
 **Current:** every fresh packed static relation, or ordinary static FLOW
 admission with a valid abstract original, calls `graphChanged()`. That call

@@ -12,6 +12,12 @@ run-1/none/none; Stirling-PDF run-2/run-1/run-1. See the
 The 60-second run-1 engine target is not met. These results do not change
 the selected semantic contract.
 
+The next scheduling refinement is specified in
+[batched static-need replay](run1-static-need-replay-batching.md). It replaces
+section 5's immediate dispatch/per-source wave policy when implemented;
+it preserves this document's analysis rules. The measured runtime still uses
+the immediate replay baseline below.
+
 This contract extends [bottom-up static FLOW](run1-bottom-up-static-propagation.md)
 to concrete static marks. It replaces that contract's
 concrete-static admission, static mark-request plan and static-origin request

@@ -134,3 +134,4 @@ import ApSpec.BottomUpStaticRequests
 import ApSpec.BottomUpStaticModel
 import ApSpec.BottomUpConcreteStatic
 import ApSpec.BottomUpConcreteStaticNeeds
+import ApSpec.StaticNeedReplayBatch
