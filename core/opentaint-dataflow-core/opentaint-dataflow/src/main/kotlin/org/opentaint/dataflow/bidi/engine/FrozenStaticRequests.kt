@@ -36,9 +36,10 @@ class MapFrozenRequestBase(rows: RequestRows) : FrozenRequestBase {
     }
 }
 
-/** Ordered S and existing class-common payloads are borrowed, not expanded into field rows. */
+/** Symbolic mark scopes over the legal coordinate domain. The domain is shared
+ * independently of local readers; no field-request or transitive read set exists. */
 internal class FrozenStaticRequests private constructor(
-    internal val selected: Set<Run1Slot.StaticField>,
+    internal val domainSlots: Set<Run1Slot.StaticField>,
     private val root: RequestMarkSet,
     internal val commonByClass: Map<Int, RequestMarkSet>,
     internal val byField: Map<Run1Slot.StaticField, RequestMarkSet>,
@@ -48,14 +49,14 @@ internal class FrozenStaticRequests private constructor(
 ) : FrozenRequestBase {
     private fun common(cls: Int): RequestMarkSet = commonByClass[cls] ?: root
     override val isEmpty: Boolean get() = false
-    override fun hasRow(slot: Run1Slot): Boolean = slot is Run1Slot.StaticField && slot in selected &&
+    override fun hasRow(slot: Run1Slot): Boolean = slot is Run1Slot.StaticField && slot in domainSlots &&
         (!common(slot.cls).isEmpty || byField[slot]?.isEmpty == false)
     override fun borrow(slot: Run1Slot): ImmutableRequestMarks {
         if (slot !is Run1Slot.StaticField || !hasRow(slot)) return RequestMarkSet.EMPTY
         return distinctUnionView(common(slot.cls), byField[slot] ?: RequestMarkSet.EMPTY, checkpoint)
     }
     override fun forEachStaticRow(checkpoint: () -> Unit, visit: (Run1Slot.StaticField) -> Unit) {
-        for (slot in selected) { checkpoint(); if (hasRow(slot)) visit(slot) }
+        for (slot in domainSlots) { checkpoint(); if (hasRow(slot)) visit(slot) }
     }
     internal fun visitOwnedMarks(visit: (RequestMarkSet) -> Unit) {
         visit(root)
@@ -68,16 +69,16 @@ internal class FrozenStaticRequests private constructor(
         fun freeze(footprint: Run1StaticFootprint, root: RequestMarkSet,
                    commonByClass: Map<Int, RequestMarkSet>, fieldMarks: Map<Run1Slot.StaticField, RequestMarkSet>,
                    checkpoint: () -> Unit): FrozenRequestBase =
-            freeze(footprint.fieldSlots, root, commonByClass, fieldMarks, checkpoint)
+            freeze(footprint.fieldUniverse, root, commonByClass, fieldMarks, checkpoint)
 
-        fun freeze(selected: Set<Run1Slot.StaticField>, root: RequestMarkSet,
+        fun freeze(domain: Set<Run1Slot.StaticField>, root: RequestMarkSet,
                    commonByClass: Map<Int, RequestMarkSet>, fieldMarks: Map<Run1Slot.StaticField, RequestMarkSet>,
                    checkpoint: () -> Unit): FrozenRequestBase {
             // Already-owned maps are shared; mutable constructor scratch is detached once.
             val frozenCommon = ownedMap(commonByClass)
             var rows = 0L
             var members = 0L
-            val fieldsByClass = selected.groupBy { it.cls }
+            val fieldsByClass = domain.groupBy { it.cls }
             for ((cls, fields) in fieldsByClass) {
                 checkpoint()
                 val common = frozenCommon[cls] ?: root
@@ -87,7 +88,7 @@ internal class FrozenStaticRequests private constructor(
             val sparse = LinkedHashMap<Run1Slot.StaticField, RequestMarkSet>()
             for ((slot, marks) in fieldMarks) {
                 checkpoint()
-                check(slot in selected)
+                check(slot in domain)
                 val common = frozenCommon[slot.cls] ?: root
                 var additional = 0L
                 marks.forEachId { id -> checkpoint(); if (!common.containsId(id)) additional++ }
@@ -99,7 +100,7 @@ internal class FrozenStaticRequests private constructor(
             }
             checkpoint()
             if (rows == 0L) return EmptyFrozenRequestBase
-            return FrozenStaticRequests(org.opentaint.dataflow.bidi.interp.ownedSet(selected), root, frozenCommon, ownedMap(sparse),
+            return FrozenStaticRequests(org.opentaint.dataflow.bidi.interp.ownedSet(domain), root, frozenCommon, ownedMap(sparse),
                 rows, members, checkpoint)
         }
     }

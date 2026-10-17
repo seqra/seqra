@@ -73,7 +73,7 @@ class FactoredRequestPipelineTest {
             assertEquals(RequestMarkSet.of(u),h.storage().borrowRequest(slot).dynamic)
         }
     }
-    @Test fun `outside S wide activation writes P then exact D delta and answers registered supplier`() {
+    @Test fun `wide frozen scope covers a legal nonreader and answers without a startup wave`() {
         Run1RequestPipelineFixtures().use { h ->
             val f=h.f;val c=f.ap.accessors.index(ClassStaticAccessor("C"))
             val first=Run1Slot.StaticField(c,f.store.field("f"));val late=Run1Slot.StaticField(c,f.store.field("g"))
@@ -83,23 +83,26 @@ class FactoredRequestPipelineTest {
                 declaredFieldUniverse=setOf(late))[f.callee.method]
             h.profiles[f.callee]=profile;h.frozenBases[f.callee]=profile.precomputedRequests
             assertIs<FrozenStaticRequests>(profile.precomputedRequests)
-            assertFalse(profile.precomputedRequests.hasRow(late))
+            assertTrue(profile.precomputedRequests.hasRow(late), "Frozen mark lookup has no field-read gate")
+            assertEquals(RequestMarkSet.of(t), h.storage().borrowRequest(late).precomputed.toRequestMarkSet {})
+            assertTrue(h.events.isEmpty(), "Binding B causes no notification")
             val input=f.store.fact(STATIC,late.pathData.toList(),Tail.EXACT,MarkSlot.Concrete(t))
             h.submit(f.subscription(input));h.drain()
-            assertTrue(h.storage().borrowRequest(late).isEmpty)
-            assertTrue(h.events.isEmpty(),"Emitter P offers cannot notify before commit")
+            assertTrue(h.storage().borrowRequest(late).dynamic.isEmpty)
+            assertTrue(h.events.isEmpty(), "An installed frozen scope needs no P offer")
             val concrete=f.ap.initial(STATIC,f.ap.path(late.pathData),Tail.EXACT,ExclusionSet.Empty,MarkSlot.Concrete(t))
-            assertFalse(f.callee to concrete in h.initials)
+            assertTrue(f.callee to concrete in h.initials, "The actual supplier sees B immediately")
             h.commit()
-            val delta=assertIs<RunEvent.ChangedRequests>(h.events.single())
-            assertEquals(mapOf<Run1Slot,RequestMarkSet>(late to RequestMarkSet.of(t)),delta.rows)
-            assertEquals(RequestMarkSet.of(t),h.storage().borrowRequest(late).dynamic)
-            assertTrue(h.storage().borrowRequest(late).precomputed.isEmpty)
+            assertTrue(h.events.isEmpty(), "No startup requests are copied from B into P or D")
+            assertTrue(h.storage().borrowRequest(late).dynamic.isEmpty)
+            assertEquals(RequestMarkSet.of(t), h.storage().borrowRequest(late).precomputed.toRequestMarkSet {})
             h.drain()
             assertTrue(f.callee to concrete in h.initials)
-            assertFalse(profile.precomputedRequests.hasRow(late),"Activation never enlarges immutable S or B")
+            assertTrue(profile.precomputedRequests.hasRow(late), "Actual inputs do not mutate frozen B")
             h.submit(f.subscription(input,call=2));h.drain();h.commit()
-            assertTrue(h.events.isEmpty(),"Repeated wide activation is filtered by R")
+            assertTrue(h.events.isEmpty(), "Repeated suppliers cause no request notification")
+            assertEquals(setOf(f.callee to late.initial(f.ap), f.callee to concrete), h.initials)
+            assertTrue(h.storage().borrowRequest(late).dynamic.isEmpty)
         }
     }
 

@@ -1,6 +1,6 @@
 package org.opentaint.dataflow.bidi
 
-import org.opentaint.dataflow.bidi.ap.Direction
+import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.DriverFixtures
@@ -146,7 +146,29 @@ class DriverTest {
             assertEquals(ReportState.DEMAND, report.entries.single().state)
             assertEquals(c.rule, report.entries.single().key.rule)
             assertTrue(report.entries.single().witnesses.all { !it.confirmed })
-            assertEquals(0L, f.results.single().demandLayerEdges)
+            val result = f.results.single()
+            val demandRows = result.analyzers.flatMap { actor -> actor.summaries.all().toList() }
+                .filter { it.second.layer == Layer.DEMAND }
+            assertEquals(result.analyzers.size, demandRows.size,
+                "Each reached actor contributes exactly its ordinary static DEMAND default")
+            assertTrue(demandRows.all { (premise, facts) -> premise is InitialAp &&
+                isSpecialStaticRoot(premise) && facts is FlowTree && facts.tail == Tail.STAR &&
+                facts.markExclusion.isEmpty })
+            assertEquals(demandRows.size.toLong(), result.demandLayerEdges)
+            val native = result.analyzers.flatMap { actor ->
+                actor.summaries.all().flatMap { (premise, facts) ->
+                    if (premise is InitialAp && facts.layer == Layer.NORMAL)
+                        f.records.byEntry(actor.key, premise.toPattern()).filter { it.premise === premise }
+                    else emptySequence()
+                }.toList()
+            }
+            assertTrue(native.isNotEmpty(), "Eligible NORMAL singleton records are written even in run 1")
+            assertTrue(native.all { it.conclusion.layer == Layer.NORMAL })
+            assertEquals(setOf(1, 2), f.results.single().analyzers.flatMap { actor ->
+                f.links(1, actor.key).filter { it.addedFact.fact.mark is MarkSlot.Concrete &&
+                    !it.addedFact.fact.let { fact -> fact.base == org.opentaint.dataflow.ap.ifds.AccessPathBase.Zero } }
+                    .map { it.caller.call.location.index }
+            }.toSet(), "Separate call-site support is preserved despite native singleton records")
             assertEquals(1, driver.frontiers.single().demandVulnerabilities)
             assertTrue(driver.frontiers.single().seeds >= 2)
             assertEquals(listOf(1), f.configs.map { it.index })

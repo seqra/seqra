@@ -35,8 +35,8 @@ class Run1StaticProfilesTest {
             put(slot, ids)
         }
     }
-    private fun expected(raw: Raw): Map<Run1Slot, Set<Int>> {
-        val slots = (raw.fields + raw.needs.filter { it.path.size >= 2 }.map { it.path.take(2) })
+    private fun expected(raw: Raw, universe: Set<List<Int>>): Map<Run1Slot, Set<Int>> {
+        val slots = universe
             .filter { it.size == 2 }.map { Run1Slot.StaticField(it[0], it[1]) }.toSet()
         return slots.mapNotNull { slot ->
             val marks = raw.cleaners + raw.needs.filter { n -> when {
@@ -73,7 +73,9 @@ class Run1StaticProfilesTest {
         }, RequestMarkSet.fromIds(r.cleaners.toIntArray())) }
         val profiles = Run1StaticProfiles.build(f.manager, calls, locals)
         for (m in methods) {
-            assertEquals(expected(closure.getValue(m)), members(profiles[m].precomputedRequests))
+            assertEquals(expected(closure.getValue(m), fields.toSet()), members(profiles[m].precomputedRequests))
+            assertEquals(raw.getValue(m).fields.map { Run1Slot.StaticField(it[0], it[1]) }.toSet(),
+                profiles.localReads(m), "Reader metadata stays local even inside a recursive component")
             assertTrue(profiles[m].markInterests.isEmpty(), "Full-query scratch must not remain runtime policy")
             assertTrue(profiles[m].directory().isEmpty())
         }
@@ -97,17 +99,17 @@ class Run1StaticProfilesTest {
         val last = profiles[ms.last()]
         for (m in ms) assertSame(last.precomputedRequests, profiles[m].precomputedRequests)
         val sx = Run1Slot.StaticField(c, x); val sy = Run1Slot.StaticField(c, y)
-        assertEquals(mapOf<Run1Slot, Set<Int>>(sx to setOf(t.id)), members(last.precomputedRequests))
+        assertEquals(mapOf<Run1Slot, Set<Int>>(sx to setOf(t.id), sy to setOf(t.id)), members(last.precomputedRequests))
         val lazy = last.wideRequests(f.fact(STATIC, listOf(c, y), Tail.EXACT))
         assertEquals(mapOf<Run1Slot, Set<Int>>(sy to setOf(t.id)), members(lazy))
-        assertFalse(last.precomputedRequests.hasRow(sy), "Input activation must not mutate frozen B")
+        assertTrue(last.precomputedRequests.hasRow(sy), "A whole-static mark scope is independent of reader placement")
         assertSame(last.footprint.fieldUniverse, profiles[extra].footprint.fieldUniverse)
         assertEquals(2, profiles.statistics.precomputedBaseRoots) // one inherited B plus the shared empty base
         assertEquals(0L, profiles.statistics.physicalPrecomputedRows)
-        assertEquals(1L, profiles.statistics.uniqueBaseLogicalRows)
+        assertEquals(2L, profiles.statistics.uniqueBaseLogicalRows)
         assertEquals(0L, profiles.statistics.sparseFieldRows)
-        assertEquals(1024L, profiles.statistics.logicalMethodRequestRows)
-        assertEquals(1024L, profiles.statistics.logicalMethodRequestMembers)
+        assertEquals(2048L, profiles.statistics.logicalMethodRequestRows)
+        assertEquals(2048L, profiles.statistics.logicalMethodRequestMembers)
         assertEquals(1L, profiles.statistics.ownedMarkPrimitiveCells)
     }
 
@@ -133,7 +135,7 @@ class Run1StaticProfilesTest {
         val interest = StaticMarkInterest(f.pattern(STATIC, listOf(c), Tail.EXACT, MarkSlot.Concrete(t)),
             StaticMarkRole.SINK, RequestMarkSet.of(t))
         val p = Run1StaticProfiles.build(f.manager, emptyMap(), mapOf(m to Run1StaticLocalProfile(marks = listOf(interest))))[m]
-        assertTrue(p.precomputedRequests.isEmpty); assertTrue(p.structuralFieldSlots.isEmpty())
+        assertTrue(p.precomputedRequests.isEmpty); assertTrue(p.footprint.fieldSlots.isEmpty())
         assertEquals(setOf(c), p.classPointClasses)
         assertTrue(t in p.classPointMarks(c))
     }
@@ -146,7 +148,7 @@ class Run1StaticProfilesTest {
             mapOf(callee to Run1StaticLocalProfile(classPoints=setOf(c))),
             declaredFieldUniverse=setOf(x,y))[caller]
         assertEquals(setOf(x,y),profile.footprint.fieldUniverse)
-        assertTrue(profile.structuralFieldSlots.isEmpty())
+        assertTrue(profile.footprint.fieldSlots.isEmpty())
         assertFalse(profile.footprint.owns(c,x.field)); assertFalse(profile.footprint.owns(c,y.field))
         assertEquals(setOf(c),profile.classPointClasses)
         assertTrue(profile.precomputedRequests.isEmpty)
@@ -177,7 +179,7 @@ class Run1StaticProfilesTest {
         val p = Run1StaticProfiles.build(f.manager, emptyMap(), mapOf(m to Run1StaticLocalProfile(abstractions = listOf(listOf(c, x)))))[m]
         val input = f.fact(STATIC, listOf(c, x))
         cancellation.cancel()
-        assertFailsWith<Cancellation.Cancelled> { p.footprint.selectedFields(input, cancellation::checkpoint) }
+        assertFailsWith<Cancellation.Cancelled> { p.footprint.suppliedFields(input, cancellation::checkpoint) { _, _ -> true } }
     }
 
     @Test fun `32768 method closure is iterative and retains one shared deepest base`() {
@@ -189,34 +191,37 @@ class Run1StaticProfilesTest {
             ms.associateWith { Run1StaticLocalProfile.EMPTY } + (ms.last() to last))
         assertSame(ps[ms.last()].precomputedRequests, ps[ms.first()].precomputedRequests)
         assertEquals(32768, ps.statistics.components)
-        assertEquals(32768L, ps.statistics.transitiveAbstractions)
+        assertEquals(0L, ps.statistics.transitiveAbstractions)
+        assertTrue(ps.localReads(ms.first()).isEmpty())
+        assertEquals(setOf(Run1Slot.StaticField(c, x)), ps.localReads(ms.last()))
     }
 
-    @Test fun `read gate frozen mark slots legal coordinates and write effects stay independent`() {
+    @Test fun `local readers frozen mark scopes legal coordinates and write effects stay independent`() {
         val f = StoreFixtures(); val m = method("separate")
         val c = f.manager.accessors.index(ClassStaticAccessor("C"))
         val read = Run1Slot.StaticField(c, f.field("read"))
         val marked = Run1Slot.StaticField(c, f.field("marked"))
         val written = Run1Slot.StaticField(c, f.field("written"))
         val t = f.mark("T"); val u = f.mark("U")
-        val p = Run1StaticProfiles.build(f.manager, emptyMap(), mapOf(m to Run1StaticLocalProfile(
+        val profiles = Run1StaticProfiles.build(f.manager, emptyMap(), mapOf(m to Run1StaticLocalProfile(
             accesses = listOf(read.pathData.toList(), marked.pathData.toList(), written.pathData.toList()),
             abstractions = listOf(read.pathData.toList()),
             marks = listOf(
                 StaticMarkInterest(f.pattern(STATIC, marked.pathData.toList(), Tail.EXACT, MarkSlot.Concrete(t)),
                     StaticMarkRole.SOURCE, RequestMarkSet.of(t)),
                 StaticMarkInterest(f.pattern(STATIC, listOf(c), Tail.STAR, MarkSlot.Concrete(u)),
-                    StaticMarkRole.SINK, RequestMarkSet.of(u))), staticMayWrite = true)))[m]
-        assertEquals(setOf(read), p.fieldReads)
-        assertTrue(p.requestsField(read)); assertFalse(p.requestsField(marked)); assertFalse(p.requestsField(written))
-        assertEquals(mapOf<Run1Slot, Set<Int>>(read to setOf(u.id), marked to setOf(t.id, u.id)),
+                    StaticMarkRole.SINK, RequestMarkSet.of(u))), staticMayWrite = true)))
+        val p = profiles[m]
+        assertEquals(setOf(read), profiles.localReads(m))
+        assertEquals(mapOf<Run1Slot, Set<Int>>(read to setOf(u.id), marked to setOf(t.id, u.id), written to setOf(u.id)),
             members(p.precomputedRequests))
-        assertEquals(setOf(read), p.footprint.selectedFields(f.fact(STATIC, emptyList(), Tail.ANY, layer = Layer.DEMAND)))
+        assertEquals(setOf(read, marked, written), p.footprint.suppliedFields(
+            f.fact(STATIC, emptyList(), Tail.ANY, layer = Layer.DEMAND), {}) { _, _ -> true })
         assertTrue(p.staticMayWrite)
         assertEquals(setOf(read, marked, written), p.footprint.fieldUniverse)
         assertEquals(mapOf<Run1Slot, Set<Int>>(written to setOf(u.id)),
             members(p.wideRequests(f.fact(STATIC, written.pathData.toList()))))
-        assertFalse(p.precomputedRequests.hasRow(written), "Late-wide activation cannot mutate B or F")
+        assertTrue(p.precomputedRequests.hasRow(written), "Wide frozen lookup has no field-read gate")
     }
 
     @Test fun `least static write closure distinguishes read-only cycle reachable writer and missing metadata`() {
@@ -232,7 +237,7 @@ class Run1StaticProfilesTest {
         val missing = Run1StaticProfiles.build(f.manager, mapOf(a to listOf(unknown)),
             mapOf(a to Run1StaticLocalProfile.EMPTY))
         assertTrue(missing[a].staticMayWrite); assertTrue(missing[unknown].staticMayWrite)
-        assertTrue(missing[a].fieldReads.isEmpty()); assertTrue(missing[a].precomputedRequests.isEmpty)
+        assertTrue(missing.localReads(a).isEmpty()); assertTrue(missing[a].precomputedRequests.isEmpty)
     }
     @Test fun `alias endpoints retain legal mark and write metadata without requesting a field read`() {
         FiniteProgramFixtures().use { f ->
@@ -248,8 +253,9 @@ class Run1StaticProfilesTest {
                 emptyList(), emptyMap())
             f.call(owner, 0, CallPlan(aliases.touched, listOf(CallStage.Edges(CallPoint.BEFORE,
                 CallPoint.AFTER, StageKind.ALIASES, aliases)), emptyList(), CallPoint.BEFORE, CallPoint.AFTER))
-            val actual = f.staticProfiles()[owner.method]
-            assertTrue(actual.fieldReads.isEmpty(), "An alias endpoint is not a value-read seed")
+            val profiles = f.staticProfiles()
+            val actual = profiles[owner.method]
+            assertTrue(profiles.localReads(owner.method).isEmpty(), "An alias endpoint is not a value-read seed")
             assertEquals(setOf(source, target), actual.footprint.fieldUniverse.map { it.pathData.toList() }.toSet())
             assertTrue(actual.staticMayWrite)
             assertEquals(mapOf<Run1Slot, Set<Int>>(Run1Slot.StaticField(cls, source[1]) to setOf(t.id)),

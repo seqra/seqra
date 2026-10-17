@@ -3,7 +3,9 @@
 Date: 16 October 2026. Measurement runtime: `28a123f0eac937e8f2feca9ee5dd84e38fa8f979`.
 Updated: 17 October 2026. Selected design: equivalent bottom-up run-1 static
 FLOW, universal DEMAND static defaults, mark requests only and ordinary NORMAL
-persistence. No optimization in this document is implemented.
+persistence. These selected parts are implemented in the
+[runtime refinement](bidirectional-bottom-up-static-implementation-20261017.md);
+new project measurements remain pending. Other candidates remain proposals.
 
 The [latest measurements](../reports/bidirectional-run1-selective-preservation-20261016.md)
 replace earlier runtime reports. Latest reached/completed/accepted iterations
@@ -17,15 +19,15 @@ complete. There is no measurement of the new design.
 The scope is analyzer execution/storage; IR storage is outside scope. The
 [unified contract](../../spec/run1-field-writes.md) describes the measured
 implementation. The [new static FLOW specification](../../spec/run1-bottom-up-static-propagation.md)
-defines the proposed replacement and takes precedence for this next iteration.
+defines the selected replacement and takes precedence for this iteration.
 The older normal-exit gate and virtual-availability approximations are withdrawn.
 
 The [constructive proof dossier](../../spec/run1-bottom-up-static-proofs.md)
 now supplies the scalar/finite-derivation theorem map and exact implementation
 refinement boundary. The
 [validation report](../reports/bidirectional-run1-bottom-up-static-proof-validation-20261017.md)
-records its Lean build and complete declaration audits. This adds no analyzer
-implementation or project measurement. Semantic observation identities and
+records its Lean build and complete declaration audits. The formal validation
+is separate from the runtime adapter tests and adds no project measurement. Semantic observation identities and
 rule occurrences are preserved; batch-dependent diagnostic callback counts
 may differ, including `ExternalMethodRecord.callSites`.
 

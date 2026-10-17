@@ -84,7 +84,10 @@ class CallerStateAcceptanceTest {
                             Conclusion(it.fact, it.exclusion, facts.layer == Layer.DEMAND) == expected
                         }
                     }, "Caller-owned state must remain in $callee's nonzero raw summary in run $index")
-                    val link = f.links(index, actor.key).asSequence().single { it.addedFact == state && it.caller.caller == root }
+                    val link = f.links(index, actor.key).asSequence().single {
+                        it.addedFact == state && it.caller.caller == root &&
+                            it.linkLayer == Layer.NORMAL && it.caller.callerLayer == Layer.NORMAL
+                    }
                     assertEquals(Layer.NORMAL, link.linkLayer)
                     assertEquals(Layer.NORMAL, link.caller.callerLayer)
                     assertTrue(link.caller.premise.isZero)

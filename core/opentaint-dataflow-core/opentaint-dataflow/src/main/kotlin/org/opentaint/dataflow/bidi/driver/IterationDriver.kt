@@ -113,8 +113,7 @@ class IterationDriver internal constructor(
         if (forward) {
             report.add(config, result)
         }
-        if (!config.run1)
-            shared.records.persist(config.direction, result.analyzers.asSequence().map { it.key to it.summaries })
+        shared.records.persist(config.direction, result.analyzers.asSequence().map { it.key to it.summaries })
         val handOff = HandOff.of(config, result, report, shared)
         val frontier = frontierOf(config, result, handOff, report)
         frontierLog += frontier

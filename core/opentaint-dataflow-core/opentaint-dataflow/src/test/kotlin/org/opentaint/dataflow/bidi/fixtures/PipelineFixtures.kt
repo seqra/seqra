@@ -19,16 +19,24 @@ class PipelineFixtures(index: Int = 1, limit: Int = 3,
     val storages = LinkedHashMap<MethodKey, SummaryStorage>()
     val staticFootprints = LinkedHashMap<CommonMethod, Run1StaticFootprint>()
     val deliveries = ArrayList<RunEvent.Delivery>()
+    val protocolEvents = ArrayDeque<RunEvent>()
+    val staticEntries = ArrayList<RunEvent.StaticEntriesIn>()
+    val initialAnswers = ArrayList<RunEvent.InitialAnswersIn>()
     data class Summary(val caller: MethodKey, val part: Subscription, val publication: Publication, val member: Int)
     data class Native(val caller: MethodKey, val part: Subscription, val record: Record)
     data class View(val caller: MethodKey, val part: Subscription, val view: RecordLeafView)
+    data class StaticDefault(val caller: MethodKey, val part: StaticSubscription, val entries: FlowTree)
     val summaries = ArrayList<Summary>()
     val native = ArrayList<Native>()
     val views = ArrayList<View>()
+    val staticDefaults = ArrayList<StaticDefault>()
     var onSummary: ((Summary) -> Unit)? = null
     var onRecord: ((Native) -> Unit)? = null
     var onView: ((View) -> Unit)? = null
     var onPost: ((RunEvent.Delivery) -> Unit)? = null
+    var onStaticDefault: ((StaticDefault) -> Unit)? = null
+    var onStaticEntries: ((RunEvent.StaticEntriesIn) -> Unit)? = null
+    var onInitialAnswers: ((RunEvent.InitialAnswersIn) -> Unit)? = null
 
     fun storage(key: MethodKey = callee): SummaryStorage = storages.getOrPut(key) {
         SummaryStorage(key, ap, ops, protocol)
@@ -51,11 +59,24 @@ class PipelineFixtures(index: Int = 1, limit: Int = 3,
                 native += application
                 onRecord?.invoke(application)
             }
+            override fun applyStaticDefault(part: StaticSubscription, entries: FlowTree) {
+                val application = StaticDefault(caller, part, entries)
+                staticDefaults += application
+                onStaticDefault?.invoke(application)
+            }
             override fun applyRecordView(part: Subscription, view: RecordLeafView) {
                 val application = View(caller, part, view)
                 views += application
                 onView?.invoke(application)
             }
+        }
+        override fun send(event: RunEvent): Boolean {
+            protocolEvents += event
+            return true
+        }
+        override fun post(event: RunEvent.ChangedRequests): Boolean {
+            protocolEvents += event
+            return true
         }
         override fun post(event: RunEvent.Delivery): Boolean {
             deliveries += event
@@ -73,9 +94,22 @@ class PipelineFixtures(index: Int = 1, limit: Int = 3,
         Subscription(callee, CallerRef(caller, premise, callerLayer, store.inst(call)), added.layer, added, zeroOnly)
 
     fun deliverAll() {
-        while (deliveries.isNotEmpty()) {
-            val event = deliveries.removeAt(0)
-            subscriptions.onDelivery(event.callee, event.publications)
+        while (deliveries.isNotEmpty() || protocolEvents.isNotEmpty()) {
+            if (deliveries.isNotEmpty()) {
+                val event = deliveries.removeAt(0)
+                subscriptions.onDelivery(event.callee, event.publications)
+            } else when (val event = protocolEvents.removeFirst()) {
+                is RunEvent.ChangedRequests -> subscriptions.onRequests(event.callee, event.rows)
+                is RunEvent.StaticEntriesIn -> {
+                    staticEntries += event
+                    onStaticEntries?.invoke(event)
+                }
+                is RunEvent.InitialAnswersIn -> {
+                    initialAnswers += event
+                    onInitialAnswers?.invoke(event)
+                }
+                else -> error("Unexpected protocol fixture event: $event")
+            }
         }
     }
 

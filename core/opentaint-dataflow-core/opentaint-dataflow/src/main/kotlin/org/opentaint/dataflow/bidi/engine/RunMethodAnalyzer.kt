@@ -36,6 +36,8 @@ class RunMethodAnalyzer(
     private val currentQueries = if (config.restricted) StrongQueries(ops, mode) else null
     private var temporary = RequestStorage()
     private var temporarySinceNanos = 0L
+    internal val staticFlow = if (config.run1) Run1StaticFlow(this) else null
+    internal fun staticEntryFacts(): FlowTree? = staticFlow?.entryFacts()
     internal var abstraction: Run1Abstraction? = if (config.run1) Run1Abstraction(
         ops, context.shared.run1StaticProfiles?.get(key.method),
         answer = ::addInitial,
@@ -44,10 +46,12 @@ class RunMethodAnalyzer(
         statistics = context.shared.requestBatchStatistics,
         policyStatistics = context.shared.abstractionStatistics,
         owner = key,
+        staticEntries = ::addStaticEntries,
     ) else null
         private set
     internal fun releaseAbstraction() {
         abstraction?.release(); abstraction = null
+        staticFlow?.clear()
         if (!temporary.isEmpty) {
             context.shared.abstractionStatistics?.temporaryChanged(-temporary.dynamicRows.toLong(), -temporary.dynamicMembers)
             temporary = RequestStorage()
@@ -81,14 +85,30 @@ class RunMethodAnalyzer(
         if (initialized) return
         initialized = true
         if (!config.run1) return
-        val profile = context.shared.run1StaticProfiles?.get(key.method) ?: return
         val identity = PathFact(STATIC, emptyList(), Tail.STAR, MarkSlot.STAR)
         val premise = ap.initial(Pattern(identity, ExclusionSet.Empty))
-        summaryDelta(premise, ap.factsOf(identity, ExclusionSet.Empty,
-            if (profile.staticMayWrite) Layer.DEMAND else Layer.NORMAL))
+        summaryDelta(premise, ap.factsOf(identity, ExclusionSet.Empty, Layer.DEMAND))
     }
 
     fun addRootZero(): Unit = addInitial(ap.zero)
+
+    internal fun addStaticEntries(entries: FlowTree) {
+        initialize()
+        nonZeroInitial = true
+        checkNotNull(staticFlow).add(entries)
+    }
+
+    internal fun startStaticScalar(initial: InitialAp, node: CommonInst) {
+        val fresh = initials.add(initial)
+        context.shared.abstractionStatistics?.initial(fresh)
+        startAt(initial, node, normalizeFlow(initial, ops.startFact(initial)))
+    }
+
+    internal fun processStaticScalar(item: EdgeDelta) = runStatement(item)
+    internal fun finishStaticScalar(initial: InitialAp, node: CommonInst, facts: FlowTree) =
+        endAt(initial, node, facts, summary = context.isEnd(node))
+    internal fun processStaticCall(node: CommonInst, entries: FlowTree) = callServices.processStatic(node, entries)
+    internal fun resumeStaticCall(part: StaticSubscription, entries: FlowTree) = callServices.resumeStatic(part, entries)
 
     fun addZeroEntry() {
         check(!forward) { "Only a backward callee has a direct zero entry" }
@@ -185,7 +205,7 @@ class RunMethodAnalyzer(
         context.shared.abstractionStatistics?.initial(fresh)
         if (!fresh) return
         if (!initial.isZero) nonZeroInitial = true
-        val start = ops.startFact(initial)
+        val start = normalizeFlow(initial, ops.startFact(initial))
         for (node in forms.startNodes(key, zero = initial.isZero)) {
             ap.cancellation.checkpoint()
             startAt(initial, node, start)
@@ -194,10 +214,14 @@ class RunMethodAnalyzer(
 
     internal fun collect(premise: PremiseKey, input: Facts, sink: ResultSink): ApOut = object : ApOut {
         override fun result(f: Facts) {
-            if (config.run1) ops.run1Cover(f) { sink(premise, it) } else sink(premise, f)
+            val normalized = normalizeFlow(premise, f, input)
+            if (config.run1) ops.run1Cover(normalized) { sink(premise, it) } else sink(premise, normalized)
         }
         override fun markRequest(mark: TaintMark): Unit = raiseMark(premise, input, mark)
     }
+
+    internal fun normalizeFlow(premise: PremiseKey, facts: Facts, input: Facts? = null): Facts =
+        if (config.run1) normalizeRun1StaticFlow(premise, facts, input) else facts
 
     internal fun raiseMark(premise: PremiseKey, input: Facts, mark: TaintMark) {
         check(config.run1) { "Requests exist only in run 1" }
@@ -206,10 +230,11 @@ class RunMethodAnalyzer(
     }
 
     internal fun cut(point: Cut, premise: PremiseKey, facts: Facts, sink: ResultSink) {
-        runnerPort.onCut?.invoke(point, facts)
-        val out = collect(premise, facts, sink)
-        if (config.run1) ops.run1Cover(facts) { ops.limit(it, limit, out) }
-        else ops.limit(facts, limit, out)
+        val normalized = normalizeFlow(premise, facts)
+        runnerPort.onCut?.invoke(point, normalized)
+        val out = collect(premise, normalized, sink)
+        if (config.run1) ops.run1Cover(normalized) { ops.limit(it, limit, out) }
+        else ops.limit(normalized, limit, out)
     }
 
     private val hasPendingAbstractionWork: Boolean get() =
@@ -243,13 +268,21 @@ class RunMethodAnalyzer(
                 process(worklist.removeNext())
                 worklist.afterProcess()
             }
+            while (staticFlow?.isEmpty == false) {
+                if (zeroAtStart || processed >= quantum) return false
+                processed++
+                steps++
+                staticFlow.work()
+                if (!worklist.isEmpty) break
+            }
+            if (!worklist.isEmpty) continue
             flushPublications()
             ap.cancellation.checkpoint()
             if (!worklist.isEmpty || pending.isNotEmpty()) continue
             commitRequests()
             ap.cancellation.checkpoint()
             // Retain the counted Work reservation through P commit/replacement and sends.
-            if (worklist.isEmpty && pending.isEmpty() && !hasPendingAbstractionWork) return true
+            if (worklist.isEmpty && pending.isEmpty() && !hasPendingAbstractionWork && staticFlow?.isEmpty != false) return true
         }
     }
 
@@ -271,11 +304,13 @@ class RunMethodAnalyzer(
     }
 
     internal fun emitAfter(premise: PremiseKey, node: CommonInst, value: Facts) {
-        if (config.run1) ops.run1Cover(value) { emitCovered(premise, node, it) }
-        else emitCovered(premise, node, value)
+        val normalized = normalizeFlow(premise, value)
+        if (config.run1) ops.run1Cover(normalized) { emitCovered(premise, node, it) }
+        else emitCovered(premise, node, normalized)
     }
 
     private fun emitCovered(premise: PremiseKey, node: CommonInst, facts: Facts) {
+        if (staticFlow?.capture(premise, node, facts) == true) return
         exitRulesAt(premise, node, facts)
         context.forEachSuccessor(node) { successor ->
             ap.cancellation.checkpoint()
@@ -284,10 +319,12 @@ class RunMethodAnalyzer(
     }
 
     internal fun emitUnchanged(item: EdgeDelta) {
-        exitRulesAt(item.premise, item.node, item.facts)
+        val normalized = normalizeFlow(item.premise, item.facts)
+        if (staticFlow?.capture(item.premise, item.node, normalized) == true) return
+        exitRulesAt(item.premise, item.node, normalized)
         context.forEachSuccessor(item.node) { successor ->
             ap.cancellation.checkpoint()
-            if (worklist.addUnchanged(EdgeDelta(item.premise, successor, item.facts))) requestWork()
+            if (worklist.addUnchanged(EdgeDelta(item.premise, successor, normalized))) requestWork()
         }
     }
 
@@ -308,7 +345,10 @@ class RunMethodAnalyzer(
         check((facts is FlowTree) == premise.isFlow) { "K6: the conclusion kind follows its premise" }
         check(premise !is PremiseSet || facts is TaintTree) { "A multi-premise edge must be TAINT" }
         if (config.run1) when (facts) {
-            is FlowTree -> check(facts.exclusion == ExclusionSet.Empty) { "Run-1 FLOW has Empty field E" }
+            is FlowTree -> {
+                check(facts.exclusion == ExclusionSet.Empty) { "Run-1 FLOW has Empty field E" }
+                check(normalizeRun1StaticFlow(premise, facts) === facts) { "Run-1 static FLOW is DEMAND before admission" }
+            }
             is TaintTree -> check(facts.exclusion == ExclusionSet.Empty) { "Run-1 TAINT has Empty field E" }
             is Reach -> Unit
         }
@@ -340,11 +380,7 @@ class RunMethodAnalyzer(
             }
 
         fun input(premise: PremiseKey, facts: Facts) {
-            val input = if (config.run1) {
-                staticRootFact(ap, facts)?.let { add(premise, it) }
-                withoutStaticRootFact(ap, facts) ?: return
-            } else facts
-            applier.statement(rules.summary, premise, input, Place(node, config.run1, sources = true), sink = add)
+            applier.statement(rules.summary, premise, facts, Place(node, config.run1, sources = true), sink = add)
         }
 
         fun drain(after: (PremiseKey, Facts, Triggers) -> Unit = { _, _, _ -> }) {
@@ -352,9 +388,7 @@ class RunMethodAnalyzer(
             while (index < items.size) {
                 ap.cancellation.checkpoint()
                 val (premise, facts) = items[index++]
-                val ruleInput = if (config.run1) withoutStaticRootFact(ap, facts) else facts
-                val triggers = if (ruleInput == null) Triggers.NONE else
-                    localServices.checkSinks(premise, node, ruleInput, rules.sinks)
+                val triggers = localServices.checkSinks(premise, node, facts, rules.sinks)
                 for ((sink, layer) in triggers.fired) {
                     ap.cancellation.checkpoint()
                     applier.gen(sink.endFacts, ap.zero, Reach.of(layer), add)
@@ -404,14 +438,16 @@ class RunMethodAnalyzer(
     }
 
     internal fun summaryDelta(premise: PremiseKey, value: Facts) {
-        if (config.run1) ops.run1Cover(value) { retainSummary(premise, it) }
-        else retainSummary(premise, value)
+        val normalized = normalizeFlow(premise, value)
+        if (config.run1) ops.run1Cover(normalized) { retainSummary(premise, it) }
+        else retainSummary(premise, normalized)
     }
 
     private fun retainSummary(premise: PremiseKey, facts: Facts) {
         checkKinds(premise, facts)
         if (!context.shared.interpreter.isSummaryBase(facts.base)) return
-        val delta = summaries.add(premise, facts) ?: return
+        val retained = if (config.run1) compactRun1StaticIdentity(ops, premise, facts) ?: return else facts
+        val delta = summaries.add(premise, retained) ?: return
         edgeDeltas++
         if (delta.layer == Layer.DEMAND) demandLayerEdges++
         queuePublications(premise, delta)
@@ -455,11 +491,14 @@ class RunMethodAnalyzer(
         callServices.applySummary(part, pub, member)
     override fun applyRecord(part: Subscription, record: Record): Unit = callServices.applyRecord(part, record)
     override fun applyRecordView(part: Subscription, view: RecordLeafView): Unit = callServices.applyRecordView(part, view)
+    override fun applyStaticDefault(part: StaticSubscription, entries: FlowTree) = resumeStaticCall(part, entries)
+    override fun applyStaticSummary(part: StaticSubscription, input: Subscription, pub: Publication) =
+        callServices.applyStaticSummary(part, input, pub)
     internal fun countRecordCrossing() { recordCrossings++ }
     internal fun countTriggerSeed() { triggerSeeds++ }
 
     override fun freeze() {
-        check(worklist.isEmpty && pending.isEmpty() && !hasPendingAbstractionWork) {
+        check(worklist.isEmpty && pending.isEmpty() && !hasPendingAbstractionWork && staticFlow?.isEmpty != false) {
             "A method cannot freeze with unfinished work"
         }
         var failure: Throwable? = null
@@ -487,6 +526,7 @@ class RunMethodAnalyzer(
             initialStore = null
             currentQueries?.clear()
             temporary = RequestStorage()
+            staticFlow?.clear()
         }
         failure?.let { throw it }
     }

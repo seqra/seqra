@@ -130,7 +130,7 @@ class NaiveClosure(
         if (!program.isKnown(method) || !initials.add(ObservedInitial(method, initial))) return
         check(initial.fact.tail != Tail.ANY_TAINT || (config.restricted && forward))
         work += {
-            val value = startFact(initial)
+            val value = staticFlow(setOf(initial), startFact(initial))
             val model = program.programMethod(method)
             val nodes = if (forward) listOf(method.statement) else buildList {
                 add(program.inst(method, model.normalExit))
@@ -150,7 +150,7 @@ class NaiveClosure(
     }
 
     private fun putEdge(method: MethodKey, node: CommonInst, premise: Set<Pattern>, conclusion: Conclusion) {
-        val edge = ObservedEdge(method, premise, cover(conclusion), node)
+        val edge = ObservedEdge(method, premise, staticFlow(premise, cover(conclusion)), node)
         if (processed.add(edge)) work += { process(edge) }
     }
 
@@ -267,9 +267,17 @@ class NaiveClosure(
     }
 
     private fun summary(method: MethodKey, premise: Set<Pattern>, conclusion: Conclusion) {
-        val raw = ObservedEdge(method, premise, conclusion)
+        val result = staticFlow(premise, conclusion)
+        // Independent scalar Compact: the universal D root already supplies this
+        // exact unchanged field identity; requests/effects have run before here.
+        val initial = premise.singleOrNull()
+        if (selected && config.run1 && initial != null && initial.fact.base == STATIC &&
+            initial.fact.path.size == 2 && initial.fact.mark == MarkSlot.STAR &&
+            initial.fact.tail == Tail.STAR && initial.exclusion == ExclusionSet.Empty &&
+            result.fact == initial.fact && result.exclusion == ExclusionSet.Empty && result.demand) return
+        val raw = ObservedEdge(method, premise, result)
         if (!rawSummaries.add(raw)) return
-        publish(method, premise, conclusion)
+        publish(method, premise, result)
     }
 
     private fun publish(method: MethodKey, premise: Set<Pattern>, conclusion: Conclusion) {
@@ -411,7 +419,11 @@ class NaiveClosure(
     private fun checkLiteral(method: MethodKey, premise: Set<Pattern>, conclusion: Conclusion, literal: Pattern): Conclusion? =
         when (val checked = markCheck(premise.first(), conclusion, literal, config.restricted)) {
             CheckResult.None -> null
-            is CheckResult.Request -> { raise(method, premise, RequestKind.Mark(checked.mark)); null }
+            is CheckResult.Request -> {
+                if (!coveredStaticCheck(method, premise, conclusion, checked.mark))
+                    raise(method, premise, RequestKind.Mark(checked.mark))
+                null
+            }
             CheckResult.Holds -> conclusion.copy(demand = conjDemand(conclusion, literal))
         }
 
@@ -495,6 +507,22 @@ class NaiveClosure(
         }
     }
 
+    private fun staticFlow(premise: Set<Pattern>, value: Conclusion): Conclusion =
+        if (selected) scalarStaticFlow(config.run1, premise, value) else value
+
+    /** Independent selected same-origin gate. B must really contain this mark;
+     * do not hide a missed prescan contributor. Only ordinary check requests are
+     * redundant; cleaner/excluded-target creator effects still call raise. */
+    private fun coveredStaticCheck(method: MethodKey, premise: Set<Pattern>, value: Conclusion,
+                                   mark: TaintMark): Boolean {
+        if (!selected || !config.run1) return false
+        val initial = premise.singleOrNull() ?: return false
+        if (initial.fact.base != STATIC || initial.fact.path.size != 2 || initial.fact.tail != Tail.STAR ||
+            initial.fact.mark != MarkSlot.STAR || initial.exclusion != ExclusionSet.Empty ||
+            value.fact != initial.fact || value.exclusion != ExclusionSet.Empty) return false
+        return mark in checkNotNull(plan).base(method)[initial].orEmpty()
+    }
+
     private fun cover(value: Conclusion): Conclusion =
         if (selected && config.run1 && value.exclusion != ExclusionSet.Empty)
             value.copy(exclusion = ExclusionSet.Empty, demand = true) else value
@@ -507,6 +535,7 @@ class NaiveClosure(
             } },
             hit = { node, edge -> if (!forward) sourceHits += ObservedSourceHit(method, node, edge.forward) },
             manager = program.manager,
+            coveredCheck = { premise, value, mark -> coveredStaticCheck(method, premise, value, mark) },
             join = { edge, premise, conclusion, node, sink ->
                 check(forward)
                 for ((index, literal) in edge.literals.withIndex()) {
@@ -516,7 +545,7 @@ class NaiveClosure(
                             combination.any { it.conclusion.demand }))
                 }
             })
-        SelectedFormsReference(program.ops, algebra)
+        SelectedFormsReference(program.ops, algebra, config.run1)
     }
     private fun applier(method: MethodKey): FormApplier<Set<Pattern>, Conclusion> =
         if (selected) selectedReference(method).applier else reference(method).applier
@@ -532,7 +561,7 @@ class NaiveClosure(
         for ((slot, marks) in checkNotNull(plan).base(method)) base[slot] = marks.toMutableSet()
         admittedRequests[method] = base
         val root = SelectedScalarPlan.slot(STATIC)
-        summary(method, setOf(root), Conclusion(root.fact, ExclusionSet.Empty, checkNotNull(plan).writes(method)))
+        summary(method, setOf(root), Conclusion(root.fact, ExclusionSet.Empty, true))
     }
     private fun permitted(method: MethodKey, premise: Set<Pattern>): Boolean {
         val starts = currentStarts[method].orEmpty()
@@ -592,10 +621,10 @@ class NaiveClosure(
         if (input.fact.base != STATIC) addInitial(link.callee, SelectedScalarPlan.slot(input.fact.base))
         else {
             val profile = checkNotNull(plan)
-            for (field in profile.fieldReads(link.callee)) {
-                val slot = SelectedScalarPlan.slot(STATIC, field)
-                if (SelectedScalarPlan.geometry(slot, input)) addInitial(link.callee, slot)
-            }
+            // OrdinaryD is exhaustive: every legal actual field is projected,
+            // independently of the optimization's local reader/relay placement.
+            for (field in profile.suppliedFields(input))
+                addInitial(link.callee, SelectedScalarPlan.slot(STATIC, field))
             val mark = input.fact.mark as? MarkSlot.Concrete
             if (mark != null) {
                 if (input.fact.path.size == 1 && input.fact.tail == Tail.EXACT)
@@ -604,9 +633,6 @@ class NaiveClosure(
                     for (cls in profile.points(link.callee)) if (input.fact.path.isEmpty() || input.fact.path[0] == cls)
                         addInitial(link.callee, Pattern(PathFact(STATIC, listOf(cls), Tail.STAR, mark), ExclusionSet.Empty))
             }
-            // Wide scopes activate only actual supplied coordinates, without adding an F gate.
-            for (field in profile.suppliedFields(input)) for (t in profile.wide(link.callee, field))
-                admitRequest(link.callee, SelectedScalarPlan.slot(STATIC, field), t, observed = false)
         }
     }
     private fun replaySelected(link: ObservedLink) {

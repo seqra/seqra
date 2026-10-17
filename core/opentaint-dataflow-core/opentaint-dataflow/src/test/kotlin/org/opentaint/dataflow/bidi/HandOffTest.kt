@@ -341,7 +341,7 @@ class HandOffTest {
             val normalTarget = Conclusion(target, ExclusionSet.Empty, false)
             val identity = PathFact(STATIC, emptyList(), Tail.STAR, MarkSlot.STAR)
             val default = f.manager.initial(Pattern(identity, ExclusionSet.Empty)) to
-                Conclusion(identity, ExclusionSet.Empty, false)
+                Conclusion(identity, ExclusionSet.Empty, true)
             val forwardExpected = setOf<Pair<PremiseKey, Conclusion>>(premise to normalTarget, default)
             assertEquals(forwardExpected, decoded(f.ops, forward.summaries.all()))
             assertEquals(forwardExpected, decoded(f.ops, forward.summaries.demandEdges()))
@@ -351,7 +351,7 @@ class HandOffTest {
             assertEquals(setOf(DemandPattern(targetPattern, a.toPattern()), DemandPattern(targetPattern, b.toPattern())),
                 forwardHandOff.demand.near(f.key, returned, null).toSet())
             assertEquals(mapOf(f.key to 3), forwardHandOff.demandEdges, "Two conjunction members and one ordinary default guide")
-            // Component-level singleton filter; the real driver quarantines all F1 records.
+            // Ordinary persistence keeps its singleton admission guard in run 1 too.
             f.records.persist(Direction.FORWARD, sequenceOf(f.key to forward.summaries))
             assertTrue(f.records.byEntry(f.key, a.toPattern()).none())
             assertTrue(f.records.byEntry(f.key, b.toPattern()).none())

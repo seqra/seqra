@@ -14,9 +14,8 @@ import java.util.ArrayDeque
 /** Call walks and suspended return batches belong to one method actor. */
 class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
     private var owner: RunMethodAnalyzer? = core
-    // Callback multiplicity is reported as ExternalMethodRecord.callSites. Keep the existing
-    // exact duplicate contract until that observation contract has a separate design. No index
-    // or immutable input view is needed for this gate, and it is never used by emission/replay.
+    // Keep the existing concrete observation gate. Batch-dependent callback
+    // counts may vary; semantic observations still retain their ordinary scope.
     private var observed: AddedFactAccumulator? = if (core.config.run1) AddedFactAccumulator(core.ap) else null
 
     private fun active(): RunMethodAnalyzer = checkNotNull(owner) { "The call services were released" }.also {
@@ -46,12 +45,82 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         }
     }
 
+    override fun processStatic(node: CommonInst, entries: FlowTree) {
+        val core = active()
+        val call = checkNotNull(core.context.callAt(node))
+        core.forms.withCall(core.key, node, call) { plan ->
+            if (STATIC !in plan.touched) checkNotNull(core.staticFlow).after(node, entries)
+            else flowStatic(CallContext(node, call, plan, Layer.DEMAND), plan.entry, entries)
+        }
+    }
+
+    override fun resumeStatic(part: StaticSubscription, entries: FlowTree) {
+        val core = active()
+        val call = checkNotNull(core.context.callAt(part.call))
+        core.forms.withCall(core.key, part.call, call) { plan ->
+            flowStatic(CallContext(part.call, call, plan, Layer.DEMAND), part.stageTo, entries)
+        }
+    }
+
+    /** Exact identity entries share call-plan work. Only affected originals
+     * enter the ordinary evaluator; its effects run before repacking results. */
+    private fun flowStatic(ctx: CallContext, point: CallPoint, input: FlowTree) {
+        val core = active()
+        val lane = checkNotNull(core.staticFlow)
+        val codec = lane.entries
+        val work = ArrayDeque<Pair<CallPoint, FlowTree>>()
+        work.addLast(point to input)
+        while (work.isNotEmpty()) {
+            core.ap.cancellation.checkpoint()
+            val (at, entries) = work.removeLast()
+            if (at == ctx.plan.exit) { lane.after(ctx.node, entries); continue }
+            if (at == CallPoint.BOUND) {
+                val selected = codec.select(entries, ctx.plan.sinks.flatMap { it.patterns }
+                    .filter { it.fact.base == STATIC }.map { it.fact.path.take(2) })
+                if (selected != null) for (initial in codec.originals(selected)) {
+                    core.context.shared.abstractionStatistics?.staticScalar()
+                    val triggers = core.localServices.checkSinks(initial, ctx.node, codec.single(initial), ctx.plan.sinks)
+                    check(triggers.fired.isEmpty()) { "FLOW cannot prove a concrete condition" }
+                }
+            }
+            for (stage in ctx.plan.stagesAt(at)) {
+                core.ap.cancellation.checkpoint()
+                if (stage is CallStage.Callees) {
+                    for (callee in stage.callees) core.runnerPort.subscribeStatic(
+                        StaticSubscription(callee, core.key, ctx.node, entries, stage.from, stage.to))
+                    continue
+                }
+                val selected = when (stage) {
+                    is CallStage.Edges -> if (stage.guard is Guard.SinkTriggered) continue
+                        else if (stage.trigger != null) entries else codec.affected(stage.summary, entries, stage = true)
+                    is CallStage.Actions -> codec.affected(stage.steps, entries)
+                    is CallStage.Callees -> error("Handled above")
+                }
+                var identities = codec.remainder(entries, selected)
+                if (selected != null) for (initial in codec.originals(selected)) {
+                    core.context.shared.abstractionStatistics?.staticScalar()
+                    val results = applyStage(ctx, stage,
+                        listOf(PlanFact(initial, codec.single(initial), true)), Triggers.NONE)
+                    val ordinary = ArrayList<PlanFact>()
+                    for (result in results) {
+                        val facts = core.normalizeFlow(result.premise, result.facts, codec.single(initial))
+                        if (facts is FlowTree && compactRun1StaticIdentity(core.ops, result.premise, facts) == null)
+                            identities = codec.merge(identities, facts).first
+                        else ordinary += PlanFact(result.premise, facts, result.identityCandidate)
+                    }
+                    if (ordinary.isNotEmpty()) flow(ctx, stage.to, ordinary)
+                }
+                identities?.let { work.addLast(stage.to to it) }
+            }
+        }
+    }
+
     /** An explicit frame stack preserves stage order and keeps pending demotion local to this invocation. */
     private fun flow(ctx: CallContext, point: CallPoint, facts: List<PlanFact>, pendingDemotion: Boolean = false) {
         val core = active()
         check(!pendingDemotion || core.forward) { "Native must-record demotion is only forward" }
         val stack = ArrayDeque<Frame>()
-        stack.addLast(Frame(point, facts, pendingDemotion))
+        stack.addLast(Frame(point, facts.map { PlanFact(it.premise, core.normalizeFlow(it.premise, it.facts), it.identityCandidate) }, pendingDemotion))
         while (stack.isNotEmpty()) {
             core.ap.cancellation.checkpoint()
             val frame = stack.peekLast()
@@ -69,8 +138,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                 if (core.forward && frame.point == CallPoint.BOUND) {
                     for (fact in frame.facts) {
                         core.ap.cancellation.checkpoint()
-                        val input = if (core.config.run1) withoutStaticRootFact(core.ap, fact.facts) else fact.facts
-                        if (input != null) frame.triggers += core.localServices.checkSinks(fact.premise, ctx.node, input, ctx.plan.sinks)
+                        frame.triggers += core.localServices.checkSinks(fact.premise, ctx.node, fact.facts, ctx.plan.sinks)
                     }
                 }
                 if (core.config.run1 && frame.point == CallPoint.ADDED) observeUnresolved(ctx, frame.facts)
@@ -104,14 +172,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                         core.ap.cancellation.checkpoint()
                         if (guard == Guard.MemoryEffect && !Guard.MemoryEffect.admits(
                                 checkNotNull(fact.identityCandidate), fact.facts.layer)) continue
-                        var input = fact.facts
-                        if (core.config.run1 && (stage.kind == StageKind.SOURCES || stage.kind == StageKind.END_FACTS || stage.kind == StageKind.UNRESOLVED)) {
-                            // Source/end branches cannot manufacture a return. The unresolved
-                            // ordinary pass channel keeps control without evaluating model rules.
-                            if (stage.kind == StageKind.UNRESOLVED)
-                                staticRootFact(core.ap, input)?.let { out += PlanFact(fact.premise, it, true) }
-                            input = withoutStaticRootFact(core.ap, input) ?: continue
-                        }
+                        val input = fact.facts
                         val place = Place(ctx.node, core.config.run1 && stage.kind.statementEdges,
                             sources = stage.kind == StageKind.SOURCES)
                         core.applier.stage(stage.summary, fact.premise, input, place) { premise, result, edge ->
@@ -137,19 +198,11 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             }
         }
         core.ap.cancellation.checkpoint()
-        return out
+        return out.map { PlanFact(it.premise, core.normalizeFlow(it.premise, it.facts), it.identityCandidate) }
     }
 
     private fun cleanChain(steps: List<CleanStep>, fact: PlanFact, node: CommonInst, emit: (PlanFact) -> Unit) {
         val core = active()
-        if (core.config.run1) {
-            staticRootFact(core.ap, fact.facts)?.let { emit(PlanFact(fact.premise, it, fact.identityCandidate)) }
-            val input = withoutStaticRootFact(core.ap, fact.facts) ?: return
-            if (input !== fact.facts) {
-                cleanChain(steps, PlanFact(fact.premise, input, fact.identityCandidate), node, emit)
-                return
-            }
-        }
         fun statement(summary: StatementSummary, input: PlanFact): List<PlanFact> {
             val out = ArrayList<PlanFact>()
             core.applier.statement(summary, input.premise, input.facts, Place(node, core.config.run1, sources = false),
@@ -211,6 +264,12 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
 
     private fun enterCallees(ctx: CallContext, stage: CallStage.Callees, fact: PlanFact) {
         val core = active()
+        if (core.config.run1 && fact.facts is FlowTree &&
+            compactRun1StaticIdentity(core.ops, fact.premise, fact.facts) == null) {
+            for (callee in stage.callees) core.runnerPort.subscribeStatic(
+                StaticSubscription(callee, core.key, ctx.node, fact.facts, stage.from, stage.to))
+            return
+        }
         val ref = CallerRef(core.key, fact.premise, ctx.callerLayer, ctx.node)
         for (callee in stage.callees) {
             core.ap.cancellation.checkpoint()
@@ -253,6 +312,14 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         }
     }
 
+    override fun applyStaticSummary(part: StaticSubscription, input: Subscription, pub: Publication) {
+        active()
+        val initial = checkNotNull(pub.premise as? InitialAp)
+        val results = ArrayList<PlanFact>()
+        applyParts(input, initial, pub.conclusion, results)
+        resumeCallees(input.ref, results, returnPoint = part.stageTo)
+    }
+
     override fun applyRecord(part: Subscription, record: Record) {
         val core = active()
         val premise = record.premise
@@ -293,14 +360,15 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         }
     }
 
-    private fun resumeCallees(ref: CallerRef, results: List<PlanFact>, pendingDemotion: Boolean = false) {
+    private fun resumeCallees(ref: CallerRef, results: List<PlanFact>, pendingDemotion: Boolean = false,
+                              returnPoint: CallPoint? = null) {
         val core = active()
         if (results.isEmpty()) return
         val call = checkNotNull(core.context.callAt(ref.call)) { "The caller reference is not at a call" }
         core.forms.withCall(core.key, ref.call, call) { plan ->
             val ctx = CallContext(ref.call, call, plan, ref.callerLayer)
             val stage = checkNotNull(ctx.plan.callees) { "A resumed result needs a callee stage" }
-            flow(ctx, stage.to, results, pendingDemotion)
+            flow(ctx, returnPoint ?: stage.to, results, pendingDemotion)
         }
     }
 

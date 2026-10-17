@@ -16,12 +16,7 @@ internal class EngineAlgebra(private val core: RunMethodAnalyzer) : FactAlgebra<
     override fun filter(c: Facts, filter: TypeFilter): Facts? = core.ops.filter(c, filter)
     override fun applyEdge(me: MicroEdge, c: Facts, premise: PremiseKey, statementEdge: Boolean,
                            out: ResultSink) {
-        val markSensitive = me.edge.from.mark is MarkSlot.Concrete ||
-            (me.edge.to.mark as? MarkSlot.Star)?.excluded?.isEmpty == false
-        val input = if (core.config.run1 && markSensitive) {
-            staticRootFact(core.ap, c)?.let { out(premise, it) }
-            withoutStaticRootFact(core.ap, c) ?: return
-        } else c
+        val input = core.normalizeFlow(premise, c)
         core.ops.applyEdge(input, premise, me.edge, statementEdge, core.mode,
             core.collect(premise, input, out), may = me.may,
             unchangedStaticInitial = core.unchangedStaticInitial(premise))
@@ -29,13 +24,13 @@ internal class EngineAlgebra(private val core: RunMethodAnalyzer) : FactAlgebra<
 
     override fun conjunction(cj: ConjunctiveEdge, premise: PremiseKey, c: Facts, node: CommonInst,
                              out: ResultSink) {
-        val input = if (core.config.run1) withoutStaticRootFact(core.ap, c) ?: return else c
+        val input = core.normalizeFlow(premise, c)
         core.localServices.conjunction(cj, premise, input, node, out)
     }
 
     override fun sourcePredicate(source: SourceRuleOccurrence, premise: PremiseKey, c: Facts, node: CommonInst,
                                  statementEdge: Boolean, out: ResultSink) {
-        val input = if (core.config.run1) withoutStaticRootFact(core.ap, c) ?: return else c
+        val input = core.normalizeFlow(premise, c)
         core.localServices.sourcePredicate(source, premise, input, node, statementEdge, out)
     }
 

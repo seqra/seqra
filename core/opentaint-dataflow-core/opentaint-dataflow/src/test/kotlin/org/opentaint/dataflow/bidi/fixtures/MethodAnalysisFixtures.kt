@@ -214,6 +214,8 @@ class MethodAnalysisFixtures(
     val events = ArrayList<RunEvent>()
     internal val positionDeliveries = ArrayList<ReferenceRequestDelivery>()
     val subscriptions = ArrayList<Subscription>()
+    val staticSubscriptions = ArrayList<StaticSubscription>()
+    var onSubscribeStatic: ((StaticSubscription) -> Unit)? = null
     val sentLinks = ArrayList<RunEvent.LinkIn>()
     var onSubscribe: ((Subscription) -> Unit)? = null
     var onLink: ((RunEvent.LinkIn) -> Unit)? = null
@@ -250,7 +252,11 @@ class MethodAnalysisFixtures(
             override val ops = this@MethodAnalysisFixtures.ops
             override val steps = ProtocolSteps.Inline
             override fun send(event: RunEvent): Boolean { events += event; return true }
-            override fun post(event: RunEvent.Delivery): Boolean { events += event; return true }
+            override fun post(event: RunEvent.Delivery): Boolean {
+                events += event
+                questionQueue += { questionManagers.getValue(actor).onDelivery(event.callee, event.publications) }
+                return true
+            }
             override fun post(event: RunEvent.ChangedRequests): Boolean {
                 questionQueue += { questionManagers.getValue(actor).onRequests(event.callee, event.rows) }
                 onRequestNotification?.invoke(event)
@@ -263,6 +269,12 @@ class MethodAnalysisFixtures(
                 val receive = checkNotNull(onSubscribe) { "Subscriptions require an explicit protocol fixture" }
                 subscriptions += sub
                 receive(sub)
+            }
+            override fun subscribeStatic(sub: StaticSubscription) {
+                staticSubscriptions += sub
+                val receive = onSubscribeStatic
+                if (receive != null) receive(sub)
+                else questionManagers.getValue(actor).subscribeStatic(sub)
             }
             override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
                 val receive = checkNotNull(onLink) { "Links require an explicit protocol fixture" }
@@ -278,6 +290,14 @@ class MethodAnalysisFixtures(
             override val onProcess: (MethodKey, EdgeDelta) -> Unit = { key, edge ->
                 processed += edge
                 this@MethodAnalysisFixtures.onProcess?.invoke(key, edge)
+            }
+            override val onStaticProcess: (MethodKey, CommonInst, FlowTree) -> Unit = { key, node, entries ->
+                val codec = StaticIdentityEntries(ops)
+                for (initial in codec.originals(entries)) {
+                    val edge = EdgeDelta(initial, node, codec.single(initial))
+                    processed += edge
+                    this@MethodAnalysisFixtures.onProcess?.invoke(key, edge)
+                }
             }
             override val onCut: (Cut, Facts) -> Unit = { point, facts ->
                 cuts += point to facts
@@ -306,8 +326,15 @@ class MethodAnalysisFixtures(
             override fun post(event: RunEvent.ChangedRequests): Boolean = port.post(event)
             override fun send(event: RunEvent): Boolean {
                 events += event
-                if (event is RunEvent.InitialAnswersIn && event.method == actor.key)
-                    questionQueue += { event.answers.forEach(actor::addInitial) }
+                when (event) {
+                    is RunEvent.InitialAnswersIn -> if (event.method == actor.key)
+                        questionQueue += { event.answers.forEach(actor::addInitial) }
+                    is RunEvent.StaticEntriesIn -> {
+                        check(event.callee == actor.key) { "The finite port owns one method actor" }
+                        questionQueue += { actor.addStaticEntries(event.entries) }
+                    }
+                    else -> Unit
+                }
                 return true
             }
         })

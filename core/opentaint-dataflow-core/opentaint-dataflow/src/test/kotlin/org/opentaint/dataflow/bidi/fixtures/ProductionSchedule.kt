@@ -31,6 +31,18 @@ class ProductionSchedule(
     val trace: List<String> get() = log.toList()
     private val registered = ArrayList<Subscription>()
     val subscriptions: List<Subscription> get() = registered.toList()
+    private val ordinaryRelations = LinkedHashSet<Pair<MethodKey, CallerRef>>()
+    private data class StaticRelation(val callee: MethodKey, val caller: MethodKey,
+        val call: org.opentaint.ir.api.common.cfg.CommonInst,
+        val from: org.opentaint.dataflow.bidi.interp.CallPoint,
+        val to: org.opentaint.dataflow.bidi.interp.CallPoint)
+    private val staticRelations = LinkedHashMap<StaticRelation, FlowTree>()
+    /** Physical protocol relations, excluding the decoded test-only history in [subscriptions]. */
+    val physicalOrdinarySubscriptionCount: Int get() = ordinaryRelations.size
+    val physicalStaticRelationCount: Int get() = staticRelations.size
+    val physicalStaticEntryMembershipCount: Int get() = staticRelations.values.sumOf {
+        StaticIdentityEntries(shared.ops).originals(it).count()
+    }
     private var invoked = false
     private val processed = LinkedHashSet<ObservedEdge>()
     private val inputs = LinkedHashSet<ObservedLink>()
@@ -71,6 +83,7 @@ class ProductionSchedule(
             "premise=${observedPremise(event.ref.premise)},callerLayer=${event.ref.callerLayer}," +
             "call=${event.ref.call},linkLayer=${event.linkLayer},added=${shared.ops.leaves(event.added).toList()})"
         is RunEvent.ZeroIn -> "Zero(${event.callee})"
+        is RunEvent.StaticEntriesIn -> "StaticEntries(${event.callee},${shared.ops.leaves(event.entries).toList()})"
         is RunEvent.MarkRequestsIn -> "MarkRequests(${event.method},${event.rows})"
         is RunEvent.InitialAnswersIn -> "InitialAnswers(${event.method},${event.answers.map { it.toPattern() }})"
         is RunEvent.ChangedRequests -> "Requests(${event.callee},${event.rows})"
@@ -144,12 +157,28 @@ class ProductionSchedule(
                 if (config.run1) shared.run1StaticProfiles?.get(key.method)?.precomputedRequests ?: EmptyFrozenRequestBase else EmptyFrozenRequestBase) }
 
         override fun subscribe(sub: Subscription) {
+            ordinaryRelations += sub.callee to sub.ref
             registered += sub
             log += "subscribe callee=${sub.callee} caller=${sub.caller} " +
                 "premise=${observedPremise(sub.ref.premise)},callerLayer=${sub.ref.callerLayer}," +
                 "call=${sub.ref.call},linkLayer=${sub.linkLayer},zeroOnly=${sub.zeroOnly}," +
                 "added=${shared.ops.leaves(sub.added).toList()}"
             (handler as SubscriptionHandler).subscribe(sub)
+        }
+
+        override fun subscribeStatic(sub: StaticSubscription) {
+            val codec = StaticIdentityEntries(ops)
+            val relation = StaticRelation(sub.callee, sub.caller, sub.call, sub.stageFrom, sub.stageTo)
+            staticRelations[relation] = codec.merge(staticRelations[relation], sub.entries).first
+            // Ghost expansion is observational only: production still gets one packed relation.
+            for (initial in codec.originals(sub.entries)) {
+                val facts = codec.single(initial)
+                val ref = CallerRef(sub.caller, initial, Layer.DEMAND, sub.call)
+                registered += Subscription(sub.callee, ref, Layer.DEMAND, facts)
+                ops.leaves(facts).forEach { inputs += observedLink(sub.callee, Link(it, Layer.DEMAND, ref)) }
+            }
+            log += "subscribeStatic callee=${sub.callee} caller=${sub.caller} call=${sub.call} entries=${ops.leaves(sub.entries).toList()}"
+            (handler as SubscriptionHandler).subscribeStatic(sub)
         }
 
         override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
@@ -160,6 +189,15 @@ class ProductionSchedule(
                 log += "direct ${description(event)}"
                 handler.handle(event)
             } else destination.postEvent(event)
+        }
+
+        override val onStaticProcess: (MethodKey, org.opentaint.ir.api.common.cfg.CommonInst, FlowTree) -> Unit = { method, node, entries ->
+            val codec = StaticIdentityEntries(ops)
+            for (initial in codec.originals(entries)) {
+                val rows = observedEdges(ops, method, initial, codec.single(initial), node)
+                processed += rows
+                log += "static process $rows"
+            }
         }
 
         override val onProcess: (MethodKey, EdgeDelta) -> Unit = { method, edge ->
@@ -215,6 +253,11 @@ class ProductionSchedule(
         val hits = LinkedHashSet<ObservedSourceHit>()
         for (unit in units.values) for ((method, actor) in unit.actors) {
             actor.initials.all().mapTo(initials) { ObservedInitial(method, it.toPattern()) }
+            actor.staticEntryFacts()?.let { entries ->
+                StaticIdentityEntries(shared.ops).originals(entries).mapTo(initials) {
+                    ObservedInitial(method, it.toPattern())
+                }
+            }
             for ((premise, facts) in actor.summaries.all()) raw += observedEdges(shared.ops, method, premise, facts)
             for ((premise, facts) in actor.summaries.demandEdges())
                 selected += observedEdges(shared.ops, method, premise, facts)

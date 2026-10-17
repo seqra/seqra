@@ -216,7 +216,7 @@ class CutPointTest {
             assertEquals(expected, methodEntries(f.ops, f.publications.flatten().withoutPrecomputedStaticDefault().asSequence().map { it.premise to it.conclusion }))
             assertEquals(expected, methodEntries(f.ops, core.summaries.demandEdges().withoutPrecomputedStaticDefault()),
                 "Run-1 also retains normal rows as guidance")
-            assertEquals(1L, core.demandLayerEdges, "The boundary result adds a summary delta without a successor edge")
+            assertEquals(2L, core.demandLayerEdges, "The boundary result and universal static default are DEMAND summaries")
             assertTrue(f.cuts.none { it.first == Cut.STATEMENT })
             assertTrue(f.requests.isEmpty())
         }

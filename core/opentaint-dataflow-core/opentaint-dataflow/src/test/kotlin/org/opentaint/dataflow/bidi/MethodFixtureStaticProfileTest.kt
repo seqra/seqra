@@ -43,7 +43,8 @@ class MethodFixtureStaticProfileTest {
             f.statement(0, StatementSummary(setOf(STATIC), listOf(MicroEdge.of(edge)), emptyList(), emptyMap()))
             f.core()
             val profile = assertNotNull(f.shared.run1StaticProfiles)[f.key.method]
-            assertTrue(profile.footprint.owns(from.cls, from.field))
+            assertContains(assertNotNull(f.shared.run1StaticProfiles).localReads(f.key.method), from)
+            assertFalse(profile.footprint.owns(from.cls, from.field))
             assertFalse(profile.footprint.owns(to.cls, to.field))
             assertTrue(profile.staticMayWrite)
             assertFalse(profile.footprint.owns(untouched.cls, untouched.field))
@@ -70,7 +71,8 @@ class MethodFixtureStaticProfileTest {
             val ref = org.opentaint.dataflow.bidi.store.CallerRef(f.store.key("supplier"), f.manager.zero,
                 Layer.NORMAL, f.inst(1))
             f.admit(actor, ref, Layer.NORMAL, f.fact(STATIC, slot.pathData.toList()))
-            assertTrue(actor.initials.all().isEmpty(), "A legal coordinate alone is not a field-read request")
+            assertNotNull(actor.staticEntryFacts(), "The actual supplied field has a symbolic entry independent of local reads")
+            assertTrue(actor.initials.all().isEmpty(), "No scalar field reader is started in an identity-only method")
             assertFailsWith<IllegalStateException> { f.declareStaticDomain(slot.pathData.toList()) }
         }
     }

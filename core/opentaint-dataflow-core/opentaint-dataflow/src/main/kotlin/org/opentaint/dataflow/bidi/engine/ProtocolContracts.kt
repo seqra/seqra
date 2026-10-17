@@ -33,6 +33,16 @@ data class Subscription(
     val caller: MethodKey get() = ref.caller
 }
 
+/** A shared exact call-stage relation; each field supplies its own original. */
+data class StaticSubscription(
+    val callee: MethodKey,
+    val caller: MethodKey,
+    val call: CommonInst,
+    val entries: org.opentaint.dataflow.bidi.ap.FlowTree,
+    val stageFrom: org.opentaint.dataflow.bidi.interp.CallPoint = org.opentaint.dataflow.bidi.interp.CallPoint.ADDED,
+    val stageTo: org.opentaint.dataflow.bidi.interp.CallPoint = org.opentaint.dataflow.bidi.interp.CallPoint.RETURNED,
+)
+
 /** Tests can control replay and notification timing without changing protocol operations. */
 interface ProtocolSteps {
     fun replay(step: () -> Unit)
@@ -49,4 +59,8 @@ interface SummaryApplier {
     fun applySummary(part: Subscription, pub: Publication, member: Int)
     fun applyRecord(part: Subscription, record: Record)
     fun applyRecordView(part: Subscription, view: RecordLeafView)
+    fun applyStaticDefault(part: StaticSubscription, entries: org.opentaint.dataflow.bidi.ap.FlowTree): Unit =
+        error("Static identity transport is unavailable")
+    fun applyStaticSummary(part: StaticSubscription, input: Subscription, pub: Publication): Unit =
+        applySummary(input, pub, 0)
 }

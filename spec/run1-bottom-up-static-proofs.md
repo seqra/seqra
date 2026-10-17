@@ -1,8 +1,10 @@
 # Constructive proofs for run-1 bottom-up static FLOW
 
-Date: 17 October 2026. Scope: the proposed
+Date: 17 October 2026. Scope: the selected
 [static FLOW contract](run1-bottom-up-static-propagation.md), run-1 FORWARD,
-field limit 1. No analyzer implementation changes.
+field limit 1. The Lean model and its proof receipt are unchanged by the runtime
+implementation. The [runtime refinement](../docs/design/bidirectional-bottom-up-static-implementation-20261017.md)
+records the adapter implementation and finite test boundary.
 
 This dossier follows [proof-guide.md](proof-guide.md). It distinguishes the
 ordinary concept, the transport optimization, their constructive equivalence,
@@ -409,14 +411,14 @@ that is actually transparent is unmeasured; bound/transformed/TAINT inputs,
 reader work, reverse fanout and shared route metadata still cost resources.
 The model predicts no physical byte percentage or 60-second completion.
 
-## 12. Refinement boundary and next implementation checks
+## 12. Refinement boundary and runtime adapter obligations
 
 The checked result is sound and complete for the declared scalar instructions,
 their full event results, lossless input coding, finite transport/mutual
 derivations, symbolic mark lookup and relational identity quotient. It is not
 a claim of whole-JVM soundness or a verified running optimized analyzer.
 
-Before implementation can claim the same result, establish these adapters:
+The following adapters are required for a runtime refinement:
 
 1. Lower every actual local/call/exit rule, alias/model effect and RHS generation
    into the declared evaluator or an unchanged ordinary boundary. Reject unknown
@@ -435,3 +437,10 @@ These are implementation proof obligations, not unresolved choices of desired
 behavior. The only policy ambiguity found during this review was diagnostic
 callback-count equality; the user resolved it as recorded in §6 and the spec.
 No additional runtime policy is silently selected by these formal proofs.
+
+The runtime implementation now uses conservative scalar fallback at effect
+boundaries and packed descriptors for certified identity members. Finite
+differential, request-order, call-stage, whole-ND and persistence tests check
+these adapters. This is evidence for the selected frontend and fixtures, not
+a formal proof of all Kotlin paths, JVM lowering or concurrent executions.
+The Lean theorem and declaration audits retain their original source scope.

@@ -55,6 +55,8 @@ fun interface MethodLocalServicesFactory {
 /** Call processing and resume operations are supplied by the call engine. */
 interface MethodCallServices : SummaryApplier {
     fun process(item: EdgeDelta)
+    fun processStatic(node: CommonInst, entries: FlowTree): Unit = error("Static identity transport is unavailable")
+    fun resumeStatic(part: StaticSubscription, entries: FlowTree): Unit = error("Static identity transport is unavailable")
     fun freeze()
 }
 

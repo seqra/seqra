@@ -339,7 +339,7 @@ class ExitRulesTest {
     private fun defaultRow(f: MethodAnalysisFixtures): Pair<PremiseKey, Conclusion> {
         val identity = PathFact(STATIC, emptyList(), Tail.STAR, MarkSlot.STAR)
         return f.manager.initial(Pattern(identity, ExclusionSet.Empty)) to
-            Conclusion(identity, ExclusionSet.Empty, false)
+            Conclusion(identity, ExclusionSet.Empty, true)
     }
 
     private fun mark(f: MethodAnalysisFixtures, name: String) = MarkSlot.Concrete(f.manager.marks.mark(name))
@@ -405,11 +405,11 @@ class ExitRulesTest {
         when (facts) {
             is Reach -> put(emptyList(), Tail.EXACT, MarkSlot.Concrete(TaintMark.ZERO))
             is FlowTree -> walk(facts.root) { path, _ ->
-                put(path, if (demand) Tail.ANY else Tail.STAR, MarkSlot.Star(facts.markExclusion), facts.exclusion)
+                put(path, facts.tail, MarkSlot.Star(facts.markExclusion), facts.exclusion)
             }
             is TaintTree -> walk(facts.root) { path, leaf ->
                 for (id in leaf.exact.ids) put(path, Tail.EXACT, MarkSlot.Concrete(TaintMark(id)))
-                for (id in leaf.any.ids) put(path, if (demand) Tail.ANY else Tail.ANY_TAINT,
+                for (id in leaf.any.ids) put(path, facts.anyTail,
                     MarkSlot.Concrete(TaintMark(id)), facts.exclusion)
             }
         }

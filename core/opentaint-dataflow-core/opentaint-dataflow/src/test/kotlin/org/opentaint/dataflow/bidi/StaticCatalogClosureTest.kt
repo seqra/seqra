@@ -131,14 +131,13 @@ class StaticCatalogClosureTest {
                 ), emptyList(), BEFORE, AFTER))
                 val actual = compare(f, f.config(L = limit, roots = listOf(caller)), listOf(cls, field, other),
                     listOf(t.mark), sameUnit, SchedulePolicy.NOTIFY_FIRST)
-                val changedMethod = effect != "empty"
-                val expected = ObservedEdge(caller, zero, Conclusion(source.to, ExclusionSet.Empty, changedMethod))
+                val expected = ObservedEdge(caller, zero, Conclusion(source.to, ExclusionSet.Empty, true))
                 assertContains(actual.rawSummaries, expected, effect)
                 assertTrue(actual.initials.none { it.method == callee && it.initial.fact.base == STATIC &&
                     it.initial.fact.path.isEmpty() }, "Defaults are stored summaries, never root initials")
                 val root = f.pattern(STATIC, tail = Tail.STAR, mark = MarkSlot.STAR)
                 assertContains(actual.rawSummaries, ObservedEdge(callee, setOf(root),
-                    Conclusion(root.fact, ExclusionSet.Empty, changedMethod)))
+                    Conclusion(root.fact, ExclusionSet.Empty, true)))
                 assertTrue(actual.witnesses.isEmpty())
             }
     }

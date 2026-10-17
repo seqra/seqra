@@ -198,13 +198,13 @@ class RequestJoinTest {
             assertEquals(setOf(normalCaller, demandCaller), links.map { it.caller }.toSet())
             assertTrue(links.all { it.linkLayer == Layer.DEMAND && it.addedFact.fact.tail == Tail.ANY })
             assertEquals(setOf(Layer.NORMAL, Layer.DEMAND), links.map { it.caller.callerLayer }.toSet())
-            assertEquals(1L, actor.demandLayerEdges,
-                "Incoming DEMAND is recorded once per actor; both full caller references were checked above")
+            assertEquals(2L, actor.demandLayerEdges,
+                "One incoming DEMAND presence and one universal DEMAND static default")
             request(actor, i, request)
             f.admit(actor, normalCaller, Layer.DEMAND, added)
             f.admit(actor, demandCaller, Layer.DEMAND, added)
             assertEquals(2, climbs(f).size)
-            assertEquals(1L, actor.demandLayerEdges)
+            assertEquals(2L, actor.demandLayerEdges)
         }
     }
 

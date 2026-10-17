@@ -35,41 +35,46 @@ class Run1AbstractionTest {
     private fun answers(core: RunMethodAnalyzer): Set<InitialAp> =
         core.initials.all().filter { it.mark is MarkSlot.Concrete }.toSet()
 
+    private fun initials(f: MethodAnalysisFixtures, core: RunMethodAnalyzer): Set<InitialAp> = buildSet {
+        addAll(core.initials.all().toList())
+        core.staticEntryFacts()?.let { tree -> f.ops.leaves(tree).forEach { add(f.manager.initial(it)) } }
+    }
+
     @Test
-    fun `empty static profile emits no initials and stores an ordinary default`(): Unit {
+    fun `empty reader metadata retains supplied entry and stores an ordinary DEMAND default`(): Unit {
         fixture(empty = true).use { f ->
             val core = actor(f)
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, path(f, "g")))
             barrier(f, core)
-            assertTrue(core.initials.all().none())
+            assertEquals(setOf(abstract(f, path(f, "g"))), initials(f, core))
             val default = core.summaries.all().single { (premise, _) ->
                 premise is InitialAp && isSpecialStaticRoot(premise)
             }
-            assertEquals(Layer.NORMAL, default.second.layer)
+            assertEquals(Layer.DEMAND, default.second.layer)
             assertEquals(Tail.STAR, f.ops.leaves(default.second).single().fact.tail)
             assertTrue(f.events.filterIsInstance<RunEvent.MarkRequestsIn>().isEmpty())
         }
     }
 
     @Test
-    fun `broad supplier projects selected structural fields and never starts an abstract class`(): Unit {
+    fun `broad supplier projects legal supplied fields and never starts an abstract class`(): Unit {
         fixture().use { f ->
             val core = actor(f)
             f.admit(core, caller(f, path(f, "f")), Layer.NORMAL,
                 f.fact(STATIC, tail = Tail.STAR, mark = MarkSlot.STAR))
             val fp = path(f, "f")
             val gp = path(f, "g")
-            assertEquals(setOf(abstract(f, fp), abstract(f, gp)), core.initials.all().toSet())
+            assertEquals(setOf(abstract(f, fp), abstract(f, gp)), initials(f, core).toSet())
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, gp))
             barrier(f, core)
-            assertEquals(setOf(abstract(f, fp), abstract(f, gp)), core.initials.all().toSet())
+            assertEquals(setOf(abstract(f, fp), abstract(f, gp)), initials(f, core).toSet())
             assertTrue(answers(core).isEmpty())
             assertTrue(f.events.filterIsInstance<RunEvent.MarkRequestsIn>().isEmpty())
         }
     }
 
     @Test
-    fun `field reads and mark requests independently gate the two kinds of initials`(): Unit {
+    fun `entry bindings ignore reader placement while concrete answers require a mark request`(): Unit {
         for (read in listOf(false, true)) for (mark in listOf(false, true)) {
             fixture(marks = mark, reads = read).use { f ->
                 val core = actor(f)
@@ -77,8 +82,8 @@ class Run1AbstractionTest {
                 val t = f.mark("T")
                 f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, fp, mark = MarkSlot.Concrete(t)))
                 barrier(f, core)
-                val initials = core.initials.all().toSet()
-                assertEquals(read, abstract(f, fp) in initials)
+                val initials = initials(f, core).toSet()
+                assertContains(initials, abstract(f, fp), "A supplied field is admitted independently of local reads")
                 assertEquals(mark, initials.any { it.mark == MarkSlot.Concrete(t) })
                 assertTrue(initials.none { it.base == STATIC && it.path == null })
                 assertTrue(initials.all { it.exclusion == ExclusionSet.Empty })
@@ -96,13 +101,13 @@ class Run1AbstractionTest {
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, fp, mark = MarkSlot.Concrete(u)))
             barrier(f, core)
             assertTrue(answers(core).isEmpty())
-            val abstracts = core.initials.all().toSet()
+            val abstracts = initials(f, core).toSet()
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, fp, mark = MarkSlot.Concrete(t)))
             val expected = f.manager.initial(STATIC, f.manager.path(fp), Tail.EXACT,
                 ExclusionSet.Empty, MarkSlot.Concrete(t))
             assertEquals(setOf(expected), answers(core), "A new concrete supplier reads already installed B immediately")
             barrier(f, core)
-            assertEquals(abstracts + expected, core.initials.all().toSet())
+            assertEquals(abstracts + expected, initials(f, core).toSet())
             val deltas = core.edgeDeltas
             f.admit(core, caller(f, context = "another caller"), Layer.NORMAL,
                 f.fact(STATIC, fp, mark = MarkSlot.Concrete(t)))
@@ -126,12 +131,12 @@ class Run1AbstractionTest {
             core.addMarkRequests(origin, RequestMarkSet.fromIds(intArrayOf(t.id, u.id)))
             barrier(f, core)
             assertEquals(setOf(t), answers(core).map { (it.mark as MarkSlot.Concrete).mark }.toSet())
-            assertContains(core.initials.all(), origin)
+            assertContains(initials(f, core), origin)
             f.admit(core, caller(f), Layer.NORMAL, f.fact(STATIC, gp, mark = MarkSlot.Concrete(u)))
             barrier(f, core)
             assertEquals(setOf(t, u), answers(core).map { (it.mark as MarkSlot.Concrete).mark }.toSet())
             assertTrue(answers(core).all { it.tail == Tail.EXACT })
-            assertContains(core.initials.all(), origin)
+            assertContains(initials(f, core), origin)
         }
     }
 
@@ -182,7 +187,7 @@ class Run1AbstractionTest {
             assertEquals(gp, (witness.edges.single().premise as InitialAp).path?.toList())
             assertEquals(MarkSlot.Concrete(f.mark("T")), (witness.edges.single().premise as InitialAp).mark)
             assertEquals(fp, f.ops.leaves(witness.edges.single().facts).single().fact.path)
-            assertContains(core.initials.all(), abstract(f, gp))
+            assertContains(initials(f, core), abstract(f, gp))
         }
     }
 

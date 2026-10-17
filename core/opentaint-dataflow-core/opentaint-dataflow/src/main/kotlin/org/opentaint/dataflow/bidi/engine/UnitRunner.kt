@@ -62,6 +62,12 @@ class UnitRunner<A : RunActor> internal constructor(
         else send(event)
     }
 
+    override fun subscribeStatic(sub: StaticSubscription) {
+        check(!run.ended && !closed.get())
+        shared.cancellation.checkpoint()
+        checkNotNull(handler as? SubscriptionHandler).subscribeStatic(sub)
+    }
+
     override fun analyzer(key: MethodKey): A {
         check(!run.ended && !closed.get()) { "The runner is closed" }
         check(shared.unitResolver.resolve(key.method) == unit) { "$key is not in $unit" }

@@ -39,6 +39,29 @@ class Run1AbstractionStatistics {
     private val freshTemporaryRequestMembers = AtomicLong()
     private val freshFlowInputReads = AtomicLong()
     private val growthFlowInputReads = AtomicLong()
+    private val staticEntryBatches = AtomicLong()
+    private val freshStaticEntryMembers = AtomicLong()
+    private val staticNodeBatches = AtomicLong()
+    private val staticScalarEvaluations = AtomicLong()
+    private val staticRelationKeys = AtomicLong()
+    private val freshStaticRelationMembers = AtomicLong()
+    private val staticDefaultApplications = AtomicLong()
+    private val staticNodeBindings = AtomicLong()
+    private val peakStaticNodeBindings = AtomicLong()
+
+    internal fun staticEntry(members: Long) {
+        staticEntryBatches.incrementAndGet(); freshStaticEntryMembers.addAndGet(members)
+    }
+    internal fun staticWork() { staticNodeBatches.incrementAndGet() }
+    internal fun staticScalar() { staticScalarEvaluations.incrementAndGet() }
+    internal fun staticRelation(members: Long, freshKey: Boolean) {
+        if (freshKey) staticRelationKeys.incrementAndGet()
+        freshStaticRelationMembers.addAndGet(members)
+    }
+    internal fun staticDefault() { staticDefaultApplications.incrementAndGet() }
+    internal fun staticNodes(delta: Long) {
+        peakStaticNodeBindings.accumulateAndGet(staticNodeBindings.addAndGet(delta), ::maxOf)
+    }
 
     internal fun requestOffer(counts: RequestAdmissionCounts) {
         requestOfferCalls.incrementAndGet(); offeredRequestMembers.addAndGet(counts.offeredMembers)
@@ -110,6 +133,12 @@ class Run1AbstractionStatistics {
         val freshFlowInputReads: Long, val growthFlowInputReads: Long,
         /** Stored frozen S slots and dynamic keys examined; sum equals requestScannedKeys. */
         val requestFrozenSlotsExamined: Long, val requestDynamicKeysExamined: Long,
+        /** Packed transport work/memberships; these are not bytes or concrete facts. */
+        val staticEntryBatches: Long, val freshStaticEntryMembers: Long,
+        val staticNodeBatches: Long, val staticScalarEvaluations: Long,
+        val staticRelationKeys: Long, val freshStaticRelationMembers: Long,
+        val staticDefaultApplications: Long, val currentStaticNodeBindings: Long,
+        val peakStaticNodeBindings: Long,
     )
 
     fun snapshot(): Snapshot = Snapshot(inputArrivals.get(), restrictedIntersections.get(),
@@ -120,5 +149,8 @@ class Run1AbstractionStatistics {
         requestBroadScans.get(), requestScannedKeys.get(), requestMatchedRows.get(), temporaryRows.get(), temporaryMembers.get(),
         peakTemporaryRows.get(), peakTemporaryMembers.get(), requestOfferCalls.get(), offeredRequestMembers.get(),
         authoritativeDuplicateRequestMembers.get(), temporaryDuplicateRequestMembers.get(), freshTemporaryRequestMembers.get(),
-        freshFlowInputReads.get(), growthFlowInputReads.get(), requestFrozenSlotsExamined.get(), requestDynamicKeysExamined.get())
+        freshFlowInputReads.get(), growthFlowInputReads.get(), requestFrozenSlotsExamined.get(), requestDynamicKeysExamined.get(),
+        staticEntryBatches.get(), freshStaticEntryMembers.get(), staticNodeBatches.get(), staticScalarEvaluations.get(),
+        staticRelationKeys.get(), freshStaticRelationMembers.get(), staticDefaultApplications.get(), staticNodeBindings.get(),
+        peakStaticNodeBindings.get())
 }

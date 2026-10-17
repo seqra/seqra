@@ -54,8 +54,9 @@ class DirectCurrentIteration(private val program: FiniteProgramFixtures, private
                 // A later witness of the same key can confirm it; remove the earlier demand row.
                 confirmed.keys.forEach(currentDemand::remove)
             }
-            // F1 publications are guidance only. Later R1 persists computed normal singleton facts.
-            for (edge in observation.rawSummaries) if (!config.run1 && !edge.conclusion.demand && edge.premise.size == 1 &&
+            // Ordinary NORMAL persistence also applies in F1. The unchanged F1
+            // handoff may simultaneously use these rows as typed guidance.
+            for (edge in observation.rawSummaries) if (!edge.conclusion.demand && edge.premise.size == 1 &&
                 !(config.direction == Direction.BACKWARD && isZero(edge.premise))) {
                 records += RawRecord(edge.method, config.direction, edge.premise.single(), edge.conclusion)
             }

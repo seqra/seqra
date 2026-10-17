@@ -325,7 +325,8 @@ class SinkEndFactTest {
                 "TAINT replay answers locally; restricted mode raises no mark requests")
             if (index == 1) assertTrue(f.events.any { it is RunEvent.InitialAnswersIn },
                 "The late request queues its answer from the retained caller input")
-            assertEquals(0L, core.demandLayerEdges)
+            assertEquals(if (index == 1) 1L else 0L, core.demandLayerEdges,
+                "Run 1 adds the universal DEMAND static default")
         }
     }
 }

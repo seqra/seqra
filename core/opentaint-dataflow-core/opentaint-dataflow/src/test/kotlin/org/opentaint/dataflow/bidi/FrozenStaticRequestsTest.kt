@@ -36,7 +36,7 @@ class FrozenStaticRequestsTest {
         val outside = Run1Slot.StaticField(c,f.field("outside"))
         assertFalse(base.hasRow(outside));assertTrue(base.borrow(outside).isEmpty)
         val factored = assertIs<FrozenStaticRequests>(base)
-        assertSame(footprint.fieldSlots,factored.selected)
+        assertSame(footprint.fieldUniverse,factored.domainSlots)
         assertSame(common,factored.commonByClass)
         assertEquals(raw.keys.drop(1).toSet(),factored.byField.keys)
         assertFalse(factored.byField === input)

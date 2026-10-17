@@ -1,6 +1,11 @@
 # Run-1 bottom-up static FLOW propagation
 
-Date: 17 October 2026. Status: proposed specification; no runtime change.
+Date: 17 October 2026. Status: implemented candidate; project measurements pending.
+
+The [runtime refinement](../docs/design/bidirectional-bottom-up-static-implementation-20261017.md)
+maps this contract to the packed identity lane and ordinary effect boundaries.
+The constructive model remains the specification oracle. Runtime tests check
+the adapters; they do not establish whole-JVM formal verification.
 
 This proposal replaces the static FLOW transport in the
 [current run-1 contract](run1-field-writes.md). It also replaces the earlier
@@ -61,9 +66,9 @@ local overwrite, and allowed activation to recreate it at later ZERO-reached
 calls. Both rules are removed. The target is equivalent computation, not an
 additional DEMAND overapproximation.
 
-### Current versus proposed
+### Previous measured runtime versus selected contract
 
-| Topic | Measured runtime `28a123f0e` | Proposed |
+| Topic | Previous measured runtime `28a123f0e` | Selected contract |
 | --- | --- | --- |
 | Requests | Field-read plan F gates abstract static initials; mark requests use B/dynamic R | Only mark requests; local read locations are analysis metadata |
 | Inherited static needs | Start field analyses in intermediate methods and retain caller inputs | Activate local readers; relay their effects through exact call-input bindings |
@@ -743,14 +748,15 @@ Required controls include:
 * Ordinary NORMAL persistence and reverse/native readers; no static FLOW
   NORMAL row; unchanged demand projection and later positive limits.
 
-The compact nontransparent-input adapter and packed call/AP decomposition
-remain implementation design bridges. They must be specified and checked
-against these equations before runtime changes. They cannot be replaced by
-an extra DEMAND approximation to make the implementation simpler.
+The compact identity descriptor and packed call/AP decomposition are
+specified in the runtime refinement. A possibly affected field crosses an
+ordinary scalar boundary with its complete original and payload. Independent
+finite differential tests check those adapters. These tests do not replace
+the formal model or permit an extra DEMAND approximation.
 
 ## 12. Expected improvement and measurement limits
 
-Latest measurements are for runtime `28a123f0e`, before this proposal:
+Latest project measurements are for runtime `28a123f0e`, before this implementation:
 
 | Project | Latest reached / completed / accepted report | Run-1 engine seconds |
 | --- | --- | ---: |
@@ -762,7 +768,7 @@ Latest measurements are for runtime `28a123f0e`, before this proposal:
 The failed ThingsBoard timer includes 37.94 seconds of heap capture. See the
 [closed report](../docs/reports/bidirectional-run1-selective-preservation-20261016.md)
 for configuration, failures, strict finding identities and engine/barrier scope.
-No measurement of this proposal exists.
+No project measurement of this implementation exists yet.
 
 The old field-request metadata shows the inherited workload to replace:
 
@@ -813,6 +819,8 @@ Use the same fixed project configurations and strict main comparison. Record
 latest reached, completed and accepted iterations for every outcome. Measure
 run-1 engine time separately from prescan/setup/report barriers, and compare
 full normalized relations on completed finite differential controls first.
-This update adds executable Lean proofs and controls, recorded in the
-[validation report](../docs/reports/bidirectional-run1-bottom-up-static-proof-validation-20261017.md).
-It changes no analyzer implementation and adds no analyzer run or benchmark.
+The executable Lean proofs and controls are recorded in the
+[proof validation report](../docs/reports/bidirectional-run1-bottom-up-static-proof-validation-20261017.md).
+The runtime refinement records the implemented adapters and their test scope.
+Project performance and strict finding comparisons remain pending; no new
+project iteration or benchmark result is claimed here.

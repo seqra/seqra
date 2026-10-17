@@ -86,15 +86,27 @@ class Run1StaticComponentCodecTest {
     }
 
     @Test
-    fun `normal compact field complement never enumerates the global universe`() {
-        val unreadUniverse = object : AbstractSet<Run1Slot.StaticField>() {
-            override val size: Int get() = 100000
-            override fun iterator(): Iterator<Run1Slot.StaticField> = error("Unexpected global field enumeration")
+    fun `legal universe is snapshotted once and the compact complement keeps full scalar payload`() {
+        val source = universe.toMutableSet()
+        var enumerations = 0
+        var readable = true
+        val suppliedUniverse = object : AbstractSet<Run1Slot.StaticField>() {
+            override val size: Int get() = source.size
+            override fun iterator(): Iterator<Run1Slot.StaticField> {
+                check(readable) { "A frozen footprint must not retain its mutable supplier" }
+                enumerations++
+                return source.iterator()
+            }
         }
-        val footprint = Run1StaticFootprint(setOf(cf), fieldUniverse = unreadUniverse,
+        val footprint = Run1StaticFootprint(setOf(cf), fieldUniverse = suppliedUniverse,
             classUniverse = setOf(c, d))
+        assertEquals(1, enumerations)
+        source.clear()
+        readable = false
+        assertEquals(universe, footprint.fieldUniverse)
         val result = staticUntouchedInputs(ap, flow(), footprint)
         assertEquals(expected(flow(), footprint), decode(result))
         assertTrue(result.size <= 3)
+        assertEquals(1, enumerations, "Later reads borrow the owned domain, not the supplier")
     }
 }

@@ -50,6 +50,7 @@ class RunMethodHandlers(
                 is RunEvent.Start -> port.analyzer(event.root).addRootZero()
                 is RunEvent.LinkIn -> port.analyzer(event.callee).addLink(event.ref, event.linkLayer, event.added)
                 is RunEvent.ZeroIn -> port.analyzer(event.callee).addZeroEntry()
+                is RunEvent.StaticEntriesIn -> port.analyzer(event.callee).addStaticEntries(event.entries)
                 is RunEvent.MarkRequestsIn -> port.analyzer(event.method).addMarkRequests(event.rows)
                 is RunEvent.InitialAnswersIn -> for (initial in event.answers) {
                     port.shared.cancellation.checkpoint()
@@ -64,6 +65,11 @@ class RunMethodHandlers(
         override fun subscribe(sub: Subscription) {
             active()
             checkNotNull(subscriptions).subscribe(sub)
+        }
+
+        override fun subscribeStatic(sub: StaticSubscription) {
+            active()
+            checkNotNull(subscriptions).subscribeStatic(sub)
         }
 
         override fun freeze() {

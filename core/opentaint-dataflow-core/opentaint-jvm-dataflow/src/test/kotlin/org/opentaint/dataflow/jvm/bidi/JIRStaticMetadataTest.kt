@@ -112,7 +112,7 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         val classId = ap.accessors.index(cls)
         assertEquals(setOf(classId), profile.classPointClasses)
         assertTrue(profile.precomputedRequests.isEmpty, "No class request slot or field product is introduced")
-        assertTrue(profile.structuralFieldSlots.isEmpty())
+        assertTrue(metadata.abstractions.isEmpty())
         assertTrue(profile.classPointMarks(classId).containsId(0))
     }
 
@@ -205,7 +205,7 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
             ap.accessors.index(FieldAccessor(owner, "other", "java.lang.Object")))
         val profile = org.opentaint.dataflow.bidi.engine.Run1StaticProfiles.build(ap, emptyMap(),
             mapOf(caller to compiled), declaredFieldUniverse = setOf(selected, other))[caller]
-        assertTrue(profile.fieldReads.isEmpty())
+        assertTrue(compiled.abstractions.isEmpty())
         assertTrue(profile.precomputedRequests.borrow(selected).containsId(ap.marks.mark("T").id))
         assertFalse(profile.precomputedRequests.hasRow(other))
         assertTrue(profile.wideRequests(ap.factsOf(org.opentaint.dataflow.bidi.ap.PathFact(

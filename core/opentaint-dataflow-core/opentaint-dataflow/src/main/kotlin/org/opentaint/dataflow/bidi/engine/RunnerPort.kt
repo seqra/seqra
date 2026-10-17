@@ -21,8 +21,11 @@ interface RunnerPort<A : RunActor> {
     fun analyzer(key: MethodKey): A
     fun summaryStorage(key: MethodKey): SummaryStorage
     fun subscribe(sub: Subscription)
+    fun subscribeStatic(sub: StaticSubscription): Unit = error("Static identity transport is unavailable")
     fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts)
 
     val onProcess: ((MethodKey, EdgeDelta) -> Unit)? get() = null
+    /** Optional test decoder; production retains no per-field identity history. */
+    val onStaticProcess: ((MethodKey, org.opentaint.ir.api.common.cfg.CommonInst, org.opentaint.dataflow.bidi.ap.FlowTree) -> Unit)? get() = null
     val onCut: ((Cut, Facts) -> Unit)? get() = null
 }

@@ -11,6 +11,7 @@ sealed interface RunEvent {
     data class Start(val root: MethodKey) : RunEvent
     data class LinkIn(val callee: MethodKey, val ref: CallerRef, val linkLayer: Layer, val added: Facts) : RunEvent
     data class ZeroIn(val callee: MethodKey) : RunEvent
+    data class StaticEntriesIn(val callee: MethodKey, val entries: org.opentaint.dataflow.bidi.ap.FlowTree) : RunEvent
 
     /** A detached immutable batch addressed to the full method owner. */
     data class MarkRequestsIn(val method: MethodKey, val rows: RequestRows) : RunEvent
@@ -35,6 +36,7 @@ fun RunEvent.target(): MethodKey = when (this) {
     is RunEvent.Start -> root
     is RunEvent.LinkIn -> callee
     is RunEvent.ZeroIn -> callee
+    is RunEvent.StaticEntriesIn -> callee
     is RunEvent.MarkRequestsIn -> method
     is RunEvent.InitialAnswersIn -> method
     is RunEvent.Delivery, is RunEvent.ChangedRequests, is RunEvent.Work ->

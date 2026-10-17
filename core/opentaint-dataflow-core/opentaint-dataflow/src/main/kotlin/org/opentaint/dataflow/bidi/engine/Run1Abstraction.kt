@@ -14,6 +14,7 @@ internal class Run1Abstraction(
     private val statistics: RequestBatchStatistics? = null,
     private val policyStatistics: Run1AbstractionStatistics? = null,
     private val owner: MethodKey? = null,
+    private val staticEntries: ((FlowTree) -> Unit)? = null,
 ) {
     private var released = false
 
@@ -48,17 +49,27 @@ internal class Run1Abstraction(
                     }
                 }
             }
-            for (slot in profile.footprint.selectedFields(input, ap.cancellation::checkpoint)) {
+            val supplied = profile.footprint.suppliedFields(input, ap.cancellation::checkpoint) { _, _ -> true }
+            for (slot in supplied) {
                 ap.cancellation.checkpoint()
-                if (!profile.requestsField(slot) || !slotMatches(slot, input)) continue
                 policyStatistics?.structural()
-                answer(slot.initial(ap)) // additive, independent of concrete request membership
+                if (staticEntries == null) answer(slot.initial(ap))
+            }
+            if (staticEntries != null && supplied.isNotEmpty()) {
+                val grouped = supplied.groupBy { it.cls }.toSortedMap()
+                val children = grouped.values.map { fields ->
+                    ap.cancellation.checkpoint()
+                    val keys = fields.map { it.field }.sorted().toIntArray()
+                    FlowAlgebra.node(FlowLeaf.NONE, keys, Array(keys.size) {
+                        ap.cancellation.checkpoint()
+                        FlowAlgebra.LEAF_NODE
+                    })
+                }.toTypedArray()
+                val geometry = FlowAlgebra.node(FlowLeaf.NONE, grouped.keys.toIntArray(), children)
+                staticEntries.invoke(
+                    ap.flowTree(STATIC, Layer.DEMAND, ExclusionSet.Empty, MarkSet.EMPTY, geometry, Tail.STAR))
             }
             forEachDirectClassInitial(ap, input, profile, answer)
-            for ((slot, marks) in profile.wideRequests(input)) {
-                ap.cancellation.checkpoint()
-                collectRequests(slot, marks)
-            }
         }
         if (input is TaintTree) {
             // Read after any synchronous abstraction starts; later P admission is

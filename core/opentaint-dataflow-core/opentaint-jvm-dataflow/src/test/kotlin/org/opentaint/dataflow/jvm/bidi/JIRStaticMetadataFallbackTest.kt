@@ -230,10 +230,18 @@ class JIRStaticMetadataFallbackTest : BidiJIRTestUtils() {
             var inspected = false
             val bidi = JIRBidiAnalysis(cp, graph, f.units, rules, f.params, FixedLimits(listOf(1, 2, 3)), f.refManager,
                 driverFactory = { policy, shared, remaining ->
-                    val profile = assertNotNull(shared.run1StaticProfiles)[m]
+                    val profiles = assertNotNull(shared.run1StaticProfiles)
+                    val profile = profiles[m]
                     val slot = Run1Slot.StaticField(shared.ap.accessors.index(org.opentaint.dataflow.ap.ifds.ClassStaticAccessor(fieldOwner)),
                         shared.ap.accessors.index(org.opentaint.dataflow.ap.ifds.FieldAccessor(fieldOwner, "sField", "java.lang.Object")))
-                    assertFalse(profile.requestsField(slot), "Unknown-AA mark alternatives do not invent value reads")
+                    val declaring = "$owner\$Parent"
+                    val read = Run1Slot.StaticField(
+                        shared.ap.accessors.index(org.opentaint.dataflow.ap.ifds.ClassStaticAccessor(declaring)),
+                        shared.ap.accessors.index(org.opentaint.dataflow.ap.ifds.FieldAccessor(
+                            declaring, "inherited", "java.lang.Object")))
+                    assertEquals(setOf(read), profiles.localReads(m), "The actual Parent.inherited load stays local reader metadata")
+                    assertFalse(slot in profiles.localReads(m), "The rule's ContainsMark needs no value-reader seed")
+                    assertTrue(slot in profile.footprint.fieldUniverse, "A mark-only coordinate remains in the legal domain")
                     for (name in listOf("SOURCE_POS", "SOURCE_NEG", "SINK_POS", "SINK_NEG"))
                         assertTrue(profile.covers(slot.initial(shared.ap), shared.ap.marks.mark(name)), name)
                     for (name in listOf("SOURCE_CONTRADICTION", "SOURCE_FALSE", "SINK_CONTRADICTION", "SINK_FALSE"))

@@ -38,7 +38,7 @@ class LocalConjunctionTest {
                 methodEntries(f.ops, core.summaries.all().withoutPrecomputedStaticDefault()))
             assertTrue(f.publications.flatten().withoutPrecomputedStaticDefault().all { it.premise === premise && it.layer == Layer.NORMAL })
             assertNotNull((core.localServices as RunMethodLocalServices).conjunctions)
-            assertEquals(0L, core.demandLayerEdges)
+            assertEquals(1L, core.demandLayerEdges, "Only the universal static default is DEMAND")
             assertTrue(f.events.isEmpty())
         }
     }
@@ -112,7 +112,7 @@ class LocalConjunctionTest {
             f.drain(core)
             assertEquals(publications, f.publications)
             assertEquals(cuts, f.cuts.size)
-            assertEquals(0L, core.demandLayerEdges)
+            assertEquals(1L, core.demandLayerEdges, "Only the universal static default is DEMAND")
         }
     }
 
@@ -208,7 +208,7 @@ class LocalConjunctionTest {
             val expected = if (blocked) emptySet() else setOf(f.manager.union(first, second) to Conclusion(edge.target, ExclusionSet.Empty, false))
             assertEquals(expected, methodEntries(f.ops, core.summaries.all().withoutPrecomputedStaticDefault()))
             assertEquals(e, first.exclusion)
-            assertEquals(0L, core.demandLayerEdges)
+            assertEquals(0L, core.demandLayerEdges, "The run-1 static default does not enter run 3")
             assertTrue(f.events.isEmpty())
         }
     }
@@ -263,7 +263,8 @@ class LocalConjunctionTest {
             assertTrue(f.events.none { it is RunEvent.MarkRequestsIn })
             if (index == 1) assertTrue(f.events.any { it is RunEvent.InitialAnswersIn },
                 "The late FLOW check recovers its concrete supplier through queued caller replay")
-            assertEquals(0L, core.demandLayerEdges)
+            assertEquals(if (index == 1) 1L else 0L, core.demandLayerEdges,
+                "Only run 1 adds the universal static default")
         }
     }
 }

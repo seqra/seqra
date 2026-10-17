@@ -49,7 +49,14 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
         assertEquals(RunStatus.COMPLETE, r.report.end.status)
         assertTrue(r.runs.isNotEmpty())
         assertTrue(r.runs.all { it.status == RunStatus.COMPLETE })
-        assertTrue(r.runs.first().records.isEmpty(), "F1 guidance never becomes a native or opposite record")
+        val first = r.runs.first()
+        val eligible = first.rawSummaries.mapNotNull { edge ->
+            val premise = edge.premise.singleOrNull() ?: return@mapNotNull null
+            if (edge.conclusion.layer != Layer.NORMAL) return@mapNotNull null
+            JvmObservedRecord(edge.method, Direction.FORWARD, premise, edge.conclusion)
+        }.toSet()
+        assertEquals(eligible, first.records,
+            "The ordinary F1 writer persists exactly NORMAL singleton rows, including ZERO; DEMAND and ND remain absent")
         assertTrue(r.runs.first().processed.all { it.conclusion.value.exclusion.isEmpty() },
             "Run-1 surviving exclusion updates demote instead of retaining field E")
         assertTrue(r.runs.drop(1).flatMap { it.initials }.all { it.value.base == AccessPathBase.Zero || it.value.mark != "*" },
@@ -109,7 +116,8 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
         assertEquals(setOf(zero, backwardPr), r.runs[1].initials.filter { it.method == getter }.mapTo(linkedSetOf()) { it.value })
         assertContains(r.runs[1].rawSummaries, JvmObservedEdge(getter, setOf(backwardPr),
             JvmObservedConclusion(JvmObservedPath(argument, listOf("email"), Tail.ANY, t), Layer.DEMAND)))
-        assertTrue(r.runs[1].records.isEmpty(), "The actual ANY query stays DEMAND; no abstract guide is executed")
+        assertTrue(r.runs[1].records.none { it.direction == Direction.BACKWARD },
+            "The actual ANY query stays DEMAND; only the eligible earlier forward records remain")
         assertEquals(setOf(zero, JvmObservedPath(argument, tail = Tail.ANY_TAINT, mark = t),
             JvmObservedPath(argument, listOf("email"), Tail.ANY_TAINT, t)),
             r.runs[2].initials.filter { it.method == getter }.mapTo(linkedSetOf()) { it.value })
@@ -264,11 +272,13 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
         assertContains(r.runs[1].records, JvmObservedRecord(factory, Direction.BACKWARD,
             JvmObservedPath(AccessPathBase.Return, listOf("k"), Tail.EXACT, u),
             normal(AccessPathBase.Zero, tail = Tail.EXACT, mark = "*")))
-        // Only strong B2 records may replay; both original T/U source hits permit fresh F3 GEN.
+        // Eligible F1 NORMAL rows and strong B2 records may replay; original
+        // T/U source hits also permit fresh F3 GEN.
         assertTrue(r.frontiers[2].recordCrossings > 0)
 
-        // An independent may-only sink leaves the factory's T/U rules unseeded. Its F1
-        // factory output cannot leak through a native/opposite record into the strong run.
+        // An independent may-only sink leaves the factory's T/U source sites unseeded.
+        // Its F1 DEMAND T output is never a native record; the eligible exact U
+        // singleton remains available through the ordinary persistent store.
         val control = run(factoryConfig("factoryReplayFlow", replay = true).copy(
             sink = listOf(sink("sinkAnyT", "j03-factory-may", whole = true))), "factoryReplayFlow")
         assertFinding(control, mapOf("j03-factory-may" to ReportState.DEMAND), normalRules = emptySet())
@@ -280,8 +290,14 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
         assertTrue(control.runs[2].incomingSeeds.filterIsInstance<Seed.Source>().none { it.method == controlFactory })
         assertTrue(control.runs[2].rawSummaries.none { it.method == controlFactory &&
             it.conclusion.value.base == AccessPathBase.Return })
-        assertTrue(control.runs[2].records.none { it.method == controlFactory &&
-            it.conclusion.value.base == AccessPathBase.Return })
+        val firstFactoryRecords = control.runs[0].records.filter { it.method == controlFactory &&
+            it.conclusion.value.base == AccessPathBase.Return }.toSet()
+        assertTrue(firstFactoryRecords.isNotEmpty())
+        assertTrue(firstFactoryRecords.all { it.conclusion.layer == Layer.NORMAL &&
+            it.conclusion.value.mark == u && it.conclusion.value.tail == Tail.EXACT })
+        assertEquals(firstFactoryRecords, control.runs[2].records.filter { it.method == controlFactory &&
+            it.conclusion.value.base == AccessPathBase.Return }.toSet(),
+            "The unseeded factory contributes no new strong record, while its eligible F1 U record survives")
     }
 
     @Test

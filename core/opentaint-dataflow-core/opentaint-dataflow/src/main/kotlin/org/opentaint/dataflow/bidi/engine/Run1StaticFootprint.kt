@@ -9,11 +9,12 @@ class Run1StaticFootprint(
     fieldSlots: Set<Run1Slot.StaticField>,
     val allStatic: Boolean = false,
     wideClasses: Set<Int> = emptySet(),
-    val fieldUniverse: Set<Run1Slot.StaticField> = fieldSlots,
+    fieldUniverse: Set<Run1Slot.StaticField> = fieldSlots,
     classPoints: Set<Int> = emptySet(),
     classUniverse: Set<Int> = fieldUniverse.mapTo(LinkedHashSet()) { it.cls } + classPoints,
 ) {
     val fieldSlots: Set<Run1Slot.StaticField> = ownedSet(fieldSlots)
+    val fieldUniverse: Set<Run1Slot.StaticField> = ownedSet(fieldUniverse)
     val wideClasses: Set<Int> = ownedSet(wideClasses)
     val classPoints: Set<Int> = ownedSet(classPoints)
     val classUniverse: Set<Int> = ownedSet(classUniverse)

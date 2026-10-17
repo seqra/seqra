@@ -106,7 +106,7 @@ class CurrentSequenceTest {
             val to = Conclusion(PathFact(returned, listOf(field), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty, false)
             assertContains(raw(f, f.results[0], wrap), setOf(from) to to)
             assertEquals(raw(f, f.results[0], wrap), selected(f, f.results[0], wrap),
-                "F1 normal summaries are candidate guidance, never executable native records")
+                "F1 NORMAL summaries remain candidate guidance while ordinary R1 persistence also applies")
             val scalar = DirectCurrentIteration(p, listOf(root), listOf(1, 2, 3, 4, 5)).run()
             assertEquals(f.results.map { it.runIndex }, scalar.runs.map { it.index })
             val bases = listOf(AccessPathBase.Zero, STATIC, argument, returned, x, r, z)
@@ -136,7 +136,12 @@ class CurrentSequenceTest {
             assertTrue(f.results[0].witnessesByKey().values.flatten().all { !it.confirmed })
             assertTrue(f.results[2].witnessesByKey().values.flatten().all { !it.confirmed })
             assertTrue(f.results[4].witnessesByKey().values.flatten().all { !it.confirmed })
-            assertTrue(f.records.byEntry(wrap, from).none { it.premise.toPattern() == from }, "F1 FLOW guidance is not persisted as a native record")
+            assertTrue(f.records.byEntry(wrap, from).any { record ->
+                record.direction == Direction.FORWARD && record.premise.toPattern() == from &&
+                    record.conclusion.layer == Layer.NORMAL && f.ops.leaves(record.conclusion).any {
+                        it.fact == to.fact && it.exclusion == to.exclusion
+                    }
+            }, "The eligible F1 NORMAL FLOW row is retained by the ordinary writer")
             assertTrue(f.results.drop(1).all { result -> result.analyzers.any { it.key == wrap && it.nonZeroInitial } })
             assertTrue(f.results.filter { it.direction == Direction.BACKWARD }.all { it.witnessesByKey().isEmpty() })
         }

@@ -24,5 +24,6 @@ interface SubscriptionPort {
 /** The actual method handler supplies subscriptions and releases them after joining. */
 interface SubscriptionHandler {
     fun subscribe(sub: Subscription)
+    fun subscribeStatic(sub: StaticSubscription): Unit = error("Static identity transport is unavailable")
     fun freeze()
 }

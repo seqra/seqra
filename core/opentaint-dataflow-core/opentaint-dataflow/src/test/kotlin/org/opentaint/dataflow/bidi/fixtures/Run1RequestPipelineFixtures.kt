@@ -12,6 +12,7 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
     val batchStatistics = RequestBatchStatistics()
     val events = ArrayDeque<RunEvent>()
     val sent = ArrayList<RunEvent>()
+    val staticEntryObservations = ArrayList<Pair<MethodKey, FlowTree>>()
     val initialObservations = ArrayList<Pair<MethodKey, InitialAp>>()
     val initials = linkedSetOf<Pair<MethodKey, InitialAp>>()
     val climbs = linkedSetOf<Triple<MethodKey, Run1Slot, Int>>()
@@ -66,7 +67,13 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
 
     private fun emitter(method: MethodKey): Run1Abstraction = emitters.getOrPut(method) {
         Run1Abstraction(f.ops, profiles[method], { observe(method, it) },
-            storage(method)::borrowMatchingRequests, { slot, marks -> collect(method, slot, marks) })
+            storage(method)::borrowMatchingRequests, { slot, marks -> collect(method, slot, marks) },
+            staticEntries = { entries -> observeStatic(method, entries) })
+    }
+
+    private fun observeStatic(method: MethodKey, entries: FlowTree) {
+        staticEntryObservations += method to entries
+        StaticIdentityEntries(f.ops).originals(entries).forEach { observe(method, it) }
     }
 
     fun collect(method: MethodKey, slot: Run1Slot, marks: RequestMarkSelection) {
@@ -92,6 +99,11 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
         events += RunEvent.LinkIn(part.callee, part.ref, part.linkLayer, part.added)
     }
 
+    fun submitStatic(part: StaticSubscription) {
+        // SubscriptionManager queues the destination batch itself, after registration.
+        subscriptions.subscribeStatic(part)
+    }
+
     fun drain() {
         var count = 0
         while (events.isNotEmpty()) {
@@ -99,6 +111,7 @@ internal class Run1RequestPipelineFixtures(val steps: ProtocolSteps = ProtocolSt
             when (val event = events.removeFirst()) {
                 is RunEvent.ChangedRequests -> subscriptions.onRequests(event.callee, event.rows)
                 is RunEvent.LinkIn -> emitter(event.callee).emit(event.ref, event.added)
+                is RunEvent.StaticEntriesIn -> observeStatic(event.callee, event.entries)
                 is RunEvent.InitialAnswersIn -> {
                     event.answers.forEach { observe(event.method, it) }
                     onAnswer?.invoke()

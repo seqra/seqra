@@ -148,14 +148,16 @@ class BarrierFailureTest {
     private enum class GuardPhase { CONSTRUCTION, BODY, CLEANUP }
 
     @Test fun `barrier guard construction body and cleanup Errors are FAILED while committed report updates remain`(): Unit {
-        for (phase in GuardPhase.entries) for (memoryError in listOf(false, true)) DriverFixtures(threads = 2).use { f ->
+        for (phase in GuardPhase.entries) for (memoryError in listOf(false, true))
+            for (failureRun in listOf(1, 2)) DriverFixtures(threads = 2).use { f ->
             val demand = f.persistentDemand()
             val confirmed = f.confirmed()
             fun explode(): Nothing = if (memoryError) throw OutOfMemoryError("synthetic guard $phase Error")
                 else throw AssertionError("synthetic guard $phase Error")
+            var barrierRun = 0
             val records = object : RecordStore by f.records {
                 override fun persist(direction: Direction, summaries: Sequence<Pair<MethodKey, RunSummaryStore>>) {
-                    if (phase == GuardPhase.BODY) explode()
+                    if (phase == GuardPhase.BODY && barrierRun == failureRun) explode()
                     f.records.persist(direction, summaries)
                 }
             }
@@ -169,37 +171,44 @@ class BarrierFailureTest {
                         f.run(config, runOwner, timeout)
                     }, guardBarrier = { _, body ->
                         barriers++
-                        if (phase == GuardPhase.CONSTRUCTION) explode()
+                        barrierRun = barriers
+                        if (phase == GuardPhase.CONSTRUCTION && barrierRun == failureRun) explode()
                         bodies++
                         val next = body()
-                        if (phase == GuardPhase.CLEANUP) explode()
+                        if (phase == GuardPhase.CLEANUP && barrierRun == failureRun) explode()
                         next
                     })
                 val report = driver.analyze(listOf(demand.root, confirmed.root))
-                assertEquals(AnalysisEnd(RunStatus.FAILED, if (phase == GuardPhase.BODY) 2 else 1,
-                    if (phase == GuardPhase.BODY) Direction.BACKWARD else Direction.FORWARD, EndReason.ABNORMAL), report.end,
+                assertEquals(AnalysisEnd(RunStatus.FAILED, failureRun,
+                    if (failureRun == 2) Direction.BACKWARD else Direction.FORWARD, EndReason.ABNORMAL), report.end,
                     "A thrown OOME is an Error; it is not a memory guard status")
-                assertEquals(if (phase == GuardPhase.BODY) listOf(1, 2) else listOf(1), calls)
-                assertEquals(if (phase == GuardPhase.BODY) 2 else 1, barriers)
-                assertEquals(when (phase) { GuardPhase.CONSTRUCTION -> 0; GuardPhase.BODY -> 2; GuardPhase.CLEANUP -> 1 }, bodies)
-                val expected = if (phase == GuardPhase.CONSTRUCTION) emptyMap() else
+                assertEquals((1..failureRun).toList(), calls)
+                assertEquals(failureRun, barriers)
+                assertEquals(failureRun - if (phase == GuardPhase.CONSTRUCTION) 1 else 0, bodies)
+                val expected = if (failureRun == 1 && phase == GuardPhase.CONSTRUCTION) emptyMap() else
                     mapOf(demand.rule.id to ReportState.DEMAND, confirmed.rule.id to ReportState.DEMAND)
                 assertEquals(expected, states(report))
-                assertEquals(if (phase == GuardPhase.CONSTRUCTION) emptyList() else listOf(1), driver.frontiers.map { it.run })
-                if (phase != GuardPhase.CONSTRUCTION)
+                val completedBarriers = failureRun - if (phase == GuardPhase.CLEANUP) 0 else 1
+                assertEquals((1..completedBarriers).toList(), driver.frontiers.map { it.run },
+                    "Report updates precede persistence, while frontier commitment follows it")
+                if (expected.isNotEmpty())
                     assertTrue(report.entries.single { it.key.rule == confirmed.rule }.witnesses.none { it.confirmed })
             }
         }
     }
 
     @Test fun `actual barrier body cancellation maps to OOM after the already committed forward report update`(): Unit {
-        DriverFixtures(threads = 2).use { f ->
+        for (failureRun in listOf(1, 2)) DriverFixtures(threads = 2).use { f ->
             val demand = f.persistentDemand()
             val confirmed = f.confirmed()
+            var persistenceCalls = 0
             val records = object : RecordStore by f.records {
                 override fun persist(direction: Direction, summaries: Sequence<Pair<MethodKey, RunSummaryStore>>) {
-                    f.cancellation.cancel()
-                    f.cancellation.checkpoint()
+                    if (++persistenceCalls == failureRun) {
+                        f.cancellation.cancel()
+                        f.cancellation.checkpoint()
+                    }
+                    f.records.persist(direction, summaries)
                 }
             }
             sharedCopy(f.shared, records = records).use { owner ->
@@ -209,11 +218,13 @@ class BarrierFailureTest {
                     invokeRun = { config, runOwner, timeout -> calls += config.index; f.run(config, runOwner, timeout) },
                     guardBarrier = { _, body -> barriers++; body() })
                 val report = driver.analyze(listOf(demand.root, confirmed.root))
-                assertEquals(AnalysisEnd(RunStatus.OOM, 2, Direction.BACKWARD, EndReason.ABNORMAL), report.end)
+                assertEquals(AnalysisEnd(RunStatus.OOM, failureRun,
+                    if (failureRun == 1) Direction.FORWARD else Direction.BACKWARD, EndReason.ABNORMAL), report.end)
                 assertEquals(mapOf(demand.rule.id to ReportState.DEMAND, confirmed.rule.id to ReportState.DEMAND), states(report))
-                assertEquals(listOf(1, 2), calls)
-                assertEquals(2, barriers)
-                assertEquals(listOf(1), driver.frontiers.map { it.run }, "F1 guidance committed; cancellation interrupts the first strong persistence barrier")
+                assertEquals((1..failureRun).toList(), calls)
+                assertEquals(failureRun, barriers)
+                assertEquals((1 until failureRun).toList(), driver.frontiers.map { it.run },
+                    "The forward report survives, but the interrupted persistence barrier has no frontier")
                 assertFalse(f.cancellation.isActive())
             }
         }

@@ -115,8 +115,6 @@ private fun ownedSlot(path: List<AccessorIdx>): List<AccessorIdx> {
 
 /** One component's shared immutable closure. No mutable actor policy or supplier lives here. */
 class Run1StaticProfile internal constructor(
-    val accesses: Set<List<AccessorIdx>>,
-    val abstractions: Set<List<AccessorIdx>>,
     private var bySlot: StaticDirectory,
     private val interestCount: Int,
     val declaredMarkCount: Int,
@@ -132,9 +130,6 @@ class Run1StaticProfile internal constructor(
         private set
     lateinit var footprint: Run1StaticFootprint
         private set
-    val fieldReads: Set<Run1Slot.StaticField> get() = footprint.fieldSlots
-    val structuralFieldSlots: Set<Run1Slot.StaticField> get() = fieldReads
-    fun requestsField(slot: Run1Slot.StaticField): Boolean = slot in fieldReads
     private var allWideMarks = org.opentaint.dataflow.bidi.store.RequestMarkSet.EMPTY
     private var classWideMarks: Map<Int, org.opentaint.dataflow.bidi.store.RequestMarkSet> = emptyMap()
     private var directClassMarks: Map<Int, org.opentaint.dataflow.bidi.store.RequestMarkSet> = emptyMap()
@@ -155,16 +150,10 @@ class Run1StaticProfile internal constructor(
         return freezeRequestRows(result)
     }
 
-    /** Old directories are closure scratch only. Runtime retains the slot plan and wide/class metadata. */
+    /** Only mark scopes and class-point effects close over callees. Local value
+     * reads never become a transitive field-request set or an admission gate. */
     internal fun freezePlan(universe: Set<Run1Slot.StaticField>, classes: Set<Int>) {
         check(!this::precomputedRequests.isInitialized)
-        val slots = LinkedHashSet<Run1Slot.StaticField>()
-        val reads = LinkedHashSet<Run1Slot.StaticField>()
-        for (path in abstractions) {
-            cancellation.checkpoint()
-            if (path.size == 2) reads += Run1Slot.StaticField(path[0], path[1])
-        }
-        slots.addAll(reads)
         val fieldMarks = LinkedHashMap<Run1Slot.StaticField, org.opentaint.dataflow.bidi.store.RequestMarkSet>()
         val wide = LinkedHashMap<Int, org.opentaint.dataflow.bidi.store.RequestMarkSet>()
         val points = LinkedHashMap<Int, org.opentaint.dataflow.bidi.store.RequestMarkSet>()
@@ -176,7 +165,7 @@ class Run1StaticProfile internal constructor(
             val marks = interest.marks.toRequestMarkSet(cancellation::checkpoint)
             when {
                 path.size >= 2 -> {
-                    val slot = Run1Slot.StaticField(path[0], path[1]); slots += slot
+                    val slot = Run1Slot.StaticField(path[0], path[1])
                     fieldMarks[slot] = unionRequestMarks(fieldMarks[slot] ?: org.opentaint.dataflow.bidi.store.RequestMarkSet.EMPTY,
                         marks, cancellation::checkpoint)
                 }
@@ -205,11 +194,11 @@ class Run1StaticProfile internal constructor(
             if (!marks.isEmpty) points[cls] = marks
         }
         directClassMarks = ownedMap(points)
-        // F is a read gate. Mark-wide scopes and mutation scopes never widen it.
-        footprint = Run1StaticFootprint(reads, false, emptySet(), universe,
+        // The universe certifies legal coordinates; it is not a field-request relation.
+        footprint = Run1StaticFootprint(emptySet(), false, emptySet(), universe,
             classPoints = if (effectAllStatic) classes else selectedClassPoints + points.keys + effectWideClasses,
             classUniverse = classes)
-        precomputedRequests = FrozenStaticRequests.freeze(slots, root, classWideMarks, fieldMarks,
+        precomputedRequests = FrozenStaticRequests.freeze(universe, root, classWideMarks, fieldMarks,
             cancellation::checkpoint)
         ownedClassPoints = if (!rootClassMarks.isEmpty || effectAllStatic) classes
             else ownedSet(footprint.classPoints + wide.keys)
@@ -249,11 +238,6 @@ class Run1StaticProfile internal constructor(
         }
     }
 
-    fun containsAbstraction(path: List<AccessorIdx>): Boolean {
-        cancellation.checkpoint()
-        return path in abstractions
-    }
-
     /** Ordinary map lookup; a field supplier does not scan the component's entire catalog. */
     fun markInterestsAt(slot: List<AccessorIdx>): Sequence<StaticMarkInterest> {
         cancellation.checkpoint()
@@ -270,10 +254,14 @@ class Run1StaticProfile internal constructor(
     internal fun directory(): StaticDirectory = bySlot
 }
 
-/** Direct/transitive query counts describe closure construction scratch, which is released at freeze.
+/** Direct read/access counts are method-local metadata; their historical
+ * transitive counters stay zero because there is no inherited field plan.
+ * Direct/transitive MARK query counts describe closure scratch, released at freeze.
  *  Logical rows/memberships are cached without expanding B. PhysicalPrecomputedRows counts
  *  materialized B entries (zero for factored production); sparseFieldRows counts retained overlays.
- *  Base/descriptor/mark roots and primitive cells count identity after freeze, not retained bytes. */
+ *  selectedSetRoots/selectedFieldSlots retain their metric keys but count the
+ * shared legal coordinate domain, not a selected/requested field set.
+ * Base/descriptor/mark roots and primitive cells count identity after freeze, not retained bytes. */
 data class Run1StaticProfileStatistics(
     val methods: Int,
     val callEdges: Long,
@@ -323,6 +311,7 @@ data class Run1StaticProfileStatistics(
 class Run1StaticProfiles internal constructor(
     private val profiles: Map<CommonMethod, Run1StaticProfile>,
     private val targets: Map<CommonMethod, Set<CommonMethod>>,
+    private val readers: Map<CommonMethod, Set<Run1Slot.StaticField>>,
     val statistics: Run1StaticProfileStatistics,
 ) {
     val methods: Set<CommonMethod> get() = profiles.keys
@@ -331,6 +320,8 @@ class Run1StaticProfiles internal constructor(
     }
     fun contains(method: CommonMethod): Boolean = profiles.containsKey(method)
     fun containsTarget(caller: CommonMethod, callee: CommonMethod): Boolean = targets[caller]?.contains(callee) == true
+    /** Local reader locations only. They neither inherit across calls nor gate supplied entry bindings. */
+    fun localReads(method: CommonMethod): Set<Run1Slot.StaticField> = readers[method].orEmpty()
     fun footprints(): Map<CommonMethod, Run1StaticFootprint> = ownedMap(profiles.mapValues { it.value.footprint })
 
     companion object {
@@ -463,8 +454,6 @@ private class StaticProfileBuilder(private val ap: ApManager) {
     }
 
     private class Part {
-        var accesses = persistentHashSetOf<List<AccessorIdx>>()
-        var abstractions = persistentHashSetOf<List<AccessorIdx>>()
         var marks: StaticDirectory = persistentHashMapOf()
         var markCount = 0
         var declarations = 0
@@ -554,6 +543,7 @@ private class StaticProfileBuilder(private val ap: ApManager) {
             componentCount++
         }
 
+        val localReaders = LinkedHashMap<CommonMethod, Set<Run1Slot.StaticField>>()
         val direct = Array(componentCount) { Part() }
         val uniqueDeclarations = Part()
         var directAccesses = 0L; var directAbstractions = 0L
@@ -577,8 +567,11 @@ private class StaticProfileBuilder(private val ap: ApManager) {
             directAccesses += localAccesses.size; directAbstractions += localAbstractions.size
             directInterests += localInterests.declarations; directCleaners += local.cleanerMarks.size
             directGroups += localInterests.markCount
-            part.accesses = union(part.accesses, localAccesses)
-            part.abstractions = union(part.abstractions, localAbstractions)
+            if (localAbstractions.isNotEmpty()) {
+                val reads = localAbstractions.asSequence().filter { it.size == 2 }
+                    .map { Run1Slot.StaticField(it[0], it[1]) }.toSet()
+                if (reads.isNotEmpty()) localReaders[methods[index]] = ownedSet(reads)
+            }
             val joined = union(part.marks, part.markCount, part.declarations,
                 localInterests.marks, localInterests.markCount, localInterests.declarations)
             part.marks = joined.values; part.markCount = joined.groups; part.declarations = joined.declarations
@@ -611,10 +604,6 @@ private class StaticProfileBuilder(private val ap: ApManager) {
             for (callee in successors[index]) {
                 check()
                 val child = checkNotNull(closed[callee])
-                @Suppress("UNCHECKED_CAST")
-                part.accesses = union(part.accesses, child.accesses as PersistentSet<List<AccessorIdx>>)
-                @Suppress("UNCHECKED_CAST")
-                part.abstractions = union(part.abstractions, child.abstractions as PersistentSet<List<AccessorIdx>>)
                 val joined = union(part.marks, part.markCount, part.declarations,
                     child.directory(), child.markInterests.size, child.declaredMarkCount)
                 part.marks = joined.values
@@ -628,13 +617,12 @@ private class StaticProfileBuilder(private val ap: ApManager) {
             }
             // An unchanged inherited plan can share the whole immutable owner, not copy B per method.
             val inherited = successors[index].asSequence().map { checkNotNull(closed[it]) }.firstOrNull { child ->
-                part.accesses === child.accesses && part.abstractions === child.abstractions &&
-                    part.marks === child.directory() && part.cleaners === child.cleanerIds &&
+                part.marks === child.directory() && part.cleaners === child.cleanerIds &&
                     part.wideClasses === child.effectWideClasses && part.allStatic == child.effectAllStatic
                     && part.classPoints === child.selectedClassPoints
                     && part.staticMayWrite == child.staticMayWrite
             }
-            closed[index] = inherited ?: Run1StaticProfile(part.accesses, part.abstractions, part.marks, part.markCount,
+            closed[index] = inherited ?: Run1StaticProfile(part.marks, part.markCount,
                 part.declarations, part.cleaners, cancellation, part.wideClasses, part.allStatic, part.classPoints,
                 part.staticMayWrite)
             for (parent in parents[index]) { check(); if (--remaining[parent] == 0) ready.addLast(parent) }
@@ -647,11 +635,8 @@ private class StaticProfileBuilder(private val ap: ApManager) {
         for (profile in closed) {
             check()
             val value = checkNotNull(profile)
-            accessRoots[value.accesses] = true; abstractionRoots[value.abstractions] = true
             markRoots[value.directory()] = true; cleanerRoots[value.cleanerIds] = true
-            transitiveAccesses += value.accesses.size; transitiveAbstractions += value.abstractions.size
-            maximum = maxOf(maximum, value.accesses.size.toLong() + value.abstractions.size +
-                value.declaredMarkCount + value.cleanerMarkCount)
+            maximum = maxOf(maximum, value.declaredMarkCount.toLong() + value.cleanerMarkCount)
         }
         // These are metadata payload cells, not a claim about persistent-trie node headers or retained bytes.
         val paths = HashSet<List<AccessorIdx>>()
@@ -668,7 +653,6 @@ private class StaticProfileBuilder(private val ap: ApManager) {
             check()
             val profile = checkNotNull(closed[component[index]])
             byMethod[methods[index]] = profile
-            transitiveAccesses += profile.accesses.size; transitiveAbstractions += profile.abstractions.size
             transitiveInterests += profile.declaredMarkCount; transitiveCleaners += profile.cleanerMarkCount
             transitiveGroups += profile.markInterests.size
             var edges = persistentHashSetOf<CommonMethod>()
@@ -713,8 +697,8 @@ private class StaticProfileBuilder(private val ap: ApManager) {
                 uniqueRows = Math.addExact(uniqueRows, base.logicalRows)
                 uniqueMembers = Math.addExact(uniqueMembers, base.logicalMembers)
                 if (base is FrozenStaticRequests) {
-                    if (selectedRoots.put(base.selected, true) == null)
-                        selectedSlots = Math.addExact(selectedSlots, base.selected.size.toLong())
+                    if (selectedRoots.put(base.domainSlots, true) == null)
+                        selectedSlots = Math.addExact(selectedSlots, base.domainSlots.size.toLong())
                     if (commonRoots.put(base.commonByClass, true) == null)
                         commonRows = Math.addExact(commonRows, base.commonByClass.size.toLong())
                     if (sparseRoots.put(base.byField, true) == null)
@@ -740,6 +724,6 @@ private class StaticProfileBuilder(private val ap: ApManager) {
             runtimeMarkSetRoots = markSets.size, cancellationCheckpoints = checkpoints,
             staticMayWriteMethods = byMethod.values.count { it.staticMayWrite },
             closureNanos = System.nanoTime() - started)
-        return Run1StaticProfiles(ownedMap(byMethod), ownedMap(frozenEdges), statistics)
+        return Run1StaticProfiles(ownedMap(byMethod), ownedMap(frozenEdges), ownedMap(localReaders), statistics)
     }
 }

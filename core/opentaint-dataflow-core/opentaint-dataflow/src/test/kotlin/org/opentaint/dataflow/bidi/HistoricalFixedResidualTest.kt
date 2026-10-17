@@ -153,7 +153,11 @@ class HistoricalFixedResidualTest {
             "A non-reversible must/E record forces old backward callee analysis")
         assertContains(old.runs[1].observation.sourceHits, ObservedSourceHit(factory, factory.statement, sourceT))
         assertContains(old.runs[1].handOff.seeds, Seed.Source(factory, factory.statement, sourceT))
-        assertTrue(direct.runs[0].handOff.records.isEmpty(), "Selected F1 publications are guidance, never executable records")
+        val normalSingletons = direct.runs[0].observation.rawSummaries.filter {
+            !it.conclusion.demand && it.premise.size == 1
+        }.map { RawRecord(it.method, Direction.FORWARD, it.premise.single(), it.conclusion) }.toSet()
+        assertEquals(normalSingletons, direct.runs[0].handOff.records.toSet(),
+            "Selected F1 uses the ordinary NORMAL singleton writer; DEMAND covers remain ineligible")
         assertTrue(direct.runs[1].observation.initials.any { it.method == factory && it.initial.fact.base != AccessPathBase.Zero })
         val hits = setOf(ObservedSourceHit(factory, factory.statement, sourceT),
             ObservedSourceHit(factory, factory.statement, sourceU))
