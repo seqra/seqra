@@ -1,6 +1,8 @@
 # Next analyzer-core iteration after selective preservation
 
 Date: 16 October 2026. Measurement runtime: `28a123f0eac937e8f2feca9ee5dd84e38fa8f979`.
+Updated: 17 October 2026. Selected next-iteration change: gate default summaries
+on prescan normal-exit reachability, then persist eligible run-1 NORMAL summaries.
 Status: proposal only. All three normal heap reports and the targeted
 weighted-input/publication checks are complete. No optimization in this
 document is implemented.
@@ -13,8 +15,212 @@ OWASP times out; the other three run out of memory. Conductor and PDF meet
 the 60-second run-1 engine target; OWASP and ThingsBoard do not.
 
 The scope is analyzer execution and storage. IR storage is outside scope.
-The existing [unified static/request/field-write contract](../../spec/run1-field-writes.md)
-continues to apply unless a future selection explicitly changes it.
+The [unified static/request/field-write contract](../../spec/run1-field-writes.md)
+describes the measured implementation. The selected change below replaces
+its unconditional default publication and blanket run-1 persistence ban.
+The request split, initial grammar, field-write cases and layer rules stay.
+
+## Selected: gate defaults on normal-exit reachability and reuse NORMAL
+
+**Current:** every reached run-1 method publishes an ordinary `S.* -> S.*`
+default at initialization. StaticMayWrite chooses NORMAL or DEMAND, but
+normal-exit reachability is not checked. A write-free method that cannot
+return normally can therefore supply a NORMAL identity. Its callers can
+derive further NORMAL summaries from that continuation. The driver avoids
+cross-iteration reuse by skipping persistence for the whole first run.
+
+**Proposed:** after a successful joined prescan, copy whether each method
+entry has a ZERO-to-ZERO edge to its normal exit. Emit either kind of default
+only when that bit is true. At the completed run-1 barrier, persist NORMAL
+summaries through the ordinary record writer. DEMAND summaries remain
+guidance for refinement. This change needs no provisional-summary provenance
+bit, new request storage or special call handler.
+
+### Prescan result and lifetime
+
+For the exact method entry/context key K, define:
+
+```text
+normalExitReachable(K) = exists prescan edge (K, ZERO) -> (normalExit(K), ZERO)
+```
+
+Inspect ZERO-to-ZERO edges, not ZERO-to-fact edges, call-graph membership,
+an exceptional exit, or a syntactic return instruction. A path through a
+local catch/finally block can qualify if it reaches the normal exit. A
+backward discovery edge added to reach an exceptional exit is not evidence.
+
+The existing prescan summary storage retains ZERO-to-ZERO exit statements.
+Add a narrow value exporter beside the resolved-graph export. It must not
+materialize all tainted summaries through `getSummaries()` just to read
+one reachability bit. The names below denote proposed adapter methods:
+
+```kotlin
+ifdsEngine.requirePrescanJoined() // also require successful prescan status
+val calls = ifdsEngine.prescanResolvedGraph()
+val normalExits = ifdsEngine.copyNormalExitReachability()
+bidi.gather(analysisManager, startMethods, calls, normalExits)
+analysisManager.releasePrescan()
+ifdsEngine.releasePrescan()
+```
+
+Copy immutable keys and Boolean results only. Do not retain a runner,
+subscription, analysis context, ZERO edge, AP store or callback into released prescan
+owners. Attach the bit to the immutable method-entry plan. F/B/W can still
+share their existing CommonMethod plans; the entry/context identity of the
+reachability result must not be lost by an unchecked method-wide union.
+
+The export must cover all method entries admitted by the new core, including
+root/callee and modeled empty/native entries. Prove the prescan-to-runtime
+key mapping. A missing entry is not a known false bit: validate completeness
+before starting run-1 instead of silently suppressing a default or assuming
+return. Existing prescan model results supply modeled return reachability.
+No second call resolution or new whole-program reachability solver is proposed.
+
+**Reachability boundary:** this is reachability in the prescan control-flow
+model, not concrete termination or path feasibility. Current JVM prescan
+`propagateZeroToZero()` emits both CallToReturnZeroFact and CallToStartZeroFact.
+Thus a caller's ZERO edge can include a call-to-return bypass; it is not a
+balanced concrete return witness for every nested call. Preserve and test
+that existing approximation. Do not claim that this gate removes every
+transitive non-termination or exception false positive. Non-termination FPs
+remain acceptable; the reuse proof below is relative to the stated prescan
+control model and ordinary analyzer approximations.
+
+### Ordinary default publication
+
+Keep the existing retained/live publication path and StaticMayWrite closure:
+
+| normalExitReachable(K) | StaticMayWrite(method(K)) | Default |
+| --- | --- | --- |
+| False | Either | None |
+| True | False | `S.* -> S.* [NORMAL]` |
+| True | True | `S.* -> S.* [DEMAND]` |
+
+```kotlin
+// Called once by the reached actor's owner, as today.
+if (config.run1 && entryPlan.normalExitReachable) {
+    val layer = if (staticProfile.staticMayWrite) Layer.DEMAND else Layer.NORMAL
+    summaryDelta(staticIdentityPremise, staticIdentityFacts(layer))
+}
+```
+
+The gate applies to both NORMAL and DEMAND defaults. It does not gate actor
+creation, ZERO discovery, local sources/sinks, ordinary input delivery,
+request handling or computed summaries. A method without a normal exit can
+still contain a real sink. Continue to emit no abstract `S.*` initial and
+apply stored defaults through ordinary subscriptions and summary handlers.
+For a DEMAND default, preserve the actual static field/tail and join layers
+as today; do not convert the supplied field into `[any]` merely on demotion.
+
+### Persist run-1 NORMAL summaries
+
+Remove the driver-wide `if (!config.run1)` guard around ordinary persistence:
+
+```kotlin
+// At the existing successfully completed run barrier, including run-1.
+shared.records.persist(
+    config.direction,
+    result.analyzers.asSequence().map { it.key to it.summaries },
+)
+val handOff = HandOff.of(config, result, report, shared)
+```
+
+Keep the existing writer's eligibility and raw-summary source: NORMAL
+singleton premises, including eligible ZERO/concrete/abstract FLOW records.
+It skips DEMAND and multi-premise rows. This proposal adds no persistent ND
+format and never flattens a whole ND premise. A concrete STAR run-1 initial
+starts at DEMAND and cannot become a NORMAL record through promotion.
+The root premise of a default summary is legal as a record even though it
+is not a legal run-1 method initial.
+
+Eligible NORMAL defaults and computed NORMAL summaries use the same native
+and opposite-direction readers as later records. Preserve their geometry,
+tail, mark exclusions mx, field annotations, method/entry/context and caller
+application rules. Do not erase mx, convert a record to a demand projection,
+or add a second default-specific persistence route. The default gate already
+acts at emission; persistence needs no extra reachability filter per row.
+Opposite views retain the existing reversal admission and null-result guards;
+persisting a record does not force a reversed view for an unsupported shape.
+
+Persist only a complete joined run. Failed, cancelled, OOM and timeout
+prefixes supply no executable records. The later run receives the existing
+read-only record view. Keep demand handoff, actual current-query admission,
+late-response replay and complete-premise checks: records are reusable
+responses, not a complete catalog of every required response.
+
+Report confirmation and forward stop rules are separate. This selected
+change does not automatically confirm run-1 findings or remove mandatory
+refinement of its candidates. DEMAND remains guidance only; NORMAL is no
+longer discarded solely because its run index is 1.
+
+### Required proofs and controls
+
+Update the affected specification/proof claims before implementation:
+
+1. **Export fidelity and coverage.** Each copied true bit has the exact
+   prescan ZERO-to-normal-exit edge for that entry; each such edge yields
+   true. Known false entries are complete prescan results. Key translation,
+   boundary classification, native models and release preserve this result.
+2. **Default classification.** A default exists exactly when the bit is true.
+   For a NORMAL default, the complete W closure excludes static mutation,
+   cleaners, possible static write effects and unknown mutation under the
+   selected model. DEMAND defaults do not enter executable persistence.
+3. **NORMAL derivation reuse.** Prove by induction that a run-1 NORMAL
+   derivation refines the ordinary transfer relation under that control model.
+   Exclusion-requiring residuals and genuine cuts go to DEMAND; input, edge
+   and rule-premise layers join monotonically. A DEMAND dependency cannot
+   supply a NORMAL result. Independent NORMAL source generation must keep
+   its own supported derivation. Requests admit actual concrete suppliers;
+   they are not evidence for a source/sink condition. Preserve full ND support.
+4. **Native and opposite reads.** Prove that eligible persisted NORMAL
+   summaries retain their transfer when read later, including at a larger
+   positive field limit. Retain suffix correlation, mx, input/output layers
+   and normal R1 eligibility. Missing F1 responses remain computable by actual
+   later queries; an old request/read inventory cannot veto them.
+5. **Coverage after suppressing defaults.** With no prescan normal-exit edge,
+   default removal must not remove a returning flow in the selected model.
+   Preserve local findings and exceptional/catch paths. Check the model's
+   call bypasses explicitly; do not substitute a concrete-return theorem.
+
+These are proof obligations, not claims established by the existing blanket
+quarantine proofs. Replace those claims rather than cite them as evidence
+for the new rule.
+
+Required controls include straight return; pure infinite loop; always-throw;
+throw caught locally before return; caller with a catch; recursive SCC with
+and without a returning branch; distinct entries/contexts; modeled native
+return; static write and selected static cleaner; broad write demotion versus
+disjoint NORMAL survival; NORMAL FLOW mx reuse; ZERO generation; full ND
+support; both arrival orders; larger later limits; and failed prescan/run.
+Change the old tests that require no F1 records to check eligible NORMAL
+native/opposite reuse and absence of DEMAND records. Keep the exact report
+location and precision checks; the accepted non-termination FP does not
+permit changing comparison identities.
+
+### Expected effect and implementation order
+
+The change makes run-1 NORMAL transfers available to ordinary record reads
+in run-2/run-3 and later iterations. Gating defaults can also avoid their
+continuations at entries with no normal-exit reachability. Current call
+handling still sends LinkIn and admits actual callee queries even when a
+record answers; replaying a record does not cancel that work. Persistence
+alone therefore does not establish avoided recomputation. Suppressing a
+covered query would need a separate design and is not added here.
+
+Measure response reuse, duplicate derived work and later state before
+claiming a time or memory gain. Persistent records retain memory across
+iterations. This selected reuse change has an unmeasured net memory effect
+and is separate from the other candidates' memory ranking. It promises no
+run-1 60-second result.
+
+Implementation order: update the contract and discharge the local laws;
+add the narrow joined-prescan export and complete key mapping; gate ordinary
+default initialization; enable ordinary F1 NORMAL persistence; update native,
+opposite, handoff and failure controls; then repeat the fixed project runs.
+Measure exported return bits, suppressed N/D defaults, persisted NORMAL rows,
+native/opposite record hits, later derived-state/allocation changes and peak
+memory, in addition to every reached/completed/accepted iteration and full
+sink identities. No runtime implementation is changed by this document edit.
 
 ## Evidence and choice of approach
 
@@ -70,6 +276,9 @@ before implementation selection.
 | 6 | Reuse cleaner geometry and bypass idempotent FLOW updates | Strong evidence for allocation/GC reduction; persistent-byte savings are not established. | Highest measured CPU/allocation lead on OWASP |
 | 7 | Admit mark sets once and suppress empty-delta wake-ups | Already-merged request stores are relatively small; avoids temporary work around them. | Direct duplicate-work lead on OWASP and ThingsBoard |
 
+The selected normal-summary reuse change above has an unmeasured net memory
+effect, so it is not assigned a speculative place in this measured-owner
+ranking. Its selection is independent of the other candidate optimizations.
 The first rank is potential impact, conditional on shared state/work widths;
 it is not a demonstrated saving or an implementation-ready selection. If
 that measurement gives little overlap, proceed with the narrower proposals.
@@ -488,7 +697,9 @@ Erasing FLOW mx is not equivalent to the current F1 contract. For example,
 an abstract summary for `clean T(p); return p` uses mx to remove actual T
 when that summary executes inside F1. Erasing mx and adding DEMAND returns
 T/DEMAND instead and can enable additional sources and sink candidates.
-Cross-iteration quarantine does not prevent those within-F1 effects. A new
+The measured implementation's cross-iteration quarantine does not prevent
+those within-F1 effects. Planned NORMAL reuse also requires retaining mx
+across iterations. A new
 may-abstraction would need separate coverage/precision proofs and measured mx
 diversity. No such change is selected here.
 
@@ -508,6 +719,9 @@ work or unnecessary retained relations; use representation changes where the
 remaining relation is required and measured occupancy justifies them.
 
 For a selected change, keep the fixed configurations and direct Gradle task.
+The selected normal-exit gate and F1 NORMAL reuse must pass their proof and
+control obligations above before implementation measurements can replace
+the current results.
 Measure run-1 engine separately, every later reached/completed/accepted
 iteration, complete command time, strict full sink locations, multiplicity,
 GC/allocation and OOM ownership. The current application precision failures
