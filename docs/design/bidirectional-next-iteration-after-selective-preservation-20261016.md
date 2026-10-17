@@ -1,8 +1,9 @@
 # Next analyzer-core iteration after selective preservation
 
 Date: 16 October 2026. Measurement runtime: `28a123f0eac937e8f2feca9ee5dd84e38fa8f979`.
-Updated: 17 October 2026. Selected next-iteration change: gate default summaries
-on prescan normal-exit reachability, then persist eligible run-1 NORMAL summaries.
+Updated: 17 October 2026. Selected next-iteration changes: gate default summaries
+on prescan normal-exit reachability and persist eligible run-1 NORMAL summaries.
+The new static propagation design makes all static-related run-1 FLOW DEMAND.
 Status: proposal only. All three normal heap reports and the targeted
 weighted-input/publication checks are complete. No optimization in this
 document is implemented.
@@ -18,7 +19,12 @@ The scope is analyzer execution and storage. IR storage is outside scope.
 The [unified static/request/field-write contract](../../spec/run1-field-writes.md)
 describes the measured implementation. The selected change below replaces
 its unconditional default publication and blanket run-1 persistence ban.
-The request split, initial grammar, field-write cases and layer rules stay.
+The [bottom-up static FLOW specification](../../spec/run1-bottom-up-static-propagation.md)
+now defines the proposed static transport: local reader activation, shared
+call relations, bottom-up nonidentity effects and full-origin derived inputs.
+It includes the new all-static-FLOW DEMAND rule, its static availability
+approximation, gaps, proof obligations and measured opportunity. Concrete
+TAINT and nonstatic field-write semantics retain their existing paths.
 
 ## Selected: gate defaults on normal-exit reachability and reuse NORMAL
 
@@ -30,11 +36,13 @@ derive further NORMAL summaries from that continuation. The driver avoids
 cross-iteration reuse by skipping persistence for the whole first run.
 
 **Proposed:** after a successful joined prescan, copy whether each method
-entry has a ZERO-to-ZERO edge to its normal exit. Emit either kind of default
-only when that bit is true. At the completed run-1 barrier, persist NORMAL
-summaries through the ordinary record writer. DEMAND summaries remain
-guidance for refinement. This change needs no provisional-summary provenance
-bit, new request storage or special call handler.
+entry has a ZERO-to-ZERO edge to its normal exit. Emit the static default
+only when that bit is true. Under the new static FLOW rule this default is
+always DEMAND, including for write-free methods. At the completed run-1
+barrier, persist eligible NORMAL summaries through the ordinary record writer.
+DEMAND summaries remain guidance for refinement. The gate and persistence
+change needs no provisional-summary provenance bit or new request storage.
+The separately specified bottom-up transport changes the FLOW call pipeline.
 
 ### Prescan result and lifetime
 
@@ -88,23 +96,22 @@ control model and ordinary analyzer approximations.
 
 ### Ordinary default publication
 
-Keep the existing retained/live publication path and StaticMayWrite closure:
+Keep the existing retained/live publication path. The new static FLOW rule
+supersedes the earlier StaticMayWrite-based NORMAL/DEMAND choice in run-1:
 
-| normalExitReachable(K) | StaticMayWrite(method(K)) | Default |
-| --- | --- | --- |
-| False | Either | None |
-| True | False | `S.* -> S.* [NORMAL]` |
-| True | True | `S.* -> S.* [DEMAND]` |
+| normalExitReachable(K) | Default |
+| --- | --- |
+| False | None |
+| True | `S.* -> S.* [DEMAND]` |
 
 ```kotlin
 // Called once by the reached actor's owner, as today.
 if (config.run1 && entryPlan.normalExitReachable) {
-    val layer = if (staticProfile.staticMayWrite) Layer.DEMAND else Layer.NORMAL
-    summaryDelta(staticIdentityPremise, staticIdentityFacts(layer))
+    summaryDelta(staticIdentityPremise, staticIdentityFacts(Layer.DEMAND))
 }
 ```
 
-The gate applies to both NORMAL and DEMAND defaults. It does not gate actor
+The gate applies to the default, now always DEMAND in run-1. It does not gate actor
 creation, ZERO discovery, local sources/sinks, ordinary input delivery,
 request handling or computed summaries. A method without a normal exit can
 still contain a real sink. Continue to emit no abstract `S.*` initial and
@@ -126,14 +133,15 @@ val handOff = HandOff.of(config, result, report, shared)
 ```
 
 Keep the existing writer's eligibility and raw-summary source: NORMAL
-singleton premises, including eligible ZERO/concrete/abstract FLOW records.
+singleton premises, including eligible ZERO/concrete/nonstatic FLOW records.
 It skips DEMAND and multi-premise rows. This proposal adds no persistent ND
 format and never flattens a whole ND premise. A concrete STAR run-1 initial
 starts at DEMAND and cannot become a NORMAL record through promotion.
-The root premise of a default summary is legal as a record even though it
-is not a legal run-1 method initial.
+The root premise of a default summary is legal in summary storage even though
+it is not a legal run-1 method initial. This run-1 default is DEMAND and does
+not pass NORMAL record eligibility.
 
-Eligible NORMAL defaults and computed NORMAL summaries use the same native
+Eligible computed NORMAL summaries use the same native
 and opposite-direction readers as later records. Preserve their geometry,
 tail, mark exclusions mx, field annotations, method/entry/context and caller
 application rules. Do not erase mx, convert a record to a demand projection,
@@ -162,12 +170,13 @@ Update the affected specification/proof claims before implementation:
    true. Known false entries are complete prescan results. Key translation,
    boundary classification, native models and release preserve this result.
 2. **Default classification.** A default exists exactly when the bit is true.
-   For a NORMAL default, the complete W closure excludes static mutation,
-   cleaners, possible static write effects and unknown mutation under the
-   selected model. DEMAND defaults do not enter executable persistence.
+   All run-1 static FLOW defaults are DEMAND, including in write-free methods.
+   Prove the static availability cover and sticky layer rule in the new
+   specification. DEMAND defaults do not enter executable persistence.
 3. **NORMAL derivation reuse.** Prove by induction that a run-1 NORMAL
    derivation refines the ordinary transfer relation under that control model.
-   Exclusion-requiring residuals and genuine cuts go to DEMAND; input, edge
+   Static-related FLOW, exclusion-requiring residuals and genuine cuts go to
+   DEMAND; input, edge
    and rule-premise layers join monotonically. A DEMAND dependency cannot
    supply a NORMAL result. Independent NORMAL source generation must keep
    its own supported derivation. Requests admit actual concrete suppliers;
@@ -189,8 +198,9 @@ for the new rule.
 Required controls include straight return; pure infinite loop; always-throw;
 throw caught locally before return; caller with a catch; recursive SCC with
 and without a returning branch; distinct entries/contexts; modeled native
-return; static write and selected static cleaner; broad write demotion versus
-disjoint NORMAL survival; NORMAL FLOW mx reuse; ZERO generation; full ND
+return; static write and selected static cleaner; broad nonstatic write
+demotion versus disjoint NORMAL survival; nonstatic NORMAL FLOW mx reuse;
+static-to-local sticky DEMAND; ZERO generation; full ND
 support; both arrival orders; larger later limits; and failed prescan/run.
 Change the old tests that require no F1 records to check eligible NORMAL
 native/opposite reuse and absence of DEMAND records. Keep the exact report
@@ -199,7 +209,7 @@ permit changing comparison identities.
 
 ### Expected effect and implementation order
 
-The change makes run-1 NORMAL transfers available to ordinary record reads
+The change makes eligible run-1 NORMAL transfers available to ordinary record reads
 in run-2/run-3 and later iterations. Gating defaults can also avoid their
 continuations at entries with no normal-exit reachability. Current call
 handling still sends LinkIn and admits actual callee queries even when a
@@ -217,7 +227,7 @@ Implementation order: update the contract and discharge the local laws;
 add the narrow joined-prescan export and complete key mapping; gate ordinary
 default initialization; enable ordinary F1 NORMAL persistence; update native,
 opposite, handoff and failure controls; then repeat the fixed project runs.
-Measure exported return bits, suppressed N/D defaults, persisted NORMAL rows,
+Measure exported return bits, suppressed defaults, persisted NORMAL rows,
 native/opposite record hits, later derived-state/allocation changes and peak
 memory, in addition to every reached/completed/accepted iteration and full
 sink identities. No runtime implementation is changed by this document edit.
