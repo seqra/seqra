@@ -2,6 +2,11 @@
 
 Date: 17 October 2026. Status: implemented at `ab6c3cd00`; project measurements closed.
 
+The [concrete-static extension](run1-bottom-up-concrete-static-propagation.md)
+is proposed separately. It removes ordinary static mark-request propagation
+and makes concrete static propagation DEMAND. It is not implemented and does
+not change the measured runtime contract described here.
+
 The [runtime refinement](../docs/design/bidirectional-bottom-up-static-implementation-20261017.md)
 maps this contract to the packed identity lane and ordinary effect boundaries.
 The constructive model remains the specification oracle. Runtime tests check
