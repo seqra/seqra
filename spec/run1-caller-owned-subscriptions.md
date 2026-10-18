@@ -1,5 +1,11 @@
 # Run-1 caller-owned inputs, requests and summary subscriptions
 
+The newer [rule-group mark contract](rule-group-marks.md) specifies the next
+mark-domain and schedule change. Its group-valued run-1, cleaner requests
+and typed exclusions override this file at that seam. It does not replace
+the static transport implementation described here. The newer specification
+is not implemented; the measurements below still use full run-1 marks.
+
 Date: 18 October 2026. Status: **implemented; measured project acceptance gates fail**.
 Scope: FORWARD run-1, field limit 1. This is the complete caller-subscription
 contract. It replaces the proposed entry-offer/source-pair routing in the

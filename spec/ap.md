@@ -1,5 +1,12 @@
 # Access paths and storages — specification
 
+The selected [rule-group mark contract](rule-group-marks.md) takes precedence
+for mark ownership, run-1 group values, selected-mark cleaners, typed mark
+exclusions, group requests and the run schedule. Run-1 is FORWARD/group/limit
+1; run-2 is BACKWARD/full/limit 1. This is a specification change; the analyzer
+implementation is unchanged. Its [proof dossier](rule-group-mark-proofs.md)
+states the checked scope and the remaining runtime adapter obligations.
+
 The [unified run-1 contract](run1-field-writes.md) has precedence for static
 field/mark requests, initial emission/replay, selective field writes, Empty-E
 producers, ordinary static defaults and later strong refinement.

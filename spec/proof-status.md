@@ -1,5 +1,33 @@
 # Current proof status
 
+## Selected rule-group mark specification
+
+The [rule-group mark contract](rule-group-marks.md) specifies one group for
+an entire top-level rule, including join branches. Run-1 taint values are
+group-valued DEMAND. Selected-mark cleaners retain those values and request
+the group; RemoveAllMarks can still kill. A NORMAL FLOW group exclusion is
+a partial-domain record and requires its independent repair interest.
+Run-2 is BACKWARD with full marks at field limit 1. Run-3 is FORWARD/full/
+limit 2; later limits increase. There is no run/limit 0.
+
+The [proof dossier](rule-group-mark-proofs.md) separates the new concept from
+merged group storage. It covers finite mark ownership, exclusion/cleaner
+laws, same-group survivor repair, actual-supply joins, complete full-member
+decoding, executable route witnesses, the positive schedule and scoped
+mark-slot savings. It lists the AP, provider, signed NNF/ND, queue, record
+and handoff adapter obligations. These local proofs do not establish a
+complete JVM iteration or a project speedup.
+
+Lean 4.33.1 build passes. The focused audit checks **1,090 declarations**
+with **zero unexpected axioms**; **80 controls pass**. The dossier links
+the exact source-hash receipt and logs. Signed NNF coverage is checked at
+one fixed observation position; multi-position binding remains an adapter.
+
+The analyzer is unchanged. This specification takes precedence only at its
+stated mark/schedule seam. The static pool is still a separate proposal.
+The measured runtime and latest reached/completed/accepted runs remain the
+ones in the implementation checkpoint below.
+
 ## Current caller-owned subscription implementation
 
 The [detailed caller-owned contract](run1-caller-owned-subscriptions.md) and

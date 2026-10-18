@@ -135,3 +135,7 @@ import ApSpec.BottomUpStaticModel
 import ApSpec.BottomUpConcreteStatic
 import ApSpec.BottomUpConcreteStaticNeeds
 import ApSpec.StaticNeedReplayBatch
+import ApSpec.RuleGroupMarks
+import ApSpec.RuleGroupRequestRepair
+import ApSpec.RuleGroupSchedule
+import ApSpec.RuleGroupConditions

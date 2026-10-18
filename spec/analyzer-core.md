@@ -1,5 +1,15 @@
 # Analyzer core — specification
 
+The selected [rule-group mark contract](rule-group-marks.md) overrides mark
+precision and the numbered schedule below. Run-1 uses DEMAND group values
+at field limit 1. Run-2 uses full marks at field limit 1. Later limits grow
+as stated there. Request completion, partial NORMAL records and full-member
+query admission must meet that contract. Its partial-domain NORMAL FLOW
+record rule overrides older blanket guidance-only statements below at that
+mark seam. This is a specification change;
+the analyzer implementation is unchanged. The
+[proof dossier](rule-group-mark-proofs.md) states the local proof scope.
+
 The [unified run-1 contract](run1-field-writes.md) specifies static field/mark
 requests, R/B/dynamic/P ownership, replay, all nine initials and F1 stores,
 Empty-E fact production and static defaults. Complete field overwrite kills
