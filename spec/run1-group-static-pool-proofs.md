@@ -7,7 +7,9 @@ terms and code names keep their stated meanings.
 This dossier follows [proof-guide.md](proof-guide.md) and supports the
 [static proposal](run1-group-static-pool.md). The user rejected backward
 provider propagation inside run-1. Static reads now create conditional
-ordinary forward edges. A request uses that edge's static initial to join
+ordinary forward edges only after a compatible FLOW or group-valued write
+has been published. Reached reads without such a write stay pending. A
+request uses an admitted edge's static initial to join
 writer supply directly, then resumes at the current operation input.
 
 The selected static order/caller-context approximation stays in effect.
@@ -22,7 +24,8 @@ No analyzer implementation or project measurement is part of this work.
 
 For a certified mark-preserving FLOW branch, the reference propagates a
 compatible supplied field group through ordinary forward operations to S.
-The direct procedure first propagates its conditional static-origin edge.
+The direct procedure admits the read from a published write, then
+propagates its conditional static-origin edge.
 When S needs the group, it instantiates that edge at S from the same supply.
 
 ```text
@@ -37,6 +40,11 @@ this scope. The optimization changes when the group is instantiated. It
 does not prove equality for arbitrary mark rewrites, kills or unresolved
 guards. Those operations need the compiler contracts in section 7.
 
+The gate intentionally removes conditional read edges and summaries for
+fields with no published corresponding write. Equality is required for
+supplied requested outcomes in the checked scope, not for every ungrounded
+conditional FLOW summary of the former ungated procedure.
+
 ZERO is control activation for a conditional static summary. It preserves
 the static premise. It is not a supplied field group or a new source.
 
@@ -44,6 +52,7 @@ the static premise. It is not a supplied field group or a new source.
 
 | Active model | Scope | Constructive result |
 | --- | --- | --- |
+| [Run1StaticReadAdmission.lean](lean/ApSpec/Run1StaticReadAdmission.lean) | Reached-read/published-write join, fresh admitted regions and group-publication invariant | No edge without a matching write, all arrival/batch orders, no group fabrication and no loss of supplied requested outputs |
 | [Run1StaticInitialRefinement.lean](lean/ApSpec/Run1StaticInitialRefinement.lean) | Identity FLOW templates, ZERO call activation, direct supply/subscription joins and merged batches | Same identity result as forward instantiation, static-premise preservation, rooted DEMAND replies at the subscribed point, arrival/merge equivalence and no duplicate delivery |
 | [Run1StaticGroupDerivation.lean](lean/ApSpec/Run1StaticGroupDerivation.lean) | Finite positive group rules, source seeds, transforms, multi-input guards and static relay contraction | Rooted exact closure, executable proof trees, no invented groups and equal projected reference/direct derivations |
 | [Run1GroupStaticHandoff.lean](lean/ApSpec/Run1GroupStaticHandoff.lean) | Closed-catalog full-member decoding and finite writer/reversal search | Full-member B2 query coverage, original-read retention and intermediate writer guards |
@@ -63,7 +72,47 @@ The [mark dossier](rule-group-mark-proofs.md) still supplies ownership,
 full-literal identity, cleaner and group-decoder laws. Run-1 is GROUP/limit 1;
 run-2 is BACKWARD/FULL/limit 1. No run or field limit 0 is admitted.
 
-## 3. Conditional forward transport and ZERO
+## 3. Write admission, conditional forward transport and ZERO
+
+### 3.1. Reached read plus published write
+
+The read-admission model stores reached templates and published write
+coordinates. Coordinates stand for adapter-certified AP overlap cells.
+`admitted_iff` proves the exact join:
+
+```text
+admitted(read) iff reached(read) AND publishedWrite(read.originalField)
+```
+
+`read_without_write_pending` and `no_write_no_edge` exclude conditional
+read emission when no write exists. `admissionWitness` returns the admitted
+template from the two concrete membership witnesses. `late_write_admits`,
+`late_read_admits` and `read_then_write_same_state` cover both event orders.
+The merge/packing laws preserve the join. `fresh_after_commit_empty` and
+`no_duplicate_admissions` suppress repeated admissions.
+
+Write presence does not imply group presence. `gate_does_not_fabricate_supply`
+proves that the gate leaves the supplied group relation unchanged. A FLOW-
+only write admits its read but cannot answer a group request by itself.
+`gated_output_iff` extends the direct-refinement oracle with the write
+condition. `gatedCertificate` still returns source-rooted group evidence.
+
+The combined `Store` maintains `HasWriteForSupply`: every supplied field
+atom has a corresponding published write coordinate. The empty store meets
+this invariant. `publishGroup` requires a rooted derivation and commits
+write presence before its group row. `publish_group_preserves_write_invariant`
+and `publishGroupSafe` constructively preserve both event and source safety.
+`gate_preserves_supplied_outputs` then proves that gating loses no supplied
+requested identity-template output. It does not assume whole-engine
+completeness or prove discovery of all producer operations.
+
+The model's pending reads cover conditional dependencies only. ZERO,
+control returns, independent source actions and negative/non-mark rule
+handling remain outside this gate. The runtime adapter must preserve them.
+A broad read may have several overlap cells; later writes admit new cells.
+A single whole-read boolean does not implement this finite-cell oracle.
+
+### 3.2. Ordinary transport after admission
 
 `Template` stores the original field, current point and current AP.
 `IdentityTransport` has same-value, local-copy and call-binding forms.
@@ -187,7 +236,9 @@ adapter must agree; no whole-engine compiler equivalence is assumed.
 
 | Adapter | Required contract |
 | --- | --- |
-| Static reads | Emit the reached conditional edge with legal initial/current geometry and DEMAND layer, even without group supply |
+| Static reads | Register reached reads, admit only regions with a compatible published FLOW/group write, and emit legal DEMAND edges; no group is required for admission |
+| Write events | Real published writer effects only; exclude prescan candidates, pass-through/identity/default summaries; group supply commits write presence first |
+| Control and late admission | Pending reads do not block ZERO, normal returns or independent sources; late write admission publishes conditional summaries to existing call interests |
 | Calls/returns | Publish conditional ordinary summaries; ZERO triggers only static-premised application, retains other guards/support and uses the real reached return binding |
 | FLOW refinement | Accept only a certified mark-preserving FLOW branch; preserve original scope, current image and operation input stage |
 | Mark-changing actions | Register all required input-group interests at that action, then run the operation forward; never equate original g with rewritten h |
@@ -197,7 +248,7 @@ adapter must agree; no whole-engine compiler equivalence is assumed.
 | NNF/ND | Keep original signed full literals, bound positions, all positive antecedents and ordinary support; late guard supply reevaluates retained ordinary rule state |
 | Selected cleaners | Retain DEMAND group repair independently of NORMAL mx; a selected cleaner cannot kill the group |
 | RemoveAll/field kills | Keep true-condition admission and real surviving geometry; no template may inject an old value across a whole-hit kill |
-| AP scopes | Match supply and original/current relation at one location; keep canonical EXACT/STAR tags and no ANY/S-root initial |
+| AP scopes | Match at one location; partition supplied/delivered groups by overlap cell/current image so later regions are not suppressed; keep canonical EXACT/STAR tags and no ANY/S-root initial |
 | Queues/storage | Refine the membership oracle with GroupSets, owner commits, counted callbacks, cancellation and a complete barrier |
 
 These controls remain required before implementation. The Lean model does
@@ -236,6 +287,12 @@ not a proof of constant-time hashing, callback cost or total analysis time.
 of that trace. The reused relay contraction removes pure availability
 steps. GroupSets replace the full-mark coordinate with group membership.
 
+A read with no published matching write retains only a pending descriptor,
+not its downstream conditional path edges, summaries or group interests.
+This is a scoped workload saving; pending-read/index storage still costs
+memory. The gate can admit a field with no actual group when a FLOW write
+exists. That field may still generate conditional forward work.
+
 The proposal retains static initial coordinates in ordinary productive
 edges/summaries. It also stores field supply and point subscriptions.
 Distinct field/current/point combinations and eager static-copy work remain
@@ -251,26 +308,27 @@ lake build
 lake env lean run1-static-initial-refinement-audit.lean
 ```
 
-The focused audit visits all declarations owned by the three active models,
+The focused audit visits all declarations owned by the four active models,
 including generated helpers. It collects transitive theorem axioms and
 admits only standard `propext` and `Quot.sound`. No classical choice,
 `sorry` or added axiom is admitted. It then executes every named control.
 
-Final check on 18 October 2026: **PASS**. The build completes **149 jobs**.
-The active audit checks **1,240 declarations**, finds **zero unexpected
-axioms**, and passes **86 executable controls**.
+Final check on 18 October 2026: **PASS**. The build completes **150 jobs**.
+The active audit checks **1,384 declarations**, finds **zero unexpected
+axioms**, and passes **113 executable controls**.
 
 | Module | Audited declarations | Passing controls |
 | --- | ---: | ---: |
 | Run1StaticGroupDerivation | 495 | 35 |
 | Run1StaticInitialRefinement | 300 | 28 |
+| Run1StaticReadAdmission | 144 | 27 |
 | Reused Run1GroupStaticHandoff | 445 | 23 |
-| Total | 1,240 | 86 |
+| Total | 1,384 | 113 |
 
-The [validation receipt](/drive-testcomp/opentaint-go-rules/run1-static-initial-refinement-20261018/validation/20261018T214948.621722Z/receipt.json)
-has SHA-256 `4b0aa0e6bfbe182bcdb15f9473d0f3275c3d9bc12cb883dbb5b3dcde321501c9`.
+The [validation receipt](/drive-testcomp/opentaint-go-rules/run1-static-read-admission-20261018/validation/20261018T220546.126961Z/receipt.json)
+has SHA-256 `90fcb5276f600ae60c7db57d71b0dc2570307b7ce7cda4131f3f5c5eaccd89b6`.
 It binds stable proof-source hashes to the
-[build log](/drive-testcomp/opentaint-go-rules/run1-static-initial-refinement-20261018/validation/20261018T214948.621722Z/build.log)
-and [audit log](/drive-testcomp/opentaint-go-rules/run1-static-initial-refinement-20261018/validation/20261018T214948.621722Z/audit.log).
+[build log](/drive-testcomp/opentaint-go-rules/run1-static-read-admission-20261018/validation/20261018T220546.126961Z/build.log)
+and [audit log](/drive-testcomp/opentaint-go-rules/run1-static-read-admission-20261018/validation/20261018T220546.126961Z/audit.log).
 No runtime tests or project benchmarks were rerun. Latest measured run
 status remains the one at the start of this dossier.

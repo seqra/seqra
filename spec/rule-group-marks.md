@@ -22,7 +22,9 @@ Its revised static path requires a source/writer derivation for every
 supplied group. A request or hypothetical grouped initial cannot ground
 static group availability. FLOW retains a conditional static premise.
 The static adapter uses ordinary forward edges and direct current-point
-refinement. It adds no backward provider propagation inside run-1.
+refinement. A static read waits for a compatible published FLOW or group
+write; late writes wake pending reads. Write presence supplies no group.
+The adapter adds no backward provider propagation inside run-1.
 
 Measured runtime remains `63d5481e4e4b69ecf042c1149bb574ad40fd1624`.
 Latest reached / completed engine / accepted forward report: OWASP

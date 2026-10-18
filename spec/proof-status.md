@@ -3,9 +3,12 @@
 ## Proposed run-1 forward static edges and direct refinement
 
 The [revised static proposal](run1-group-static-pool.md) replaces the
-backward provider graph. Reached reads emit ordinary conditional static-
-origin FLOW edges. ZERO activates compatible conditional return summaries
-while retaining their static premise. A current-point need subscribes to
+backward provider graph. Reached reads wait for a compatible published
+FLOW or group-valued write before emitting conditional static-origin FLOW
+edges. Late writes wake pending read regions; prescan candidates and
+synthetic identity/default summaries cannot activate them. ZERO activates
+compatible conditional return summaries while retaining their static premise.
+A current-point need subscribes to
 that initial field's writer supply and resumes at the same input stage.
 It does not trace local operations or returns backward.
 
@@ -16,8 +19,9 @@ input grounding and the existing nonstatic P/R protocol. FLOW, ZERO and
 hypothetical initials cannot create supply.
 
 The [proof dossier](run1-group-static-pool-proofs.md) separates the new
-identity-template/direct-join model, rooted positive group calculus,
-static identity-relay contraction and full-member B2 writer discovery.
+published-write read-admission model, identity-template/direct-join model,
+rooted positive group calculus, static identity-relay contraction and
+full-member B2 writer discovery.
 The backward-provider protocol/request-slice models are historical. Their
 1,332-declaration/90-control receipt is not this revision's validation.
 
@@ -27,8 +31,8 @@ authorization and confirmation remain adapter obligations. In particular,
 the new local proof does not establish a whole JVM iteration or project
 speedup. Analyzer code and measured results below are unchanged.
 
-Lean 4.33.1 builds **149 jobs**. The new focused audit checks **1,240
-declarations**, finds **zero unexpected axioms**, and passes **86 controls**.
+Lean 4.33.1 builds **150 jobs**. The new focused audit checks **1,384
+declarations**, finds **zero unexpected axioms**, and passes **113 controls**.
 The dossier links the stable-source receipt and exact proof boundaries.
 
 ## Selected rule-group mark specification

@@ -9,7 +9,8 @@ The older alternatives below retain only their historical design scope.
 The current revision requires writer/source-backed group answers. FLOW and
 an interest cannot create a group, locally or in the pool. The current
 revision uses conditional static-origin forward edges and direct
-current-point refinement. It rejects the intervening backward provider
+current-point refinement. Reads wait for a compatible published FLOW/group
+write; a late write wakes them. It rejects the intervening backward provider
 graph. The unknown-envelope bootstrap below is also historical and is not
 part of the revised proposal.
 The selected [mark specification](../../spec/rule-group-marks.md) supersedes

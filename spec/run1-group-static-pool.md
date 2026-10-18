@@ -12,8 +12,10 @@ path edges. It also replaces the empty-group output-provider mechanism.
 There is no second backward analysis inside run-1.
 
 The selected static order/caller-context approximation stays in effect.
-Every supplied group needs a finite source/writer derivation. A conditional
-FLOW edge, ZERO and a request cannot create group supply.
+A static read emits its conditional edge only after a compatible FLOW or
+group-valued write has been published. A late write wakes waiting reads.
+Every supplied group needs a finite source/writer derivation. Write presence,
+a conditional FLOW edge, ZERO and a request cannot create group supply.
 
 Measured runtime remains `63d5481e4e4b69ecf042c1149bb574ad40fd1624`.
 Latest reached / completed engine / accepted forward report: OWASP
@@ -27,7 +29,7 @@ reference/cache-manager changes are outside scope.
 
 | Area | Rejected provider-graph proposal | New proposal |
 | --- | --- | --- |
-| Static read | Register a local provider node linked to a shared static node. | Emit an ordinary conditional edge `C.f.* FLOW -> lhs.* FLOW`, DEMAND. |
+| Static read | Register a local provider node linked to a shared static node. | Wait for a compatible published write, then emit `C.f.* FLOW -> lhs.* FLOW`, DEMAND. |
 | Local propagation | Maintain provider links as well as group values. | Propagate the edge with the existing forward engine. Keep its static initial. |
 | Return | Publish a structural output provider. | Publish the ordinary conditional return summary, even before a group arrives. |
 | Caller | Bind provider nodes across the return. | ZERO can activate a static-premised summary. Preserve that static premise in the caller edge. |
@@ -53,7 +55,8 @@ refined edge at S:      (C.f.*, Group(G)) -> (x.*, Group(G)) [DEMAND]
 ```
 
 A conditional edge describes a dependency. It does not assert that C.f has
-a group. A refined edge needs compatible, source-derived supply at C.f.
+a group. Its initial read also needs a compatible published write. A
+refined edge needs compatible, source-derived group supply at C.f.
 All static-origin edges and their dependent results stay DEMAND, including
 results whose current base is nonstatic.
 
@@ -88,6 +91,8 @@ class RefinementRow {
 }
 
 class StaticFieldState {
+    val written: ScopeSet // published FLOW/group writes, independent of marks
+    val reads: ScopeIndex<ReachedStaticRead, AdmittedRegions>
     var supplied = emptyGroups() // source-derived groups only
     var wanted = emptyGroups()   // union of direct group interests
     val continuations: ScopeIndex<StaticContinuation, RefinementRow>
@@ -113,6 +118,13 @@ An exact class/root value does not supply an unrelated field. Intersect
 writer supply with the subscribed original geometry and its current image.
 Do not replace this check with group equality or field-name equality alone.
 The finite model treats AP coordinates as certified overlap cells.
+Each supplied-group row belongs to one normalized overlap cell. Each
+refinement row also identifies its projected current AP image. In the
+subscription pseudocode, `field` and `at` denote that resolved cell/image.
+The scope index iterates matching cells before invoking those operations.
+Do not share one delivered G bit across distinct regions: a later write
+that exposes a new region for G must still deliver its new current image.
+Keep broad descriptors compact; do not expand them into every declared field.
 
 The writer index stores reached writer continuations. It does not store a
 writer-by-consumer product or a source proof tree for each answer. Ordinary
@@ -121,45 +133,87 @@ executable witnesses; runtime need not retain those proof objects.
 
 Prescan also retains the complete writer/call inventory for run-2, including
 writers not reached in run-1. Do not build transitive method-by-field or
-method-by-group sets. Pool supply and run-2 inventory are different stores.
+method-by-group sets. Published write presence, group supply and run-2
+inventory are different stores. A prescan writer candidate is not a published write.
 
-## 4. Static reads emit ordinary conditional edges
+## 4. Static reads wait for a corresponding published write
 
-A control-reached read registers an edge at the actual read output:
+Register a control-reached read as pending. Emit its conditional edge only
+where a compatible write is already published. Join both arrival orders:
 
 ```kotlin
 fun onStaticRead(read: ReachedStaticRead) {
+    fields.reads.registerOnce(read)
+    admitRead(read, fields.written) // existing writes join the new read
+}
+
+fun onPublishedStaticWrite(write: PublishedWriterEffect) {
+    // Real FLOW/group output at a reached write, not a prescan candidate.
+    val fresh = fields.written.unionAndGetGrowth(write.targetScope)
+    if (fresh.isEmpty()) return
+    queueMatchingReadAdmissions(fresh) // pending reads join the new write
+}
+
+fun admitRead(read: ReachedStaticRead, written: ScopeSet) {
+    val fresh = compatibleReadRegions(read, written) - read.admittedRegions
+    if (fresh.isEmpty()) return
+    read.admittedRegions.union(fresh) // commit before queueing
     val initial = staticFieldFlowInitial(read.field, tail = STAR)
-    val current = read.forwardFlowImage(initial)
-    enqueueAt(read.outputStage,
-              edge(initial, current, layer = DEMAND))
+    for (current in read.forwardFlowImages(initial, fresh))
+        enqueueAt(read.outputStage, edge(initial, current, layer = DEMAND))
 }
 ```
 
-For `x = C.f`, this produces `C.f.* -> x.*`. It does not produce
-`ZERO -> x` or an unconditional group at x. Emit it once for the reached
-read/geometry, then use ordinary edge deduplication and forward transfer.
-No incoming C.f entry fact or field request is needed to start this edge.
-Static reads include code loads and static operands of reached source,
-sink, cleaner and model conditions. For a direct `ContainsMark(C.f,T)`,
-create the local conditional `C.f FLOW -> C.f FLOW` at that condition's
-input stage, then request owner(T) there. This local edge is not a per-field
-identity summary. No static field-request store is introduced.
+A corresponding write is a published real writer effect with compatible
+geometry. It can carry FLOW or a taint group. It need not contain the group
+that a later rule will request. A reached `p FLOW -> C.f FLOW` output
+therefore admits C.f reads before p/G is known. This lets a later check
+request p/G through the existing ordinary-input protocol.
+
+A syntactic store found during prescan does not qualify by itself. Neither
+an ordinary static pass-through, a local read identity nor the synthetic
+`S.* -> S.*` compatibility summary is a write. Source/rule/model/alias and
+boundary effects qualify when they publish a real static write/supply.
+Group supply commits corresponding write presence first; presence alone
+never creates a group.
+
+With no published compatible write, `x = C.f` emits **no** `C.f.* -> x.*`
+edge and no conditional return summary can derive from that read. Retain
+only the pending read descriptor. A later write schedules the fresh read
+output directly; it does not replay the method entry or traverse callers.
+For broad scopes, retain admitted regions and emit new compatible regions
+as later writes arrive. A single boolean for the entire read is insufficient.
+Use legal canonical initial shapes and ordinary AP projection for each image.
+
+This gate withholds the conditional taint dependency only. ZERO/control,
+normal-return reachability and independent source/model actions still run.
+For example, a source action on a getter result must not wait for an old
+marked value in C.f when that source action does not depend on such a value.
+Eligible non-mark and negative rule handling keeps its ordinary contract.
+
+An admitted read produces `C.f.* -> x.*`, not `ZERO -> x` or an unconditional
+group at x. No incoming C.f entry fact or field request is needed. Static
+reads include code loads and static operands of reached source, sink,
+cleaner and model conditions. A direct `ContainsMark(C.f,T)` also waits for
+a compatible write before its local conditional `C.f FLOW -> C.f FLOW`
+branch can request owner(T). This local edge is not an identity summary.
+No static field-request store is introduced.
 
 Assignments, actual argument/formal bindings, returns and ordinary summary
-composition preserve the static initial when they propagate this edge.
-Definite kills remove the affected current branch. Disjoint branches keep
-their ordinary geometry. If preservation needs an E update, keep empty E
-and DEMAND under the selected run-1 field-write rule.
+composition preserve the static initial when they propagate the admitted
+edge. Definite kills remove the affected current branch. Disjoint branches
+keep their geometry. If preservation needs an E update, keep empty E and
+DEMAND under the selected run-1 field-write rule.
 
 A method that only passes static availability through a call chain receives
-no per-field identity seed. A method that performs a productive nonstatic
-transfer can carry the resulting static-origin edge as usual.
+no per-field identity seed. A productive nonstatic transfer can carry an
+admitted static-origin edge as usual. Pending reads with no matching write
+remain dormant and do not block a complete barrier.
 
 ## 5. ZERO activates static-premised summaries
 
-A reached normal return publishes the conditional summary even when no
-actual group is available:
+A reached normal return publishes the conditional summary after its read
+has been admitted. A FLOW write is sufficient; no actual group is required:
 
 ```text
 static_get: return C.f
@@ -189,7 +243,9 @@ caller result:        C.f.* -> t.*       // not ZERO -> t.*
 ```
 
 Register the call's summary interest once. Join old summaries at call
-registration and new summaries at publication. Use the real target,
+registration and new summaries at publication. If the read is still pending,
+the ordinary control return can proceed without this conditional summary.
+Late read admission then publishes the summary to the existing call interest. Use the real target,
 normal/exceptional output binding and action stage. A normal output needs
 a reached normal exit or an applicable ordinary normal-return model. An
 internal check in a nonreturning method stays eligible; it does not enable
@@ -280,6 +336,7 @@ between conditional FLOW and actual group supply:
 
 ```kotlin
 fun onStaticGroupWrite(write: ReachedWrite, value: GroundedGroupValue) {
+    onPublishedStaticWrite(write.effect(value.geometry)) // presence first
     val fresh = fields[write.target].supplied.unionAndGetGrowth(value.groups)
     if (fresh.isEmpty()) return
     queueMatchingContinuations(write.target, fresh)
@@ -313,6 +370,11 @@ forward. It can then publish C.f/G. Forward copies can form cycles. With
 no source/boundary seed, they supply no group. A later seed spreads through
 fresh field-group deltas. No consumer request walks the copy chain backward.
 
+The conditional FLOW result of a real store also publishes write presence
+for its target. That result exists only after its RHS conditional read was
+admitted and ordinary forward transfer reached this write. A source-less
+copy cycle with no independently published write cannot admit its own reads.
+
 The same rule covers static-origin rule/model/alias effects. Preserve the
 real input stage, group operation, geometry and guard. Do not treat every
 writer as a mark-preserving copy.
@@ -332,8 +394,9 @@ summaryStorage.commit(ordinaryRequests)
 ordinaryRequests = new RequestStorage()
 ```
 
-A new writer joins old field interests. A new field interest joins old
-writers. Merge their group requests. This is a direct lookup of the known
+Publish ordinary-origin FLOW write presence before waiting for a group
+request. A new writer joins old field interests. A new field interest joins
+old writers. Merge their group requests. This is a direct lookup of the known
 initial p, not a walk from the store to assignments or callers. Ordinary
 nonstatic input requests retain their existing protocol. No new backward
 static solver or local predecessor graph is permitted.
@@ -388,15 +451,16 @@ explicit source groups; an unknown effect is not an all-groups source.
 
 ## 9. Batching, duplicates and completion
 
-Accumulate group interests, registrations and supply deltas in temporary
-per-method batches. Commit at method-queue-empty. A committed batch schedules
-counted cross-method work; it does not wait for global emptiness.
+Accumulate read/write-presence registrations, group interests and supply
+deltas in temporary per-method batches. Commit at method-queue-empty. A
+committed batch schedules counted cross-method work; it does not wait for
+global emptiness.
 
 ```text
 method queue empty
-  -> commit ordinary requests and static registrations/deltas
+  -> commit ordinary requests, reads, write presence and static deltas
   -> replace temporary stores
-  -> join old/new supply and subscriptions
+  -> admit read regions from old/new writes, then join supply/subscriptions
   -> queue fresh current-point replies and forward writer work
 ```
 
@@ -406,9 +470,11 @@ replay. There is no graphChanged flag, reverse provider traversal or per-edge
 history of backward visits.
 
 A complete barrier includes ordinary work, conditional summary publication,
-P/R commits, static supply, direct subscriptions, point replies and forward
-writer callbacks. Preserve cancellation and incomplete-run guards. An
-unanswered subscription is stored interest, not unfinished queued work.
+P/R commits, pending-read admissions, write presence, static supply, direct
+subscriptions, point replies and forward writer callbacks. Preserve
+cancellation and incomplete-run guards. An
+unanswered subscription or read without a write is stored interest, not
+unfinished queued work.
 No arbitrary pending-size threshold is part of this proposal.
 
 For finite scopes and groups, a field/group supply bit grows once. A
@@ -460,8 +526,11 @@ static_consume: t = static_get(); sink(t)
 static_get:     return C.f
 ```
 
-Let the source supply G and the sink test a full mark owned by G.
-Conditional analysis can proceed before the source group arrives:
+Let the source supply G and the sink test a full mark owned by G. If the
+getter is processed before a C.f write is published, record its read as
+pending and emit no conditional edge. Its ordinary control return still
+proceeds. When the real source/write publishes C.f/G, first commit C.f write
+presence. It wakes the pending read, then ordinary forward work produces:
 
 ```text
 static_get read:      C.f.* FLOW -> temporary.* FLOW
@@ -470,8 +539,9 @@ consume call, ZERO:   C.f.* FLOW -> t.* FLOW
 at sink input S:      subscribe(C.f, G, continuation = this edge at S)
 ```
 
-The source and write independently produce grounded C.f/G. Either arrival
-order gives this direct reply:
+C.f/G is already stored when this sink subscription arrives, so the join
+replies directly. If a FLOW write admitted the read first, the subscription
+can precede group supply instead. Both orders give:
 
 ```text
 pool C.f has G
@@ -483,14 +553,23 @@ There is no request from the sink to `static_get`'s return, its read or
 `main`. There is no method-entry replay. The getter's forward conditional
 summary already carries the information needed to address C.f directly.
 
-For `C.f = C.g; C.g = C.f`, forward writer subscriptions alone produce no
-group. A real source of G can ground the cycle. For `C.f = p`, a field need
-can directly request the known ordinary initial p/G; it cannot treat that
-request or a hypothetical result as a source.
+For `C.f = C.g; C.g = C.f`, with no independently published write, both
+reads stay pending. A real external/FLOW write can admit the cycle; a
+source-derived G is still required to supply a group. For `C.f = p`, a field
+need can directly request the known ordinary initial p/G; it cannot treat
+that request or a hypothetical result as a source.
 
 ## 12. Proof scope, savings and implementation order
 
-The new [constructive model](lean/ApSpec/Run1StaticInitialRefinement.lean)
+The [read-admission model](lean/ApSpec/Run1StaticReadAdmission.lean) proves
+that a reached read and a corresponding published write are both required.
+Late write/read registration, merged batches and fresh admissions preserve
+that join. Group publication establishes write presence first. Under this
+maintained invariant, the gate loses no already supplied requested output
+in the finite identity-template model. It does not prove whole-engine
+control/operation compilation.
+
+The [direct-refinement model](lean/ApSpec/Run1StaticInitialRefinement.lean)
 checks mark-preserving conditional templates and direct supply joins.
 Refinement commutes with ordinary identity forward transport. ZERO-triggered
 application preserves the static premise. Every emitted branch has a
@@ -508,14 +587,16 @@ queue refinement remain explicit adapter obligations in the proof dossier.
 
 Expected savings come from removing static availability relay chains,
 full-mark payloads in run-1, the extra provider graph, reverse request work
-and method-entry answer replay. The new design **retains static originals**
+and method-entry answer replay. A read with no published write also avoids
+its downstream conditional edge and summary work. The new design **retains static originals**
 in productive edges and summaries. Distinct field/origin/current combinations,
 forward writer subscriptions and point continuations still cost memory.
 No universal byte/time saving or 60-second completion is proved.
 
 Implementation order, after adapter proofs and controls:
 
-1. Emit conditional static-read edges with existing forward stores.
+1. Register pending reads and published write presence; emit conditional
+   read edges only for their compatible overlap.
 2. Add ZERO-triggered conditional summary application with preserved premise.
 3. Add merged writer supply and direct current-point subscriptions.
 4. Add bulk forward static-origin writers and existing ordinary-input joins.
@@ -525,8 +606,10 @@ Implementation order, after adapter proofs and controls:
 8. Run core and fixed project gates. Always report the latest reached,
    completed-engine and accepted-forward-report run iterations.
 
-Required controls include the getter trace with no group at summary time,
-old/new supply and subscription orders, duplicate groups, wrong field/group,
+Required controls include no-write read suppression, FLOW-only admission,
+late writes/reads, synthetic-identity rejection, the getter trace with a FLOW
+write but no group at summary time, old/new supply and subscription orders,
+duplicate groups, wrong field/group,
 no-seed copy cycles, grounded ordinary writer input, rewriters with g != h,
 selected-cleaner repair, RemoveAll, partial AP hits, conditional normal return,
 nonreturning checks, ND support and full-member run-2 queries.

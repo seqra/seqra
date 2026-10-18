@@ -146,3 +146,4 @@ import ApSpec.Run1StaticGroupDerivation
 import ApSpec.Run1StaticGroupProtocol
 import ApSpec.Run1StaticGroupRequestSlice
 import ApSpec.Run1StaticInitialRefinement
+import ApSpec.Run1StaticReadAdmission

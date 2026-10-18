@@ -2,6 +2,7 @@
    Reverse provider needs and request-slice closure are outside this scope. -/
 import ApSpec.Run1StaticGroupDerivation
 import ApSpec.Run1StaticInitialRefinement
+import ApSpec.Run1StaticReadAdmission
 import ApSpec.Run1GroupStaticHandoff
 import Lean
 
@@ -10,7 +11,8 @@ open Lean Elab Command
 run_elab do
   let env ← getEnv
   let modules := #[`ApSpec.Run1StaticGroupDerivation,
-    `ApSpec.Run1StaticInitialRefinement, `ApSpec.Run1GroupStaticHandoff]
+    `ApSpec.Run1StaticInitialRefinement, `ApSpec.Run1StaticReadAdmission,
+    `ApSpec.Run1GroupStaticHandoff]
   let mut total : Nat := 0
   let mut unexpected : Nat := 0
   for mod in modules do
@@ -35,6 +37,7 @@ run_elab do
 #eval do
   let controls := ApSpec.Run1StaticGroupDerivation.Controls.controls ++
     ApSpec.Run1StaticInitialRefinement.Controls.controls ++
+    ApSpec.Run1StaticReadAdmission.Controls.controls ++
     ApSpec.Run1GroupStaticHandoff.Controls.controls
   for (name, passed) in controls do
     if !passed then throw (IO.userError ("Control failed: " ++ name))
@@ -51,4 +54,10 @@ run_elab do
 #print axioms ApSpec.Run1StaticInitialRefinement.merged_arrival_commutes
 #print axioms ApSpec.Run1StaticInitialRefinement.fresh_after_commit_empty
 #print axioms ApSpec.Run1StaticInitialRefinement.request_independent_of_forward_depth
+#print axioms ApSpec.Run1StaticReadAdmission.no_write_no_edge
+#print axioms ApSpec.Run1StaticReadAdmission.admissionWitness
+#print axioms ApSpec.Run1StaticReadAdmission.read_then_write_same_state
+#print axioms ApSpec.Run1StaticReadAdmission.fresh_after_commit_empty
+#print axioms ApSpec.Run1StaticReadAdmission.publish_group_preserves_write_invariant
+#print axioms ApSpec.Run1StaticReadAdmission.gate_preserves_supplied_outputs
 #print axioms ApSpec.Run1GroupStaticHandoff.compileGraphPath
