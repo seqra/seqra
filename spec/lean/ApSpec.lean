@@ -147,3 +147,8 @@ import ApSpec.Run1StaticGroupProtocol
 import ApSpec.Run1StaticGroupRequestSlice
 import ApSpec.Run1StaticInitialRefinement
 import ApSpec.Run1StaticReadAdmission
+import ApSpec.Run1StaticDemandGateGap
+import ApSpec.Run1StaticDemandCoverage
+import ApSpec.Run1StaticDemandTreeCoverage
+import ApSpec.Run1StaticReadWritePath
+import ApSpec.Run1StaticEarlySummaryZero

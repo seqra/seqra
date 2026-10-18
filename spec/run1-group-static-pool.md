@@ -11,11 +11,20 @@ This revision replaces the backward provider graph with ordinary forward
 path edges. It also replaces the empty-group output-provider mechanism.
 There is no second backward analysis inside run-1.
 
+The [immediate static-summary revision](run1-immediate-static-summaries.md)
+refines write publication: publish a static effect immediately, then lift
+it through caller summaries without local static propagation. That revision
+also proves that sink-origin wrapper paths use the existing backward ZERO
+exception. They do not require the extra carry guides described below for
+a nonzero static query.
+
 The selected static order/caller-context approximation stays in effect.
 A static read emits its conditional edge only after a compatible FLOW or
 group-valued write has been published. A late write wakes waiting reads.
 Every supplied group needs a finite source/writer derivation. Write presence,
 a conditional FLOW edge, ZERO and a request cannot create group supply.
+The handoff must also contain the required GROUP demands in each method.
+A marked edge at one sink does not supply the group demand of its callees.
 
 Measured runtime remains `63d5481e4e4b69ecf042c1149bb574ad40fd1624`.
 Latest reached / completed engine / accepted forward report: OWASP
@@ -471,7 +480,8 @@ history of backward visits.
 
 A complete barrier includes ordinary work, conditional summary publication,
 P/R commits, pending-read admissions, write presence, static supply, direct
-subscriptions, point replies and forward writer callbacks. Preserve
+subscriptions, point replies, forward writer callbacks and group-guide
+closure. Preserve
 cancellation and incomplete-run guards. An
 unanswered subscription or read without a write is stored interest, not
 unfinished queued work.
@@ -490,32 +500,133 @@ demands at the actual operation point, with bound occurrence, full NNF,
 geometry, context and support. A conditional FLOW edge or unanswered
 subscription alone is not a positive group hit or confirmed finding.
 
-At handoff, retain the compact demand ledger and complete writer/call
-inventory. Release run-1 subscription state after snapshot ownership is
-secure. Preserve independently valid NORMAL summaries under their existing
-complete-barrier rules. A group-excluded NORMAL record cannot close a later
-full query inside that group.
+### 10.1. Generate group demands before freezing the handoff
+
+Run-2 emits a full-mark initial only when an explicit matching demand
+contains that mark's **group**. It does not require the exact full mark in
+run-1. FLOW guidance alone cannot provide this permission. The demand must
+match the actual method/port and geometry; a group demand at a caller sink
+is not automatically a group demand in its getter or ordinary helper.
+
+Point refinement skips the grouped prefix. Therefore, include a forward
+**group-guide generation** phase before the handoff. It annotates the
+existing conditional interfaces; it does not replay body taint facts or
+walk a local provider graph backward. Retain:
+
+```text
+conditional summary rows:       original -> method output
+reached call-input rows:         caller original -> actual formal slot
+internal point rows:            original -> check/source/cleaner input
+writer rows:                    original -> written field at the real stage
+actual source/input/field groups and their ordinary support
+```
+
+Register bound observation targets on ordinary control reachability, even
+before a grouped hit is observed. The handoff cannot rely only on report
+hits and normal-return summaries to find its internal query starts.
+
+For identity FLOW, maintain a merged group mask per canonical original slot.
+Static originals read the compatible grounded field mask. Reached ordinary
+call-input bindings transfer masks to their actual callee slots. Decorate
+summary and point rows with the mask of their original. Join late rows and
+masks, drain the forward closure, then freeze the group demands.
+See [the coverage specification](run1-static-demand-coverage.md) for the
+pseudocode, counterexample and precise proof boundary.
+
+```text
+getter FLOW summary + C.f/G:
+  demand(getter, entry=return/ANY/Group(G), exit=C.f/STAR/Group(G))
+
+helper p FLOW -> return FLOW + a real reached input binding carrying G:
+  demand(helper, entry=return/ANY/Group(G), exit=p/STAR/Group(G))
+```
+
+Full mark T can use these demands when owner(T) = G. Its actual identity
+stays T. A rewriter can need different entry and exit groups; keep the
+real group relation and all positive guard premises. Same-group identity
+decoration is insufficient for arbitrary mark-changing actions.
+
+Each required writer opening and its RHS/guard/call continuation also needs
+an explicit group-demand path. A writer-inventory permission alone cannot
+pass the mark gate. Internal starts need group demands at their real points,
+including checks in methods with no normal exit. Their demands are not
+fictitious normal-return summaries.
+
+Transparent static calls need a field-specific carry group demand for the
+actual field query. It can use a shared immutable field/group template;
+do not construct a method-by-field-by-group table or a marked S-root
+initial. The synthetic S.* compatibility summary is not group evidence.
+
+Freeze this template as two relations: the closed control-eligible method
+universe and grounded field/group supply. Include all real call-port
+endpoints, even methods with no run-1 static initial, productive analyzer,
+read or normal exit. A query matches a frozen carry pair only when its
+method belongs to that universe and its field region has the supplied
+group. The pair is a DEMAND permission, not an executable identity summary.
+Run-2 still analyzes the body and applies its actual kills and write pivots.
+
+Also freeze the real incoming call ports: caller before/after stages,
+callee entry/exit, target context and normal/exceptional kind. Do not require
+a marked run-1 subscription to retain a port. At a callee entry, the actual
+run-2 query can resume before the eligible caller statement through this
+metadata. The field pool alone cannot identify that continuation.
+
+At `set(p) { C.f = p; }`, a carry pair `C.f/G -> C.f/G` cannot publish
+the reverse RHS p/T. Capture the writer FLOW row before intercepting its
+static output. Forward input-mask closure must generate the separate
+`C.f/G -> p/G` writer pair and writer/RHS point guides. This query-only pair
+does not require an emitted run-1 method-exit summary. It does not assert
+that the writer reaches a method exit. Keep the actual source point and
+source permission for a source-generated write; its reverse source result
+is unmarked ZERO. See the [read-to-write path](run1-static-demand-coverage.md#51-the-real-read-to-write-path)
+for the complete guide pipeline.
+
+### 10.2. Full-mark run-2
+
+At a complete handoff, retain the compact group-demand ledger, required
+interface/carry/point guides and complete writer/call inventory. Release
+run-1 subscription state only after snapshot ownership and guide closure
+are secure. Preserve independently valid NORMAL summaries under their
+existing rules. A group-excluded NORMAL record cannot close a later full
+query inside that group.
 
 Run-2 is BACKWARD/full/field-limit 1. Decode every eligible full member of
-each requested group, including members not observed in run-1. Start queries
+each demanded group, including members not observed in run-1. Start queries
 at internal check/read/guard/output points, not only method exits. Ordinary
-reverse CFG/call transfer must not require a matching run-1 static relay.
-At entries, visit compatible incoming prescan call ports and real stages.
+reverse CFG/call transfer need not have a run-1 static carrier fact, but
+its marked method input must match an explicit group guide. At entries,
+visit compatible incoming prescan ports with their real stages and guides.
 
 A backward static read can open every compatible writer from the complete
 inventory. Preserve the original read, writer guards and all intermediate
-query dependencies. These openings are discovery queries, not executable
-writer-to-reader edges. F1 supplied groups cannot be a negative writer
-filter. This backward work belongs to run-2, not the run-1 request mechanism.
+query dependencies. Openings are discovery queries, not executable static
+jumps. F1 supplied groups cannot be a negative writer-inventory filter.
+Demand generation must cover the actual marked query/continuation too;
+lookup completeness alone does not prove query-admission completeness.
+This backward work belongs to run-2, not run-1 request handling.
+
+### 10.3. Publication and later confirmation
+
+A paired demand must admit the backward input and retain the relevant
+result during publication. Do not admit a marked callee input, then lose
+its source/RHS result against an old FLOW-only or wrong-group exit pattern.
+Keep all required parent-to-predecessor dependencies even when queries merge.
 
 Retain exact source-permission identity: method, statement, full forward
 PathEdge and predicate occurrence where needed. The next full forward run
-starts from actual roots and permitted source actions. Authorize the whole
-ordinary reverse-query closure without a run-1 relay requirement. If precise
-guide scope is unavailable, leave that full-mark root-reachable scope unpruned.
-Reconstruct real call order, returns, overwrites, cleaners, full conditions
-and ND support. A finding still needs the existing confirmation certificate.
-Run-3 is FORWARD/full/limit 2; later limits increase as specified.
+starts from actual roots and permitted source actions. Guidance can leave
+AP/control scope unpruned, but this is not permission to bypass the explicit
+mark-group gate. Reconstruct real call order, returns, overwrites, cleaners,
+full conditions and ND support. A finding still needs the existing
+confirmation certificate. Run-3 is FORWARD/full/limit 2; later limits
+increase as specified.
+
+The coverage proof must establish the whole chain: a finite reference
+witness produces the group-demand seed, all intermediate method/point/carry
+and writer guides, and the paired publications needed by run-2. The finite
+models check their stated concept/interface scopes. Complete JVM witness
+compilation, source eligibility and queue refinement remain explicit gates;
+the previous writer-search theorem alone did not establish this chain.
 
 ## 11. Trace of the getter example
 
@@ -549,9 +660,37 @@ pool C.f has G
   -> evaluate sink at S
 ```
 
+Before the handoff, the guide-generation phase also emits the getter's
+`return/Group(G) -> C.f/Group(G)` demand. If the read-to-return path calls an
+ordinary helper, its reached input binding supplies G to that helper's
+original-slot mask and emits its paired group demand too. The final sink
+edge alone would not provide either callee's demand.
+
 There is no request from the sink to `static_get`'s return, its read or
 `main`. There is no method-entry replay. The getter's forward conditional
 summary already carries the information needed to address C.f directly.
+
+This statement concerns run-1. Run-2 follows the real backward path:
+
+```text
+sink t/T
+  -> getter return/T       [getter return/G -> C.f/G guide]
+  -> getter read C.f/T
+  -> getter entry C.f/T    [field-specific frozen carry guide]
+  -> consume before get   [the actual incoming getter call port]
+  -> consume entry C.f/T   [field-specific frozen carry guide]
+  -> main before consume  [the actual incoming consume call port]
+  -> setter normal exit   [the preceding setter call port + carry guide]
+  -> C.f = t              [ordinary reverse CFG]
+  -> t/T                  [actual store pivot + writer/RHS group guide]
+  -> actual source hit    [ordinary exact source permission; unmarked ZERO]
+```
+
+The carry relation covers omitted static relays. Getter/helper and writer
+pairs cover productive transfers. A call-graph edge alone cannot replace
+the actual ports. A writer lookup alone cannot replace the corridor or its
+group demands. Ordinary run-2 call/CFG checks preserve order and context;
+the run-1 pool's accepted approximation does not confirm a flow.
 
 For `C.f = C.g; C.g = C.f`, with no independently published write, both
 reads stay pending. A real external/FLOW write can admit the cycle; a
@@ -602,7 +741,9 @@ Implementation order, after adapter proofs and controls:
 4. Add bulk forward static-origin writers and existing ordinary-input joins.
 5. Check local rule input-group activation, guards, stages and whole-hit kills.
 6. Add method-empty batches and complete-barrier lifecycle handling.
-7. Keep full-member run-2 point queries and complete writer discovery.
+7. Generate and freeze explicit group guides, including ordinary helpers,
+   point starts, static carries and writer/RHS publication; keep full-member
+   run-2 queries and complete writer discovery.
 8. Run core and fixed project gates. Always report the latest reached,
    completed-engine and accepted-forward-report run iterations.
 
@@ -612,5 +753,6 @@ write but no group at summary time, old/new supply and subscription orders,
 duplicate groups, wrong field/group,
 no-seed copy cycles, grounded ordinary writer input, rewriters with g != h,
 selected-cleaner repair, RemoveAll, partial AP hits, conditional normal return,
-nonreturning checks, ND support and full-member run-2 queries.
+nonreturning checks, ND support, getter/nested-helper group demands, paired
+publication and full-member run-2 queries.
 No analyzer implementation or new project measurement is part of this task.

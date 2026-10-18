@@ -417,7 +417,11 @@ cancellation guards.
 ## 11. Handoff to backward run-2
 
 Run-2 has field limit 1 and full concrete marks. It follows the forward
-demand under the existing AP handoff rules. A group demand is a predicate
+demand under the existing AP handoff rules. A demand for group G permits
+any eligible actual full mark owned by G; FLOW alone is insufficient to
+emit a full-mark initial. The proposed static adapter must generate those
+group demands at the matching method/port, not only at the final sink.
+See [static demand coverage](run1-static-demand-coverage.md). A group demand is a predicate
 over full marks, not one representative mark:
 
 ```kotlin
@@ -440,6 +444,15 @@ Preserve demand geometry, owner/context, endpoint, condition and support
 when choosing each full member. Group expansion does not change an AP tail
 or invent a must premise. ZERO/control and ordinary F72 FLOW emission keep
 their existing separate rules.
+
+In particular, an internal backward sink seed has initial ZERO. Its marked
+requirement can return through zero-only caller subscriptions under that
+same ZERO initial, without a run-1 group carry guide in every wrapper.
+Backward ZERO-premise publication keeps its existing exception. The sink's
+demanded occurrence supplies T; ZERO receives no taint group. See the
+[immediate-summary ZERO trace](run1-immediate-static-summaries.md#4-complete-trace-for-the-example).
+This exception does not create a marked nonzero method initial or replace
+its separate admission contract.
 
 All relevant source and sink NNF alternatives and ND members keep their full
 mark identities. Backward analysis uses the original full-mark cleaner:

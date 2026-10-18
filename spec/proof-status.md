@@ -1,39 +1,58 @@
 # Current proof status
 
-## Proposed run-1 forward static edges and direct refinement
+## Proposed run-1 forward statics and group-demand coverage
 
-The [revised static proposal](run1-group-static-pool.md) replaces the
-backward provider graph. Reached reads wait for a compatible published
-FLOW or group-valued write before emitting conditional static-origin FLOW
-edges. Late writes wake pending read regions; prescan candidates and
-synthetic identity/default summaries cannot activate them. ZERO activates
-compatible conditional return summaries while retaining their static premise.
-A current-point need subscribes to
-that initial field's writer supply and resumes at the same input stage.
-It does not trace local operations or returns backward.
+The [immediate static-summary revision](run1-immediate-static-summaries.md)
+adds early write-effect publication and caller summary lifting. Its ZERO
+review corrects the wrapper case: an internal sink requirement returns as
+`Z -> C.f/T` under the existing backward exception. It needs no extra
+run-1 wrapper carry guide. Getter and writer nonzero queries remain separate.
+The four existing `CallZeroTest` controls pass; runtime implementation is
+unchanged. The nonzero-query admission-policy choice is stated separately.
 
-Every supplied group still needs a finite source/writer derivation under
-the selected static order/caller-context approximation. Static-copy writers
-forward grounded groups in bulk. Ordinary-origin writers retain actual
-input grounding and the existing nonstatic P/R protocol. FLOW, ZERO and
-hypothetical initials cannot create supply.
+The [static proposal](run1-group-static-pool.md) keeps write-gated forward
+reads and direct current-point group refinement. A published FLOW/group
+write admits a pending read. Prescan candidates and synthetic identities
+do not. ZERO activates conditional summaries while retaining the static
+premise; group supply still requires a finite source/writer derivation.
 
-The [proof dossier](run1-group-static-pool-proofs.md) separates the new
-published-write read-admission model, identity-template/direct-join model,
-rooted positive group calculus, static identity-relay contraction and
-full-member B2 writer discovery.
-The backward-provider protocol/request-slice models are historical. Their
-1,332-declaration/90-control receipt is not this revision's validation.
+The [demand-coverage review](run1-static-demand-coverage.md) found a real
+design gap: a G edge at the caller sink does not give a FLOW-only getter
+or identity helper a G demand. Run-2 needs the matching **group** demand,
+not exact full-mark demands. The proposal now requires forward group-guide
+generation over reached summary, call-input, writer and point interfaces
+before freezing the handoff. Missing group guidance cannot be replaced by
+an unpruned spatial query scope.
 
-Actual source eligibility, operation/guard/AP compilation, ordinary forward
-summary composition, optimized queues, point-query admission, continuation
-authorization and confirmation remain adapter obligations. In particular,
-the new local proof does not establish a whole JVM iteration or project
-speedup. Analyzer code and measured results below are unchanged.
+The new constructive models prove the counterexample, coverage of all
+visited identity helpers, and frozen group demands for every rule/premise
+and designated target of a finite full positive witness. Different groups,
+all guard slots, full-rule occurrence indices and paired full endpoint
+permissions are retained. The [proof dossier](run1-group-static-pool-proofs.md)
+also retains read admission, rooted supply and finite writer lookup proofs.
 
-Lean 4.33.1 builds **150 jobs**. The new focused audit checks **1,384
-declarations**, finds **zero unexpected axioms**, and passes **113 controls**.
-The dossier links the stable-source receipt and exact proof boundaries.
+The new [actual-port proof](lean/ApSpec/Run1StaticReadWritePath.lean) covers
+the static corridor omitted from run-1: read, callee entry, caller before
+the call, preceding writer callee exit, and the actual store. It constructs
+carry guides from frozen grounded field/groups and closed method/port
+metadata. A separate captured writer guide retains the ordinary RHS result.
+Static identity permission cannot publish that RHS or bypass a real kill.
+Full marks and the original read are retained; source ZERO stays unmarked.
+General RHS/source paths still need the positive-witness compiler and the
+ordinary reverse CFG/call adapter.
+
+Complete production collection/compilation of real control, AP, source,
+call and condition interfaces is still required. So are actual reverse
+primitive completeness, point-seed activation, paired publication and
+queue refinement. The finite result is group-gate coverage for the compiled
+calculus, not a checked complete JVM iteration. It does not assert that
+every unsupported speculative inventory candidate executes.
+
+Lean 4.33.1 builds **155 jobs**. The focused combined audit checks **3,574
+declarations**, finds **zero unexpected axioms**, and passes **255 controls**.
+The dossier links the stable-source receipt. The earlier local read/point
+audit remains a narrower 1,384-declaration/113-control checkpoint.
+Analyzer implementation and measured project results below are unchanged.
 
 ## Selected rule-group mark specification
 

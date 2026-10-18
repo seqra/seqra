@@ -1,4 +1,4 @@
-# Forward static edges and direct refinement: proof dossier
+# Forward statics and group-demand coverage: proof dossier
 
 Date: 18 October 2026. Status: **revised proposal; analyzer unchanged**.
 Language: ASD-STE100 Simplified Technical English. Defined mathematical
@@ -11,6 +11,15 @@ ordinary forward edges only after a compatible FLOW or group-valued write
 has been published. Reached reads without such a write stay pending. A
 request uses an admitted edge's static initial to join
 writer supply directly, then resumes at the current operation input.
+The handoff also needs a forward group-guide closure: point refinement at
+a sink alone does not supply the mark demands of getters and helpers.
+
+The [immediate static-summary revision](run1-immediate-static-summaries.md)
+separates another case: sink-origin wrapper requirements keep initial ZERO.
+Their existing unrestricted backward publication and zero-only return need
+no run-1 field carry demands. The actual-port carry theorem below remains
+a sufficient construction for nonzero static-query guidance. It must not
+be read as a requirement to add guides to every sink-origin wrapper.
 
 The selected static order/caller-context approximation stays in effect.
 Every supplied group still needs a finite source/writer derivation.
@@ -53,11 +62,16 @@ the static premise. It is not a supplied field group or a new source.
 | Active model | Scope | Constructive result |
 | --- | --- | --- |
 | [Run1StaticReadAdmission.lean](lean/ApSpec/Run1StaticReadAdmission.lean) | Reached-read/published-write join, fresh admitted regions and group-publication invariant | No edge without a matching write, all arrival/batch orders, no group fabrication and no loss of supplied requested outputs |
+| [Run1StaticDemandGateGap.lean](lean/ApSpec/Run1StaticDemandGateGap.lean) | Strict run-2 group-mark gate and selector-preserving handoff | Executable missing getter/helper demand; FLOW and normalization cannot supply G; G admits all its full members |
+| [Run1StaticDemandCoverage.lean](lean/ApSpec/Run1StaticDemandCoverage.lean) | Forward original-slot masks, reached call bindings and frozen identity summary/point/writer rows | Equal eager/interface group guides; every nested helper has its group demand; field-specific carry without an S-root |
+| [Run1StaticDemandTreeCoverage.lean](lean/ApSpec/Run1StaticDemandTreeCoverage.lean) | Finite positive full-mark witnesses, group projection and frozen guide pairs | Explicit demand witnesses for every rule/guard premise, including different input/output groups; separate target point demand |
+| [Run1StaticReadWritePath.lean](lean/ApSpec/Run1StaticReadWritePath.lean) | Finite ordinary reverse paths through real local/call ports, factored static carry and a captured ordinary writer endpoint | Constructs every carry guide from frozen field/group supply and closed method metadata; retains exact moves, full mark and read origin; separates writer RHS permission from static identity |
+| [Run1StaticEarlySummaryZero.lean](lean/ApSpec/Run1StaticEarlySummaryZero.lean) | Early static source effects and finite sink-origin wrapper paths under existing backward ZERO rules | Computes zero-only returns and surviving wrapper-body transfers without run-1 wrapper demands; distinguishes explicit ZERO exits from absent exits and rejects ZERO activation from nonzero queries |
 | [Run1StaticInitialRefinement.lean](lean/ApSpec/Run1StaticInitialRefinement.lean) | Identity FLOW templates, ZERO call activation, direct supply/subscription joins and merged batches | Same identity result as forward instantiation, static-premise preservation, rooted DEMAND replies at the subscribed point, arrival/merge equivalence and no duplicate delivery |
 | [Run1StaticGroupDerivation.lean](lean/ApSpec/Run1StaticGroupDerivation.lean) | Finite positive group rules, source seeds, transforms, multi-input guards and static relay contraction | Rooted exact closure, executable proof trees, no invented groups and equal projected reference/direct derivations |
 | [Run1GroupStaticHandoff.lean](lean/ApSpec/Run1GroupStaticHandoff.lean) | Closed-catalog full-member decoding and finite writer/reversal search | Full-member B2 query coverage, original-read retention and intermediate writer guards |
 
-The new model reuses the source/hop `Derivation` type and root-extraction
+The direct-refinement model reuses the source/hop `Derivation` type and root-extraction
 lemmas from `Run1StaticGroupProtocol`. These witnesses describe forward
 source-to-field supply. It does not use that module's backward request
 actions, saturation procedure or provider-needs scheduler.
@@ -240,6 +254,9 @@ adapter must agree; no whole-engine compiler equivalence is assumed.
 | Write events | Real published writer effects only; exclude prescan candidates, pass-through/identity/default summaries; group supply commits write presence first |
 | Control and late admission | Pending reads do not block ZERO, normal returns or independent sources; late write admission publishes conditional summaries to existing call interests |
 | Calls/returns | Publish conditional ordinary summaries; ZERO triggers only static-premised application, retains other guards/support and uses the real reached return binding |
+| Frozen call ports | Retain caller before/after, callee entry/exit, target context and exit kind independently of marked run-1 subscriptions; real reverse paths use ordinary compatible call matching |
+| Frozen static carries | Close the default-method set over all control-eligible methods and port endpoints; join it symbolically with grounded field/group supply; query permission never executes an identity through a kill |
+| Writer guides | Capture the real FLOW writer row before static-output interception; generate its distinct paired original/RHS guide without requiring a run-1 normal-exit summary |
 | FLOW refinement | Accept only a certified mark-preserving FLOW branch; preserve original scope, current image and operation input stage |
 | Mark-changing actions | Register all required input-group interests at that action, then run the operation forward; never equate original g with rewritten h |
 | Source/model/boundary supply | Validate reached permission and explicit groups; a hypothetical input or request is not an actual root |
@@ -257,23 +274,92 @@ engine's summary composition. This dossier makes the practical proof
 boundary explicit instead of treating those parts as proved assumptions
 about the production analyzer.
 
-## 8. Handoff and confirmation
+## 8. Group-demand coverage and full-mark confirmation
 
-The reused handoff model decodes every eligible full group member, not one
-representative. `every_full_group_member_gets_seed`, `open_writer_complete`,
-`compilePath`, `compileGraphPath` and
-`every_finite_reference_trace_discovered` cover their finite catalog/trace
-scope. Keep the original static read and each intermediate guard.
+The [coverage specification](run1-static-demand-coverage.md) defines the
+strict mark gate. A group G demand admits an actual full mark T with
+owner(T) = G. A FLOW demand or a G demand in another method is insufficient.
+No exact full mark in the run-1 guide is required.
 
-Writer lookup uses the complete inventory, not F1 supplied groups as a
-negative filter. Openings are query-only DEMAND. Actual internal-point
-query admission, ordinary incoming call-port expansion, session scope and
-source permissions remain runtime adapters.
+The demand-gap model proves that the previous proposal can leave the getter
+and an ordinary identity helper without G guidance. A marked sink edge,
+source group supply and abstract getter summary do not fill that gap.
+`normalization_does_not_fill_gap` excludes a repair by AP normalization alone.
 
-Later full forward analysis must reconstruct the real path and satisfy
-the existing confirmation certificate. Neither a source-rooted run-1 group
-in the approximated static pool nor an isolated writer query confirms a
-finding. All static/group-dependent run-1 results remain DEMAND.
+The forward interface model supplies the correction for identity FLOW.
+`compileTrace`, `every_visited_mask` and `requiredGuide` construct frozen
+group guides for every visited helper from actual roots and reached forward
+call-input bindings. `eager_and_frozen_guides_equal` compares them with eager
+same-group interface propagation. `explicit_group_emits_full` preserves an
+incoming full mark, while `fullMemberQuery` decodes every eligible member.
+`backward_patterns_have_group` retains G on both paired ends. Static carries
+use actual field coordinates and require no marked S-root initial.
+
+The actual-port corridor model covers the omitted static transport between
+the read and write. `builder_defaults_closed` constructs method coverage
+from primitive inventory metadata. `compileCorridor` derives a field/group
+carry admission at every visited port; it does not assume each guide exists.
+`compile_uses_real_moves` retains the exact local/call move list. Calls resume
+before the real caller statement or enter the actual callee exit. The full
+mark and original read remain unchanged. A compatible writer lookup is not
+a path constructor.
+
+`writerEndpointCoverage` derives the distinct ordinary writer pair from its
+captured FLOW row and rooted forward input-interface trace. The store and
+writer row must have matching primitive bindings. `coverReadToWriter`
+composes this endpoint with a path indexed from the actual read to the actual
+store. `static_identity_rejects_ordinary_output` proves why the carry pair
+cannot replace the writer pair. Carry admission is query permission only;
+ordinary reverse writes, kills and call matching still decide actual paths.
+
+A source-generated writer also needs its real RHS/source point and helper
+guides. The positive-witness model covers their group-demand construction
+when those primitives are compiled. The corridor module's `reverseSource`
+only checks an exact local source action and returns unmarked ZERO. It does
+not prove a general RHS-to-source CFG interpreter or group-decorate ZERO.
+The ordinary adapter must preserve real AP overlap, operation stages and
+well-bracketed call bindings. This is coverage of every finite real compiled
+route, not a claim that all composable inventory routes are feasible.
+
+The ZERO-wrapper model proves the separate path in the new revision.
+`runChain` computes actual zero-only replies followed by field-preserving
+wrapper-body transfers. `runChain_result` and `runChain_matches_certificate`
+retain the full sink requirement and real call-port list. No run-1 nonzero
+wrapper guide is an input. Each body must preserve the requirement to its
+entry; a definite overwrite blocks that publication. Getter and writer
+nonzero queries keep their separate permissions. `writer_has_explicit_zero`
+retains the writer demand's control ZERO exit. The source law requires the
+actual full mark, keeps the original initial, and cannot turn a nonzero
+query with current REACH into genuine ZERO discovery.
+
+The positive-tree model extends the concept to group-changing rules and
+multiple guard premises. It compiles a finite full witness to a grouped
+witness, computes source-rooted forward closure, and freezes the backward
+pair for every supported rule/premise. Its full-catalog construction retains
+original rule and ordered premise indices. Group equality does not erase
+full source/sink occurrence identity. A separate frozen point demand supplies
+the actual target seed, including a source/check at the same stage.
+
+These are discovery permissions. Exact full-mark preimages still need the
+ordinary reverse primitive; a group guide cannot invent a full mark or an
+ND confirmation. Paired membership is required at publication as well as
+initial admission. Complete production interface collection, AP encoding,
+internal-point starts and full-rule/IR compilation remain explicit adapters.
+
+The reused handoff model then supplies full-member catalog decoding and
+finite compatible writer lookup. `every_full_group_member_gets_seed`,
+`open_writer_complete`, `compilePath`, `compileGraphPath` and
+`every_finite_reference_trace_discovered` retain the original static read
+and each intermediate writer guard in their finite inventory scope.
+They start from an existing query; they did not prove its group admission.
+
+Complete inventory enumeration is broader than marked witness coverage.
+The new positive proof covers every real finite witness in its compiled
+calculus. It does not say every false or unsupported speculative writer
+candidate executes. No missing group demand can be replaced by a generic
+unpruned-scope permission. Actual backward source permissions and later
+forward confirmation still require the real path, full conditions and ND
+support. This is not a checked complete JVM iteration.
 
 ## 9. Scoped savings and remaining cost
 
@@ -305,17 +391,17 @@ Use Lean `leanprover/lean4:v4.33.1` in `spec/lean`:
 
 ```sh
 lake build
-lake env lean run1-static-initial-refinement-audit.lean
+lake env lean run1-static-demand-coverage-audit.lean
 ```
 
-The focused audit visits all declarations owned by the four active models,
+The focused audit visits all declarations owned by the nine active models,
 including generated helpers. It collects transitive theorem axioms and
 admits only standard `propext` and `Quot.sound`. No classical choice,
 `sorry` or added axiom is admitted. It then executes every named control.
 
-Final check on 18 October 2026: **PASS**. The build completes **150 jobs**.
-The active audit checks **1,384 declarations**, finds **zero unexpected
-axioms**, and passes **113 executable controls**.
+Final check on 18 October 2026: **PASS**. The build completes **155 jobs**.
+The active audit checks **3,574 declarations**, finds **zero unexpected
+axioms**, and passes **255 executable controls**.
 
 | Module | Audited declarations | Passing controls |
 | --- | ---: | ---: |
@@ -323,12 +409,24 @@ axioms**, and passes **113 executable controls**.
 | Run1StaticInitialRefinement | 300 | 28 |
 | Run1StaticReadAdmission | 144 | 27 |
 | Reused Run1GroupStaticHandoff | 445 | 23 |
-| Total | 1,384 | 113 |
+| Run1StaticDemandGateGap | 328 | 27 |
+| Run1StaticDemandCoverage | 473 | 20 |
+| Run1StaticDemandTreeCoverage | 343 | 28 |
+| Run1StaticReadWritePath | 572 | 33 |
+| Run1StaticEarlySummaryZero | 474 | 34 |
+| Total | 3,574 | 255 |
 
-The [validation receipt](/drive-testcomp/opentaint-go-rules/run1-static-read-admission-20261018/validation/20261018T220546.126961Z/receipt.json)
-has SHA-256 `90fcb5276f600ae60c7db57d71b0dc2570307b7ce7cda4131f3f5c5eaccd89b6`.
+The earlier read-admission audit remains a narrower **1,384-declaration /
+113-control** checkpoint. It does not prove the new demand-generation rule.
+The counterexample and wider group-demand proofs have the new receipt below.
+
+The [validation receipt](/drive-testcomp/opentaint-go-rules/run1-immediate-static-summary-20261018/validation/20261018T233005.300214Z/receipt.json)
+has SHA-256 `53edf2c8be0acda5b4d49e9fd1283506524e001785c67199c372bc478f14294f`.
 It binds stable proof-source hashes to the
-[build log](/drive-testcomp/opentaint-go-rules/run1-static-read-admission-20261018/validation/20261018T220546.126961Z/build.log)
-and [audit log](/drive-testcomp/opentaint-go-rules/run1-static-read-admission-20261018/validation/20261018T220546.126961Z/audit.log).
-No runtime tests or project benchmarks were rerun. Latest measured run
-status remains the one at the start of this dossier.
+[build log](/drive-testcomp/opentaint-go-rules/run1-immediate-static-summary-20261018/validation/20261018T233005.300214Z/build.log)
+and [audit log](/drive-testcomp/opentaint-go-rules/run1-immediate-static-summary-20261018/validation/20261018T233005.300214Z/audit.log).
+The four existing `CallZeroTest` runtime controls pass. The proposed early
+write publication is not implemented. No project benchmarks were rerun. Latest measured run
+status remains the one at the start of this dossier. These finite proofs
+are not a certificate that the current Kotlin implementation has the new
+snapshot compiler or complete JVM query coverage.
