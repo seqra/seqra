@@ -139,3 +139,6 @@ import ApSpec.RuleGroupMarks
 import ApSpec.RuleGroupRequestRepair
 import ApSpec.RuleGroupSchedule
 import ApSpec.RuleGroupConditions
+import ApSpec.Run1GroupStaticPool
+import ApSpec.Run1GroupStaticTrace
+import ApSpec.Run1GroupStaticHandoff

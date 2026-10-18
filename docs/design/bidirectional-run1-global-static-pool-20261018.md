@@ -1,6 +1,11 @@
 # Run-1 statics: a shared pool and symbolic marks
 
 Date: 18 October 2026. Status: **design proposal; analyzer unchanged**.
+The [complete grouped static-pool proposal](../../spec/run1-group-static-pool.md)
+and [proof dossier](../../spec/run1-group-static-pool-proofs.md) now supersede
+this sketch. They specify group requests, FLOW publication and propagation,
+operation stages, full-mark point queries and the writer-discovery boundary.
+The older alternatives below retain only their historical design scope.
 The selected [mark specification](../../spec/rule-group-marks.md) supersedes
 the mark alternatives in this sketch. Run-1 taint values use `(group, *)`;
 unknown-group supply remains FLOW or pool metadata, not an `AnyPossibleMark`

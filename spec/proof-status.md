@@ -1,5 +1,25 @@
 # Current proof status
 
+## Proposed run-1 static pool with group marks
+
+The [new static-pool proposal](run1-group-static-pool.md) combines the shared
+pool idea with the selected group-mark representation. It specifies direct
+reached-reader delivery, origin-free ambient FLOW/groups, global/static and
+local group interests, exact point-query handoff and complete writer search.
+It retains the actual read obligation; an inventory opening is query-only.
+
+The [proof dossier](run1-group-static-pool-proofs.md) separates ordered
+concrete-trace coverage from scalar/merged storage equivalence and finite
+full-mark writer discovery. AP scope intersection, stage compilation,
+queue ownership, point queries, source/forward authorization and confirmation
+remain explicit implementation obligations. No JVM or whole-engine proof
+is claimed. This is a proposal; analyzer behavior and measured project
+results below are unchanged.
+
+Lean 4.33.1 builds all 145 jobs. The focused new-module audit checks
+**1,015 declarations**, finds **zero unexpected axioms**, and passes
+**59 controls**. The dossier links the stable-source receipt and logs.
+
 ## Selected rule-group mark specification
 
 The [rule-group mark contract](rule-group-marks.md) specifies one group for

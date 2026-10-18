@@ -15,6 +15,10 @@ Other AP, field-write, call, support and report rules keep their current
 contracts. This file does not implement the proposed shared static pool.
 A static-pool adapter must meet the mark and demand contracts here.
 
+The separate [grouped static-pool proposal](run1-group-static-pool.md) now
+specifies that adapter, its FLOW/group interests and its full-mark handoff.
+It remains an unimplemented proposal; it does not change this mark contract.
+
 Measured runtime remains `63d5481e4e4b69ecf042c1149bb574ad40fd1624`.
 Latest reached / completed engine / accepted forward report: OWASP
 **run-7 / run-6 / run-5**; conductor **run-1 / none / none**;
