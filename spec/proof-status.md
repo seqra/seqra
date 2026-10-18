@@ -1,5 +1,24 @@
 # Current proof status
 
+## Selected caller-owned subscription design
+
+The [detailed caller-owned contract](run1-caller-owned-subscriptions.md) and
+its [proof dossier](run1-caller-owned-subscriptions-proofs.md) specify direct
+canonical static descriptors, the existing caller input relation, shared
+callee/field request views, callsite P/A frontiers and ordinary full-port
+summary application. This is a new design, **not an implemented runtime**.
+
+The constructive models build covered ordinary request endpoints and translate
+finite ordinary analysis derivations to caller-owned derivations. The required
+summary guarantee is one-way semantic inclusion: fixed prescan reachability
+can add conservative interests. Actual mark guards and full ND bindings remain
+required. Kotlin producer, packed-store, codec and scheduling refinements are
+explicit obligations, not consequences of the finite calculus proof.
+
+Latest measured conductor and ThingsBoard remain **run-1 / completed none /
+accepted none** on `f18b1c5bb`. No project measurement was repeated. The current
+runtime checkpoint below remains the measurement source.
+
 ## Current static-need replay batching implementation
 
 The [batched replay contract](run1-static-need-replay-batching.md) extends

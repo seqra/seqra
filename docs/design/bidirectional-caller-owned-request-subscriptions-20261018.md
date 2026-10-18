@@ -5,19 +5,29 @@ Scope: run-1 input abstraction, requests and summary application.
 Latest measured conductor and ThingsBoard: **run-1 / completed none /
 accepted none**, on f18b1c5bb. No new project measurement.
 
+The detailed selected contract is now
+[caller-owned subscriptions](../../spec/run1-caller-owned-subscriptions.md),
+with its [constructive proofs](../../spec/run1-caller-owned-subscriptions-proofs.md).
+That contract takes precedence over the outline below. Static descriptors
+pass directly after the existing canonical normalization; the subscription
+does not perform another static projection or admit ANY initials.
+
 This refines the [entry-subscription proposal](bidirectional-bottom-up-request-processing-20261018.md)
 and addresses the [shared-bottleneck counterexample](bidirectional-request-savings-vs-ordinary-20261018.md).
+The [exact comparison with default propagation](bidirectional-caller-subscriptions-vs-default-20261018.md)
+separates unchanged mechanisms, relay-shortcut savings, admission/batching
+opportunities and the extra request-cache cost.
 
 ## 1. Ownership
 
-Move input projection and the request/input join to the caller's subscription.
+Move input admission and the request/input join to the caller's subscription.
 The callee still evaluates its body once per new canonical initial.
 
 ~~~text
 caller at statement s:
   retain full bound inputs
   merge incoming request marks
-  project actual inputs into canonical callee initials
+  forward prepared static descriptors; form ordinary nonstatic initials
   apply existing/future callee summaries
 
 callee:
@@ -30,6 +40,7 @@ callee:
 The existing caller-owned CalleeSubscriptions already stores bound inputs and
 applies summaries. The change is to consolidate input abstraction and request
 processing there, with subscriptions grouped by call statement/target/stage.
+Keep broad/class static normalization before this boundary.
 Moving the same old per-input operations without grouping would give no saving.
 
 ## 2. One object per call statement, target and stage
@@ -67,10 +78,11 @@ fun CallSiteSubscription.onFact(original: FullPremise, actual: Fact) {
     ensureSummarySubscriptionBeforeReplay()
     ensureRequestSubscriptionsFor(fresh)
 
-    // Pure unconditional projection: abstract geometry + eager actual statics.
+    // Prepared entries: abstract geometry + eager actual statics.
+    // Static descriptor field/path and canonical EXACT/STAR tag pass as is.
     // Requested nonstatic concrete starts are handled by applyDemand below.
     sendInitials(key.callee,
-        projectUnconditionalInitials(fresh, calleePolicy(key.callee)),
+        admittedUnconditionalEntries(fresh),
         requiredInputPresence(fresh))
     applyExistingSummariesTo(fresh)
 
@@ -155,8 +167,9 @@ need for that original field. Base originals use ordinary nonstatic requests.
 
 ## 5. Keep a shared request stream across call statements
 
-Caller ownership alone fixes the one-callsite case, but does not merge demand
-between different callsites. Use a shared request view:
+Caller-side grouping and mark merging fix the previous one-callsite cross
+product. This restores a property the ordinary analyzer already has.
+To share demand between different callsites, use a shared request view:
 
 ~~~kotlin
 data class DemandViewKey(val callee: MethodKey, val field: StaticField)
@@ -248,6 +261,8 @@ covered static relay omission and fixed-CG interest completeness
 late sources, multiple targets/stages, recursion, cancellation and completion
 ~~~
 
-The existing finite P/A model is a useful local oracle. It does not yet prove
-this view-to-callsite composition or its runtime ownership. No new savings
-theorem or project result is claimed by this refinement.
+The new routing and summary models linked from the proof dossier establish
+finite request coverage and no missed default summary in the selected
+calculus, including the shared view/callsite composition. Kotlin producer,
+codec and scheduling adapters remain implementation obligations. No new
+project result or universal savings theorem is claimed.
