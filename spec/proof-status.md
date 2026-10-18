@@ -1,24 +1,29 @@
 # Current proof status
 
-## Proposed run-1 static pool with group marks
+## Proposed run-1 statics with writer-backed groups
 
-The [new static-pool proposal](run1-group-static-pool.md) combines the shared
-pool idea with the selected group-mark representation. It specifies direct
-reached-reader delivery, origin-free ambient FLOW/groups, global/static and
-local group interests, exact point-query handoff and complete writer search.
-It retains the actual read obligation; an inventory opening is query-only.
+The [revised static proposal](run1-group-static-pool.md) keeps the accepted
+static order/caller-context approximation. Every supplied group must now
+have a finite source/writer derivation. FLOW, an interest and a hypothetical
+grouped initial cannot create supply. Writer/provider needs activate actual
+input grounding; derived group answers reach real readers directly.
 
-The [proof dossier](run1-group-static-pool-proofs.md) separates ordered
-concrete-trace coverage from scalar/merged storage equivalence and finite
-full-mark writer discovery. AP scope intersection, stage compilation,
-queue ownership, point queries, source/forward authorization and confirmation
-remain explicit implementation obligations. No JVM or whole-engine proof
-is claimed. This is a proposal; analyzer behavior and measured project
-results below are unchanged.
+The [proof dossier](run1-group-static-pool-proofs.md) separates the rooted
+positive group calculus, identity-relay contraction, finite communication
+protocol and active requested scope. It retains complete full-member B2
+writer discovery. The former FLOW-plus-interest pool/trace models are
+historical; their 1,015-declaration/59-control checkpoint does not prove
+this revision's precision. The independent handoff model is reused.
 
-Lean 4.33.1 builds all 145 jobs. The focused new-module audit checks
-**1,015 declarations**, finds **zero unexpected axioms**, and passes
-**59 controls**. The dossier links the stable-source receipt and logs.
+Actual source eligibility, operation/guard/AP compilation, optimized queues,
+point-query admission, continuation authorization and confirmation remain
+implementation obligations. Analyzer code and measured project results
+below are unchanged.
+
+Lean 4.33.1 builds 148 jobs. The revised active audit checks **1,332
+declarations**, finds **zero unexpected axioms**, and passes **90 controls**.
+The dossier links the stable-source receipt and identifies the exact
+finite/active-scope proof boundaries.
 
 ## Selected rule-group mark specification
 

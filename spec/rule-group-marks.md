@@ -18,6 +18,9 @@ A static-pool adapter must meet the mark and demand contracts here.
 The separate [grouped static-pool proposal](run1-group-static-pool.md) now
 specifies that adapter, its FLOW/group interests and its full-mark handoff.
 It remains an unimplemented proposal; it does not change this mark contract.
+Its revised static path requires a source/writer derivation for every
+supplied group. A request or hypothetical grouped initial cannot ground
+static group availability. FLOW supplies dependencies, not arbitrary groups.
 
 Measured runtime remains `63d5481e4e4b69ecf042c1149bb574ad40fd1624`.
 Latest reached / completed engine / accepted forward report: OWASP
@@ -272,6 +275,10 @@ The user selected the following exception: **RemoveAllMarks can still kill**.
 Apply its ordinary geometry to remove all marks at the selected locations.
 It does not need a separate complement for an individual mark group.
 Requests do not make values cross a real whole-value kill.
+
+Keep ordinary cleaner-condition admission. A rewritten true condition can
+enable its kill. Group possibility alone cannot enable a conditional
+RemoveAll or prove that an unresolved mark-dependent cleaner can kill.
 
 Keep ordinary definite field-overwrite kills and disjoint preservation.
 When a surviving run-1 result would need a field-exclusion update, move it

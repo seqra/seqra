@@ -6,6 +6,10 @@ and [proof dossier](../../spec/run1-group-static-pool-proofs.md) now supersede
 this sketch. They specify group requests, FLOW publication and propagation,
 operation stages, full-mark point queries and the writer-discovery boundary.
 The older alternatives below retain only their historical design scope.
+The current revision requires writer/source-backed group answers. FLOW and
+an interest cannot create a group, locally or in the pool. Writer/RHS
+provider links now supply the required communication. The unknown-envelope
+bootstrap below is historical and is not part of the revised proposal.
 The selected [mark specification](../../spec/rule-group-marks.md) supersedes
 the mark alternatives in this sketch. Run-1 taint values use `(group, *)`;
 unknown-group supply remains FLOW or pool metadata, not an `AnyPossibleMark`
