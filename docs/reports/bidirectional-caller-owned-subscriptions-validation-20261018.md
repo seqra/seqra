@@ -4,9 +4,14 @@ Date: 18 October 2026. The
 [selected contract](../../spec/run1-caller-owned-subscriptions.md) is
 implemented. The [implementation map](../design/bidirectional-caller-owned-subscriptions-implementation-20261018.md)
 describes the stores, call stages, request frontiers and counted barriers.
-Core checks pass. The application precision gate fails. Candidate project
-measurements have not started, so no candidate run iteration is reached,
-completed or accepted yet. The run-1 target remains 60 seconds of engine time.
+Core checks pass after the mixed-batch correction. The corrected-source
+application precision gate fails. The first candidate matrix on
+`7abeecd5c` stopped: OWASP reached
+**run-7**, completed **run-6**, and accepted its **run-5** report before
+timeout; conductor failed in **run-1**, with no completed engine or accepted
+report. ThingsBoard and Stirling-PDF were not launched. Corrected candidate
+project runs have not started. The run-1 target remains 60 seconds of engine
+time.
 
 Evidence root:
 `/drive-testcomp/opentaint-go-rules/caller-owned-subscriptions-20261018/`,
@@ -15,10 +20,10 @@ not establish acceptance for this implementation.
 
 | Check | Result | Evidence under P |
 | --- | --- | --- |
-| Full common dataflow suite | 1,604 passed; zero failures, errors or skips | `validation/full-core-7/opentaint-dataflow/` |
-| Full JVM dataflow suite | 411 passed; zero failures, errors or skips | `validation/full-core-7/opentaint-jvm-dataflow/` |
-| Analyzer consumer jar | Passed | `prebuild/candidate-full-core-7.log` |
-| Application bidirectional selection | 148 passed, nine failed, one skipped | `validation/application-1/` |
+| Full common dataflow suite | 1,607 passed; zero failures, errors or skips | `validation/full-core-8/opentaint-dataflow/` |
+| Full JVM dataflow suite | 411 passed; zero failures, errors or skips | `validation/full-core-8/opentaint-jvm-dataflow/` |
+| Analyzer consumer jar | Passed | `prebuild/candidate-full-core-8.log` |
+| Corrected-source application selection | 148 passed, nine failed, one skipped | `validation/application-2/` |
 | Fresh main OWASP workflow control | 4,112 traces; zero trace-generation failures | `projects/OWASP/main/` |
 
 The main control uses the legacy engine. It has no numbered bidirectional
@@ -48,6 +53,22 @@ jar hash. Intermediate failed checks remain in `prebuild/` and
 `validation/`. They are not accepted gates. In particular, the broad first
 check exposed a backward ZERO stage-resume error. The final checks preserve
 the reversed stage and the existing restricted-run resume behavior.
+
+The first conductor project run exposed a mixed Base/static request batch
+at the nonstatic concrete-answer helper. Its whole-batch Base assertion
+failed before unrelated static rows could be ignored. The focused red
+check ran seven tests against unchanged production code and reproduced the
+same assertion in the direct oracle and input-first integration case.
+The opposite arrival-order control passed. That evidence is in
+`validation/mixed-request-red-1/`.
+
+The correction filters matching Base rows inside the concrete visitor.
+The full green gate includes all three new regressions. A batch with actual
+`b/{T,U}`, Base interest `b/{T,V}`, and static interest `C.f/{U}` can start
+only `b/T`; the static U request still drives its productive FLOW join.
+Both P/A arrival orders, late inputs, eager static admission and legal
+EXACT/STAR tags remain covered. No request storage or initial family was
+added.
 
 ## Checked runtime boundaries
 

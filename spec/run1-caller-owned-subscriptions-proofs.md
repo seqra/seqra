@@ -5,9 +5,12 @@ Date: 18 October 2026. Contract:
 Status: **constructive model and protocol proofs; runtime adapters under validation**.
 This dossier follows [proof-guide.md](proof-guide.md).
 
-Latest measured runtime: `f18b1c5bb`. Conductor and ThingsBoard reached
-**run-1 / completed none / accepted none**. No project analyzer was run for
-this specification. These proofs establish no new timing or heap result.
+Latest measured runtime: `7abeecd5c`. OWASP reached **run-7**, completed
+**run-6**, and accepted its **run-5** report before timeout. Conductor
+failed in **run-1**, with no completed engine or accepted report. The
+matrix stopped before ThingsBoard and Stirling-PDF. A concrete-answer
+batch correction is under validation. These finite proofs do not certify
+the Kotlin adapter or establish a timing or heap result.
 
 ## 1. Claim and proof boundary
 
@@ -448,6 +451,19 @@ The existing finite accounting lemmas in
 [BottomUpStaticTransport](lean/ApSpec/BottomUpStaticTransport.lean), including
 the enqueue-before-release/no-early-completion laws, give an arithmetic oracle.
 They do not prove the new coroutine adapter automatically.
+
+For a nonstatic concrete input with base `b`, an eligible request must
+have the same base. Every StaticField slot has base STATIC, which differs
+from `b`. Therefore removing StaticField rows before concrete matching
+preserves exactly the eligible rows and their mark sets. Base rows for
+other arguments are also rejected by base equality. Intersecting the
+remaining requests with actual marks preserves the same legal initial
+tags and cannot manufacture a requested mark. This reasoning applies at
+both P/A frontiers. It does not remove static rows from the shared batch
+or from productive FLOW joins. The concrete visitor's former whole-batch
+Base assertion did not follow from this lemma and failed on conductor.
+The mixed-batch regressions check that runtime refinement directly; the
+formal models and their checked declarations remain unchanged.
 
 No universal work/heap saving follows from functional inclusion. Coarse
 reachability can add requested actual starts; overlapping views and cache

@@ -6,10 +6,13 @@ defines the required behavior. The
 [proof dossier](../../spec/run1-caller-owned-subscriptions-proofs.md) defines
 the formal scope and the runtime adapter obligations.
 
-No candidate project measurement exists yet. The fresh main OWASP control
-completed and produced 4,112 traces. Main uses the legacy engine and has no
-numbered bidirectional iteration. No candidate run iteration has started.
-The run-1 target is 60 seconds of engine time.
+The first candidate matrix used `7abeecd5c`. OWASP reached **run-7**,
+completed **run-6**, and accepted a **run-5** report before timeout.
+Conductor failed in **run-1**, with no completed engine or accepted report.
+The matrix stopped before ThingsBoard and Stirling-PDF. The mixed-batch
+correction below passes the full core gate; all four candidates need a fresh
+retest. Main uses the legacy engine and has no numbered bidirectional
+iteration. The run-1 target is 60 seconds of engine time.
 
 ## Input admission and entry descriptors
 
@@ -88,6 +91,25 @@ not wait for the whole unit queue to empty. The drain visits only pending
 callsites and groups their transient effects by destination before sending.
 It retains no second input history or output memo.
 
+The input index can visit a concrete Base input with a merged batch that
+also contains static-field rows. The concrete helper selects rows in place:
+
+```kotlin
+if (input !is TaintTree || input.base == STATIC) return
+for (row in rows) {
+    val slot = row.slot as? Run1Slot.Base ?: continue
+    if (slot.base != input.base) continue
+    // Intersect this row with actual branch marks and emit its legal tag.
+}
+```
+
+This corrects the former assertion that every batch row must be Base.
+For example, actual `b/{T,U}`, Base request `b/{T,V}` and static request
+`C.f/{U}` can start only `b/T`. They cannot start `b/U` or absent `b/V`.
+The static row still joins a productive static FLOW input in the same
+batch. Static concrete admission remains eager. The correction makes no
+new request copy, changes no initial shape and adds no propagation policy.
+
 ## Fixed graph and shared static views
 
 `Run1StaticProfiles` exposes the SCCs and fixed DAG already built after
@@ -135,13 +157,13 @@ behavior. Backward ZERO subscriptions retain the reversed call stage.
 
 ## Validation and measurement gates
 
-The full common suite passes **1,604 tests** and the full JVM suite passes
+The full common suite passes **1,607 tests** and the full JVM suite passes
 **411 tests**, with no failures, errors or skips. The analyzer jar builds.
 Evidence is in
-`/drive-testcomp/opentaint-go-rules/caller-owned-subscriptions-20261018/validation/full-core-7/`.
+`/drive-testcomp/opentaint-go-rules/caller-owned-subscriptions-20261018/validation/full-core-8/`.
 The fresh application selection has **148 passes, nine precision failures
 and one skip**. It is not a green acceptance gate. The failure packet is
-`validation/application-1/` under the same evidence root. Assertions and
+`validation/application-2/` under the same evidence root. Assertions and
 expected findings were not weakened. Fixed-configuration candidate project
 runs are pending.
 

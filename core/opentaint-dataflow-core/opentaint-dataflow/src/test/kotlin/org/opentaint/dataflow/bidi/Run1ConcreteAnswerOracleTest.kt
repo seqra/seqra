@@ -71,6 +71,24 @@ class Run1ConcreteAnswerOracleTest {
     }
 
     @Test
+    fun `mixed request rows answer only the matching nonstatic base with an actual mark`() {
+        val other = Run1Slot.Base(AccessPathBase.Argument(1))
+        fun row(slot: Run1Slot, mark: TaintMark) =
+            RequestedRow(slot, RequestRowView(RequestMarkSet.of(mark), RequestMarkSet.EMPTY))
+        val rows = listOf(row(Run1Slot.StaticField(c, a), u), row(Run1Slot.Base(b), t), row(other, u))
+        val marks = ap.intern(MarkSet(intArrayOf(t.id, u.id).sortedArray()))
+        val root = ap.taintAlg.leafNode(ap.taintLeaves(marks, MarkSet.EMPTY))
+        val input = ap.taintTree(b, Layer.NORMAL, root)
+        val expected = setOf(ap.initial(b, null, Tail.EXACT, ExclusionSet.Empty, MarkSlot.Concrete(t)))
+        for (batch in listOf(rows, rows.reversed())) {
+            val actual = buildSet { forEachConcreteAnswer(ap, input, batch) { add(it) } }
+            assertEquals(expected, actual)
+        }
+        val staticOnly = buildSet { forEachConcreteAnswer(ap, input, rows.take(1)) { add(it) } }
+        assertTrue(staticOnly.isEmpty(), "Static interest cannot request a nonstatic concrete initial")
+    }
+
+    @Test
     fun `packed exact and nonexact branches retain both initial alternatives without ANY initials`() {
         val exact = ap.taintAlg.leafNode(ap.taintLeaves(ap.markSetOf(t), MarkSet.EMPTY))
         val any = ap.taintAlg.leafNode(ap.taintLeaves(MarkSet.EMPTY, ap.markSetOf(t)))

@@ -8,11 +8,12 @@ canonical static descriptors, the existing caller input relation, shared
 callee/field request views, callsite P/A frontiers and ordinary full-port
 summary application. The runtime now implements the selected design. The
 [implementation map](../docs/design/bidirectional-caller-owned-subscriptions-implementation-20261018.md)
-records the adapters. The full common gate passes **1,604 tests**, the JVM
+records the adapters. After the mixed-batch correction, the full common
+gate passes **1,607 tests**, the JVM
 gate passes **411 tests**, and the analyzer consumer jar builds. The fresh
 application selection has **148 passes, nine precision failures and one skip**;
 its acceptance gate fails. Fixed-configuration candidate project validation
-remains pending.
+requires a fresh retest on the corrected commit.
 
 The constructive models build covered ordinary request endpoints and translate
 finite ordinary analysis derivations to caller-owned derivations. The required
@@ -21,11 +22,15 @@ can add conservative interests. Actual mark guards and full ND bindings remain
 required. Kotlin producer, packed-store, codec and scheduling refinements are
 explicit obligations, not consequences of the finite calculus proof.
 
-No candidate run iteration has started for this implementation. A fresh
-main OWASP control passes the 4,112-trace workflow check; main has no numbered
+The first caller-owned candidate matrix used `7abeecd5c`. OWASP reached
+**run-7**, completed **run-6**, and accepted a **run-5** report before
+timeout. Conductor failed in **run-1**, with no completed engine or accepted
+report, at the mixed Base/static batch assertion now corrected. The matrix
+stopped before ThingsBoard and Stirling-PDF. No corrected candidate project
+run has started. Fresh main uses the legacy engine and has no numbered
 bidirectional iteration. The historical conductor and ThingsBoard checkpoint
-below reached **run-1 / completed none / accepted none** on `f18b1c5bb`.
-Those older project results do not establish current runtime acceptance.
+below reached **run-1 / completed none / accepted none** on `f18b1c5bb`;
+it does not establish current runtime acceptance.
 
 ## Previous measured static-need replay batching implementation
 

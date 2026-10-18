@@ -41,14 +41,14 @@ internal fun slotMatches(slot: Run1Slot, input: Facts): Boolean {
     }
 }
 
-/** All concrete branches and all actual requested marks, with no supplier memo.
+/** All concrete branches and all actual requested Base marks, with no supplier memo.
+ * A merged batch can also contain static rows; they cannot match this nonstatic input.
  * Exact and nonexact alternatives remain distinct; every nonexact answer is STAR. */
 internal fun forEachConcreteAnswer(
     ap: ApManager, input: Facts, rows: List<RequestedRow>,
     statistics: RequestBatchStatistics.Counts? = null, emit: (InitialAp) -> Unit,
 ) {
     if (input !is TaintTree || input.base == STATIC || rows.isEmpty()) return
-    check(rows.all { it.slot is Run1Slot.Base }) { "Static marks are admitted without ordinary requests" }
     val stack = ArrayDeque<Pair<TaintNode, IntArray>>()
     stack.addLast(input.root to EMPTY_PATH)
     while (stack.isNotEmpty()) {
@@ -59,22 +59,9 @@ internal fun forEachConcreteAnswer(
             for (row in rows) {
                 ap.cancellation.checkpoint()
                 if (statistics != null) statistics.groupGeometrySteps++
-                val slot = row.slot
+                val slot = row.slot as? Run1Slot.Base ?: continue
                 if (slot.base != input.base) continue
-                val matches = when (slot) {
-                    is Run1Slot.Base -> true
-                    is Run1Slot.StaticField -> when (path.size) {
-                        0 -> !exact
-                        1 -> !exact && path[0] == slot.cls
-                        else -> path[0] == slot.cls && path[1] == slot.field
-                    }
-                }
-                if (!matches) continue
-                val atSlot = when (slot) {
-                    is Run1Slot.Base -> path.isEmpty()
-                    is Run1Slot.StaticField -> path.size == 2
-                }
-                val tail = if (exact && atSlot) Tail.EXACT else Tail.STAR
+                val tail = if (exact && path.isEmpty()) Tail.EXACT else Tail.STAR
                 var canonicalPath: PathNode? = null
                 var prepared = false
                 for (id in marks.data) {

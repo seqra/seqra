@@ -5,15 +5,19 @@ Scope: FORWARD run-1, field limit 1. This is the complete caller-subscription
 contract. It replaces the proposed entry-offer/source-pair routing in the
 [earlier request proposal](../docs/design/bidirectional-bottom-up-request-processing-20261018.md).
 It replaces the dynamic static-need graph and graph replay in the
-[measured implementation](run1-static-need-replay-batching.md) when implemented.
+[previous measured implementation](run1-static-need-replay-batching.md).
 The historical measured implementation does not follow this file. The
 [current implementation map](../docs/design/bidirectional-caller-owned-subscriptions-implementation-20261018.md)
 tracks the new runtime and validation.
 
-Latest measured runtime: `f18b1c5bb`. Conductor and ThingsBoard both reached
-**run-1 / completed none / accepted none**. There is no new project run or
-timing result for this design. The target remains run-1 **engine time** within
-60 seconds. IR storage and cache/reference manager changes are outside scope.
+Latest measured runtime: `7abeecd5c`. OWASP reached **run-7**, completed
+**run-6**, and accepted its **run-5** report before timeout. Conductor
+failed in **run-1**, with no completed engine or accepted report. The
+matrix stopped before ThingsBoard and Stirling-PDF. The mixed-batch
+concrete-answer correction is under validation; all candidate projects
+must be retested on the corrected commit. The target remains run-1
+**engine time** within 60 seconds. IR storage and cache/reference manager
+changes are outside scope.
 
 The [proof dossier](run1-caller-owned-subscriptions-proofs.md) follows
 [proof-guide.md](proof-guide.md). It separates the selected calculus, the
@@ -479,6 +483,12 @@ Static TAINT was already eagerly submitted on input arrival. It does not
 propagate a need backwards or require another request-dependent static start.
 Nonstatic TAINT starts only marks actually present and compatible with ordinary
 geometry. `wanted` can never manufacture T.
+
+A candidate-input visit may carry the entire merged delta, including rows
+for other bases or slot kinds. The concrete visitor must select matching
+Base rows before intersecting actual marks. It must not require every row
+in that batch to be Base. An unrelated static row has no effect on a
+nonstatic concrete answer; it can still drive its own productive FLOW join.
 
 Method-local outgoing needs and callsite pending needs use separate owners.
 `offerOutgoingSlot` in this handler addresses **key.caller**, not the callee
