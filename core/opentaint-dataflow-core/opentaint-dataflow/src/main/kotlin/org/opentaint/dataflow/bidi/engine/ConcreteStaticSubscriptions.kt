@@ -25,7 +25,7 @@ internal class ConcreteStaticSubscriptions(private val port: SubscriptionPort, p
         val fresh = sub.copy(entries = delta)
         port.steps.replay {
             val probe = codec.originals(delta).first()
-            val input = Subscription(sub.callee, CallerRef(sub.caller, probe, Layer.DEMAND, sub.call), Layer.DEMAND, delta)
+            val input = Subscription(sub.callee, CallerRef(sub.caller, probe, Layer.DEMAND, sub.call), Layer.DEMAND, delta, stageFrom = sub.stageFrom, stageTo = sub.stageTo)
             for ((pub, member) in storage.candidates(input, port.config.mode)) apply(fresh, pub, member)
         }
         check(port.send(RunEvent.ConcreteStaticEntriesIn(sub.callee, delta))) { "A run rejected concrete static entry delivery" }
@@ -43,7 +43,7 @@ internal class ConcreteStaticSubscriptions(private val port: SubscriptionPort, p
         for (initial in codec.originals(part.entries)) {
             port.ops.manager.cancellation.checkpoint()
             val input = Subscription(part.callee, CallerRef(part.caller, initial, Layer.DEMAND, part.call),
-                Layer.DEMAND, codec.current(initial))
+                Layer.DEMAND, codec.current(initial), stageFrom = part.stageFrom, stageTo = part.stageTo)
             val matched = matches(input, pub, member, port.ops, port.config.mode) ?: continue
             port.applier(part.caller).applyConcreteStaticSummary(part, input.copy(added = matched), pub, member)
         }

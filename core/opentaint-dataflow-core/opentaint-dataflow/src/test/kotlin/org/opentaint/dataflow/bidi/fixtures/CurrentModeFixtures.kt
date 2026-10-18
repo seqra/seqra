@@ -60,6 +60,11 @@ class CurrentModeFixtures : AutoCloseable {
         val handlers = RunMethodHandlers(local, MethodCallServicesFactory(::RunMethodCallServices))
         val factory = RunnerHandlerFactory<RunMethodAnalyzer> { port ->
             handlers.create(object : RunnerPort<RunMethodAnalyzer> by port {
+                override fun subscribe(sub: Subscription) {
+                    if (config.run1) for (leaf in ops.leaves(sub.added))
+                        linkRows += CurrentLink(config.index, sub.callee, sub.ref, sub.linkLayer, leaf)
+                    port.subscribe(sub)
+                }
                 override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
                     for (leaf in ops.leaves(added)) linkRows += CurrentLink(config.index, callee, ref, linkLayer, leaf)
                     port.link(callee, ref, linkLayer, added)

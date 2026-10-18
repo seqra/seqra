@@ -28,8 +28,7 @@ class UnitRunner<A : RunActor> internal constructor(
     private val actors = LinkedHashMap<MethodKey, A>()
     private val queued = Collections.newSetFromMap(IdentityHashMap<A, Boolean>())
     private val closed = AtomicBoolean()
-    override val pendingNeedReplay = if (run.config.run1)
-        PendingNeedReplay(run.shared.ap, run.shared.abstractionStatistics?.staticNeedReplay) else null
+    override val pendingNeedReplay: PendingNeedReplay? = null
     private val handler = factory.create(this)
 
     override val config get() = run.config
@@ -38,6 +37,7 @@ class UnitRunner<A : RunActor> internal constructor(
     override val ops get() = shared.ops
     override val steps get() = run.steps
     override val staticNeedRouter get() = run.staticNeedRouter
+    override val staticRequests get() = run.staticRequests
 
     internal fun postEvent(event: RunEvent): Boolean = run.accept {
         !closed.get() && channel.trySend(event).isSuccess
@@ -46,6 +46,7 @@ class UnitRunner<A : RunActor> internal constructor(
     override fun post(event: RunEvent.Delivery): Boolean = postEvent(event)
     override fun post(event: RunEvent.ChangedRequests): Boolean = postEvent(event)
     override fun post(event: RunEvent.StaticNeed): Boolean = postEvent(event)
+    override fun post(event: RunEvent.CallsiteRequests): Boolean = postEvent(event)
     override fun send(event: RunEvent): Boolean = run.route(event)
 
     override fun summaryStorage(key: MethodKey): SummaryStorage = run.summaryStorage(key)
@@ -114,14 +115,17 @@ class UnitRunner<A : RunActor> internal constructor(
                     val complete = if (event is RunEvent.Work) {
                         check(actors[event.analyzer.key] === event.analyzer) { "Work belongs to another runner" }
                         event.analyzer.work(quantum)
+                    } else if (event is RunEvent.RequestDrain && actors[event.caller]?.let { it in queued } == true) {
+                        // Its existing Work reservation owns P until this method
+                        // empties. An idle owner still drains at message priority.
+                        true
                     } else {
                         handler.handle(event)
                         true
                     }
-                    // The executing parent still owns replay until all child visits are posted.
-                    pendingNeedReplay?.flush(checkNotNull(staticNeedRouter))
                     if (complete) {
                         if (event is RunEvent.Work) {
+                            (handler as? SubscriptionHandler)?.drainRequests(event.analyzer.key)
                             check(queued.remove(event.analyzer)) { "Work was not queued" }
                         }
                         run.afterHandler()

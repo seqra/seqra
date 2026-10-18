@@ -107,7 +107,7 @@ class CallPlanTest {
         }
     }
 
-    @Test fun `resolved stage subscribes before linking with complete caller and callee coordinates`(): Unit {
+    @Test fun `resolved stage admits caller owned inputs with complete caller callee and stage coordinates`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val first = f.store.key("callee-one")
             val second = f.store.key("callee-two")
@@ -129,8 +129,7 @@ class CallPlanTest {
             val initial = f.manager.initial(f.pattern(x, path, mark = mark))
             val (core, calls) = service(f)
             calls.process(EdgeDelta(initial, f.inst(1), input))
-            assertEquals(listOf("subscribe:${first.context}", "link:${first.context}",
-                "subscribe:${second.context}", "link:${second.context}"), order)
+            assertEquals(listOf("subscribe:${first.context}", "subscribe:${second.context}"), order)
             assertEquals(listOf(first, second), f.subscriptions.map { it.callee })
             for (part in f.subscriptions) {
                 assertEquals(f.key, part.ref.caller)
@@ -142,7 +141,8 @@ class CallPlanTest {
                     methodLeaves(f.ops, listOf(part.added)))
                 assertFalse(part.zeroOnly)
             }
-            assertEquals(f.subscriptions.map { it.ref }, f.sentLinks.map { it.ref })
+            assertTrue(f.sentLinks.isEmpty(), "Run-1 entry descriptors are dispatched by caller admission")
+            assertTrue(f.subscriptions.all { it.stageFrom == ADDED && it.stageTo == RETURNED })
             assertTrue(stored(f, core).isEmpty())
             assertTrue(f.cuts.isEmpty(), "The suspended callee stage has no call result to cut")
         }
@@ -332,7 +332,7 @@ class CallPlanTest {
         }
     }
 
-    @Test fun `synchronous subscription replay resumes after the callee stage before its link is sent`(): Unit {
+    @Test fun `synchronous subscription replay resumes at the stored callee stage without a raw run1 link`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val callee = f.store.key("callee")
             val bound = AccessPathBase.Argument(2)
@@ -356,7 +356,7 @@ class CallPlanTest {
             }
             f.onLink = { assertEquals(1, f.subscriptions.size) }
             calls.process(EdgeDelta(initial, f.inst(1), f.fact(x, mark = mark)))
-            assertEquals(1, f.sentLinks.size)
+            assertTrue(f.sentLinks.isEmpty())
             assertEquals(listOf(Cut.CALL), f.cuts.map { it.first })
         }
     }

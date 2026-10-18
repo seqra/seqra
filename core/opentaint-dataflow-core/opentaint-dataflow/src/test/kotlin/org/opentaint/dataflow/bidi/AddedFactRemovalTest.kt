@@ -114,8 +114,11 @@ class AddedFactRemovalTest {
                 ExclusionSet.Empty, MarkSlot.Concrete(mark)) }.toSet()
             assertEquals(expected, h.initials.filter { it.second.mark is MarkSlot.Concrete }.toSet())
             assertEquals(128, h.storage().borrowRequest(slot).countMarks {})
-            assertEquals(1, h.sent.filterIsInstance<RunEvent.InitialAnswersIn>().size,
-                "The caller visit merges equal callee answers before sending")
+            val batches = h.sent.filterIsInstance<RunEvent.InitialAnswersIn>()
+            assertEquals(8, batches.size, "Eight distinct caller owners have independent method-empty barriers")
+            assertTrue(batches.all { batch -> batch.method == f.callee && batch.answers.size == 128 })
+            assertEquals(expected, batches.flatMap { batch -> batch.answers.map { batch.method to it } }.toSet(),
+                "Caller envelopes may repeat; callee canonical admission retains exactly the same128 initials")
         }
     }
 }

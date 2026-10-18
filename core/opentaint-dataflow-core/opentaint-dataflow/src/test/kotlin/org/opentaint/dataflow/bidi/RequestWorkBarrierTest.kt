@@ -119,6 +119,7 @@ class RequestWorkBarrierTest {
                 val delegate = handlers.create(observed)
                 object : RunnerHandler<RunMethodAnalyzer>, SubscriptionHandler {
                     override fun createActor(key: MethodKey) = delegate.createActor(key)
+                    override fun drainRequests(caller: MethodKey) = (delegate as SubscriptionHandler).drainRequests(caller)
                     override fun subscribe(sub: Subscription) = (delegate as SubscriptionHandler).subscribe(sub)
                     override fun freeze() = (delegate as SubscriptionHandler).freeze()
                     override fun handle(event: RunEvent) {

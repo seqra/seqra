@@ -60,9 +60,12 @@ class RunManager<A : RunActor>(
         if (status.compareAndSet(null, RunStatus.COMPLETE)) completion.complete(RunStatus.COMPLETE)
     }
     val forms: DirectedForms = shared.contexts.directed(config.direction)
-    val staticNeedRouter: StaticNeedRouter? = if (config.run1)
-        StaticNeedRouter(shared.ap, { visit -> summaryStorage(visit.key.method).notifyStaticNeed(visit) },
-            statistics = shared.abstractionStatistics?.staticNeedReplay) else null
+    // Legacy replay types remain available to protocol tests. Production run-1
+    // uses the immutable prescan graph and shared field views.
+    val staticNeedRouter: StaticNeedRouter? = null
+    val staticRequests: CallerOwnedStaticRequests? = if (config.run1)
+        CallerOwnedStaticRequests(shared.ap, shared.run1StaticProfiles?.reachability
+            ?: FixedPrescanReachability.empty()) else null
     private val memory = MemoryManager(shared.refManager, OOM_THRESHOLD) { fail(RunStatus.OOM) }
 
     /** All units in this run share one storage for the complete callee key. */
@@ -70,7 +73,7 @@ class RunManager<A : RunActor>(
         check(!ended) { "The run has ended" }
         shared.cancellation.checkpoint()
         storages.computeIfAbsent(key) { SummaryStorage(it, shared.ap, shared.ops, steps,
-            EmptyFrozenRequestBase, shared.abstractionStatistics) }
+            EmptyFrozenRequestBase, shared.abstractionStatistics, staticRequests) }
     }
 
     fun route(event: RunEvent): Boolean {
@@ -199,7 +202,7 @@ class RunManager<A : RunActor>(
             synchronized(admission) {
                 runners.clear()
                 runnerJobs.clear()
-                if (joined) { storages.clear(); staticNeedRouter?.clear() }
+                if (joined) { storages.clear(); staticNeedRouter?.clear(); staticRequests?.clear() }
             }
         }
         failure?.let { throw it }
@@ -241,6 +244,9 @@ class RunManager<A : RunActor>(
         val handled = inFlight.handled
         logger.info { "Run ${config.index}: $handled events (+${handled - last}), ${inFlight.pending} in flight" }
         logger.info { "Memory usage: ${MemoryManager.currentMemoryUsage()}/${Runtime.getRuntime().maxMemory()}" }
+        staticRequests?.let { requests ->
+            logger.info { "Run ${config.index}: caller-owned static requests ${requests.cacheStatistics()}" }
+        }
         return handled
     }
 

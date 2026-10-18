@@ -2,12 +2,14 @@ package org.opentaint.dataflow.bidi.store
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
+import org.opentaint.dataflow.bidi.interp.CallPoint
 import org.opentaint.dataflow.bidi.engine.N2Statistics
 import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.Collections
 
 /** The semantic E6 member after full matching; no accepted Facts version is retained. */
-internal data class NdBinding(val ref: CallerRef, val linkLayer: Layer)
+internal data class NdBinding(val ref: CallerRef, val linkLayer: Layer,
+    val stageFrom: CallPoint = CallPoint.ADDED, val stageTo: CallPoint = CallPoint.RETURNED)
 
 /** Standing literal inputs for one method and run. One writer owns this store. */
 class ConjunctionStore(private val m: ApManager, private val statistics: N2Statistics? = null) {
@@ -47,7 +49,8 @@ class ConjunctionStore(private val m: ApManager, private val statistics: N2Stati
     }
 
     /** An E6 join belongs to one callee context, premise set, publication layer and caller call. */
-    data class NdKey(val callee: MethodKey, val premise: PremiseKey, val layer: Layer, val call: CommonInst)
+    data class NdKey(val callee: MethodKey, val premise: PremiseKey, val layer: Layer, val call: CommonInst,
+        val stageFrom: CallPoint = CallPoint.ADDED, val stageTo: CallPoint = CallPoint.RETURNED)
     private val ndJoins = HashMap<NdKey, NdSummaryJoin<*>>()
 
     @Suppress("UNCHECKED_CAST")

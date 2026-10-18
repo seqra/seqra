@@ -119,10 +119,9 @@ internal fun unionRequestMarks(a: RequestMarkSet, b: RequestMarkSet, checkpoint:
     }.takeSnapshot()
 }
 
-/** Ordinary BaseSlot requests only. Static interests belong to StaticNeedRouter. */
+/** Plain merged interests. Method requests and callsite P/A use this same storage. */
 class RequestStorage(private val sharedBase: FrozenRequestBase = EmptyFrozenRequestBase) {
     constructor(sharedBase: RequestRows) : this(MapFrozenRequestBase(sharedBase))
-    init { sharedBase.forEachStaticRow({}) { error("Static needs cannot be installed in ordinary R/P") } }
     private val additions = LinkedHashMap<Run1Slot, RequestMarkSet>()
     private var addedMembers = 0L
     val isEmpty: Boolean get() = sharedBase.isEmpty && additions.isEmpty()
@@ -140,7 +139,6 @@ class RequestStorage(private val sharedBase: FrozenRequestBase = EmptyFrozenRequ
 
     internal fun addAll(slot: Run1Slot, offered: RequestMarkSelection, counts: RequestAdmissionCounts?,
                         checkpoint: () -> Unit): RequestMarkSet {
-        require(slot is Run1Slot.Base) { "Static interests must use StaticNeedRouter" }
         val old = borrow(slot)
         val fresh = RequestMarkSetBuilder()
         val cursor = offered.cursor()
@@ -169,6 +167,17 @@ class RequestStorage(private val sharedBase: FrozenRequestBase = EmptyFrozenRequ
         return java.util.Collections.unmodifiableMap(additions)
     }
 
+    /** Synchronous owner transaction. The fresh map is detached before callbacks. */
+    fun commit(temporary: RequestStorage, checkpoint: () -> Unit = {}): RequestRows {
+        val fresh = LinkedHashMap<Run1Slot, RequestMarkSet>()
+        for ((slot, marks) in temporary.pendingRows()) {
+            checkpoint()
+            val delta = addAll(slot, marks, checkpoint)
+            if (!delta.isEmpty) fresh[slot] = delta
+        }
+        return freezeRequestRows(fresh)
+    }
+
     /** Hold SummaryStorage's lock until the complete descriptor list is built. No actor callbacks. */
     fun borrowMatchingRows(input: Facts, checkpoint: () -> Unit): List<RequestedRow> =
         borrowMatchingRows(input, checkpoint, null)
@@ -186,11 +195,50 @@ class RequestStorage(private val sharedBase: FrozenRequestBase = EmptyFrozenRequ
             val row = borrow(slot)
             if (!row.isEmpty) add(RequestedRow(slot, row))
         }
-        if (input.base == STATIC) return@buildList
-        if (counts != null) counts.directLookups++
-        addSlot(Run1Slot.Base(input.base))
+        val direct = directRun1RequestSlot(input)
+        if (direct != null) {
+            if (counts != null) counts.directLookups++
+            addSlot(direct)
+            return@buildList
+        }
+        if (counts != null) counts.broadScans++
+        val visited = HashSet<Run1Slot>()
+        fun consider(slot: Run1Slot) {
+            checkpoint()
+            if (!visited.add(slot)) return
+            if (counts != null) counts.scannedKeys++
+            if (slotMatches(slot, input)) addSlot(slot)
+        }
+        // Only keys already represented by this request table are examined.
+        // This is not a legal-field/domain projection or a mark expansion.
+        sharedBase.forEachStaticRow(checkpoint) { consider(it) }
+        for (slot in additions.keys) {
+            if (counts != null) counts.dynamicKeysExamined++
+            consider(slot)
+        }
     }
 
+}
+
+
+/** One key only if every supplied component lies under that same field/base.
+ * Broad root/class and packed mixed fields must scan the existing request keys. */
+internal fun directRun1RequestSlot(input: Facts): Run1Slot? {
+    if (input is Reach) return null
+    val root: TrieNode<*> = when (input) {
+        is FlowTree -> input.root
+        is TaintTree -> input.root
+        is Reach -> return null
+    }
+    if (root.isEmpty) return null
+    if (input.base != STATIC) return Run1Slot.Base(input.base)
+    if (!root.leaf.isEmpty || root.accessorData?.size != 1) return null
+    val cls = root.accessorData!![0]
+    val clsNode = root.childData!![0]
+    if (!clsNode.leaf.isEmpty || clsNode.accessorData?.size != 1) return null
+    val field = clsNode.accessorData!![0]
+    if (!cls.isClass() || !field.isFieldAccessor()) return null
+    return Run1Slot.StaticField(cls, field)
 }
 
 /** Per-call numeric aggregation; no atomic operation for individual candidate rows. */

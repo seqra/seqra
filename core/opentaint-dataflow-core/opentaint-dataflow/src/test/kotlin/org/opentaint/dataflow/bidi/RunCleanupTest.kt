@@ -378,6 +378,7 @@ class RunCleanupTest {
             ports += port
             val unit = assertIs<UnitRunner<CleanupActor>>(port).unit
             return object : RunnerHandler<CleanupActor>, SubscriptionHandler {
+                override fun drainRequests(caller: MethodKey) = Unit
                 override fun createActor(key: MethodKey): CleanupActor = CleanupActor(key) {
                     assertEquals(0, activeHandlers.get(), "Every handler must return before actor freeze")
                     actorFreezes += it.key

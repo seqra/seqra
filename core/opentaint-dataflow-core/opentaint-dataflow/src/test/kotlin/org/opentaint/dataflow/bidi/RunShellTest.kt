@@ -191,7 +191,8 @@ class RunShellTest {
                     is RunEvent.ZeroIn -> { port.analyzer(event.callee).add(1); port.enqueue(port.analyzer(event.callee)) }
                     is RunEvent.MarkRequestsIn -> { port.analyzer(event.method).add(1); port.enqueue(port.analyzer(event.method)) }
                     is RunEvent.InitialAnswersIn, is RunEvent.ChangedRequests, is RunEvent.StaticEntriesIn,
-                    is RunEvent.ConcreteStaticEntriesIn, is RunEvent.StaticNeed -> error("This scalar shell control sends no question batch")
+                    is RunEvent.ConcreteStaticEntriesIn, is RunEvent.StaticNeed, is RunEvent.CallsiteRequests,
+                    is RunEvent.PreparedInitialsIn, is RunEvent.RequestDrain -> error("This scalar shell control sends no question batch")
                     is RunEvent.Delivery -> {
                         assertEquals(f.b, event.callee)
                         assertSame(publication.conclusion, event.publications.single().conclusion)

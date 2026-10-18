@@ -39,7 +39,7 @@ class FactoredRequestPipelineTest {
             h.submit(f.subscription(actual));h.drain()
             val initial=f.ap.initial(STATIC,f.ap.path(second.pathData),Tail.EXACT,ExclusionSet.Empty,MarkSlot.Concrete(u))
             assertTrue(f.callee to initial in h.initials)
-            assertTrue(h.staticNeedRouter.sourcesSnapshot().isEmpty(),"Actual-T admission does not fabricate an interest")
+            assertTrue(h.sourceNeeds().isEmpty(),"Actual-T admission does not fabricate an interest")
             assertTrue(h.storage().borrowRequest(second).isEmpty)
             assertTrue(h.sent.filterIsInstance<RunEvent.MarkRequestsIn>().isEmpty())
         }
@@ -61,7 +61,7 @@ class FactoredRequestPipelineTest {
             if(!needFirst) { h.publish(slot,u.id);h.drain() }
             h.submit(f.subscription(input,call=2));h.drain()
             assertEquals(RequestMarkSet.of(u),h.needs(f.callee,slot))
-            assertTrue(h.storage().borrowRequest(slot).isEmpty)
+            assertEquals(RequestMarkSet.of(u), h.storage().borrowRequest(slot).dynamic)
             assertTrue(h.initials.none { it.second.tail==Tail.ANY })
         }
     }
@@ -80,7 +80,7 @@ class FactoredRequestPipelineTest {
             h.submit(f.subscription(input));h.drain();h.commit()
             val concrete=f.ap.initial(STATIC,f.ap.path(late.pathData),Tail.EXACT,ExclusionSet.Empty,MarkSlot.Concrete(u))
             assertEquals(setOf(f.callee to late.initial(f.ap),f.callee to concrete),h.initials)
-            assertTrue(h.staticNeedRouter.sourcesSnapshot().isEmpty())
+            assertTrue(h.sourceNeeds().isEmpty())
             assertTrue(h.storage().borrowRequest(late).isEmpty)
             assertTrue(h.events.isEmpty())
         }

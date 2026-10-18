@@ -5,11 +5,61 @@ import org.opentaint.dataflow.bidi.store.AddedFactAccumulator
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.PathTrie
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
+import org.opentaint.dataflow.bidi.interp.CallPoint
+import org.opentaint.dataflow.bidi.store.RequestMarkSelection
+import org.opentaint.dataflow.bidi.store.RequestMarkSet
+import org.opentaint.ir.api.common.cfg.CommonInst
+
+/** Structural ND/request scope. Original premise and contributor layer stay in inputs. */
+data class CallSiteKey(val caller: MethodKey, val callee: MethodKey, val call: CommonInst,
+                       val stageFrom: CallPoint, val stageTo: CallPoint)
+
+internal val Subscription.callSiteKey: CallSiteKey
+    get() = CallSiteKey(caller, callee, ref.call, stageFrom, stageTo)
+internal val StaticSubscription.callSiteKey: CallSiteKey
+    get() = CallSiteKey(caller, callee, call, stageFrom, stageTo)
 
 /** The caller runner owns exact added groups, indexed as the transpose of replay. */
 class CalleeSubscriptions(private val ops: ApOps, private val statistics: N2Statistics? = null) {
     private val values = AddedFactAccumulator(ops.manager)
-    private val callees = ArrayList<MethodKey>()
+    private data class Header(val callee: MethodKey, val from: CallPoint, val to: CallPoint,
+                              val coveredStaticRelay: Boolean)
+    private val headers = ArrayList<Header>()
+    private var pending = RequestStorage()
+    private var answered = RequestStorage()
+    private val exactRequestSlots = LinkedHashSet<Run1Slot>()
+    private val viewRequestSlots = LinkedHashSet<Run1Slot.StaticField>()
+    internal fun addExactRequestSlot(slot: Run1Slot): Boolean = exactRequestSlots.add(slot)
+    internal fun addViewRequestSlot(slot: Run1Slot.StaticField): Boolean = viewRequestSlots.add(slot)
+    internal fun acceptsExactRequest(slot: Run1Slot): Boolean = slot in exactRequestSlots
+    internal fun acceptsViewRequest(slot: Run1Slot): Boolean = slot in viewRequestSlots
+    internal fun answeredRows(input: Facts): List<RequestedRow> =
+        answered.borrowMatchingRows(input, ops.manager.cancellation::checkpoint)
+
+    /** Only P is changed here. A stays fixed until the counted method-empty drain. */
+    internal fun offerRequest(slot: Run1Slot, offered: RequestMarkSelection): Boolean {
+        val fresh = offered.minus(answered.borrow(slot), ops.manager.cancellation::checkpoint)
+        return !fresh.isEmpty && !pending.addAll(slot, fresh, ops.manager.cancellation::checkpoint).isEmpty
+    }
+
+    /** A is installed before callbacks can enqueue any outward work. */
+    internal fun drainRequests(): RequestRows {
+        val detached = pending
+        pending = RequestStorage()
+        return answered.commit(detached, ops.manager.cancellation::checkpoint)
+    }
+
+    internal data class RequestState(val pendingRows: Int, val pendingMembers: Long,
+                                     val answeredRows: Int, val answeredMembers: Long)
+    internal fun requestState(): RequestState = RequestState(pending.dynamicRows, pending.dynamicMembers,
+        answered.dynamicRows, answered.dynamicMembers)
+
+    private fun snapshot(handle: Int): Subscription {
+        val value = values.snapshot(handle)
+        val header = headers[handle]
+        return Subscription(header.callee, value.ref, value.group.layer, value.facts,
+            stageFrom = header.from, stageTo = header.to, coveredStaticRelay = header.coveredStaticRelay)
+    }
     private var index = PathTrie<Int>(ops.manager.cancellation)
     private val zeroParts = LinkedHashMap<CallerRef, Subscription>()
     private var postings = 0L
@@ -19,8 +69,7 @@ class CalleeSubscriptions(private val ops: ApOps, private val statistics: N2Stat
     internal inner class Admission(val fresh: Subscription, private val handle: Int, val growth: Boolean = false) {
         val current: Subscription get() {
             if (handle < 0) return fresh
-            val value = values.snapshot(handle)
-            return Subscription(callees[handle], value.ref, value.group.layer, value.facts)
+            return snapshot(handle)
         }
     }
 
@@ -39,7 +88,15 @@ class CalleeSubscriptions(private val ops: ApOps, private val statistics: N2Stat
             return Admission(sub, -1)
         }
         val update = values.add(sub.ref, sub.linkLayer, sub.added) ?: return null
-        if (update.newGroup) callees += sub.callee
+        if (update.newGroup) headers += Header(sub.callee, sub.stageFrom, sub.stageTo, sub.coveredStaticRelay)
+        else {
+            val header = headers[update.handle]
+            check(header.callee == sub.callee && header.from == sub.stageFrom && header.to == sub.stageTo) {
+                "Distinct call stages require distinct caller input directories"
+            }
+            if (header.coveredStaticRelay && !sub.coveredStaticRelay)
+                headers[update.handle] = header.copy(coveredStaticRelay = false)
+        }
         statistics?.accepted(newGroup = update.newGroup)
         ops.manager.forEachLeafPosition(update.delta) { base, path ->
             if (index.add(base, path, update.handle) && statistics != null) {
@@ -65,8 +122,7 @@ class CalleeSubscriptions(private val ops: ApOps, private val statistics: N2Stat
                 index.visitAround(row.slot.base, row.slot.pathData) { handle ->
                     ops.manager.cancellation.checkpoint()
                     if (seen.add(handle)) {
-                        val value = values.snapshot(handle)
-                        visit(Subscription(callees[handle], value.ref, value.group.layer, value.facts))
+                        visit(snapshot(handle))
                     }
                 }
             }
@@ -88,14 +144,13 @@ class CalleeSubscriptions(private val ops: ApOps, private val statistics: N2Stat
             if (initial.mark is MarkSlot.Star) ids += index.lookupExtensions(initial.base, initial.pathData)
         }
         // Capture every candidate value before callbacks can grow this directory.
-        val snapshot = ArrayList<Subscription>(ids.size + if (pub.premise.isZero) zeroParts.size else 0)
+        val snapshots = ArrayList<Subscription>(ids.size + if (pub.premise.isZero) zeroParts.size else 0)
         for (id in ids) {
             ops.manager.cancellation.checkpoint()
-            val value = values.snapshot(id)
-            snapshot += Subscription(callees[id], value.ref, value.group.layer, value.facts)
+            snapshots += snapshot(id)
         }
-        if (pub.premise.isZero) snapshot.addAll(zeroParts.values)
-        for (sub in snapshot) {
+        if (pub.premise.isZero) snapshots.addAll(zeroParts.values)
+        for (sub in snapshots) {
             ops.manager.cancellation.checkpoint()
             yield(sub)
         }
@@ -106,7 +161,12 @@ class CalleeSubscriptions(private val ops: ApOps, private val statistics: N2Stat
         check(!visitingQuestion) { "A live question visit cannot release its input directory" }
         statistics?.releaseDirectory(values.size, zeroParts.size, postings)
         values.clear()
-        callees.clear()
+        headers.clear()
+        pending = RequestStorage()
+        answered = RequestStorage()
+        // A and P are owned by this directory and released with it.
+        exactRequestSlots.clear()
+        viewRequestSlots.clear()
         zeroParts.clear()
         index = PathTrie(ops.manager.cancellation)
         postings = 0L

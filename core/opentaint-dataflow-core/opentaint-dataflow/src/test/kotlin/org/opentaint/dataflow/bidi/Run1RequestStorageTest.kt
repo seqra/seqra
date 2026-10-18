@@ -48,16 +48,23 @@ class Run1RequestStorageTest {
         assertFails { (temporary.pendingRows() as MutableMap<Run1Slot, RequestMarkSet>).clear() }
     }
 
-    @Test fun `ordinary R and P reject static rows and do not scan static suppliers`() {
-        val f = StoreFixtures(); val m = f.manager; val t = f.mark("T")
+    @Test fun `one storage class commits Base and Static rows and broad matching visits only stored keys`() {
+        val f = StoreFixtures(); val m = f.manager; val t = f.mark("T"); val u = f.mark("U")
         val c = m.accessors.index(ClassStaticAccessor("C")); val slot = Run1Slot.StaticField(c,f.field("f"))
-        assertFailsWith<IllegalStateException> { RequestStorage(mapOf(slot to RequestMarkSet.of(t))) }
-        val storage = RequestStorage()
-        assertFailsWith<IllegalArgumentException> { storage.addAll(slot,RequestMarkSet.of(t)) }
+        val base = Run1Slot.Base(AccessPathBase.Argument(0))
+        val authority = RequestStorage()
+        val temporary = RequestStorage()
+        temporary.addAll(slot, RequestMarkSet.of(t)); temporary.addAll(base, RequestMarkSet.of(u))
+        val delta = authority.commit(temporary)
+        assertEquals(mapOf<Run1Slot,RequestMarkSet>(slot to RequestMarkSet.of(t),base to RequestMarkSet.of(u)),delta)
+        assertEquals(RequestMarkSet.of(t),authority.borrow(slot).dynamic)
+        assertTrue(authority.commit(temporary).isEmpty(), "Already committed marks cannot notify twice")
         val counts = RequestMatchCounts()
-        assertTrue(storage.borrowMatchingRows(f.fact(STATIC,tail=Tail.ANY),{},counts).isEmpty())
-        assertEquals(0L,counts.scannedKeys)
-        assertTrue(storage.borrow(slot).isEmpty)
+        val rows = authority.borrowMatchingRows(f.fact(STATIC,tail=Tail.ANY),{},counts)
+        assertEquals(listOf(slot),rows.map { it.slot })
+        assertEquals(2L,counts.scannedKeys, "Broad matching scans stored keys, never a field universe")
+        assertEquals(RequestMarkSet.of(t),rows.single().marks.dynamic)
+        assertFails { (delta as MutableMap<Run1Slot,RequestMarkSet>).clear() }
     }
 
     @Test fun `static need geometry ignores field and mark exclusions but exact ancestor is not a supplier`() {

@@ -189,6 +189,7 @@ class Run1StaticProfiles internal constructor(
     private val targets: Map<CommonMethod, Set<CommonMethod>>,
     private val readers: Map<CommonMethod, Set<Run1Slot.StaticField>>,
     val statistics: Run1StaticProfileStatistics,
+    val reachability: FixedPrescanReachability,
 ) {
     val methods: Set<CommonMethod> get() = profiles.keys
     operator fun get(method: CommonMethod): Run1StaticProfile = checkNotNull(profiles[method]) {
@@ -404,6 +405,10 @@ private class StaticProfileBuilder(private val ap: ApManager) {
             0, 0, 0, 0, adds, reuses, checkpoints, 0, System.nanoTime() - started,
             directMarkGroups = directGroups, transitiveMarkGroups = 0, uniqueMarkQueries = uniqueQueries.size,
             staticMayWriteMethods = byMethod.values.count { it.staticMayWrite })
-        return Run1StaticProfiles(ownedMap(byMethod), ownedMap(frozenEdges), ownedMap(localReaders), statistics)
+        val targets = ownedMap(frozenEdges)
+        val methodComponents = ownedMap(methods.indices.associate { methods[it] to component[it] })
+        val reachability = FixedPrescanReachability.fromComponents(methodComponents,
+            Array(componentCount) { successors[it].toIntArray() }, targets, ap.cancellation::checkpoint)
+        return Run1StaticProfiles(ownedMap(byMethod), targets, ownedMap(localReaders), statistics, reachability)
     }
 }

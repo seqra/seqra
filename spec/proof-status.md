@@ -1,12 +1,18 @@
 # Current proof status
 
-## Selected caller-owned subscription design
+## Current caller-owned subscription implementation
 
 The [detailed caller-owned contract](run1-caller-owned-subscriptions.md) and
 its [proof dossier](run1-caller-owned-subscriptions-proofs.md) specify direct
 canonical static descriptors, the existing caller input relation, shared
 callee/field request views, callsite P/A frontiers and ordinary full-port
-summary application. This is a new design, **not an implemented runtime**.
+summary application. The runtime now implements the selected design. The
+[implementation map](../docs/design/bidirectional-caller-owned-subscriptions-implementation-20261018.md)
+records the adapters. The full common gate passes **1,604 tests**, the JVM
+gate passes **411 tests**, and the analyzer consumer jar builds. The fresh
+application selection has **148 passes, nine precision failures and one skip**;
+its acceptance gate fails. Fixed-configuration candidate project validation
+remains pending.
 
 The constructive models build covered ordinary request endpoints and translate
 finite ordinary analysis derivations to caller-owned derivations. The required
@@ -15,11 +21,13 @@ can add conservative interests. Actual mark guards and full ND bindings remain
 required. Kotlin producer, packed-store, codec and scheduling refinements are
 explicit obligations, not consequences of the finite calculus proof.
 
-Latest measured conductor and ThingsBoard remain **run-1 / completed none /
-accepted none** on `f18b1c5bb`. No project measurement was repeated. The current
-runtime checkpoint below remains the measurement source.
+No candidate run iteration has started for this implementation. A fresh
+main OWASP control passes the 4,112-trace workflow check; main has no numbered
+bidirectional iteration. The historical conductor and ThingsBoard checkpoint
+below reached **run-1 / completed none / accepted none** on `f18b1c5bb`.
+Those older project results do not establish current runtime acceptance.
 
-## Current static-need replay batching implementation
+## Previous measured static-need replay batching implementation
 
 The [batched replay contract](run1-static-need-replay-batching.md) extends
 the [implemented concrete-static contract](run1-bottom-up-concrete-static-propagation.md).

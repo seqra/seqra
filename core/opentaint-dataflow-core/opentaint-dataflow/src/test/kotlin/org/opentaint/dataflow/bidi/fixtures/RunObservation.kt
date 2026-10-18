@@ -44,7 +44,20 @@ data class RunObservation(
     fun assertEquivalent(other: RunObservation, universe: BoundedDenotation) {
         val expected = semantic(universe)
         val actual = other.semantic(universe)
-        if (expected != actual) throw AssertionError("Finite closure mismatch\nexpected=$expected\nactual=$actual")
+        if (expected != actual) {
+            val different = listOf(
+                "processed" to (expected.processed == actual.processed),
+                "initials" to (expected.initials == actual.initials),
+                "rawSummaries" to (expected.rawSummaries == actual.rawSummaries),
+                "publications" to (expected.publications == actual.publications),
+                "selectedDemand" to (expected.selectedDemand == actual.selectedDemand),
+                "links" to (expected.links == actual.links),
+                "requests" to (expected.requests == actual.requests),
+                "sourceHits" to (expected.sourceHits == actual.sourceHits),
+                "witnesses" to (expected.witnesses == actual.witnesses),
+            ).filterNot { it.second }.map { it.first }
+            throw AssertionError("Finite closure mismatch in $different\nexpected=$expected\nactual=$actual")
+        }
     }
 }
 

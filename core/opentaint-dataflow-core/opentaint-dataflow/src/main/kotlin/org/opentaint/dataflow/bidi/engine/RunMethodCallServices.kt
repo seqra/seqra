@@ -160,7 +160,8 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                 core.ap.cancellation.checkpoint()
                 if (stage is CallStage.Callees) {
                     for (callee in stage.callees) core.runnerPort.subscribeStatic(
-                        StaticSubscription(callee, core.key, ctx.node, entries, stage.from, stage.to))
+                        StaticSubscription(callee, core.key, ctx.node, entries, stage.from, stage.to,
+                            coveredStaticRelay = core.hasSuppliedStaticEntries(entries)))
                     continue
                 }
                 val selected = when (stage) {
@@ -347,15 +348,17 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         if (core.config.run1 && fact.facts is FlowTree &&
             compactRun1StaticIdentity(core.ops, fact.premise, fact.facts) == null) {
             for (callee in stage.callees) core.runnerPort.subscribeStatic(
-                StaticSubscription(callee, core.key, ctx.node, fact.facts, stage.from, stage.to))
+                StaticSubscription(callee, core.key, ctx.node, fact.facts, stage.from, stage.to,
+                        coveredStaticRelay = core.hasSuppliedStaticEntries(fact.facts)))
             return
         }
         val ref = CallerRef(core.key, fact.premise, ctx.callerLayer, ctx.node)
         for (callee in stage.callees) {
             core.ap.cancellation.checkpoint()
-            core.runnerPort.subscribe(Subscription(callee, ref, fact.facts.layer, fact.facts))
+            core.runnerPort.subscribe(Subscription(callee, ref, fact.facts.layer, fact.facts,
+                stageFrom = stage.from, stageTo = stage.to))
             core.ap.cancellation.checkpoint()
-            core.runnerPort.link(callee, ref, fact.facts.layer, fact.facts)
+            if (!core.config.run1) core.runnerPort.link(callee, ref, fact.facts.layer, fact.facts)
         }
     }
 
@@ -371,9 +374,11 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         core.localServices.fireSinkSeeds(item.node) { seeds += PlanFact(core.ap.zero, it, null) }
         if (seeds.isNotEmpty()) flow(ctx, CallPoint.BOUND, seeds)
         val ref = CallerRef(core.key, core.ap.zero, ctx.callerLayer, item.node)
-        for (callee in ctx.plan.callees?.callees.orEmpty()) {
+        val stage = ctx.plan.callees ?: return
+        for (callee in stage.callees) {
             core.ap.cancellation.checkpoint()
-            core.runnerPort.subscribe(Subscription(callee, ref, item.facts.layer, item.facts, zeroOnly = true))
+            core.runnerPort.subscribe(Subscription(callee, ref, item.facts.layer, item.facts, zeroOnly = true,
+                stageFrom = stage.from, stageTo = stage.to))
             core.ap.cancellation.checkpoint()
             core.runnerPort.send(RunEvent.ZeroIn(callee))
         }
@@ -387,7 +392,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                 val results = ArrayList<PlanFact>()
                 if (part.zeroOnly) results += PlanFact(part.ref.premise, pub.conclusion, false)
                 else applyParts(part, premise, pub.conclusion, results)
-                resumeCallees(part.ref, results)
+                resumeCallees(part.ref, results, returnPoint = ordinaryReturnPoint(part.stageTo))
             }
         }
     }
@@ -397,7 +402,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         val initial = checkNotNull(pub.premise as? InitialAp)
         val results = ArrayList<PlanFact>()
         applyParts(input, initial, pub.conclusion, results)
-        resumeCallees(input.ref, results, returnPoint = part.stageTo)
+        resumeCallees(input.ref, results, returnPoint = ordinaryReturnPoint(part.stageTo))
     }
 
     override fun applyConcreteStaticSummary(part: ConcreteStaticSubscription, input: Subscription, pub: Publication, member: Int) {
@@ -407,7 +412,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             is InitialAp -> {
                 val results = ArrayList<PlanFact>()
                 applyParts(input, premise, pub.conclusion, results)
-                resumeCallees(input.ref, results, returnPoint = part.stageTo)
+                resumeCallees(input.ref, results, returnPoint = ordinaryReturnPoint(part.stageTo))
             }
         }
     }
@@ -426,10 +431,10 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             if (only != null) applyParts(part.copy(added = only), premise, record.conclusion, pending)
         }
         if (native.isNotEmpty() || pending.isNotEmpty()) core.countRecordCrossing()
-        resumeCallees(part.ref, native)
+        resumeCallees(part.ref, native, returnPoint = ordinaryReturnPoint(part.stageTo))
         val tagged = ArrayList<PlanFact>(pending.size)
         for (fact in pending) { core.ap.cancellation.checkpoint(); tagged += PlanFact(fact.premise, fact.facts, false) }
-        resumeCallees(part.ref, tagged, pendingDemotion = true)
+        resumeCallees(part.ref, tagged, pendingDemotion = true, returnPoint = ordinaryReturnPoint(part.stageTo))
     }
 
     override fun applyRecordView(part: Subscription, view: RecordLeafView) {
@@ -440,7 +445,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             results += PlanFact(premise, result, identity)
         })
         if (results.isNotEmpty()) core.countRecordCrossing()
-        resumeCallees(part.ref, results)
+        resumeCallees(part.ref, results, returnPoint = ordinaryReturnPoint(part.stageTo))
     }
 
     private fun toDemand(facts: Facts): Facts {
@@ -451,6 +456,11 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             is FlowTree -> error("A must record has TAINT results")
         }
     }
+
+    // The selected caller-subscription protocol applies to run-1. Restricted
+    // runs keep their existing native/opposite-record resume convention.
+    private fun ordinaryReturnPoint(point: CallPoint): CallPoint? =
+        point.takeIf { active().config.run1 }
 
     private fun resumeCallees(ref: CallerRef, results: List<PlanFact>, pendingDemotion: Boolean = false,
                               returnPoint: CallPoint? = null) {
@@ -493,8 +503,8 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         check(matched is TaintTree) { "An E6 member input is TAINT" }
         check(part.linkLayer == matched.layer) { "The matched fact and link have the same layer" }
         val store = checkNotNull(core.localServices.conjunctions) { "Forward calls need their local conjunction store" }
-        val join = store.ndJoin<NdBinding>(ConjunctionStore.NdKey(part.callee, premise, pub.layer, part.ref.call))
-        val binding = NdBinding(part.ref, matched.layer)
+        val join = store.ndJoin<NdBinding>(ConjunctionStore.NdKey(part.callee, premise, pub.layer, part.ref.call, part.stageFrom, part.stageTo))
+        val binding = NdBinding(part.ref, matched.layer, part.stageFrom, part.stageTo)
         for ((parts, result) in join.addSubscription(member, binding)) {
             core.ap.cancellation.checkpoint()
             applyCombination(parts, result)
@@ -518,7 +528,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         core.ops.applyMatchedCombination(layers, conclusion, core.collect(union, conclusion) { pr, result ->
             results += PlanFact(pr, result, false)
         })
-        resumeCallees(parts[0].ref, results)
+        resumeCallees(parts[0].ref, results, returnPoint = ordinaryReturnPoint(parts[0].stageTo))
     }
 
     override fun freeze() {

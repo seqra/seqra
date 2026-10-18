@@ -11,7 +11,7 @@ import org.opentaint.dataflow.util.Cancellation
 import kotlin.test.*
 
 class Run1RequestStatisticsTest {
-    @Test fun `static source visits use no inherited base row or ordinary replay climb`() {
+    @Test fun `uncovered static relays use shared views and authoritative rows without inherited base`() {
         Run1RequestPipelineFixtures().use { h ->
             val f = h.f
             val cls = f.ap.accessors.index(ClassStaticAccessor("C"))
@@ -24,11 +24,12 @@ class Run1RequestStatisticsTest {
             assertTrue(h.storage().borrowRequest(slot).precomputed.isEmpty)
             h.publish(slot,t.id)
             h.drain()
-            assertTrue(h.climbs.isEmpty(), "Static visits are not ordinary MarkRequestsIn batches")
+            assertEquals(setOf(Triple(f.caller,slot as Run1Slot,t.id)),h.climbs,
+                "Without a prescan coverage certificate the ordinary same-field join remains")
             assertEquals(RequestMarkSet.of(t),h.needs(f.callee,slot))
-            assertEquals(1,h.staticNeedRouter.sourcesSnapshot().size)
+            assertEquals(1,h.staticRequests.snapshot().sources)
             val totals = h.statistics.snapshot()
-            assertEquals(0L,totals.replayClimbs)
+            assertEquals(1L,totals.replayClimbs)
             assertEquals(0L,totals.inheritedBaseRowsSkipped,
                 "A D-only notification has no B row to skip even when queried slot equals original slot")
         }

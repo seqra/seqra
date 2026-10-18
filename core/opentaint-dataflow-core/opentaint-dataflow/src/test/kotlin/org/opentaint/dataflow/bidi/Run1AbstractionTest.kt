@@ -188,8 +188,10 @@ class Run1AbstractionTest {
             val ref = caller(f, gp)
             f.admit(core, ref, Layer.NORMAL, f.fact(STATIC, gp, Tail.STAR, MarkSlot.STAR))
             f.drain(core)
-            assertTrue(f.events.filterIsInstance<RunEvent.MarkRequestsIn>().isEmpty(),
-                "Static-origin interest is not an ordinary static R/P delivery")
+            val outgoing = f.events.filterIsInstance<RunEvent.MarkRequestsIn>()
+            assertTrue(outgoing.any { it.method == ref.caller &&
+                it.rows[Run1Slot.StaticField(gp[0], gp[1])] == RequestMarkSet.of(f.mark("T")) },
+                "The productive caller input maps the callee's need to its original static field")
             assertEquals(RequestMarkSet.of(f.mark("T")),
                 f.requestRow(core, Run1Slot.StaticField(gp[0], gp[1])).toRequestMarkSet {})
             assertTrue(f.vulnerabilities.witnessesOf(1).none(), "An abstract check supplies no predicate proof")

@@ -159,6 +159,10 @@ class NdJoinAdapterTest {
                     return actor
                 }
                 override fun post(event: RunEvent.Delivery): Boolean { deliveries += event; return true }
+                override fun send(event: RunEvent): Boolean {
+                    assertIs<RunEvent.PreparedInitialsIn>(event)
+                    return true // This control supplies summaries directly, without a callee body.
+                }
             })
             val publication = Publication(premise, f.fact(result, mark = v))
             val first = part(f, callee, j1, f.fact(firstBase, mark = t))

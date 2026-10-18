@@ -15,10 +15,9 @@ fun matches(sub: Subscription, pub: Publication, member: Int, ops: ApOps, mode: 
 /** Only notify runs on a publisher's thread; all subscription state is runner-owned. */
 class SubscriptionManager(port: SubscriptionPort) {
     @Volatile private var port: SubscriptionPort? = port
-    private val byCallee = LinkedHashMap<MethodKey, CalleeSubscriptions>()
-    private data class StaticCall(val caller: MethodKey, val call: org.opentaint.ir.api.common.cfg.CommonInst,
-        val from: org.opentaint.dataflow.bidi.interp.CallPoint, val to: org.opentaint.dataflow.bidi.interp.CallPoint)
-    private val staticByCallee = LinkedHashMap<MethodKey, LinkedHashMap<StaticCall, StaticSubscription>>()
+    private val byCallee = LinkedHashMap<MethodKey, LinkedHashMap<CallSiteKey, CalleeSubscriptions>>()
+    private val pendingSitesByCaller = LinkedHashMap<MethodKey, LinkedHashSet<CallSiteKey>>()
+    private val staticByCallee = LinkedHashMap<MethodKey, LinkedHashMap<CallSiteKey, StaticSubscription>>()
     private val concreteStatic = ConcreteStaticSubscriptions(port, this)
 
     fun subscribeConcreteStatic(sub: ConcreteStaticSubscription) = concreteStatic.subscribe(sub)
@@ -30,14 +29,19 @@ class SubscriptionManager(port: SubscriptionPort) {
         entries.validate(sub.entries)
         val storage = port.summaryStorage(sub.callee)
         val relations = staticByCallee.getOrPut(sub.callee) {
-            LinkedHashMap<StaticCall, StaticSubscription>().also { storage.addSubscriber(this) }
+            LinkedHashMap<CallSiteKey, StaticSubscription>()
         }
-        val key = StaticCall(sub.caller, sub.call, sub.stageFrom, sub.stageTo)
-        val (stored, delta) = entries.merge(relations[key]?.entries, sub.entries)
+        val key = sub.callSiteKey
+        val entry = directory(key)
+        val previous = relations[key]
+        val (stored, delta) = entries.merge(previous?.entries, sub.entries)
         if (delta == null) return
         port.abstractionStatistics?.staticRelation(staticEntryMemberships(delta), key !in relations)
-        relations[key] = sub.copy(entries = stored)
-        val fresh = sub.copy(entries = delta)
+        // Certification for one fresh component cannot certify older unrelated
+        // components in this same packed relation. Uncertainty keeps the fallback.
+        val certified = sub.coveredStaticRelay && (previous?.coveredStaticRelay ?: true)
+        relations[key] = sub.copy(entries = stored, coveredStaticRelay = certified)
+        val fresh = sub.copy(entries = delta, coveredStaticRelay = certified)
         // Register the exact relation before either side's current-state read.
         port.steps.replay {
             val probe = entries.originals(delta).first()
@@ -46,7 +50,13 @@ class SubscriptionManager(port: SubscriptionPort) {
                 applyStatic(fresh, pub)
         }
         check(port.send(RunEvent.StaticEntriesIn(sub.callee, delta))) { "A run rejected static entry delivery" }
-        checkNotNull(port.pendingNeedReplay) { "Static route replay needs its runner owner" }.graphChanged()
+        if (!coveredRelay(key, certified)) {
+            for (initial in entries.originals(delta))
+                ensureRequestStream(key, entry, Run1Slot.fromInitial(initial) as Run1Slot.StaticField)
+        }
+        // Old A joins only the newly admitted descriptor geometry.
+        val answered = entry.answeredRows(delta)
+        joinStaticRequests(fresh, answered)
     }
 
     private fun applyStatic(part: StaticSubscription, pub: Publication) {
@@ -63,7 +73,8 @@ class SubscriptionManager(port: SubscriptionPort) {
         val entries = StaticIdentityEntries(port.ops)
         if (!entries.contains(part.entries, initial)) return
         val ref = org.opentaint.dataflow.bidi.store.CallerRef(part.caller, initial, Layer.DEMAND, part.call)
-        val input = Subscription(part.callee, ref, Layer.DEMAND, entries.single(initial))
+        val input = Subscription(part.callee, ref, Layer.DEMAND, entries.single(initial),
+            stageFrom = part.stageFrom, stageTo = part.stageTo, coveredStaticRelay = part.coveredStaticRelay)
         val matched = matches(input, pub, 0, port.ops, port.config.mode) ?: return
         port.applier(part.caller).applyStaticSummary(part, input.copy(added = matched), pub)
     }
@@ -72,18 +83,79 @@ class SubscriptionManager(port: SubscriptionPort) {
         it.ops.manager.cancellation.checkpoint()
     }
 
+    private fun directory(key: CallSiteKey): CalleeSubscriptions {
+        val port = active()
+        val sites = byCallee.getOrPut(key.callee) {
+            LinkedHashMap<CallSiteKey, CalleeSubscriptions>().also {
+                port.summaryStorage(key.callee).addSubscriber(this)
+            }
+        }
+        return sites.getOrPut(key) { CalleeSubscriptions(port.ops, port.statistics) }
+    }
+
+    private fun coveredRelay(key: CallSiteKey, certified: Boolean): Boolean = certified &&
+        active().staticRequests?.containsPrescanEdge(key.caller.method, key.callee.method) == true
+
+    private fun coveredSameFieldRelay(part: Subscription, slot: Run1Slot.StaticField): Boolean =
+        part.added is FlowTree && normalRun1Slot(part.ref.premise) == slot &&
+            coveredRelay(part.callSiteKey, part.coveredStaticRelay)
+
+    private fun ensureRequestStream(key: CallSiteKey, entry: CalleeSubscriptions, slot: Run1Slot) {
+        val port = active()
+        val service = port.staticRequests
+        if (slot is Run1Slot.StaticField && service != null) {
+            if (!entry.addViewRequestSlot(slot)) return
+            service.subscribeView(StaticDemandViewKey(key.callee, slot), key) { marks ->
+                val accepted = port.post(RunEvent.CallsiteRequests(key, mapOf(slot to marks)))
+                port.ops.manager.cancellation.checkpoint()
+                check(accepted) { "An active run rejected a static-view request delivery" }
+            }
+        } else {
+            if (!entry.addExactRequestSlot(slot)) return
+            val storage = port.summaryStorage(key.callee)
+            storage.addRequestSubscriber(this, slot)
+            // Exact stream registration precedes the current-state read.
+            offerRequests(key, entry, mapOf(slot to storage.borrowRequest(slot)
+                .toRequestMarkSet(port.ops.manager.cancellation::checkpoint)))
+        }
+    }
+
+    private fun ensureRequestStreams(part: Subscription, entry: CalleeSubscriptions,
+                                     prepared: Run1PreparedInitials) {
+        val port = active()
+        if (part.added is Reach) return
+        if (part.added.base != STATIC) {
+            ensureRequestStream(part.callSiteKey, entry, Run1Slot.Base(part.added.base))
+            return
+        }
+        if (part.added !is FlowTree) return // actual static TAINT is eager, not request dependent
+        val geometry = prepared.staticEntries ?: return
+        for (initial in StaticIdentityEntries(port.ops).originals(geometry)) {
+            val slot = Run1Slot.fromInitial(initial) as Run1Slot.StaticField
+            if (!coveredSameFieldRelay(part, slot)) ensureRequestStream(part.callSiteKey, entry, slot)
+        }
+    }
+
     fun subscribe(sub: Subscription) {
         val port = active()
         val storage = port.summaryStorage(sub.callee)
-        val entry = byCallee.getOrPut(sub.callee) {
-            CalleeSubscriptions(port.ops, port.statistics).also { storage.addSubscriber(this) }
-        }
+        val entry = directory(sub.callSiteKey)
         val admitted = entry.admit(sub) ?: return
-        if (port.config.run1 && admitted.fresh.added is FlowTree && admitted.fresh.added.base == STATIC &&
-            normalRun1Slot(admitted.fresh.ref.premise) != null) checkNotNull(port.pendingNeedReplay) { "Static route replay needs its runner owner" }.graphChanged()
+        // Capture A NOW: deferred replay must not accidentally see requests that
+        // were still pending when this input arrived and are joined by the other frontier.
+        val answered = if (port.config.run1 && !sub.zeroOnly) entry.answeredRows(admitted.fresh.added) else emptyList()
+        if (port.config.run1) {
+            val fresh = admitted.fresh
+            val prepared = prepareRun1Initials(port.ops, port.staticProfile(fresh.callee.method),
+                fresh.ref, fresh.added, port.requestBatchStatistics, port.abstractionStatistics, fresh.callee)
+            ensureRequestStreams(fresh, entry, prepared)
+            check(port.send(RunEvent.PreparedInitialsIn(fresh.callee, prepared))) {
+                "An active run rejected canonical initial delivery"
+            }
+        }
         val statistics = port.statistics
         if (statistics == null) {
-            port.steps.replay { replay(storage, admitted) }
+            port.steps.replay { replay(storage, admitted, answered) }
             return
         }
         statistics.replayQueued()
@@ -91,17 +163,17 @@ class SubscriptionManager(port: SubscriptionPort) {
         try {
             port.steps.replay {
                 entered = true
-                try { replay(storage, admitted) }
+                try { replay(storage, admitted, answered) }
                 finally { statistics.replayFinished() }
             }
         } catch (error: Throwable) {
-            // Inline failures release in the callback; admission failures release here.
             if (!entered) statistics.replayFinished()
             throw error
         }
     }
 
-    private fun replay(storage: SummaryStorage, admitted: CalleeSubscriptions.Admission) {
+    private fun replay(storage: SummaryStorage, admitted: CalleeSubscriptions.Admission,
+                       answered: List<RequestedRow>) {
         val port = active()
         val part = admitted.fresh
         for ((pub, member) in storage.candidates(part, port.config.mode)) {
@@ -110,15 +182,9 @@ class SubscriptionManager(port: SubscriptionPort) {
         }
         if (!part.zeroOnly && port.config.restricted) replayRecords(part)
         if (port.config.run1 && !part.zeroOnly) {
-            // Registration precedes this read. FLOW joins its original accumulated
-            // header; new TAINT is answered only by LinkIn at the callee owner.
-            val current = admitted.current
-            checkKinds(current)
-            if (current.added is FlowTree && normalRun1Slot(current.ref.premise) != null) {
-                port.abstractionStatistics?.freshFlowInputVisit(admitted.growth)
-                val rows = storage.borrowMatchingRequests(current.added)
-                joinRequests(rows) { visit -> visit(current) }
-            }
+            checkKinds(part)
+            if (part.added is FlowTree) port.abstractionStatistics?.freshFlowInputVisit(admitted.growth)
+            joinRequests(answered) { visit -> visit(part) }
         }
     }
 
@@ -139,11 +205,16 @@ class SubscriptionManager(port: SubscriptionPort) {
         }
     }
 
-    /** Visit first, then queue every effect, including same-unit effects. */
     private fun joinRequests(rows: List<RequestedRow>, inputs: ((Subscription) -> Unit) -> Unit) {
+        if (rows.isEmpty()) return
+        joinRequestGroups { visit -> inputs { part -> visit(part, rows) } }
+    }
+
+    /** One method-empty buffer across its sites; each visit keeps that site's
+     * exact request rows. No cross-owner envelope or delivered-pair history. */
+    private fun joinRequestGroups(inputs: ((Subscription, List<RequestedRow>) -> Unit) -> Unit) {
         val port = active()
         check(port.config.run1) { "Mark requests exist only in run 1" }
-        if (rows.isEmpty()) return
         val ap = port.ops.manager
         val statistics = port.abstractionStatistics
         val counts = statistics?.let { ReplayCounts() }
@@ -153,7 +224,7 @@ class SubscriptionManager(port: SubscriptionPort) {
         val answers = LinkedHashMap<MethodKey, LinkedHashSet<InitialAp>>()
         val climbs = LinkedHashMap<ClimbTarget, RequestMarkSetBuilder>()
         try {
-            inputs { part ->
+            inputs { part, rows ->
                 ap.cancellation.checkpoint()
                 if (counts != null) counts.candidates++
                 checkKinds(part) // K6 before eligibility guards
@@ -170,6 +241,7 @@ class SubscriptionManager(port: SubscriptionPort) {
                                 ap.cancellation.checkpoint()
                                 if (batch != null) batch.groupGeometrySteps++
                                 if (!slotMatches(row.slot, part.added)) continue
+                                if (row.slot is Run1Slot.StaticField && coveredSameFieldRelay(part, row.slot)) continue
                                 row.marks.forEachMark {
                                     ap.cancellation.checkpoint(); offered.add(it)
                                     if (batch != null) batch.memberScans++
@@ -177,14 +249,13 @@ class SubscriptionManager(port: SubscriptionPort) {
                             }
                             if (!offered.isEmpty) {
                                 val target = ClimbTarget(part.ref.caller, original)
-                                // Static originals reenter the source/router at the actor
-                                // barrier; ordinary R/P contains BaseSlot rows only.
-                                val admitted = if (original is Run1Slot.Base)
-                                    port.summaryStorage(target.method).borrowRequest(original) else null
+                                // Base and static originals share the destination
+                                // owner's authoritative outgoing request table.
+                                val admitted = port.summaryStorage(target.method).borrowRequest(original)
                                 val destination = climbs.getOrPut(target, ::RequestMarkSetBuilder)
                                 offered.takeSnapshot().forEachMark { mark ->
                                     ap.cancellation.checkpoint()
-                                    if (admitted == null || !admitted.containsId(mark.id)) {
+                                    if (!admitted.containsId(mark.id)) {
                                         if (counts != null) counts.climbs++
                                         if (batch != null) batch.climbs++
                                         if (!destination.add(mark) && batch != null) batch.duplicateTargetUnions++
@@ -216,9 +287,6 @@ class SubscriptionManager(port: SubscriptionPort) {
                 ap.cancellation.checkpoint()
                 check(accepted) { "An active run rejected a request delivery" }
                 if (batch != null) batch.acceptedBatch(rowsToSend.values.sumOf { it.size })
-                port.staticNeedRouter?.statistics?.requestEnvelope(
-                    rowsToSend.keys.count { it is Run1Slot.Base },
-                    rowsToSend.keys.count { it is Run1Slot.StaticField })
             }
             for ((method, values) in answers) {
                 ap.cancellation.checkpoint()
@@ -243,13 +311,78 @@ class SubscriptionManager(port: SubscriptionPort) {
         return accepted
     }
 
+    private fun offerRequests(key: CallSiteKey, entry: CalleeSubscriptions, rows: RequestRows) {
+        val port = active()
+        var changed = false
+        for ((slot, marks) in rows) {
+            port.ops.manager.cancellation.checkpoint()
+            changed = entry.offerRequest(slot, marks) || changed
+        }
+        if (changed) {
+            val first = key.caller !in pendingSitesByCaller
+            pendingSitesByCaller.getOrPut(key.caller, ::LinkedHashSet).add(key)
+            if (first) check(port.send(RunEvent.RequestDrain(key.caller))) {
+                "An active run rejected a request drain"
+            }
+        }
+    }
+
     fun onRequests(callee: MethodKey, rows: RequestRows) {
         val port = active()
-        check(port.config.run1) { "Mark requests exist only in run 1" }
-        val selected = rows.map { (slot, marks) ->
-            RequestedRow(slot, RequestRowView(org.opentaint.dataflow.bidi.store.RequestMarkSet.EMPTY, marks))
+        check(port.config.run1)
+        for ((key, entry) in byCallee[callee].orEmpty()) {
+            val selected = rows.filterKeys(entry::acceptsExactRequest)
+            if (selected.isNotEmpty()) offerRequests(key, entry, selected)
         }
-        byCallee[callee]?.let { entry -> joinRequests(selected) { visit -> entry.visitRequestBatch(selected, visit) } }
+    }
+
+    fun onCallsiteRequests(key: CallSiteKey, rows: RequestRows) {
+        val port = active()
+        check(port.config.run1)
+        val entry = byCallee[key.callee]?.get(key) ?: return
+        val selected = rows.filterKeys(entry::acceptsViewRequest)
+        if (selected.isNotEmpty()) offerRequests(key, entry, selected)
+    }
+
+    /** Called at method-empty, or by the one counted wake when this owner is idle. */
+    fun drainRequests(caller: MethodKey) {
+        val port = active()
+        val pendingSites = pendingSitesByCaller.remove(caller) ?: return
+        val work = ArrayList<Pair<CallSiteKey, Pair<CalleeSubscriptions, List<RequestedRow>>>>()
+        for (key in pendingSites) {
+            val entry = checkNotNull(byCallee[key.callee]?.get(key)) { "A pending site lost its input owner" }
+            val delta = entry.drainRequests() // install every site's A before any queued effect
+            if (delta.isEmpty()) continue
+            val rows = delta.map { (slot, marks) -> RequestedRow(slot,
+                RequestRowView(org.opentaint.dataflow.bidi.store.RequestMarkSet.EMPTY, marks)) }
+            work += key to (entry to rows)
+        }
+        joinRequestGroups { visit ->
+            for ((_, group) in work) {
+                val (entry, rows) = group
+                entry.visitRequestBatch(rows) { part -> visit(part, rows) }
+            }
+        }
+        for ((key, group) in work)
+            staticByCallee[key.callee]?.get(key)?.let { joinStaticRequests(it, group.second) }
+        port.ops.manager.cancellation.checkpoint()
+    }
+
+    private fun joinStaticRequests(part: StaticSubscription, rows: List<RequestedRow>) {
+        val port = active()
+        if (rows.isEmpty() || coveredRelay(part.callSiteKey, part.coveredStaticRelay)) return
+        val codec = StaticIdentityEntries(port.ops)
+        val offered = LinkedHashMap<Run1Slot, org.opentaint.dataflow.bidi.store.RequestMarkSet>()
+        for (row in rows) {
+            val slot = row.slot as? Run1Slot.StaticField ?: continue
+            if (!codec.contains(part.entries, slot.initial(port.ops.manager))) continue
+            val fresh = row.marks.minus(port.summaryStorage(part.caller).borrowRequest(slot),
+                port.ops.manager.cancellation::checkpoint)
+            if (!fresh.isEmpty) offered[slot] = fresh
+        }
+        if (offered.isNotEmpty()) check(port.send(RunEvent.MarkRequestsIn(part.caller, freezeRequestRows(offered)))) {
+            "An active run rejected a packed static need"
+        }
     }
 
     /** Publisher-side notification contains no read of this caller-owned graph. */
@@ -291,7 +424,7 @@ class SubscriptionManager(port: SubscriptionPort) {
         var ordinaryScans = 0L
         var packedScans = 0L
         try {
-            byCallee[visit.key.method]?.visitRequestBatch(listOf(row)) { part ->
+            byCallee[visit.key.method]?.values?.forEach { entry -> entry.visitRequestBatch(listOf(row)) { part ->
                 port.ops.manager.cancellation.checkpoint()
                 ordinaryScans++
                 checkKinds(part)
@@ -300,6 +433,7 @@ class SubscriptionManager(port: SubscriptionPort) {
                         endpoints += ClimbTarget(part.ref.caller, original)
                     }
                 }
+            }
             }
             // Exact diagonal originals keep all full call/stage keys.
             for (part in staticByCallee[visit.key.method]?.values?.toList().orEmpty()) {
@@ -381,27 +515,58 @@ class SubscriptionManager(port: SubscriptionPort) {
     /** P6 queries the subscriptions present when the destination runner handles delivery. */
     fun onDelivery(callee: MethodKey, pubs: List<Publication>) {
         val port = active()
-        concreteStatic.onDelivery(callee, pubs)
-        val entry = byCallee[callee]
+        val entries = byCallee[callee]?.values?.toList().orEmpty()
+        val packed = staticByCallee[callee]?.values?.toList().orEmpty()
         for (pub in pubs) {
             port.ops.manager.cancellation.checkpoint()
-            for (part in staticByCallee[callee]?.values?.toList().orEmpty()) applyStatic(part, pub)
-            if (entry == null) continue
-            for (member in 0 until pub.premise.size) {
-                port.ops.manager.cancellation.checkpoint()
+            // Capture ALL sites' values before the first callback can grow any
+            // directory. This is one publication's transient candidate snapshot.
+            val candidates = ArrayList<Pair<Subscription, Int>>()
+            for (entry in entries) for (member in 0 until pub.premise.size) {
                 for (part in entry.candidates(pub, member, port.config.mode)) {
                     port.ops.manager.cancellation.checkpoint()
-                    applyMatch(part, pub, member)
+                    candidates += part to member
                 }
             }
+            concreteStatic.onDelivery(callee, listOf(pub))
+            for (part in packed) applyStatic(part, pub)
+            for ((part, member) in candidates) {
+                port.ops.manager.cancellation.checkpoint()
+                applyMatch(part, pub, member)
+            }
         }
+    }
+
+    internal fun requestState(key: CallSiteKey): CalleeSubscriptions.RequestState? =
+        byCallee[key.callee]?.get(key)?.requestState()
+
+    data class RequestSnapshot(val callsites: Int, val pendingRows: Long, val pendingMembers: Long,
+                               val answeredRows: Long, val answeredMembers: Long)
+
+    /** Owner/join-time gauges; no per-mark atomics or retained delivered-pair history. */
+    fun requestSnapshot(): RequestSnapshot {
+        var sites = 0
+        var pendingRows = 0L
+        var pendingMembers = 0L
+        var answeredRows = 0L
+        var answeredMembers = 0L
+        for (entries in byCallee.values) for (entry in entries.values) {
+            val state = entry.requestState()
+            sites++
+            pendingRows = Math.addExact(pendingRows, state.pendingRows.toLong())
+            pendingMembers = Math.addExact(pendingMembers, state.pendingMembers)
+            answeredRows = Math.addExact(answeredRows, state.answeredRows.toLong())
+            answeredMembers = Math.addExact(answeredMembers, state.answeredMembers)
+        }
+        return RequestSnapshot(sites, pendingRows, pendingMembers, answeredRows, answeredMembers)
     }
 
     /** Joining ends all notifications before the owning runner calls this method. */
     fun freeze() {
         concreteStatic.clear()
-        byCallee.values.forEach(CalleeSubscriptions::clear)
+        byCallee.values.forEach { sites -> sites.values.forEach(CalleeSubscriptions::clear) }
         byCallee.clear()
+        pendingSitesByCaller.clear()
         staticByCallee.clear()
         port = null
     }

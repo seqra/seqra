@@ -60,14 +60,14 @@ class Run1RequestPipelineIntegrationTest {
             assertTrue(batches.all { it.rows.keys == setOf(original) })
             h.commit(f.caller)
             assertEquals(RequestMarkSet.fromIds(intArrayOf(t.id,u.id)),h.storage(f.caller).borrowRequest(original).dynamic)
-            assertEquals(2,h.staticNeedRouter.sourcesSnapshot().size)
-            assertTrue(h.storage().borrowRequest(first).isEmpty)
-            assertTrue(h.storage().borrowRequest(second).isEmpty)
+            assertEquals(2,h.sourceNeeds().size)
+            assertEquals(RequestMarkSet.of(t), h.storage().borrowRequest(first).dynamic)
+            assertEquals(RequestMarkSet.of(u), h.storage().borrowRequest(second).dynamic)
             assertEquals(setOf<Triple<MethodKey, Run1Slot, Int>>(Triple(f.caller, original, t.id), Triple(f.caller, original, u.id)), h.climbs)
         }
     }
 
-    @Test fun `canonical static sources are never suppressed and changed fields route without intermediate storage`(): Unit {
+    @Test fun `uncovered canonical static sources and changed fields retain ordinary outgoing needs`(): Unit {
         Run1RequestPipelineFixtures().use { h ->
             val f=h.f;val cls=f.ap.accessors.index(ClassStaticAccessor("C"))
             val first=Run1Slot.StaticField(cls,f.store.field("f"));val second=Run1Slot.StaticField(cls,f.store.field("g"))
@@ -80,9 +80,12 @@ class Run1RequestPipelineIntegrationTest {
             h.commit();h.drain()
             assertEquals(RequestMarkSet.of(t),h.needs(f.callee,first))
             assertEquals(RequestMarkSet.of(u),h.needs(f.callee,second))
-            assertEquals(2,h.staticNeedRouter.sourcesSnapshot().size)
-            assertTrue(h.sent.filterIsInstance<RunEvent.MarkRequestsIn>().isEmpty(),"Static relay nodes never enter R/P")
-            assertTrue(h.storage(f.caller).borrowRequest(first).isEmpty)
+            assertEquals(2,h.sourceNeeds().size)
+            val routed = h.sent.filterIsInstance<RunEvent.MarkRequestsIn>().single()
+            assertEquals(mapOf<Run1Slot, RequestMarkSet>(first to RequestMarkSet.fromIds(intArrayOf(t.id,u.id))), routed.rows)
+            assertTrue(h.storage(f.caller).borrowRequest(first).isEmpty, "Outgoing needs remain temporary until the caller barrier")
+            h.commit(f.caller)
+            assertEquals(RequestMarkSet.fromIds(intArrayOf(t.id,u.id)), h.needs(f.caller,first))
             assertEquals(0L,h.statistics.snapshot().inheritedBaseRowsSkipped)
         }
     }

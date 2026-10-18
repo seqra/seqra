@@ -49,7 +49,7 @@ class CallServiceLifetimeTest {
             val initial = f.manager.initial(f.pattern())
             calls.process(EdgeDelta(initial, f.inst(1), f.fact()))
             val suspended = f.subscriptions.single()
-            assertEquals(1, f.sentLinks.size)
+            assertTrue(f.sentLinks.isEmpty())
             assertTrue(f.cuts.isEmpty())
             assertTrue(actor.edges.edgesAt(f.inst(2), initial).none())
             assertEquals(0L, stats.snapshot().activePins)
@@ -65,7 +65,7 @@ class CallServiceLifetimeTest {
                 ExclusionSet.Empty, false)), methodEntries(f.ops, actor.edges.edgesAt(f.inst(2), initial)))
             assertEquals(listOf(Cut.CALL), f.cuts.map { it.first })
             assertEquals(1, f.subscriptions.size)
-            assertEquals(1, f.sentLinks.size)
+            assertTrue(f.sentLinks.isEmpty())
         }
     }
 
@@ -192,8 +192,8 @@ class CallServiceLifetimeTest {
             f.onSubscribe = {}
             f.onLink = {}
             calls.process(item)
-            assertEquals(1, f.sentLinks.size)
-            assertEquals(item.premise, f.sentLinks.single().ref.premise)
+            assertTrue(f.sentLinks.isEmpty())
+            assertEquals(item.premise, f.subscriptions.last().ref.premise)
             assertTrue(core.edges.edgesAt(f.inst(2), item.premise).none())
         }
     }

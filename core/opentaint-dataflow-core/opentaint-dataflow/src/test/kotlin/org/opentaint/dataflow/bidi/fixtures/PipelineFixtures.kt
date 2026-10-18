@@ -22,6 +22,7 @@ class PipelineFixtures(index: Int = 1, limit: Int = 3,
     val protocolEvents = ArrayDeque<RunEvent>()
     val staticEntries = ArrayList<RunEvent.StaticEntriesIn>()
     val initialAnswers = ArrayList<RunEvent.InitialAnswersIn>()
+    val preparedInitials = ArrayList<RunEvent.PreparedInitialsIn>()
     data class Summary(val caller: MethodKey, val part: Subscription, val publication: Publication, val member: Int)
     data class Native(val caller: MethodKey, val part: Subscription, val record: Record)
     data class View(val caller: MethodKey, val part: Subscription, val view: RecordLeafView)
@@ -37,6 +38,7 @@ class PipelineFixtures(index: Int = 1, limit: Int = 3,
     var onStaticDefault: ((StaticDefault) -> Unit)? = null
     var onStaticEntries: ((RunEvent.StaticEntriesIn) -> Unit)? = null
     var onInitialAnswers: ((RunEvent.InitialAnswersIn) -> Unit)? = null
+    var onPreparedInitials: ((RunEvent.PreparedInitialsIn) -> Unit)? = null
 
     fun storage(key: MethodKey = callee): SummaryStorage = storages.getOrPut(key) {
         SummaryStorage(key, ap, ops, protocol)
@@ -48,6 +50,10 @@ class PipelineFixtures(index: Int = 1, limit: Int = 3,
         override val steps get() = protocol
         override fun summaryStorage(key: MethodKey): SummaryStorage = storage(key)
         override fun staticFootprint(method: CommonMethod): Run1StaticFootprint? = staticFootprints[method]
+        // This fixture has no method body: supplied immutable footprint is the
+        // explicitly declared identity domain, never an unknown-coordinate fallback.
+        override fun staticProfile(method: CommonMethod): Run1StaticProfile? =
+            staticFootprints[method]?.let { Run1StaticProfile(it, staticMayWrite = false) }
         override fun applier(caller: MethodKey): SummaryApplier = object : SummaryApplier {
             override fun applySummary(part: Subscription, pub: Publication, member: Int) {
                 val application = Summary(caller, part, pub, member)
@@ -71,6 +77,10 @@ class PipelineFixtures(index: Int = 1, limit: Int = 3,
             }
         }
         override fun send(event: RunEvent): Boolean {
+            protocolEvents += event
+            return true
+        }
+        override fun post(event: RunEvent.CallsiteRequests): Boolean {
             protocolEvents += event
             return true
         }
@@ -100,6 +110,12 @@ class PipelineFixtures(index: Int = 1, limit: Int = 3,
                 subscriptions.onDelivery(event.callee, event.publications)
             } else when (val event = protocolEvents.removeFirst()) {
                 is RunEvent.ChangedRequests -> subscriptions.onRequests(event.callee, event.rows)
+                is RunEvent.CallsiteRequests -> subscriptions.onCallsiteRequests(event.key, event.rows)
+                is RunEvent.RequestDrain -> subscriptions.drainRequests(event.caller)
+                is RunEvent.PreparedInitialsIn -> {
+                    preparedInitials += event
+                    onPreparedInitials?.invoke(event)
+                }
                 is RunEvent.StaticEntriesIn -> {
                     staticEntries += event
                     onStaticEntries?.invoke(event)

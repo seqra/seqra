@@ -35,7 +35,6 @@ class RunMethodAnalyzer(
     val sourceHits: SourceHitStore? = if (forward) null else SourceHitStore()
     private val currentQueries = if (config.restricted) StrongQueries(ops, mode) else null
     private var temporary = RequestStorage()
-    private var temporaryStatic = LinkedHashMap<Run1Slot.StaticField, RequestMarkSetBuilder>()
     private var temporarySinceNanos = 0L
     internal val staticFlow = if (config.run1) Run1StaticFlow(this) else null
     internal val concreteStaticFlow = if (config.run1) Run1ConcreteStaticFlow(this) else null
@@ -56,7 +55,6 @@ class RunMethodAnalyzer(
         abstraction?.release(); abstraction = null
         staticFlow?.clear()
         concreteStaticFlow?.clear()
-        temporaryStatic.clear()
         if (!temporary.isEmpty) {
             context.shared.abstractionStatistics?.temporaryChanged(-temporary.dynamicRows.toLong(), -temporary.dynamicMembers)
             temporary = RequestStorage()
@@ -98,19 +96,39 @@ class RunMethodAnalyzer(
     fun addRootZero(): Unit = addInitial(ap.zero)
 
     internal fun addStaticEntries(entries: FlowTree) {
-        initialize()
+        retainInputPresence(true)
         nonZeroInitial = true
         checkNotNull(staticFlow).add(entries)
     }
 
     internal fun addConcreteStaticEntries(entries: TaintTree) {
-        initialize()
+        retainInputPresence(true)
         nonZeroInitial = true
         val lane = checkNotNull(concreteStaticFlow)
         // TAINT supplies geometry as well as actual T; bypassing LinkIn must
         // preserve the abstraction's independent abstract dependency lane.
         addStaticEntries(lane.entries.abstractEntries(entries))
         lane.add(entries)
+    }
+
+    /** Presence is distinct from a legal initial; it also installs the default. */
+    internal fun retainInputPresence(demand: Boolean) {
+        initialize()
+        if (demand && !sawDemandInput) { sawDemandInput = true; demandLayerEdges++ }
+    }
+
+    internal fun addPreparedInitials(prepared: Run1PreparedInitials) {
+        check(config.run1)
+        retainInputPresence(prepared.demandPresence)
+        context.shared.abstractionStatistics?.arrival()
+        prepared.staticEntries?.let(::addStaticEntries)
+        for (initial in prepared.initials) addInitial(initial)
+    }
+
+    /** The packed entry relation certifies actual same-field entry ancestry. */
+    internal fun hasSuppliedStaticEntries(entries: FlowTree): Boolean {
+        val supplied = staticFlow?.entryFacts() ?: return false
+        return ops.without(entries, supplied) == null
     }
 
     internal fun startStaticScalar(initial: InitialAp, node: CommonInst) {
@@ -135,12 +153,11 @@ class RunMethodAnalyzer(
 
     fun addLink(ref: CallerRef, linkLayer: Layer, added: Facts) {
         ap.cancellation.checkpoint()
-        initialize()
+        retainInputPresence(added.layer == Layer.DEMAND)
         check(added.base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot enter an added link" }
         check(linkLayer == added.layer) { "The link layer must be the added fact's layer" }
         context.shared.abstractionStatistics?.arrival()
         // This is input presence for NO_DEMAND_EDGE, not a distinct retained-group count.
-        if (added.layer == Layer.DEMAND && !sawDemandInput) { sawDemandInput = true; demandLayerEdges++ }
         if (config.run1) checkNotNull(abstraction).emit(ref, added) else {
             val guides = sequence {
                 val found = LinkedHashSet<DemandPattern>()
@@ -189,16 +206,6 @@ class RunMethodAnalyzer(
     internal fun collectRequests(slot: Run1Slot, offered: RequestMarkSelection) {
         initialize()
         check(config.run1) { "Requests exist only in run 1" }
-        if (slot is Run1Slot.StaticField) {
-            val pending = temporaryStatic.getOrPut(slot, ::RequestMarkSetBuilder)
-            val cursor = offered.cursor()
-            while (!cursor.isComplete) {
-                ap.cancellation.checkpoint()
-                cursor.step(256) { pending.add(it) }
-            }
-            if (!pending.isEmpty) requestWork()
-            return
-        }
         val statistics = context.shared.abstractionStatistics
         val counts = statistics?.let { RequestAdmissionCounts() }
         val beforeRows = temporary.dynamicRows
@@ -271,17 +278,10 @@ class RunMethodAnalyzer(
     }
 
     private val hasPendingAbstractionWork: Boolean get() =
-        !temporary.isEmpty || temporaryStatic.isNotEmpty()
+        !temporary.isEmpty
 
     private fun commitRequests() {
         if (!config.run1) return
-        if (temporaryStatic.isNotEmpty()) {
-            val rows = temporaryStatic.mapValues { it.value.takeSnapshot() }
-            val fresh = checkNotNull(runnerPort.staticNeedRouter) { "Run-1 static needs require their counted router" }
-                .commitSourceUnions(key, rows)
-            checkNotNull(runnerPort.pendingNeedReplay) { "Static source replay needs its runner owner" }.sourcesCommitted(fresh)
-            temporaryStatic = LinkedHashMap()
-        }
         if (temporary.isEmpty) return
         if (temporarySinceNanos != 0L)
             context.shared.requestBatchStatistics?.serviceDelay(System.nanoTime() - temporarySinceNanos)
@@ -587,7 +587,6 @@ class RunMethodAnalyzer(
             temporary = RequestStorage()
             staticFlow?.clear()
             concreteStaticFlow?.clear()
-            temporaryStatic.clear()
         }
         failure?.let { throw it }
     }

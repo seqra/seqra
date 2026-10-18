@@ -79,7 +79,8 @@ class RequestBarrierJoinTest {
                 f.admit(actor, ref, layer, f.fact(path = path, tail = tail,
                     mark = MarkSlot.Star(excluded), exclusion = e, layer = layer))
             }
-            assertTrue(f.events.isEmpty())
+            assertTrue(f.events.none { it is RunEvent.MarkRequestsIn || it is RunEvent.InitialAnswersIn },
+                "Prepared entry delivery is allowed, outgoing request work waits for the barrier")
             flush(f, actor)
             assertEquals(marks.map { Triple(a.caller, a.premise as InitialAp, it) }.toSet(), climbs(f),
                 "F78 ignores incoming FLOW mark exclusions")

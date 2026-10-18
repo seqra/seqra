@@ -42,13 +42,18 @@ class FrozenStaticRequestsTest {
         assertFalse(factored.byField === input)
     }
 
-    @Test fun `historical static frozen descriptors cannot become ordinary R or P`() {
+    @Test fun `historical static frozen adapter stays explicit while current runtime profiles use no base`() {
         val f=StoreFixtures();val c=f.manager.accessors.index(ClassStaticAccessor("C"))
         val slot=Run1Slot.StaticField(c,f.field("f"));val t=f.mark("T")
         val base=FrozenStaticRequests.freeze(Run1StaticFootprint(linkedSetOf(slot)),RequestMarkSet.of(t),
             emptyMap(),emptyMap(),{})
         assertEquals(listOf(t.id),ids(base.borrow(slot)))
-        assertFailsWith<IllegalStateException> { RequestStorage(base) }
+        val storage = RequestStorage(base)
+        assertEquals(listOf(t.id),ids(storage.borrow(slot)))
+        assertTrue(storage.borrow(slot).dynamic.isEmpty, "Compatibility borrowing cannot copy the frozen row")
+        assertFailsWith<IllegalStateException> { storage.pendingRows() }
+        assertSame(EmptyFrozenRequestBase,Run1StaticProfiles.build(f.manager,emptyMap(),
+            mapOf(f.commonMethod to Run1StaticLocalProfile(abstractions=listOf(slot.pathData.toList()))))[f.commonMethod].precomputedRequests)
     }
 
     @Test fun `current profiles retain geometry and local readers but no inherited frozen request payload`() {

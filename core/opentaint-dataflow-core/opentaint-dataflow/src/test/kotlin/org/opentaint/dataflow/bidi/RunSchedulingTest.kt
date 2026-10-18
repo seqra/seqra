@@ -207,6 +207,7 @@ class RunSchedulingTest {
                                 return delegate.createActor(key).also { actorRef.set(it) }
                             }
                             override fun handle(event: RunEvent): Unit = delegate.handle(event)
+                            override fun drainRequests(caller: MethodKey) = (delegate as SubscriptionHandler).drainRequests(caller)
                             override fun subscribe(sub: Subscription): Unit = (delegate as SubscriptionHandler).subscribe(sub)
                             override fun freeze(): Unit = (delegate as SubscriptionHandler).freeze()
                         }

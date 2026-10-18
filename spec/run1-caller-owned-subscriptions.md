@@ -1,12 +1,14 @@
 # Run-1 caller-owned inputs, requests and summary subscriptions
 
-Date: 18 October 2026. Status: **selected design; analyzer not changed**.
+Date: 18 October 2026. Status: **implemented; project validation pending**.
 Scope: FORWARD run-1, field limit 1. This is the complete caller-subscription
 contract. It replaces the proposed entry-offer/source-pair routing in the
 [earlier request proposal](../docs/design/bidirectional-bottom-up-request-processing-20261018.md).
 It replaces the dynamic static-need graph and graph replay in the
 [measured implementation](run1-static-need-replay-batching.md) when implemented.
-It does not claim that the measured implementation already follows this file.
+The historical measured implementation does not follow this file. The
+[current implementation map](../docs/design/bidirectional-caller-owned-subscriptions-implementation-20261018.md)
+tracks the new runtime and validation.
 
 Latest measured runtime: `f18b1c5bb`. Conductor and ThingsBoard both reached
 **run-1 / completed none / accepted none**. There is no new project run or
@@ -761,8 +763,8 @@ can offset those gains. The exact comparison and required counters are in
 
 ## 14. Implementation boundary
 
-No runtime change is authorized by writing this specification. Before a
-separate implementation is accepted, verify these adapters against the
+The implementation follows the user-selected task. Its acceptance requires
+verification of these adapters against the
 constructive models and distinguishing cases in the proof dossier:
 
 ```text

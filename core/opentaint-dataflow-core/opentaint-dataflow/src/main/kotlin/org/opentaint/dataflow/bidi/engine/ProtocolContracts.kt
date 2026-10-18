@@ -29,6 +29,9 @@ data class Subscription(
     val linkLayer: Layer,
     val added: Facts,
     val zeroOnly: Boolean = false,
+    val stageFrom: org.opentaint.dataflow.bidi.interp.CallPoint = org.opentaint.dataflow.bidi.interp.CallPoint.ADDED,
+    val stageTo: org.opentaint.dataflow.bidi.interp.CallPoint = org.opentaint.dataflow.bidi.interp.CallPoint.RETURNED,
+    val coveredStaticRelay: Boolean = false,
 ) {
     val caller: MethodKey get() = ref.caller
 }
@@ -41,6 +44,7 @@ data class StaticSubscription(
     val entries: org.opentaint.dataflow.bidi.ap.FlowTree,
     val stageFrom: org.opentaint.dataflow.bidi.interp.CallPoint = org.opentaint.dataflow.bidi.interp.CallPoint.ADDED,
     val stageTo: org.opentaint.dataflow.bidi.interp.CallPoint = org.opentaint.dataflow.bidi.interp.CallPoint.RETURNED,
+    val coveredStaticRelay: Boolean = false,
 )
 
 /** Field/mark/kind diagonals share the full call port, never their originals. */

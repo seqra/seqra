@@ -172,6 +172,10 @@ class CumulativeSubscriptionEquivalenceTest {
                 override fun summaryStorage(key: MethodKey): SummaryStorage = storage
                 override fun applier(caller: MethodKey): SummaryApplier = actor
                 override fun post(event: RunEvent.Delivery): Boolean { deliveries += event; return true }
+                override fun send(event: RunEvent): Boolean {
+                    assertIs<RunEvent.PreparedInitialsIn>(event)
+                    return true // This control supplies summaries directly, without a callee body.
+                }
             })
             val accepted = listOf(raw(x, emptyList(), Tail.STAR, star, e),
                 raw(x, listOf(a), Tail.STAR, star, e), raw(x, listOf(b), Tail.STAR, star, e))

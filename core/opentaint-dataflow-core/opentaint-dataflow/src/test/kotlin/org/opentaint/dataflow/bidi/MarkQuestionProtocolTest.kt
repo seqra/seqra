@@ -130,7 +130,7 @@ class MarkQuestionProtocolTest {
             val t = f.store.mark("T")
             h.submit(f.subscription(f.store.fact(mark = MarkSlot.Concrete(t)))); h.drain()
             h.publish(Run1Slot.Base(AccessPathBase.Argument(0)), t.id)
-            h.acceptSends = false
+            h.rejectAnswerSends = true
             assertFailsWith<IllegalStateException> { h.drain() }
             assertEquals(1L, h.statistics.snapshot().replayAnswers)
             assertTrue(h.initials.none { it.second.mark == MarkSlot.Concrete(t) })
@@ -143,7 +143,7 @@ class MarkQuestionProtocolTest {
             val t = f.store.mark("T")
             h.submit(f.subscription(f.store.fact(mark = MarkSlot.Concrete(t)))); h.drain()
             h.publish(Run1Slot.Base(AccessPathBase.Argument(0)), t.id)
-            h.cancelOnSend = true
+            h.cancelOnAnswerSend = true
             assertFailsWith<Cancellation.Cancelled> { h.drain() }
             assertTrue(h.initials.none { it.second.mark == MarkSlot.Concrete(t) })
             assertTrue(h.events.isNotEmpty(), "An accepted queued answer is not an applied answer")

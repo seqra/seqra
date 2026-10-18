@@ -71,11 +71,8 @@ class ProductionSchedule(
     }
     private val units = LinkedHashMap<Any, UnitPort>()
     private val storages = LinkedHashMap<MethodKey, SummaryStorage>()
-    private val needs = if (config.run1) StaticNeedRouter(shared.ap,
-        dispatch = { visit -> storage(visit.key.method).notifyStaticNeed(visit) },
-        onSourceChanged = { key, marks -> marks.forEachMark { mark ->
-            requests += ObservedRequest(key.method, key.slot.initial(shared.ap).toPattern(), RequestKind.Mark(mark))
-        } }) else null
+    private val needs = if (config.run1) CallerOwnedStaticRequests(shared.ap,
+        shared.run1StaticProfiles?.reachability ?: FixedPrescanReachability.empty()) else null
     private val deferred = object : ProtocolSteps {
         override fun replay(step: () -> Unit) {
             pool += turn(Kind.REPLAY, "replay", checkNotNull(activeOwner), step)
@@ -88,12 +85,12 @@ class ProductionSchedule(
         val actual = RunMethodLocalServices(actor)
         object : MethodLocalServices by actual {
             override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
-                if (premise.base != STATIC)
+                if (normalRun1Slot(premise) != null)
                     requests += ObservedRequest(actor.key, premise.toPattern(), RequestKind.Mark(mark))
                 actual.addMarkRequest(premise, mark)
             }
             override fun addMarkRequests(premise: InitialAp, marks: RequestMarkSet) {
-                if (premise.base != STATIC) marks.forEachMark {
+                if (normalRun1Slot(premise) != null) marks.forEachMark {
                     requests += ObservedRequest(actor.key, premise.toPattern(), RequestKind.Mark(it)) }
                 actual.addMarkRequests(premise, marks)
             }
@@ -108,6 +105,9 @@ class ProductionSchedule(
         is RunEvent.LinkIn -> "Link(callee=${event.callee},caller=${event.ref.caller}," +
             "premise=${observedPremise(event.ref.premise)},callerLayer=${event.ref.callerLayer}," +
             "call=${event.ref.call},linkLayer=${event.linkLayer},added=${shared.ops.leaves(event.added).toList()})"
+        is RunEvent.PreparedInitialsIn -> "PreparedInitials(${event.callee},${event.prepared})"
+        is RunEvent.CallsiteRequests -> "CallsiteRequests(${event.key},${event.rows})"
+        is RunEvent.RequestDrain -> "RequestDrain(${event.caller})"
         is RunEvent.ZeroIn -> "Zero(${event.callee})"
         is RunEvent.StaticEntriesIn -> "StaticEntries(${event.callee},${shared.ops.leaves(event.entries).toList()})"
         is RunEvent.ConcreteStaticEntriesIn -> "ConcreteStaticEntries(${event.callee},${shared.ops.leaves(event.entries).toList()})"
@@ -122,8 +122,7 @@ class ProductionSchedule(
     }
 
     private inner class UnitPort : RunnerPort<RunMethodAnalyzer> {
-        override val staticNeedRouter: StaticNeedRouter? get() = needs
-        override val pendingNeedReplay = if (config.run1) PendingNeedReplay(shared.ap) else null
+        override val staticRequests get() = needs
         override val config get() = this@ProductionSchedule.config
         override val shared get() = this@ProductionSchedule.shared
         override val forms = shared.contexts.directed(config.direction)
@@ -136,10 +135,11 @@ class ProductionSchedule(
         fun postEvent(event: RunEvent) {
             pool += turn(Kind.EVENT, description(event), this) {
                 if (event is RunEvent.MarkRequestsIn) for ((slot, marks) in event.rows) {
-                    if (slot is Run1Slot.Base) marks.forEachMark { requests += ObservedRequest(event.method,
+                    marks.forEachMark { requests += ObservedRequest(event.method,
                         slot.initial(shared.ap).toPattern(), RequestKind.Mark(it)) }
                 }
-                handler.handle(event)
+                if (event !is RunEvent.RequestDrain || actors[event.caller]?.let { it in queued } != true)
+                    handler.handle(event)
             }
         }
 
@@ -157,6 +157,12 @@ class ProductionSchedule(
         override fun post(event: RunEvent.ChangedRequests): Boolean {
             postEvent(event)
             if (duplicateDeliveries) postEvent(RunEvent.ChangedRequests(event.callee, event.rows))
+            return true
+        }
+
+        override fun post(event: RunEvent.CallsiteRequests): Boolean {
+            postEvent(event)
+            if (duplicateDeliveries) postEvent(RunEvent.CallsiteRequests(event.key, event.rows))
             return true
         }
 
@@ -180,12 +186,15 @@ class ProductionSchedule(
                 log += "quantum=$amount key=${actor.key}"
                 val complete = actor.work(amount)
                 finishNeedReplay()
-                if (complete) check(queued.remove(actor))
+                if (complete) {
+                    (handler as SubscriptionHandler).drainRequests(actor.key)
+                    check(queued.remove(actor))
+                }
                 else postWork(actor)
             }
         }
 
-        fun finishNeedReplay() { needs?.let { pendingNeedReplay?.flush(it) } }
+        fun finishNeedReplay() = Unit
 
         override fun analyzer(key: MethodKey): RunMethodAnalyzer {
             check(activeOwner === this)
@@ -200,6 +209,9 @@ class ProductionSchedule(
             check(activeOwner === this)
             ordinaryRelations += sub.callee to sub.ref
             registered += sub
+            if (config.run1) ops.leaves(sub.added).forEach {
+                inputs += observedLink(sub.callee, Link(it, sub.linkLayer, sub.ref))
+            }
             log += "subscribe callee=${sub.callee} caller=${sub.caller} " +
                 "premise=${observedPremise(sub.ref.premise)},callerLayer=${sub.ref.callerLayer}," +
                 "call=${sub.ref.call},linkLayer=${sub.linkLayer},zeroOnly=${sub.zeroOnly}," +
@@ -278,7 +290,7 @@ class ProductionSchedule(
     }
 
     private fun storage(key: MethodKey): SummaryStorage = storages.getOrPut(key) {
-        SummaryStorage(key, shared.ap, shared.ops, deferred, EmptyFrozenRequestBase)
+        SummaryStorage(key, shared.ap, shared.ops, deferred, EmptyFrozenRequestBase, staticRequests = needs)
     }
 
     private fun next(): Int = when (policy) {
@@ -311,7 +323,6 @@ class ProductionSchedule(
             for (unit in units.values) {
                 if (closed) for (actor in unit.actors.values) actor.freeze()
                 (unit.handler as SubscriptionHandler).freeze()
-                unit.pendingNeedReplay?.clear()
                 unit.actors.clear()
             }
             pool.clear()

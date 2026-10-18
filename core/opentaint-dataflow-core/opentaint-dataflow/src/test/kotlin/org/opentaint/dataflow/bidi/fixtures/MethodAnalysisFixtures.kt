@@ -172,19 +172,16 @@ class MethodAnalysisFixtures(
     val addedLinks = ArrayList<Triple<CallerRef, Layer, Facts>>()
     private val inputRows = IdentityHashMap<RunMethodAnalyzer, MutableList<Link>>()
     private val questionManagers = IdentityHashMap<RunMethodAnalyzer, SubscriptionManager>()
-    private val questionReplays = IdentityHashMap<RunMethodAnalyzer, PendingNeedReplay>()
     private val questionQueue = ArrayDeque<() -> Unit>()
     private val summaryStores = LinkedHashMap<MethodKey, SummaryStorage>()
-    val staticNeedRouter = StaticNeedRouter(manager, { visit ->
-        summaryStores[visit.key.method]?.notifyStaticNeed(visit)
-    })
+    private val staticRequestOwner = lazy {
+        CallerOwnedStaticRequests(manager, shared.run1StaticProfiles?.reachability ?: FixedPrescanReachability.empty())
+    }
+    val staticRequests get() = staticRequestOwner.value
     var onRequestNotification: ((RunEvent.ChangedRequests) -> Unit)? = null
 
-    fun requestRow(core: RunMethodAnalyzer, slot: Run1Slot): RequestRowView = when (slot) {
-        is Run1Slot.Base -> summaryStores.getValue(core.key).borrowRequest(slot)
-        is Run1Slot.StaticField -> RequestRowView(RequestMarkSet.EMPTY,
-            staticNeedRouter.sourcesSnapshot()[StaticNeedKey(core.key, slot)] ?: RequestMarkSet.EMPTY)
-    }
+    fun requestRow(core: RunMethodAnalyzer, slot: Run1Slot): RequestRowView =
+        summaryStores.getValue(core.key).borrowRequest(slot)
 
     /** Decode both transport descriptors into their logical initial identities. */
     fun initials(core: RunMethodAnalyzer): Set<InitialAp> = buildSet {
@@ -204,8 +201,8 @@ class MethodAnalysisFixtures(
         if (facts !is Reach) questionManagers.getValue(core).subscribe(
             Subscription(core.key, ref, layer, facts, zeroOnly = false))
         (core.localServices as? ScalarPositionLocalServices)?.onInput(ref, facts)
-        core.addLink(ref, layer, facts)
-        questionReplays.getValue(core).flush(staticNeedRouter)
+        if (!core.config.run1 || facts is Reach) core.addLink(ref, layer, facts)
+        pumpQuestions()
     }
 
     /** Queued question delivery never calls an actor during a captured N2 visit. */
@@ -214,7 +211,6 @@ class MethodAnalysisFixtures(
         while (questionQueue.isNotEmpty()) {
             check(++count <= 100_000) { "Finite question routing did not close" }
             questionQueue.removeFirst().invoke()
-            questionReplays.values.forEach { it.flush(staticNeedRouter) }
         }
         return count != 0
     }
@@ -267,10 +263,9 @@ class MethodAnalysisFixtures(
             override val forms = contexts.directed(config.direction)
             override val ops = this@MethodAnalysisFixtures.ops
             override val steps = ProtocolSteps.Inline
-            override val staticNeedRouter get() = this@MethodAnalysisFixtures.staticNeedRouter
-            override val pendingNeedReplay = PendingNeedReplay(manager)
-            override fun post(event: RunEvent.StaticNeed): Boolean {
-                questionQueue += { questionManagers.getValue(actor).onStaticNeed(event.visit) }
+            override val staticRequests get() = this@MethodAnalysisFixtures.staticRequests
+            override fun post(event: RunEvent.CallsiteRequests): Boolean {
+                questionQueue += { questionManagers.getValue(actor).onCallsiteRequests(event.key, event.rows) }
                 return true
             }
             override fun send(event: RunEvent): Boolean { events += event; return true }
@@ -286,7 +281,8 @@ class MethodAnalysisFixtures(
             }
             override fun summaryStorage(key: MethodKey): SummaryStorage =
                 summaryStores.getOrPut(key) { SummaryStorage(key, manager, ops, steps,
-                    shared.run1StaticProfiles?.get(key.method)?.precomputedRequests ?: EmptyFrozenRequestBase) }
+                    shared.run1StaticProfiles?.get(key.method)?.precomputedRequests ?: EmptyFrozenRequestBase,
+                    staticRequests = if (config.run1) staticRequests else null) }
             override fun subscribe(sub: Subscription) {
                 val receive = checkNotNull(onSubscribe) { "Subscriptions require an explicit protocol fixture" }
                 subscriptions += sub
@@ -351,18 +347,22 @@ class MethodAnalysisFixtures(
             override val config = config
             override val ops = this@MethodAnalysisFixtures.ops
             override val steps = ProtocolSteps.Inline
-            override val staticNeedRouter get() = this@MethodAnalysisFixtures.staticNeedRouter
-            override val pendingNeedReplay get() = port.pendingNeedReplay
-            override fun post(event: RunEvent.StaticNeed): Boolean = port.post(event)
+            override val staticRequests get() = this@MethodAnalysisFixtures.staticRequests
+            override fun post(event: RunEvent.CallsiteRequests): Boolean = port.post(event)
             override fun summaryStorage(key: MethodKey): SummaryStorage = port.summaryStorage(key)
             override fun staticFootprint(method: org.opentaint.ir.api.common.CommonMethod): Run1StaticFootprint? =
                 shared.run1StaticProfiles?.get(method)?.footprint
+            override fun staticProfile(method: org.opentaint.ir.api.common.CommonMethod): Run1StaticProfile? =
+                shared.run1StaticProfiles?.get(method)
             override fun applier(key: MethodKey): SummaryApplier = actor
             override fun post(event: RunEvent.Delivery): Boolean = port.post(event)
             override fun post(event: RunEvent.ChangedRequests): Boolean = port.post(event)
             override fun send(event: RunEvent): Boolean {
                 events += event
                 when (event) {
+                    is RunEvent.PreparedInitialsIn -> if (event.callee == actor.key)
+                        questionQueue += { actor.addPreparedInitials(event.prepared) }
+                    is RunEvent.RequestDrain -> questionQueue += { questions.drainRequests(event.caller) }
                     is RunEvent.MarkRequestsIn -> if (event.method == actor.key)
                         questionQueue += { event.rows.forEach { (slot, marks) -> actor.collectRequests(slot, marks) } }
                     is RunEvent.ConcreteStaticEntriesIn -> {
@@ -381,7 +381,6 @@ class MethodAnalysisFixtures(
             }
         })
         questionManagers[actor] = questions
-        questionReplays[actor] = port.pendingNeedReplay
         return actor
     }
 
@@ -461,7 +460,7 @@ class MethodAnalysisFixtures(
             cancellation.checkpoint()
             check(++attempts <= 10000) { "The finite method fixture did not reach closure" }
             val complete = core.work(quantum)
-            questionReplays.getValue(core).flush(staticNeedRouter)
+            if (complete) questionManagers.getValue(core).drainRequests(core.key)
             val delivered = pumpQuestions()
             // An answer delivered after work() returned can schedule a new initial/fact delta.
             if (complete && !delivered && !core.localServices.hasPendingRequests && questionQueue.isEmpty()) return attempts
@@ -479,11 +478,9 @@ class MethodAnalysisFixtures(
     override fun close() {
         questionManagers.values.forEach { it.freeze() }
         questionManagers.clear()
-        questionReplays.values.forEach(PendingNeedReplay::clear)
-        questionReplays.clear()
         questionQueue.clear()
         summaryStores.clear()
-        staticNeedRouter.clear()
+        if (staticRequestOwner.isInitialized()) staticRequestOwner.value.clear()
         inputRows.clear()
         if (sharedOwner.isInitialized()) sharedOwner.value.close()
     }

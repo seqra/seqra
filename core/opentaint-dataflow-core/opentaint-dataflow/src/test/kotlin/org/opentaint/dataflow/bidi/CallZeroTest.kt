@@ -53,7 +53,9 @@ class CallZeroTest {
             assertEquals(layer, subscription.linkLayer)
             assertEquals(Reach.of(layer), subscription.added)
             assertFalse(subscription.zeroOnly)
-            assertEquals(listOf(RunEvent.LinkIn(callee, subscription.ref, layer, Reach.of(layer))), f.sentLinks)
+            assertTrue(f.sentLinks.isEmpty(), "Caller admission dispatches the run-1 ZERO descriptor")
+            assertEquals(CallPoint.ADDED, subscription.stageFrom)
+            assertEquals(CallPoint.RETURNED, subscription.stageTo)
             assertTrue(f.events.none { it is RunEvent.ZeroIn })
             assertEquals(setOf(Conclusion(target, ExclusionSet.Empty, layer == Layer.DEMAND)),
                 methodLeaves(f.ops, f.cuts.filter { it.first == Cut.CALL }.map { it.second }))

@@ -2,7 +2,7 @@
 
 Date: 18 October 2026. Contract:
 [run1-caller-owned-subscriptions.md](run1-caller-owned-subscriptions.md).
-Status: **constructive model and protocol proofs; runtime unchanged**.
+Status: **constructive model and protocol proofs; runtime adapters under validation**.
 This dossier follows [proof-guide.md](proof-guide.md).
 
 Latest measured runtime: `f18b1c5bb`. Conductor and ThingsBoard reached
@@ -54,7 +54,9 @@ The local AP/JVM kernel is shared as explicit primitives. The theorem is
 parametric in those primitives; it does not assume the conclusion that all
 default summaries are covered. Kotlin producer validity, complete frontend
 translation, packed-store refinement and concurrent scheduling remain adapter
-obligations in §10. No implementation was changed or claimed verified here.
+obligations in §10. The finite proofs do not certify the runtime adapters.
+The [implementation map](../docs/design/bidirectional-caller-owned-subscriptions-implementation-20261018.md)
+records their code and validation.
 
 ## 2. Initial descriptors preserve admission and interpretation
 
@@ -368,7 +370,7 @@ incorrect variants:
 | Kill/no return | Requests/observations cannot wait for surviving facts or a normal summary |
 | Complete invocation ND tuple, including mixed layers, versus split calls | A shared request set cannot replace actual conjunction support |
 
-These controls refine the model before any runtime implementation. They do
+These controls refined the model before runtime implementation. They do
 not replace project regression tests, source-adapter tests or measurements.
 
 ## 9. Constructivity and validation

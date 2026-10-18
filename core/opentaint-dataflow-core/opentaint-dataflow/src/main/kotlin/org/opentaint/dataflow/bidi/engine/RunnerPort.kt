@@ -15,12 +15,14 @@ interface RunnerPort<A : RunActor> {
     val ops: ApOps
     val steps: ProtocolSteps
     val staticNeedRouter: StaticNeedRouter? get() = null
+    val staticRequests: CallerOwnedStaticRequests? get() = null
     /** The current runner owns this accumulator; never resolve ownership from a source key. */
     val pendingNeedReplay: PendingNeedReplay? get() = null
     fun send(event: RunEvent): Boolean
     fun post(event: RunEvent.Delivery): Boolean
     fun post(event: RunEvent.ChangedRequests): Boolean = error("Request delivery needs its subscribed runner")
     fun post(event: RunEvent.StaticNeed): Boolean = error("Static need delivery needs its subscribed runner")
+    fun post(event: RunEvent.CallsiteRequests): Boolean = error("Callsite requests need their subscribed runner")
     fun enqueue(analyzer: A): Boolean
     fun analyzer(key: MethodKey): A
     fun summaryStorage(key: MethodKey): SummaryStorage

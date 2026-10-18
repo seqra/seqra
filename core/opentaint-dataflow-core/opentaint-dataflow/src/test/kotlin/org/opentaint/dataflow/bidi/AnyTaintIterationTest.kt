@@ -76,6 +76,7 @@ class AnyTaintIterationTest {
                             port.summaryStorage(method).publish(batch)
                         }, local, calls)
                     override fun handle(event: RunEvent): Unit = handler.handle(event)
+                    override fun drainRequests(caller: MethodKey) = (handler as SubscriptionHandler).drainRequests(caller)
                     override fun subscribe(sub: Subscription): Unit = (handler as SubscriptionHandler).subscribe(sub)
                     override fun freeze(): Unit = (handler as SubscriptionHandler).freeze()
                 }
