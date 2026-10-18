@@ -9,6 +9,8 @@ import ApSpec.Run1StaticDemandCoverage
 import ApSpec.Run1StaticDemandTreeCoverage
 import ApSpec.Run1StaticReadWritePath
 import ApSpec.Run1StaticEarlySummaryZero
+import ApSpec.Run1StaticEarlySummaryGap
+import ApSpec.Run1UniversalStaticCarry
 import Lean
 
 open Lean Elab Command
@@ -19,7 +21,8 @@ run_elab do
     `ApSpec.Run1StaticInitialRefinement, `ApSpec.Run1StaticReadAdmission,
     `ApSpec.Run1GroupStaticHandoff, `ApSpec.Run1StaticDemandGateGap,
     `ApSpec.Run1StaticDemandCoverage, `ApSpec.Run1StaticDemandTreeCoverage,
-    `ApSpec.Run1StaticReadWritePath, `ApSpec.Run1StaticEarlySummaryZero]
+    `ApSpec.Run1StaticReadWritePath, `ApSpec.Run1StaticEarlySummaryZero,
+    `ApSpec.Run1StaticEarlySummaryGap, `ApSpec.Run1UniversalStaticCarry]
   let mut total : Nat := 0
   let mut unexpected : Nat := 0
   for mod in modules do
@@ -50,7 +53,9 @@ run_elab do
     ApSpec.Run1StaticDemandCoverage.Controls.controls ++
     ApSpec.Run1StaticDemandTreeCoverage.Controls.controls ++
     ApSpec.Run1StaticReadWritePath.Controls.controls ++
-    ApSpec.Run1StaticEarlySummaryZero.Controls.controls
+    ApSpec.Run1StaticEarlySummaryZero.Controls.controls ++
+    ApSpec.Run1StaticEarlySummaryGap.Controls.controls ++
+    ApSpec.Run1UniversalStaticCarry.Controls.controls
   for (name, passed) in controls do
     if !passed then throw (IO.userError ("Control failed: " ++ name))
   IO.println s!"Static demand coverage controls PASS: {controls.length}"
@@ -80,4 +85,14 @@ run_elab do
 #print axioms ApSpec.Run1StaticEarlySummaryZero.runChain_matches_certificate
 #print axioms ApSpec.Run1StaticEarlySummaryZero.writer_has_explicit_zero
 #print axioms ApSpec.Run1StaticEarlySummaryZero.reversed_source_nonzero_no_zero_protocol
+#print axioms ApSpec.Run1StaticEarlySummaryGap.Counterexample.witness
+#print axioms ApSpec.Run1StaticEarlySummaryGap.strict_universal_no_loss_false
+#print axioms ApSpec.Run1StaticEarlySummaryGap.actual_query_chain_identity
+#print axioms ApSpec.Run1StaticEarlySummaryGap.zero_child_cannot_answer_static
+#print axioms ApSpec.Run1UniversalStaticCarry.all_methods_same_view
+#print axioms ApSpec.Run1UniversalStaticCarry.emits_actual_full
+#print axioms ApSpec.Run1UniversalStaticCarry.kill_still_kills
+#print axioms ApSpec.Run1UniversalStaticCarry.every_finite_transport_path
+#print axioms ApSpec.Run1UniversalStaticCarry.universal_matches_current_identity_chain
+#print axioms ApSpec.Run1UniversalStaticCarry.previous_gap_is_closed
 #print axioms ApSpec.Run1GroupStaticHandoff.compileGraphPath

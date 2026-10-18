@@ -6,8 +6,16 @@ code names and mathematical notation keep their stated meanings.
 
 This revision refines [forward static handling](run1-group-static-pool.md).
 It follows [proof-guide.md](proof-guide.md). It replaces the requirement for
-extra static carry demands in **sink-origin wrapper paths**. It does not
-remove the separate mark-group gate for a nonzero method input.
+extra static carry demands in **sink-origin wrapper paths**. The selected
+[shared static demand](run1-universal-static-carry.md) now gives all methods
+implicit root GROUP permissions for actual nonzero static queries. It does
+not require per-field rows or static relay propagation during run-1.
+
+The [universal completeness review](run1-static-demand-completeness-review.md)
+finds a counterexample if that gate is strict and no static carry permission
+is retained. The current engine's actual-input admission avoids the loss.
+The selected shared default also closes that counterexample. The ZERO-wrapper
+result below is local; it is not a universal no-loss proof.
 
 ## 1. Decision for the wrapper example
 
@@ -209,17 +217,20 @@ setter's nonzero C.f/T query uses the reversed early effect. The ordinary
 RHS/source path, AP bindings, complete sink-candidate collection, conditions
 and ND support remain required. The proof is not a checked JVM interpreter.
 
-This result does not settle a different example:
+The [checked counterexample](run1-static-demand-completeness-review.md#2-a-counterexample-inside-the-normal-return-scope)
+uses a different example:
 
 ```text
 main: static_set(); pass_only(); wrap()
 ```
 
-A concrete C.f/T requirement can enter `pass_only` as a **nonzero** input.
-The current engine admits actual incoming queries directly. A strict new
-per-method group gate would instead need a local guide or factored carry
-authorization. This is a separate admission-policy choice. No new policy
-for this case is selected by the ZERO-wrapper proof.
+A concrete C.f/T requirement must enter a resolved `pass_only` call as a
+**nonzero** input under the current JVM call plan. The current engine admits
+actual incoming queries directly. A strict new per-method group gate loses
+this query without a local guide or factored carry authorization. This is
+a separate case from the ZERO-wrapper proof. The selected shared static
+GROUP default supplies that authorization for every method and eligible
+group. It admits the actual C.f/T query and its computed static result.
 
 Nonreturning methods still need the ordinary control discovery guarantee
 or an explicit internal-point start. The proof does not infer normal exit
@@ -267,14 +278,14 @@ Result: **4 tests pass**. They include unrestricted ZERO returns, exact
 resume points, and the nonzero-initial/current-ZERO distinction. They do
 not implement or test the proposed early static write publication.
 
-The complete Lean build passes **155 jobs**. The combined audit passes
-**255 controls** across **3,574 declarations**, with **zero unexpected
-axioms**. The [validation receipt](/drive-testcomp/opentaint-go-rules/run1-immediate-static-summary-20261018/validation/20261018T233005.300214Z/receipt.json)
-has SHA-256 `53edf2c8be0acda5b4d49e9fd1283506524e001785c67199c372bc478f14294f`.
+The complete Lean build passes **157 jobs**. The combined audit passes
+**299 controls** across **4,201 declarations**, with **zero unexpected
+axioms**. The [validation receipt](/drive-testcomp/opentaint-go-rules/run1-universal-static-carry-20261018/validation/20261018T235053.989525Z/receipt.json)
+has SHA-256 `04545b213180c2c9556a42567923ba24775c6582d61c3a3e0548cd6a567e5403`.
 It records stable proof/runtime source hashes, the
-[build log](/drive-testcomp/opentaint-go-rules/run1-immediate-static-summary-20261018/validation/20261018T233005.300214Z/build.log),
-the [axiom/control audit](/drive-testcomp/opentaint-go-rules/run1-immediate-static-summary-20261018/validation/20261018T233005.300214Z/audit.log)
-and the [four runtime test results](/drive-testcomp/opentaint-go-rules/run1-immediate-static-summary-20261018/validation/20261018T233005.300214Z/CallZeroTest.xml).
+[build log](/drive-testcomp/opentaint-go-rules/run1-universal-static-carry-20261018/validation/20261018T235053.989525Z/build.log),
+the [axiom/control audit](/drive-testcomp/opentaint-go-rules/run1-universal-static-carry-20261018/validation/20261018T235053.989525Z/audit.log)
+and the [four runtime test results](/drive-testcomp/opentaint-go-rules/run1-universal-static-carry-20261018/validation/20261018T235053.989525Z/CallZeroTest.xml).
 
 No project measurements were rerun. Latest measured runtime remains
 `63d5481e4e4b69ecf042c1149bb574ad40fd1624`. Latest reached / completed engine /

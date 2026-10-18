@@ -2,6 +2,23 @@
 
 ## Proposed run-1 forward statics and group-demand coverage
 
+The [universal demand review](run1-static-demand-completeness-review.md)
+does not establish a general no-loss theorem. It finds a finite supported
+counterexample to a strict per-method group gate without carry permission:
+`set(); pass_only(); consume()`. A nonzero static requirement must enter
+the resolved relay, which has no group guide. The current actual-input
+admission rule avoids this loss. This is a design-policy counterexample,
+not a demonstrated current runtime false negative.
+
+The selected [shared static GROUP demand](run1-universal-static-carry.md)
+closes that relay counterexample without per-field run-1 propagation.
+It is an implicit all-method entry/exit permission for actual static full
+queries. The constructive model proves every finite static identity/copy
+transport path and agreement with current actual-input admission on identity
+relays. Real body kills remain effective. Productive nonstatic, control-ZERO
+and cross-group results keep their separate guide obligations; the complete
+early-summary compiler theorem is still not proved.
+
 The [immediate static-summary revision](run1-immediate-static-summaries.md)
 adds early write-effect publication and caller summary lifting. Its ZERO
 review corrects the wrapper case: an internal sink requirement returns as
@@ -48,8 +65,8 @@ queue refinement. The finite result is group-gate coverage for the compiled
 calculus, not a checked complete JVM iteration. It does not assert that
 every unsupported speculative inventory candidate executes.
 
-Lean 4.33.1 builds **155 jobs**. The focused combined audit checks **3,574
-declarations**, finds **zero unexpected axioms**, and passes **255 controls**.
+Lean 4.33.1 builds **157 jobs**. The focused combined audit checks **4,201
+declarations**, finds **zero unexpected axioms**, and passes **299 controls**.
 The dossier links the stable-source receipt. The earlier local read/point
 audit remains a narrower 1,384-declaration/113-control checkpoint.
 Analyzer implementation and measured project results below are unchanged.

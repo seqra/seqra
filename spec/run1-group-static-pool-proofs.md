@@ -21,6 +21,20 @@ no run-1 field carry demands. The actual-port carry theorem below remains
 a sufficient construction for nonzero static-query guidance. It must not
 be read as a requirement to add guides to every sink-origin wrapper.
 
+The [universal review](run1-static-demand-completeness-review.md) now refutes
+the stricter combination of per-method group gating and no static carry
+authorization. A resolved pass-only callee needs a nonzero field query
+but has no group demand. Current actual-input admission avoids this loss.
+Neither a valid ZERO-wrapper theorem nor absence of another counterexample
+establishes a general early-summary compiler theorem.
+
+The selected [shared static GROUP default](run1-universal-static-carry.md)
+closes this relay gate. It is implicit for all methods and matches actual
+full queries against the complete group catalog. It is not a source-derived
+per-field table or an executable identity. The local constructive proof
+covers arbitrary finite same-group static identity/copy transport; productive
+nonstatic, control-ZERO and cross-group results remain separate.
+
 The selected static order/caller-context approximation stays in effect.
 Every supplied group still needs a finite source/writer derivation.
 Measured runtime remains `63d5481e4e4b69ecf042c1149bb574ad40fd1624`.
@@ -67,6 +81,8 @@ the static premise. It is not a supplied field group or a new source.
 | [Run1StaticDemandTreeCoverage.lean](lean/ApSpec/Run1StaticDemandTreeCoverage.lean) | Finite positive full-mark witnesses, group projection and frozen guide pairs | Explicit demand witnesses for every rule/guard premise, including different input/output groups; separate target point demand |
 | [Run1StaticReadWritePath.lean](lean/ApSpec/Run1StaticReadWritePath.lean) | Finite ordinary reverse paths through real local/call ports, factored static carry and a captured ordinary writer endpoint | Constructs every carry guide from frozen field/group supply and closed method metadata; retains exact moves, full mark and read origin; separates writer RHS permission from static identity |
 | [Run1StaticEarlySummaryZero.lean](lean/ApSpec/Run1StaticEarlySummaryZero.lean) | Early static source effects and finite sink-origin wrapper paths under existing backward ZERO rules | Computes zero-only returns and surviving wrapper-body transfers without run-1 wrapper demands; distinguishes explicit ZERO exits from absent exits and rejects ZERO activation from nonzero queries |
+| [Run1StaticEarlySummaryGap.lean](lean/ApSpec/Run1StaticEarlySummaryGap.lean) | Finite full source/sink flow through resolved empty static relays under two admission policies | Executable counterexample refutes universal strict local-gate coverage; actual-input admission preserves the same query through every finite empty relay chain |
+| [Run1UniversalStaticCarry.lean](lean/ApSpec/Run1UniversalStaticCarry.lean) | Shared all-method static GROUP permission, canonical actual inputs and finite identity/copy bodies | Closes the prior relay counterexample; derives admission and publication from the shared view; keeps actual AP/full marks and real body kills |
 | [Run1StaticInitialRefinement.lean](lean/ApSpec/Run1StaticInitialRefinement.lean) | Identity FLOW templates, ZERO call activation, direct supply/subscription joins and merged batches | Same identity result as forward instantiation, static-premise preservation, rooted DEMAND replies at the subscribed point, arrival/merge equivalence and no duplicate delivery |
 | [Run1StaticGroupDerivation.lean](lean/ApSpec/Run1StaticGroupDerivation.lean) | Finite positive group rules, source seeds, transforms, multi-input guards and static relay contraction | Rooted exact closure, executable proof trees, no invented groups and equal projected reference/direct derivations |
 | [Run1GroupStaticHandoff.lean](lean/ApSpec/Run1GroupStaticHandoff.lean) | Closed-catalog full-member decoding and finite writer/reversal search | Full-member B2 query coverage, original-read retention and intermediate writer guards |
@@ -394,14 +410,14 @@ lake build
 lake env lean run1-static-demand-coverage-audit.lean
 ```
 
-The focused audit visits all declarations owned by the nine active models,
+The focused audit visits all declarations owned by the eleven active models,
 including generated helpers. It collects transitive theorem axioms and
 admits only standard `propext` and `Quot.sound`. No classical choice,
 `sorry` or added axiom is admitted. It then executes every named control.
 
-Final check on 18 October 2026: **PASS**. The build completes **155 jobs**.
-The active audit checks **3,574 declarations**, finds **zero unexpected
-axioms**, and passes **255 executable controls**.
+Final check on 18 October 2026: **PASS**. The build completes **157 jobs**.
+The active audit checks **4,201 declarations**, finds **zero unexpected
+axioms**, and passes **299 executable controls**.
 
 | Module | Audited declarations | Passing controls |
 | --- | ---: | ---: |
@@ -414,18 +430,20 @@ axioms**, and passes **255 executable controls**.
 | Run1StaticDemandTreeCoverage | 343 | 28 |
 | Run1StaticReadWritePath | 572 | 33 |
 | Run1StaticEarlySummaryZero | 474 | 34 |
-| Total | 3,574 | 255 |
+| Run1StaticEarlySummaryGap | 244 | 25 |
+| Run1UniversalStaticCarry | 383 | 19 |
+| Total | 4,201 | 299 |
 
 The earlier read-admission audit remains a narrower **1,384-declaration /
 113-control** checkpoint. It does not prove the new demand-generation rule.
 The counterexample and wider group-demand proofs have the new receipt below.
 
-The [validation receipt](/drive-testcomp/opentaint-go-rules/run1-immediate-static-summary-20261018/validation/20261018T233005.300214Z/receipt.json)
-has SHA-256 `53edf2c8be0acda5b4d49e9fd1283506524e001785c67199c372bc478f14294f`.
+The [validation receipt](/drive-testcomp/opentaint-go-rules/run1-universal-static-carry-20261018/validation/20261018T235053.989525Z/receipt.json)
+has SHA-256 `04545b213180c2c9556a42567923ba24775c6582d61c3a3e0548cd6a567e5403`.
 It binds stable proof-source hashes to the
-[build log](/drive-testcomp/opentaint-go-rules/run1-immediate-static-summary-20261018/validation/20261018T233005.300214Z/build.log)
-and [audit log](/drive-testcomp/opentaint-go-rules/run1-immediate-static-summary-20261018/validation/20261018T233005.300214Z/audit.log).
-The four existing `CallZeroTest` runtime controls pass. The proposed early
+[build log](/drive-testcomp/opentaint-go-rules/run1-universal-static-carry-20261018/validation/20261018T235053.989525Z/build.log)
+and [audit log](/drive-testcomp/opentaint-go-rules/run1-universal-static-carry-20261018/validation/20261018T235053.989525Z/audit.log).
+The four existing `CallZeroTest` and eight `StrongQueriesTest` runtime controls pass. The proposed early
 write publication is not implemented. No project benchmarks were rerun. Latest measured run
 status remains the one at the start of this dossier. These finite proofs
 are not a certificate that the current Kotlin implementation has the new

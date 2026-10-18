@@ -152,3 +152,5 @@ import ApSpec.Run1StaticDemandCoverage
 import ApSpec.Run1StaticDemandTreeCoverage
 import ApSpec.Run1StaticReadWritePath
 import ApSpec.Run1StaticEarlySummaryZero
+import ApSpec.Run1StaticEarlySummaryGap
+import ApSpec.Run1UniversalStaticCarry

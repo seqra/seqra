@@ -552,24 +552,24 @@ pass the mark gate. Internal starts need group demands at their real points,
 including checks in methods with no normal exit. Their demands are not
 fictitious normal-return summaries.
 
-Transparent static calls need a field-specific carry group demand for the
-actual field query. It can use a shared immutable field/group template;
-do not construct a method-by-field-by-group table or a marked S-root
-initial. The synthetic S.* compatibility summary is not group evidence.
+After run-1, install the [shared static GROUP demand](run1-universal-static-carry.md)
+for every method. For each eligible G, its entry is root S/ANY/Group(G)
+and its exit is root S/STAR/Group(G). Store this as one implicit view with
+the complete group catalog. It applies to later-created method actors too;
+it does not depend on run-1 field supply or `result.analyzers` membership.
+Do not construct a method-by-field-by-group table or a marked S-root initial.
+Match and retain the actual bounded field query and full mark T.
 
-Freeze this template as two relations: the closed control-eligible method
-universe and grounded field/group supply. Include all real call-port
-endpoints, even methods with no run-1 static initial, productive analyzer,
-read or normal exit. A query matches a frozen carry pair only when its
-method belongs to that universe and its field region has the supplied
-group. The pair is a DEMAND permission, not an executable identity summary.
-Run-2 still analyzes the body and applies its actual kills and write pivots.
+This DEMAND pair permits query admission and compatible static result
+publication. It is not an executable identity summary, write presence or
+positive group supply. Run-2 still analyzes the body and applies its actual
+kills and write pivots. The earlier source-derived field carry construction
+is sufficient but is no longer required for these relays.
 
-Also freeze the real incoming call ports: caller before/after stages,
-callee entry/exit, target context and normal/exceptional kind. Do not require
-a marked run-1 subscription to retain a port. At a callee entry, the actual
-run-2 query can resume before the eligible caller statement through this
-metadata. The field pool alone cannot identify that continuation.
+Ordinary run-2 calls retain their real caller before/after stages, callee
+entry/exit, target context and exit kind. Their actual queries and ZERO-only
+subscriptions do not require marked run-1 subscriptions. The field pool
+alone cannot identify a caller continuation.
 
 At `set(p) { C.f = p; }`, a carry pair `C.f/G -> C.f/G` cannot publish
 the reverse RHS p/T. Capture the writer FLOW row before intercepting its
@@ -673,17 +673,16 @@ summary already carries the information needed to address C.f directly.
 This statement concerns run-1. Run-2 follows the real backward path:
 
 ```text
-sink t/T
+consume: Z -> t/T at the sink
   -> getter return/T       [getter return/G -> C.f/G guide]
-  -> getter read C.f/T
-  -> getter entry C.f/T    [field-specific frozen carry guide]
-  -> consume before get   [the actual incoming getter call port]
-  -> consume entry C.f/T   [field-specific frozen carry guide]
-  -> main before consume  [the actual incoming consume call port]
-  -> setter normal exit   [the preceding setter call port + carry guide]
+  -> getter entry C.f/T    [productive getter result]
+  -> consume Z -> C.f/T    [actual getter call binding]
+  -> consume entry        [ordinary reverse CFG, ZERO publication]
+  -> main Z -> C.f/T       [ZERO-only consume subscription]
+  -> setter C.f/T input   [actual call, shared static GROUP permission]
   -> C.f = t              [ordinary reverse CFG]
-  -> t/T                  [actual store pivot + writer/RHS group guide]
-  -> actual source hit    [ordinary exact source permission; unmarked ZERO]
+  -> t/T                  [actual store pivot + productive writer guide]
+  -> actual source hit    [exact source match; unmarked ZERO result]
 ```
 
 The carry relation covers omitted static relays. Getter/helper and writer

@@ -454,6 +454,13 @@ demanded occurrence supplies T; ZERO receives no taint group. See the
 This exception does not create a marked nonzero method initial or replace
 its separate admission contract.
 
+For the selected run-1 static design, the [shared static demand](run1-universal-static-carry.md)
+provides root static GROUP entry/exit permissions in every method. It admits
+an actual C.f/T query when owner(T) matches the group, preserving its full
+mark and AP. It does not emit all full marks from FLOW or supply an executable
+identity. Productive nonstatic, control-ZERO and cross-group outputs retain
+their explicit paired demands.
+
 All relevant source and sink NNF alternatives and ND members keep their full
 mark identities. Backward analysis uses the original full-mark cleaner:
 cleaning T preserves a different U in the same group. Current query demand

@@ -18,6 +18,11 @@ needs no run-1 wrapper carry demand. Section 5's carry construction is a
 sufficient solution for **nonzero** static-query admission; it is not a
 required addition for that ZERO-origin wrapper case.
 
+The selected [shared all-method static demand](run1-universal-static-carry.md)
+also removes the need for a source-derived, per-field carry guide at a
+nonzero static relay. A broad GROUP entry/exit permission retains the actual
+full query. Productive reader/writer and source demands remain separate.
+
 Measured runtime remains `63d5481e4e4b69ecf042c1149bb574ad40fd1624`.
 Latest reached / completed engine / accepted forward report: OWASP
 **run-7 / run-6 / run-5**; conductor **run-1 / none / none**;
@@ -399,7 +404,7 @@ forward group-guide generation, full-member decoding, ordinary backward
 steps and complete writer discovery. It must retain point starts and paired
 publication, not just admit the first method input.
 
-The constructive models separate five claims:
+The constructive models separate seven claims:
 
 | Model | Claim |
 | --- | --- |
@@ -408,6 +413,8 @@ The constructive models separate five claims:
 | [Full positive-witness coverage](lean/ApSpec/Run1StaticDemandTreeCoverage.lean) | A full finite positive witness projects to group derivations and frozen guide witnesses for all its rule premises, with different groups and full guard lists |
 | [Real read-to-write corridor](lean/ApSpec/Run1StaticReadWritePath.lean) | Frozen field/group supply and closed method/port metadata produce carry guides at every actual backward port; a captured writer row supplies its distinct paired RHS permission |
 | [Existing ZERO wrapper path](lean/ApSpec/Run1StaticEarlySummaryZero.lean) | A real sink-origin ZERO summary returns through reached zero-only subscriptions and surviving wrapper-body transfers without run-1 wrapper carry demands; early writes reverse to explicit ZERO exits |
+| [Strict-gate counterexample](lean/ApSpec/Run1StaticEarlySummaryGap.lean) | A resolved static relay without a group guide disproves universal strict-gate coverage; actual-query admission avoids this loss |
+| [Shared static GROUP default](lean/ApSpec/Run1UniversalStaticCarry.lean) | One implicit all-method catalog relation admits and publishes finite actual static identity/copy paths without per-field guide rows; the prior counterexample succeeds |
 
 The production compiler must preserve each real primitive, AP endpoint,
 reached call/return port, context, rule occurrence and guard slot. The full
@@ -508,10 +515,10 @@ not assert that every syntactically composable inventory path is feasible.
 The carry relation authorizes analysis only; it cannot bypass a kill or
 establish a normal-return/source result.
 
-Validation: Lean 4.33.1 builds **155 jobs**. The combined audit checks
-**3,574 declarations**, admits no unexpected axioms, and passes **255
-controls**. Of these, the five new demand modules contribute **2,190
-declarations and 142 controls**. The audit accepts only standard `propext`
+Validation: Lean 4.33.1 builds **157 jobs**. The combined audit checks
+**4,201 declarations**, admits no unexpected axioms, and passes **299
+controls**. Of these, the seven new demand modules contribute **2,817
+declarations and 186 controls**. The audit accepts only standard `propext`
 and `Quot.sound`; it rejects classical choice and unproved placeholders.
 
 ```sh
@@ -520,8 +527,8 @@ lake build
 lake env lean run1-static-demand-coverage-audit.lean
 ```
 
-The [receipt](/drive-testcomp/opentaint-go-rules/run1-immediate-static-summary-20261018/validation/20261018T233005.300214Z/receipt.json) has SHA-256
-`53edf2c8be0acda5b4d49e9fd1283506524e001785c67199c372bc478f14294f`. It binds stable proof-source hashes to the
-[build log](/drive-testcomp/opentaint-go-rules/run1-immediate-static-summary-20261018/validation/20261018T233005.300214Z/build.log) and
-[audit log](/drive-testcomp/opentaint-go-rules/run1-immediate-static-summary-20261018/validation/20261018T233005.300214Z/audit.log).
+The [receipt](/drive-testcomp/opentaint-go-rules/run1-universal-static-carry-20261018/validation/20261018T235053.989525Z/receipt.json) has SHA-256
+`04545b213180c2c9556a42567923ba24775c6582d61c3a3e0548cd6a567e5403`. It binds stable proof-source hashes to the
+[build log](/drive-testcomp/opentaint-go-rules/run1-universal-static-carry-20261018/validation/20261018T235053.989525Z/build.log) and
+[audit log](/drive-testcomp/opentaint-go-rules/run1-universal-static-carry-20261018/validation/20261018T235053.989525Z/audit.log).
 No runtime implementation or project benchmark changed.
