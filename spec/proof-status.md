@@ -1,29 +1,35 @@
 # Current proof status
 
-## Proposed run-1 statics with writer-backed groups
+## Proposed run-1 forward static edges and direct refinement
 
-The [revised static proposal](run1-group-static-pool.md) keeps the accepted
-static order/caller-context approximation. Every supplied group must now
-have a finite source/writer derivation. FLOW, an interest and a hypothetical
-grouped initial cannot create supply. Writer/provider needs activate actual
-input grounding; derived group answers reach real readers directly.
+The [revised static proposal](run1-group-static-pool.md) replaces the
+backward provider graph. Reached reads emit ordinary conditional static-
+origin FLOW edges. ZERO activates compatible conditional return summaries
+while retaining their static premise. A current-point need subscribes to
+that initial field's writer supply and resumes at the same input stage.
+It does not trace local operations or returns backward.
 
-The [proof dossier](run1-group-static-pool-proofs.md) separates the rooted
-positive group calculus, identity-relay contraction, finite communication
-protocol and active requested scope. It retains complete full-member B2
-writer discovery. The former FLOW-plus-interest pool/trace models are
-historical; their 1,015-declaration/59-control checkpoint does not prove
-this revision's precision. The independent handoff model is reused.
+Every supplied group still needs a finite source/writer derivation under
+the selected static order/caller-context approximation. Static-copy writers
+forward grounded groups in bulk. Ordinary-origin writers retain actual
+input grounding and the existing nonstatic P/R protocol. FLOW, ZERO and
+hypothetical initials cannot create supply.
 
-Actual source eligibility, operation/guard/AP compilation, optimized queues,
-point-query admission, continuation authorization and confirmation remain
-implementation obligations. Analyzer code and measured project results
-below are unchanged.
+The [proof dossier](run1-group-static-pool-proofs.md) separates the new
+identity-template/direct-join model, rooted positive group calculus,
+static identity-relay contraction and full-member B2 writer discovery.
+The backward-provider protocol/request-slice models are historical. Their
+1,332-declaration/90-control receipt is not this revision's validation.
 
-Lean 4.33.1 builds 148 jobs. The revised active audit checks **1,332
-declarations**, finds **zero unexpected axioms**, and passes **90 controls**.
-The dossier links the stable-source receipt and identifies the exact
-finite/active-scope proof boundaries.
+Actual source eligibility, operation/guard/AP compilation, ordinary forward
+summary composition, optimized queues, point-query admission, continuation
+authorization and confirmation remain adapter obligations. In particular,
+the new local proof does not establish a whole JVM iteration or project
+speedup. Analyzer code and measured results below are unchanged.
+
+Lean 4.33.1 builds **149 jobs**. The new focused audit checks **1,240
+declarations**, finds **zero unexpected axioms**, and passes **86 controls**.
+The dossier links the stable-source receipt and exact proof boundaries.
 
 ## Selected rule-group mark specification
 

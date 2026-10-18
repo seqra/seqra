@@ -22,6 +22,22 @@ are recorded for their stated version only. Bare section numbers within an AP
 extract refer to that version of ap.md; numbers within an analyzer extract refer
 to that version of analyzer-core.md.
 
+## Superseded backward-provider static proposal, 18 October 2026
+
+The `Run1StaticGroupProtocol` scheduler and `Run1StaticGroupRequestSlice`
+model proved reverse provider needs and requested-scope closure for a
+previous proposal. The 1,332-declaration/90-control checkpoint remains
+valid for that model. Its source receipt is
+`/drive-testcomp/opentaint-go-rules/run1-static-group-precision-20261018/validation/20261018T204238.281574Z/receipt.json`.
+
+The user rejected backward propagation inside run-1. The current
+[static proposal](run1-group-static-pool.md) uses ordinary forward static-
+origin edges and a direct writer-supply join at the current point.
+Its [proof dossier](run1-group-static-pool-proofs.md) has a new model and
+focused audit. The old protocol's forward source/hop certificate type is
+reused as proof data; its backward scheduler is not the current algorithm.
+The earlier FLOW-plus-interest pool/trace models remain historical too.
+
 ## AP proof catalog at the cleaner checkpoint
 
 ## 10. Theorems

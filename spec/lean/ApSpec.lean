@@ -145,3 +145,4 @@ import ApSpec.Run1GroupStaticHandoff
 import ApSpec.Run1StaticGroupDerivation
 import ApSpec.Run1StaticGroupProtocol
 import ApSpec.Run1StaticGroupRequestSlice
+import ApSpec.Run1StaticInitialRefinement

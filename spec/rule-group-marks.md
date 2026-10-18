@@ -20,7 +20,9 @@ specifies that adapter, its FLOW/group interests and its full-mark handoff.
 It remains an unimplemented proposal; it does not change this mark contract.
 Its revised static path requires a source/writer derivation for every
 supplied group. A request or hypothetical grouped initial cannot ground
-static group availability. FLOW supplies dependencies, not arbitrary groups.
+static group availability. FLOW retains a conditional static premise.
+The static adapter uses ordinary forward edges and direct current-point
+refinement. It adds no backward provider propagation inside run-1.
 
 Measured runtime remains `63d5481e4e4b69ecf042c1149bb574ad40fd1624`.
 Latest reached / completed engine / accepted forward report: OWASP
@@ -352,10 +354,12 @@ unanswered when no compatible supply exists. It must not fabricate a taint
 answer or block completion forever. Do not publish a NORMAL exclusion and
 then discard its required request or local forward-demand obligation.
 
-A static-pool adapter can deliver the group need to local writer/read
-obligations instead of static call-chain requests. It must retain the same
-group-demand coverage. Unknown-group supply can remain generic FLOW or
-abstract pool metadata until a rule/request names a group. Do not invent
+A static adapter can resolve a group need directly from a conditional
+edge's static initial, subscribe to actual writer supply and inject a
+DEMAND reply at the current operation input. It must retain the same
+group-demand coverage without a backward provider traversal. Unknown-group
+supply can remain generic FLOW or abstract pool metadata until a rule/request
+names a group. Do not invent
 a group, use ZERO as one, or eagerly emit all groups as taint facts.
 
 ## 9. Source and sink conditions

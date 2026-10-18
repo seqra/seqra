@@ -1,16 +1,17 @@
-# Writer-backed static groups: proof dossier
+# Forward static edges and direct refinement: proof dossier
 
 Date: 18 October 2026. Status: **revised proposal; analyzer unchanged**.
 Language: ASD-STE100 Simplified Technical English. Defined mathematical
 terms and code names keep their stated meanings.
 
 This dossier follows [proof-guide.md](proof-guide.md) and supports the
-[revised static proposal](run1-group-static-pool.md). The user keeps static
-order/caller-context approximation but requires every delivered group to
-have a finite source/writer derivation. The former FLOW-plus-interest rule
-is superseded. Its older proofs remain historical, not evidence of group
-precision in this revision.
+[static proposal](run1-group-static-pool.md). The user rejected backward
+provider propagation inside run-1. Static reads now create conditional
+ordinary forward edges. A request uses that edge's static initial to join
+writer supply directly, then resumes at the current operation input.
 
+The selected static order/caller-context approximation stays in effect.
+Every supplied group still needs a finite source/writer derivation.
 Measured runtime remains `63d5481e4e4b69ecf042c1149bb574ad40fd1624`.
 Latest reached / completed engine / accepted forward report: OWASP
 **run-7 / run-6 / run-5**; conductor **run-1 / none / none**;
@@ -19,299 +20,257 @@ No analyzer implementation or project measurement is part of this work.
 
 ## 1. Concept and optimization
 
-The concept is a source-rooted least fixed point over finite node/group
-facts. Sources and explicit boundaries supply seeds. Productive operations
-have nonempty positive premises. Requests and generic FLOW supply no seeds.
-A conditional grouped initial remains a premise, not global availability.
+For a certified mark-preserving FLOW branch, the reference propagates a
+compatible supplied field group through ordinary forward operations to S.
+The direct procedure first propagates its conditional static-origin edge.
+When S needs the group, it instantiates that edge at S from the same supply.
 
-The reference and direct procedure use the **same** run-1 group operations,
-static order/context approximation, AP policy and eligible guard policy.
-The direct procedure contracts only static identity availability relays.
-It preserves productive local operations and their complete premise lists.
-The required result is equal projected group derivability, including
-conjunctive guard dependencies. It is not equality to concrete full-mark
-execution feasibility or to a previous differently approximated analyzer.
+```text
+reference:  C.f/G -> ordinary identity transports -> x/G at S
+new:        C.f/FLOW -> ordinary identity transports -> x/FLOW at S
+            + derived C.f/G + a request at S
+            => C.f/G -> x/G at S [DEMAND]
+```
 
-The protocol optimization merges need/answer atoms and processes fresh
-frontiers. Its executable finite oracle uses same-group edges. This proves
-an important practical communication scope: writers, copies, readers and
-ordinary providers that preserve groups. Conditional/multi-input and
-rewriter semantics are covered by the positive concept calculus; their
-optimized adjacency compilation remains an explicit adapter obligation.
+Both procedures retain the same static initial, current AP and group in
+this scope. The optimization changes when the group is instantiated. It
+does not prove equality for arbitrary mark rewrites, kills or unresolved
+guards. Those operations need the compiler contracts in section 7.
+
+ZERO is control activation for a conditional static summary. It preserves
+the static premise. It is not a supplied field group or a new source.
 
 ## 2. Active models and historical models
 
 | Active model | Scope | Constructive result |
 | --- | --- | --- |
-| [Run1StaticGroupDerivation.lean](lean/ApSpec/Run1StaticGroupDerivation.lean) | Finite positive group rules, seeds, transforms, multi-input guards and static relay contraction | Rooted exact closure, no invented groups, executable proof trees, equal projected reference/direct derivations |
-| [Run1StaticGroupProtocol.lean](lean/ApSpec/Run1StaticGroupProtocol.lean) | Finite same-group writer/provider/consumer graph, wanted/answered sets and fresh work | Rooted answers, complete eager delivery, reverse needs, late registration, finite saturation and no duplicate answers |
-| [Run1StaticGroupRequestSlice.lean](lean/ApSpec/Run1StaticGroupRequestSlice.lean) | Backward need closure across all positive premises, including changed groups and guards | Exact answers for requested facts with lazy activation of their provider scope |
-| [Run1GroupStaticHandoff.lean](lean/ApSpec/Run1GroupStaticHandoff.lean) | Closed-catalog full-member decoding and finite writer/reversal search | Full-mark B2 query coverage, retained original read and intermediate writer guards |
+| [Run1StaticInitialRefinement.lean](lean/ApSpec/Run1StaticInitialRefinement.lean) | Identity FLOW templates, ZERO call activation, direct supply/subscription joins and merged batches | Same identity result as forward instantiation, static-premise preservation, rooted DEMAND replies at the subscribed point, arrival/merge equivalence and no duplicate delivery |
+| [Run1StaticGroupDerivation.lean](lean/ApSpec/Run1StaticGroupDerivation.lean) | Finite positive group rules, source seeds, transforms, multi-input guards and static relay contraction | Rooted exact closure, executable proof trees, no invented groups and equal projected reference/direct derivations |
+| [Run1GroupStaticHandoff.lean](lean/ApSpec/Run1GroupStaticHandoff.lean) | Closed-catalog full-member decoding and finite writer/reversal search | Full-member B2 query coverage, original-read retention and intermediate writer guards |
 
-The [prior mark dossier](rule-group-mark-proofs.md) still supplies ownership,
-full-literal identity, cleaner and group-decoder laws. This revision does
-not change those mark definitions or the F1/GROUP/1, B2/FULL/1 schedule.
+The new model reuses the source/hop `Derivation` type and root-extraction
+lemmas from `Run1StaticGroupProtocol`. These witnesses describe forward
+source-to-field supply. It does not use that module's backward request
+actions, saturation procedure or provider-needs scheduler.
 
-`Run1GroupStaticPool.lean` and `Run1GroupStaticTrace.lean` model the previous
-coarse FLOW-plus-need concept. Their laws remain true for that historical
-model. They do not establish the new rooted-group invariant. The earlier
-1,015-declaration/59-control receipt must not be used as this revision's
-validation. Its independent handoff model is still applicable and is
-included again in the active audit.
+`Run1StaticGroupProtocol` and `Run1StaticGroupRequestSlice` remain historical
+algorithm models. The previous 1,332-declaration/90-control receipt applies
+to the rejected backward-provider revision. It does not certify this new
+pipeline. The still older coarse FLOW-plus-need pool/trace models also stay
+historical. The new focused audit has a separate command and receipt.
 
-## 3. Source-rooted group derivations
+The [mark dossier](rule-group-mark-proofs.md) still supplies ownership,
+full-literal identity, cleaner and group-decoder laws. Run-1 is GROUP/limit 1;
+run-2 is BACKWARD/FULL/limit 1. No run or field limit 0 is admitted.
 
-A fact is `(node, group)`. A positive rule contains a finite nonempty list
-of premise facts and one conclusion. A real zero-input source is an explicit
-seed, admitted by the source/control/model adapter.
+## 3. Conditional forward transport and ZERO
+
+`Template` stores the original field, current point and current AP.
+`IdentityTransport` has same-value, local-copy and call-binding forms.
+These forms are semantic certificates supplied by the reached-operation/AP
+adapter. They are not a backward dependency graph.
+
+`advance` changes only the point/current AP. `advance_preserves_original`
+and `compose_preserves_original` prove that the original field survives
+ordinary transport and a finite forward trace.
+
+`identity_refinement_commutes` proves:
 
 ```text
-root source/boundary fact
-         OR
-all positive premise facts + a declared operation
-         => conclusion fact
+materialize(advance(template), G)
+    = advance(materialize(template, G))
 ```
 
-`enabled` requires **all** listed premises. A group at point x does not
-satisfy a same-group antecedent at point y. `advance` computes one closure
-round; `closeAt` computes a finite number of rounds. Their lists are a
-finite semantic oracle, not the proposed per-full-mark runtime storage.
+This is the local equivalence needed for point injection. Its composition
+retains the field coordinate across the getter's local copy and caller
+return binding. It does not require a reverse traversal of those steps.
 
-`Derivation` and `Tree` are Type-valued proof data. `deriveAt` returns a
-concrete derivation for each computed fact. `bounded_exact` proves both
-directions between finite closure membership and such derivations.
-`boundTree` computes a round bound and bounded witness for any finite tree.
-It uses finite decidable search, not classical witness selection.
+`applyConditionalFromZero` performs the same forward call binding.
+`zero_keeps_static_premise` proves that its output still names C.f.
+Registration changes no supplied groups. Conditional summary publication
+therefore cannot manufacture a marked ZERO-to-value source.
 
-`solve` computes the full finite least closure. `solution_exact` equates its
-facts with finite proof trees; `solutionRoot` returns a registered root.
-`Saturation` contains soundness, seed inclusion and rule stability witnesses.
-The solver removes a positive rule after firing it; `solve_firing_bound`
-bounds firings by the finite rule count. Blocked source cycles remain empty.
-These are finite oracle operations, not a required runtime full-rule scan.
+The model takes reached call/return bindings as inputs. It does not prove
+normal-return control reachability or actual JVM output projection. Those
+remain explicit adapter obligations, including no normal continuation for
+a nonreturning callee.
 
-`rootWitness` returns a registered source/boundary seed from every answer.
-A declared rewriter can change its group, so the root's group need not equal
-the output's group. The complete derivation retains that operation and all
-its guard premises; root membership alone is not the full justification.
+## 4. Direct join, soundness and completeness
 
-`closure_least` proves that every closed set containing the seeds contains
-all computed facts. `empty_seed_closure` proves no groups exist without
-seeds, even through copies and cycles. `requests_do_not_invent` proves that
-selecting an answer by a need cannot change that result.
+A subscription contains one conditional template and one group. Its supply
+key is exactly `(template.originalField, group)`. `direct_lookup_only`
+proves this equality. No preceding statement or callee-return search is
+part of the query.
 
-The source catalog is a primitive adapter boundary. It must contain only
-reached configured source actions and explicitly modeled boundary groups.
-An ordinary input reply is not a new independent seed. It must preserve
-its actual caller/source derivation. A canonical `p/g` hypothesis can compile
-`p/g => f/g`; it cannot supply p/g or f/g by itself.
+`output_iff` proves the exact scalar oracle:
 
-Controls include the hypothetical-input case, wrong-group requests, empty
-cycles, declared group transforms and a two-point/two-premise guard. A
-zero-premise operation is rejected as an implicit source. A real source
-must use the explicit seed interface after its ordinary guard permission.
+```text
+emitted(edge) iff
+    edge.layer = DEMAND
+    AND its subscription is present
+    AND its conditional template is registered
+    AND its original field/group has supplied evidence
+```
 
-## 4. Precise direct communication versus expanded relays
+`refinement_complete` constructs the output from those three registered
+inputs. Thus a late available answer is not lost. This is completeness for
+registered, requested, group-preserving templates. It is not a theorem that
+the real analyzer creates every required template or request.
 
-`Expanded` gives the comparison calculus. Its productive operations retain
-their full premise lists. An identity static relay can move an established
-group only between locations of the **same** static field. It cannot change
-the group, create a source or replace a local operation point.
+`Safe` maps each supplied atom to a Type-valued source-rooted derivation.
+`offerSafe`, `forwardWriterSafe`, `registerSafe`, `subscribeSafe` and
+`mergeSafe` preserve it. An offered source requires real evidence; requests
+and templates cannot add supply. `materializationCertificate` returns the
+field derivation for each emitted edge. `materializationRoot` returns an
+explicit registered source with the same group in this identity scope.
 
-`compactNode` collapses those static relay vertices to one field node.
-`contract` computes a compact proof and erases only identity relays.
-`expand` reconstructs a reference proof from a compact proof, including all
-productive local operations and their premises. Finite search obtains the
-actual original rule/premise witnesses.
+`no_source_no_output` proves that a safe state with an empty seed catalog
+has no refined output. Registered FLOW, ZERO, requests and a source-less
+copy cycle cannot bootstrap a group. `forwardWriter` publishes only from
+an existing derivation through a registered forward writer/copy edge.
 
-`compact_expanded_exact` proves both directions of projected group
-reachability for this same approximation. Thus the optimization does not
-get its savings by adding arbitrary group facts. Call-order/caller-context
-precision was already removed in both sides of this comparison.
+`materialize_demand` and `no_normal_output` exclude NORMAL replies.
+`output_at_subscribed_point` preserves the current point and current AP.
+The getter control injects at the consumer point 30 and emits no point-0
+entry replay. Runtime need not store the formal derivation tree.
 
-This is a finite calculus equivalence. The real AP, source guard and call
-compiler must supply its local operation witnesses. It does not prove that
-the previous measured Kotlin implementation already compiles this calculus.
+## 5. Merged storage, arrival orders and duplicates
 
-## 5. Writer/consumer protocol and provider replies
+The scalar executable oracle uses finite lists. `pack` and `merge` erase
+duplicates. Production GroupSets can replace these lists under membership
+refinement; they need not build a scalar object for every full mark.
 
-The protocol stores wanted and answered node/group atoms, registered edges
-and a finite valid source catalog. It does not store a per-edge/group
-history. Proven groups propagate forward eagerly, independently of wants.
-Wants propagate backward on provider edges. A request may activate an
-ordinary P/R provider but cannot answer itself.
+`packed_scalar_equivalent`, `merged_arrival_commutes`,
+`merged_batch_associative` and `duplicate_batch_same` prove equal semantic
+outputs after packing, different batch grouping or duplicate batches.
+`subscribe_groups_union` proves that a merged group request has the same
+membership as the union of its offered groups.
 
-`Safe` maps each supplied atom to an executable rooted `Derivation`.
-`applySafe`, `stepSafe` and `closeSafe` preserve it through productive work.
-`closeCertificate` and `lookupCertificate` return answer witnesses.
-`sourceRoot` exposes the real registered root. `no_source_no_answer` and
-`request_cycle_cannot_bootstrap` exclude unseeded answer cycles.
+`offer_subscription_arrivals` covers source-before-need and need-before-
+source. `flow_subscription_arrivals` covers template-before-subscription
+and subscription-before-template. `same_atoms_outputs` extends the result
+to states with the same three registered relations.
 
-`acceptProviderReply` requires an existing rooted Derivation. This is the
-important difference from trusting a callback or an analyzed grouped
-initial. `observeUnknownFlow` and `observeCanonicalHypothesis` cannot add
-answers. Their controls reject the old FLOW/hypothesis bootstrap.
-Runtime need not retain proof objects: its provider/compiler refinement
-must justify the same invariant using correct roots and transfer firing.
+`fresh_iff` selects only outputs not already delivered.
+`fresh_after_commit_empty` proves that another drain after commit produces
+no repeated answer. In the runtime, commit delivered bits before scheduling
+owner callbacks and retain ordinary worklist deduplication too.
 
-`close_complete` proves that every finite registered seed/edge derivation
-is in the final answer set. `closed_answer_sets_equal` proves equal final
-answers from any two safe prior frontiers. Thus different need order and
-prior partial work cannot change supplied group membership.
+These are membership and sequential join laws. They do not prove the live
+actor lock protocol, work reservations, cancellation or fairness. A complete
+barrier must cover publication, registrations, supply, ordinary P/R and
+point replies. Waiting subscriptions alone do not queue infinite work.
 
-`Extension`, `liftDerivation` and `late_registration_same_answers` cover
-new registered sources/edges. Old answers stay valid; replaying the new
-binding reaches the same final answer set as a fresh closure on the grown
-network. Request union has separate commutative/idempotent membership laws.
-`request_orders_same_answer_set` combines them with answer closure.
+## 6. Writer groups and relay contraction
 
-Both late-answer and late-writer cases therefore work. A source before a
-request, a request before a writer, or a writer before a source cannot
-turn an unsupported group into an answer or lose a supported finite path.
-Dynamic AP registration and provider activation still need fair scheduling.
+The reused positive calculus has explicit reached source/boundary seeds.
+Every productive rule has nonempty premises. A conditional ordinary input
+is a premise, not a root. All guard premises must be grounded before a
+writer conclusion can supply a field group.
 
-The active requested scope permits lazy ordinary input emission.
-`Run1StaticGroupRequestSlice.reverseNeeds` selects every premise of every
-candidate rule for a requested conclusion. `scope_premise_closed` proves
-that its finite computed need set contains all those inputs and guards.
-The selector closure is stored as **wants**, never as supplied groups.
+`solution_exact`, `solutionRoot`, `rootWitness` and `empty_seed_closure`
+prove rooted least closure and executable source witnesses. `solve` fires
+each positive rule at most once. This covers conditional groups, group-
+changing forward operations and conjunctive guards at their stated points.
+It is a finite oracle, not a proposed full-rule scan in the engine.
 
-`restrictTree` computes a supply proof using only scope-selected rules and
-real source seeds. `restoreTree` computes the reverse proof. The
-`requested_solution_exact` theorem proves that restricted and full closures
-agree on each requested fact. It handles different-group predecessors and
-multiple guard positions. An unrequested group may remain parked; no negative
-reachability claim follows from its local absence. The runtime must activate
-each selected provider and wake actions on fresh **guard** supply as well
-as RHS supply. The proof does not assume whole-engine closure in advance.
+`compact_expanded_exact`, `contract` and `expand` preserve projected group
+derivations when the only erased steps are static identity availability
+relays. Productive local transfers, call bindings and guard premises stay
+present. Both sides use the same accepted static order/context policy.
 
-## 6. Fresh work and completion
+The new direct-refinement model proves only same-group writer composition.
+The positive calculus handles the wider forward semantics. Their production
+adapter must agree; no whole-engine compiler equivalence is assumed.
 
-`enabled` rejects a backward need already stored at the producer and a
-forward/seed answer already stored at the target. `provider_reply_not_twice`
-and `step_does_not_repeat_answer` establish duplicate suppression.
-The state commits a fresh atom before later work can observe it.
+## 7. Required compiler and runtime controls
 
-A finite missing-key potential counts absent wanted and answered atoms.
-`action_decreases` proves strict decrease for each productive action.
-`close` therefore computes saturation without an arbitrary runtime fuel cap.
-`close_stable` returns a state with no productive next action.
-`close_idempotent` and `close_preserves_nodup` give stable deduplicated state.
-
-`step_count_bounded` bounds productive actions by the starting potential.
-`empty_state_step_bound` gives at most twice the finite node/group key count.
-This counts state insertions, not all scans, callbacks or JVM operations.
-The executable oracle's `actions` enumerates finite keys/edges. Production
-must use adjacency and fresh bitsets; it must not retain that Cartesian list.
-
-An unanswered request remains in `pending`. Once all available growth is
-processed, `next = none` even if pending is nonempty. It cannot hold a
-barrier forever. A later registered source/edge can reactivate the retained
-interest through the proved growth interface. No false negative cache is
-created at the earlier barrier.
-
-The optimized runner's owner-turn/method-empty batches, lock boundaries,
-cancellation and fairness remain adapters. Equal final answer sets do not
-prove equal callback counts or elapsed time.
-
-## 7. Conditional rules, rewrites and AP adapters
-
-| Adapter | Required local contract |
+| Adapter | Required contract |
 | --- | --- |
-| Actual sources/boundaries | Validate control/action and explicit allowed group set; no catalog/need/FLOW universal root |
-| Ordinary input | Retain canonical geometry and real caller/source premises; hypothetical initials are conditional results |
-| Positive group guards | Preserve every bound position and all required antecedents; compile original NNF DAG without cube expansion |
-| Signed/non-mark guards | Fold full signed identities first; retain ordinary eligible-negative and non-mark policy |
-| Mark operations | Forward group image and reverse preimage agree; h can request g, not necessarily h |
-| Selected cleaners | Keep the user-selected group retention, request independent of mx, and real input grounding |
-| RemoveAll/field writes | Separate stages; preserve true-condition cleaner admission; group possibility cannot enable a kill; retain Empty-E survivor demotion |
-| AP scopes | Match writer, reader and provider geometry at a common location; do not confuse exact ancestors, broad scopes or initial/current tails |
-| Calls/returns | Preserve productive argument/formal/output bindings and reached exit stages; static availability needs no relay links |
-| Storage | One local node per stage/AP, group bitsets, no remote-static-original set or writer-reader product |
+| Static reads | Emit the reached conditional edge with legal initial/current geometry and DEMAND layer, even without group supply |
+| Calls/returns | Publish conditional ordinary summaries; ZERO triggers only static-premised application, retains other guards/support and uses the real reached return binding |
+| FLOW refinement | Accept only a certified mark-preserving FLOW branch; preserve original scope, current image and operation input stage |
+| Mark-changing actions | Register all required input-group interests at that action, then run the operation forward; never equate original g with rewritten h |
+| Source/model/boundary supply | Validate reached permission and explicit groups; a hypothetical input or request is not an actual root |
+| Ordinary writer input | Join the known original p/G through existing P/R; retain actual caller/source grounding before publishing C.f/G |
+| Static-origin writers | Subscribe eagerly to bulk grounded original-field groups and execute the real forward store; no reverse consumer traversal through copies |
+| NNF/ND | Keep original signed full literals, bound positions, all positive antecedents and ordinary support; late guard supply reevaluates retained ordinary rule state |
+| Selected cleaners | Retain DEMAND group repair independently of NORMAL mx; a selected cleaner cannot kill the group |
+| RemoveAll/field kills | Keep true-condition admission and real surviving geometry; no template may inject an old value across a whole-hit kill |
+| AP scopes | Match supply and original/current relation at one location; keep canonical EXACT/STAR tags and no ANY/S-root initial |
+| Queues/storage | Refine the membership oracle with GroupSets, owner commits, counted callbacks, cancellation and a complete barrier |
 
-The positive-rule concept handles transforms and multiple premises. The
-same-group protocol proof does not implement their optimized watchers.
-Before runtime work, extend/refine the production circuit/transfer compiler
-against the concept model and use its executable derivations as the oracle.
-This is a practical scope limit, not an assumed whole-engine result.
+These controls remain required before implementation. The Lean model does
+not prove arbitrary AP projection, operation compilation or the existing
+engine's summary composition. This dossier makes the practical proof
+boundary explicit instead of treating those parts as proved assumptions
+about the production analyzer.
 
-## 8. Run-2 handoff and confirmation
+## 8. Handoff and confirmation
 
-The reused handoff model expands a group demand against the complete full-
-mark catalog. `every_full_group_member_gets_seed` and the prior decoder
-soundness/completeness laws retain unobserved full members. The first B2
-field limit remains 1. Exact groups do not imply exact full-mark membership.
+The reused handoff model decodes every eligible full group member, not one
+representative. `every_full_group_member_gets_seed`, `open_writer_complete`,
+`compilePath`, `compileGraphPath` and
+`every_finite_reference_trace_discovered` cover their finite catalog/trace
+scope. Keep the original static read and each intermediate guard.
 
-Writer inventory lookup remains independent of F1 observed/supplied group
-sets. `open_writer_complete`, `compilePath` and
-`every_finite_reference_trace_discovered` cover finite compatible writer/
-reverse traces under local inventory, overlap and reversal obligations.
-`compileGraphPath` retains the original read and every intermediate guard.
-An opening is query-only DEMAND; it is not a semantic writer-to-reader edge.
+Writer lookup uses the complete inventory, not F1 supplied groups as a
+negative filter. Openings are query-only DEMAND. Actual internal-point
+query admission, ordinary incoming call-port expansion, session scope and
+source permissions remain runtime adapters.
 
-The actual runtime still needs explicit internal-point backward seeds,
-ordinary incoming caller-port expansion, and session authorization beyond
-missing F1 relay guides. Preserve exact forward source-permission identity.
-Later forward work must start from actual roots and permitted sources and
-reconstruct real CFG/call order, kills, conditions and ND support.
-Neither a group derivation in the approximated F1 graph nor an isolated
-writer query supplies the existing confirmation certificate.
+Later full forward analysis must reconstruct the real path and satisfy
+the existing confirmation certificate. Neither a source-rooted run-1 group
+in the approximated static pool nor an isolated writer query confirms a
+finding. All static/group-dependent run-1 results remain DEMAND.
 
-The same source, scope, queue, point-query and confirmation adapter limits
-from the previous handoff design remain. Group precision removes the
-arbitrary-group bootstrap; it does not eliminate these separate duties.
+## 9. Scoped savings and remaining cost
 
-## 9. Scoped savings
+`request_has_one_lookup` and `request_independent_of_forward_depth` prove
+that the defined refinement query has one direct field/group lookup for
+any preceding ordinary identity-template trace. Its operation language has
+no backward step or method-entry replay. This is a query-operation count,
+not a proof of constant-time hashing, callback cost or total analysis time.
 
-`relay_chain_work` counts h identity relay steps in a transparent expanded
-static chain. `contracted_chain_is_source` proves that its compact witness
-is the original single source proof. `strict_chain_saving` gives a strict
-relay-step saving for h > 0. Productive calls and local/guard work are not
-included in that count.
+`identity_refinement_commutes` permits this answer placement without replay
+of that trace. The reused relay contraction removes pure availability
+steps. GroupSets replace the full-mark coordinate with group membership.
 
-`full_supply_exact` proves that a projected group exists exactly when a
-supplied full mark has that owner. T and U in one rule share one group atom;
-a different owner does not. Together with the prior homogeneous cohort law,
-this is a scoped full-mark-to-group storage saving.
+The proposal retains static initial coordinates in ordinary productive
+edges/summaries. It also stores field supply and point subscriptions.
+Distinct field/current/point combinations and eager static-copy work remain
+real costs. A new global static fan-out can still be large. No byte-saving,
+project speedup or 60-second run-1 completion theorem is claimed.
 
-Communication now retains sparse writer/local dependencies. They are a real
-cost. It must not regain the remote-original/full-mark product or a producer-
-reader matrix. No theorem here guarantees fewer bytes, a project speedup or
-completion within 60 seconds. The current measured projects were not rerun.
-
-## 10. Reproduction and evidence
+## 10. Reproduction and checked evidence
 
 Use Lean `leanprover/lean4:v4.33.1` in `spec/lean`:
 
 ```sh
-lake env lean --version
 lake build
-lake env lean run1-static-group-communication-audit.lean
+lake env lean run1-static-initial-refinement-audit.lean
 ```
 
-The focused audit visits all declarations owned by the three new group models
-and the reused handoff model, including generated helpers. It admits only
-standard `propext` and `Quot.sound`, then executes all named controls.
-The final receipt binds stable source hashes, commands, exit codes and logs.
-Older coarse-pool counts and receipts remain historical.
+The focused audit visits all declarations owned by the three active models,
+including generated helpers. It collects transitive theorem axioms and
+admits only standard `propext` and `Quot.sound`. No classical choice,
+`sorry` or added axiom is admitted. It then executes every named control.
 
-Final check on 18 October 2026: **PASS**. Lean 4.33.1 builds **148 jobs**.
-The active audit checks **1,332 declarations**, finds **zero unexpected
-axioms**, and passes **90 executable controls**. Only standard `propext`
-and `Quot.sound` are admitted; no classical choice is admitted.
+Final check on 18 October 2026: **PASS**. The build completes **149 jobs**.
+The active audit checks **1,240 declarations**, finds **zero unexpected
+axioms**, and passes **86 executable controls**.
 
 | Module | Audited declarations | Passing controls |
 | --- | ---: | ---: |
 | Run1StaticGroupDerivation | 495 | 35 |
-| Run1StaticGroupProtocol | 360 | 26 |
-| Run1StaticGroupRequestSlice | 32 | 6 |
+| Run1StaticInitialRefinement | 300 | 28 |
 | Reused Run1GroupStaticHandoff | 445 | 23 |
-| Total | 1,332 | 90 |
+| Total | 1,240 | 86 |
 
-The [validation receipt](/drive-testcomp/opentaint-go-rules/run1-static-group-precision-20261018/validation/20261018T204238.281574Z/receipt.json)
-has SHA-256 `2058fbf9f4d8c77b9dce7e297595bdbf1fb7a2369088ec03c858f51baa348399`.
+The [validation receipt](/drive-testcomp/opentaint-go-rules/run1-static-initial-refinement-20261018/validation/20261018T214948.621722Z/receipt.json)
+has SHA-256 `4b0aa0e6bfbe182bcdb15f9473d0f3275c3d9bc12cb883dbb5b3dcde321501c9`.
 It binds stable proof-source hashes to the
-[build log](/drive-testcomp/opentaint-go-rules/run1-static-group-precision-20261018/validation/20261018T204238.281574Z/build.log)
-and [audit log](/drive-testcomp/opentaint-go-rules/run1-static-group-precision-20261018/validation/20261018T204238.281574Z/audit.log).
-No runtime test or project benchmark was rerun. Latest measured run status
-remains the one at the start of this dossier.
+[build log](/drive-testcomp/opentaint-go-rules/run1-static-initial-refinement-20261018/validation/20261018T214948.621722Z/build.log)
+and [audit log](/drive-testcomp/opentaint-go-rules/run1-static-initial-refinement-20261018/validation/20261018T214948.621722Z/audit.log).
+No runtime tests or project benchmarks were rerun. Latest measured run
+status remains the one at the start of this dossier.
