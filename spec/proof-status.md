@@ -12,8 +12,8 @@ records the adapters. After the mixed-batch correction, the full common
 gate passes **1,607 tests**, the JVM
 gate passes **411 tests**, and the analyzer consumer jar builds. The fresh
 application selection has **148 passes, nine precision failures and one skip**;
-its acceptance gate fails. Fixed-configuration candidate project validation
-requires a fresh retest on the corrected commit.
+its acceptance gate fails. The corrected fixed-configuration project matrix
+and 80-check/41-dataset input audit are closed; project acceptance also fails.
 
 The constructive models build covered ordinary request endpoints and translate
 finite ordinary analysis derivations to caller-owned derivations. The required
@@ -22,15 +22,22 @@ can add conservative interests. Actual mark guards and full ND bindings remain
 required. Kotlin producer, packed-store, codec and scheduling refinements are
 explicit obligations, not consequences of the finite calculus proof.
 
-The first caller-owned candidate matrix used `7abeecd5c`. OWASP reached
-**run-7**, completed **run-6**, and accepted a **run-5** report before
-timeout. Conductor failed in **run-1**, with no completed engine or accepted
-report, at the mixed Base/static batch assertion now corrected. The matrix
-stopped before ThingsBoard and Stirling-PDF. No corrected candidate project
-run has started. Fresh main uses the legacy engine and has no numbered
-bidirectional iteration. The historical conductor and ThingsBoard checkpoint
-below reached **run-1 / completed none / accepted none** on `f18b1c5bb`;
-it does not establish current runtime acceptance.
+Measured runtime: `63d5481e4e4b69ecf042c1149bb574ad40fd1624`.
+Latest reached / completed engine / accepted forward report: OWASP
+**run-7 / run-6 / run-5**, conductor **run-1 / none / none**, ThingsBoard
+**run-1 / none / none**, and Stirling-PDF **run-2 / run-1 / run-1**.
+OWASP and ThingsBoard timed out; conductor and PDF stopped with OOM.
+All four miss the 60-second run-1 engine target. The fixed matrix and
+80-check/41-dataset input audit are closed. The
+[current performance report](../docs/reports/bidirectional-caller-owned-subscriptions-performance-20261018.md)
+records strict finding differences, CPU evidence and memory analysis.
+The full core gate passes, but application precision and project no-loss
+acceptance fail. These measurements do not prove a semantic transfer loss
+or a universal saving. IR and cache/reference-manager rewrites remain outside
+implementation scope.
+
+Main uses the legacy engine and has no numbered bidirectional iteration.
+Older checkpoints below retain their own source and measurement scope.
 
 ## Previous measured static-need replay batching implementation
 

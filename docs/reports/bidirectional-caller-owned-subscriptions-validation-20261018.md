@@ -4,19 +4,27 @@ Date: 18 October 2026. The
 [selected contract](../../spec/run1-caller-owned-subscriptions.md) is
 implemented. The [implementation map](../design/bidirectional-caller-owned-subscriptions-implementation-20261018.md)
 describes the stores, call stages, request frontiers and counted barriers.
-Core checks pass after the mixed-batch correction. The corrected-source
-application precision gate fails. The first candidate matrix on
-`7abeecd5c` stopped: OWASP reached
-**run-7**, completed **run-6**, and accepted its **run-5** report before
-timeout; conductor failed in **run-1**, with no completed engine or accepted
-report. ThingsBoard and Stirling-PDF were not launched. Corrected candidate
-project runs have not started. The run-1 target remains 60 seconds of engine
-time.
+Core checks pass after the committed mixed-batch correction.
+Measured runtime: `63d5481e4e4b69ecf042c1149bb574ad40fd1624`.
+Latest reached / completed engine / accepted forward report: OWASP
+**run-7 / run-6 / run-5**, conductor **run-1 / none / none**, ThingsBoard
+**run-1 / none / none**, and Stirling-PDF **run-2 / run-1 / run-1**.
+OWASP and ThingsBoard timed out; conductor and PDF stopped with OOM.
+All four miss the 60-second run-1 engine target. The fixed matrix and
+80-check/41-dataset input audit are closed. The
+[current performance report](bidirectional-caller-owned-subscriptions-performance-20261018.md)
+records strict finding differences, CPU evidence and memory analysis.
+The full core gate passes, but application precision and project no-loss
+acceptance fail. These measurements do not prove a semantic transfer loss
+or a universal saving. IR and cache/reference-manager rewrites remain outside
+implementation scope.
 
 Evidence root:
 `/drive-testcomp/opentaint-go-rules/caller-owned-subscriptions-20261018/`,
-called `P` below. Earlier runtime performance reports are historical and do
-not establish acceptance for this implementation.
+called `P` in the validation table below. Corrected project evidence is in
+`/drive-testcomp/opentaint-go-rules/caller-owned-subscriptions-retest-20261018/`.
+The report explicitly reuses the unchanged fresh main controls with their
+original paths and timestamps. Earlier candidate measurements are superseded.
 
 | Check | Result | Evidence under P |
 | --- | --- | --- |
@@ -27,8 +35,8 @@ not establish acceptance for this implementation.
 | Fresh main OWASP workflow control | 4,112 traces; zero trace-generation failures | `projects/OWASP/main/` |
 
 The main control uses the legacy engine. It has no numbered bidirectional
-run. Its successful location comparison with the new candidate still needs
-the candidate execution.
+run. The corrected candidate preserves all 4,112 strict main OWASP identities,
+with 5,067 extra occurrences. That does not establish project-wide acceptance.
 
 The full core command uses Temurin JDK 17:
 
@@ -97,16 +105,27 @@ proves finite default-summary coverage. It does not prove the Kotlin/JVM
 scheduler, arbitrary frontend models or project completion. Runtime test
 passes do not make the failed application precision gate a pass.
 
-## Remaining acceptance work
+## Acceptance results and limits
 
-The application failure packet retains each strict expected/actual assertion.
-The failures concern cleaner precision. Their source and membership analysis
-must distinguish missing expected findings from extra findings; a passing
-test count alone does not prove no false negatives.
+The fresh application failure packet retains all strict assertions. Eight
+rule-set failures have 356 expected and 382 actual memberships: zero missing
+and 26 extra. The ninth count-only failure gives one finding without an
+identity. These membership sets do not establish strict location or occurrence
+equality. Each failed case's own log reaches, completes and accepts **run-9**.
+This is application-test scope, separate from the project iterations above.
 
-After the implementation commit, run OWASP, conductor, ThingsBoard and
-Stirling-PDF through `runProjectAnalyzer` with the task's fixed memory and
-timeout settings. Bind the source and input manifests. Compare actual rule
-and location identities with fresh main results, measure each numbered
-iteration, review CPU profiles and analyze any MemoryManager OOM capture.
-The performance report and the next proposal must use those new results.
+The source review identifies a matching EXACT/BELOW cleaner residual mechanism.
+It is not a captured per-finding causal trace or an isolated parent-commit
+comparison. Expected findings, assertions and filters were not weakened.
+
+All four corrected projects ran through direct `runProjectAnalyzer` at the
+prescribed settings. Both source endpoints and all 41 dataset fingerprints
+are stable. The strict project comparison has 22 missing main identities:
+seven conductor and 13 ThingsBoard findings after interrupted run-1 with no
+accepted report, plus two PDF location changes. PDF adds 49 unconfirmed
+identities. OWASP's identity set is unchanged but output multiplicity differs.
+The current performance report retains these failed gates and source-qualified
+causes; it does not waive them using finite proofs or core test passes.
+
+No additional runtime optimization is included. The next proposal must use
+the new workload, profiles and heap owners and remain a separate design.

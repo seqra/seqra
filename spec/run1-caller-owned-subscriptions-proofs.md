@@ -5,12 +5,22 @@ Date: 18 October 2026. Contract:
 Status: **constructive model and protocol proofs; runtime adapters under validation**.
 This dossier follows [proof-guide.md](proof-guide.md).
 
-Latest measured runtime: `7abeecd5c`. OWASP reached **run-7**, completed
-**run-6**, and accepted its **run-5** report before timeout. Conductor
-failed in **run-1**, with no completed engine or accepted report. The
-matrix stopped before ThingsBoard and Stirling-PDF. A concrete-answer
-batch correction is under validation. These finite proofs do not certify
-the Kotlin adapter or establish a timing or heap result.
+Measured runtime: `63d5481e4e4b69ecf042c1149bb574ad40fd1624`.
+Latest reached / completed engine / accepted forward report: OWASP
+**run-7 / run-6 / run-5**, conductor **run-1 / none / none**, ThingsBoard
+**run-1 / none / none**, and Stirling-PDF **run-2 / run-1 / run-1**.
+OWASP and ThingsBoard timed out; conductor and PDF stopped with OOM.
+All four miss the 60-second run-1 engine target. The fixed matrix and
+80-check/41-dataset input audit are closed. The
+[current performance report](../docs/reports/bidirectional-caller-owned-subscriptions-performance-20261018.md)
+records strict finding differences, CPU evidence and memory analysis.
+The full core gate passes, but application precision and project no-loss
+acceptance fail. These measurements do not prove a semantic transfer loss
+or a universal saving. IR and cache/reference-manager rewrites remain outside
+implementation scope.
+
+The constructive models are unchanged by the mixed-batch runtime correction.
+They prove the scoped calculus claims, not Kotlin execution or resource acceptance.
 
 ## 1. Claim and proof boundary
 

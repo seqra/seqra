@@ -1,18 +1,28 @@
 # Caller-owned run-1 subscriptions: implementation
 
-Date: 18 October 2026. Status: core validation passed; application precision gate failed; project validation pending.
+Date: 18 October 2026. Status: core validation passed; application precision gate failed; project resource and output acceptance gates failed.
 The [selected specification](../../spec/run1-caller-owned-subscriptions.md)
 defines the required behavior. The
 [proof dossier](../../spec/run1-caller-owned-subscriptions-proofs.md) defines
 the formal scope and the runtime adapter obligations.
 
-The first candidate matrix used `7abeecd5c`. OWASP reached **run-7**,
-completed **run-6**, and accepted a **run-5** report before timeout.
-Conductor failed in **run-1**, with no completed engine or accepted report.
-The matrix stopped before ThingsBoard and Stirling-PDF. The mixed-batch
-correction below passes the full core gate; all four candidates need a fresh
-retest. Main uses the legacy engine and has no numbered bidirectional
-iteration. The run-1 target is 60 seconds of engine time.
+Measured runtime: `63d5481e4e4b69ecf042c1149bb574ad40fd1624`.
+Latest reached / completed engine / accepted forward report: OWASP
+**run-7 / run-6 / run-5**, conductor **run-1 / none / none**, ThingsBoard
+**run-1 / none / none**, and Stirling-PDF **run-2 / run-1 / run-1**.
+OWASP and ThingsBoard timed out; conductor and PDF stopped with OOM.
+All four miss the 60-second run-1 engine target. The fixed matrix and
+80-check/41-dataset input audit are closed. The
+[current performance report](../reports/bidirectional-caller-owned-subscriptions-performance-20261018.md)
+records strict finding differences, CPU evidence and memory analysis.
+The full core gate passes, but application precision and project no-loss
+acceptance fail. These measurements do not prove a semantic transfer loss
+or a universal saving. IR and cache/reference-manager rewrites remain outside
+implementation scope.
+
+The mixed Base/static batch correction is committed and passes the full core
+gate. No implementation exception recurred in the corrected project matrix.
+Main uses the legacy engine and has no numbered bidirectional iterations.
 
 ## Input admission and entry descriptors
 
@@ -164,8 +174,8 @@ Evidence is in
 The fresh application selection has **148 passes, nine precision failures
 and one skip**. It is not a green acceptance gate. The failure packet is
 `validation/application-2/` under the same evidence root. Assertions and
-expected findings were not weakened. Fixed-configuration candidate project
-runs are pending.
+expected findings were not weakened. Fixed-configuration candidate runs and input equality checks are closed;
+the linked performance report records the failed project gates.
 
 Validation covers source/view registration order, late subscribers,
 cycles, field changes, Base/static reentry, actual-mark evidence, both request

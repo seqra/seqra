@@ -1,6 +1,6 @@
 # Run-1 caller-owned inputs, requests and summary subscriptions
 
-Date: 18 October 2026. Status: **implemented; project validation pending**.
+Date: 18 October 2026. Status: **implemented; measured project acceptance gates fail**.
 Scope: FORWARD run-1, field limit 1. This is the complete caller-subscription
 contract. It replaces the proposed entry-offer/source-pair routing in the
 [earlier request proposal](../docs/design/bidirectional-bottom-up-request-processing-20261018.md).
@@ -10,14 +10,19 @@ The historical measured implementation does not follow this file. The
 [current implementation map](../docs/design/bidirectional-caller-owned-subscriptions-implementation-20261018.md)
 tracks the new runtime and validation.
 
-Latest measured runtime: `7abeecd5c`. OWASP reached **run-7**, completed
-**run-6**, and accepted its **run-5** report before timeout. Conductor
-failed in **run-1**, with no completed engine or accepted report. The
-matrix stopped before ThingsBoard and Stirling-PDF. The mixed-batch
-concrete-answer correction is under validation; all candidate projects
-must be retested on the corrected commit. The target remains run-1
-**engine time** within 60 seconds. IR storage and cache/reference manager
-changes are outside scope.
+Measured runtime: `63d5481e4e4b69ecf042c1149bb574ad40fd1624`.
+Latest reached / completed engine / accepted forward report: OWASP
+**run-7 / run-6 / run-5**, conductor **run-1 / none / none**, ThingsBoard
+**run-1 / none / none**, and Stirling-PDF **run-2 / run-1 / run-1**.
+OWASP and ThingsBoard timed out; conductor and PDF stopped with OOM.
+All four miss the 60-second run-1 engine target. The fixed matrix and
+80-check/41-dataset input audit are closed. The
+[current performance report](../docs/reports/bidirectional-caller-owned-subscriptions-performance-20261018.md)
+records strict finding differences, CPU evidence and memory analysis.
+The full core gate passes, but application precision and project no-loss
+acceptance fail. These measurements do not prove a semantic transfer loss
+or a universal saving. IR and cache/reference-manager rewrites remain outside
+implementation scope.
 
 The [proof dossier](run1-caller-owned-subscriptions-proofs.md) follows
 [proof-guide.md](proof-guide.md). It separates the selected calculus, the
