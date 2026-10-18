@@ -6,7 +6,7 @@ Our current goal: implement optimization and repeat major testing on real projec
 Always cleanup memory snapshot/profiles from the previous runs.
 
 # Optimization:
-Implement optimization wrt the [run1-static-need-replay-batching.md](spec/run1-static-need-replay-batching.md)
+Implement optimization wrt the [run1-caller-owned-subscriptions.md](spec/run1-caller-owned-subscriptions.md)
 Commit after implementation.  
 Avoid changes in the analyzer core, that were not proposed and designed.
 If you have an optimization idea, write a proposal. Then we will include it into the next iteration.
