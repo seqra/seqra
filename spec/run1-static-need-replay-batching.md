@@ -1,6 +1,6 @@
-# Run-1 static needs: batch graph replay and merge equal-mark traversals
+# Batch graph replay and merge equal-mark traversals
 
-Date: 17 October 2026. Status: **implemented; core validation passed; fresh project measurements pending**.
+Date: 17 October 2026. Status: **complete contract; implemented in `f18b1c5bb`; project acceptance is separate**.
 Scope: run-1 FORWARD, field limit 1. This selects the first optimization in
 the [next-iteration proposal](../docs/design/bidirectional-next-iteration-after-concrete-statics-20261017.md).
 It changes scheduling and traversal sharing, not the static analysis rules.
@@ -10,27 +10,42 @@ finite models from the required runtime refinements.
 
 The [implementation map](../docs/design/bidirectional-static-need-replay-batching-implementation-20261017.md)
 and [runtime validation](../docs/reports/bidirectional-static-need-replay-batching-validation-20261017.md)
-record the actual adapters and executed checks. Fresh project measurements
-have not started; latest reached/completed/accepted iterations for this
-implementation are unavailable on all four projects.
+record the actual adapters and executed checks. This revision completes the
+workflow and ownership descriptions. It changes no analyzer implementation.
+The contract and its finite proofs do not establish project acceptance or
+the 60-second target. Runtime reports must identify their measured revision
+and latest reached, completed and accepted forward iterations.
 
-The historical design baseline is `6b9291d7dd69ae5f6a1260c7f1021c7500fa56b8`.
-Latest reached / completed / accepted forward: OWASP run-8 / run-7 / run-7;
-conductor run-1 / none / none; ThingsBoard run-1 / none / none;
-Stirling-PDF run-2 / run-1 / run-1. No new project run measures this design.
-The [baseline report](../docs/reports/bidirectional-run1-bottom-up-concrete-static-20261017.md)
-has those historical measurements and failed resource/acceptance gates.
-They cannot establish acceptance for the new implementation.
+The latest measured runtime is `f18b1c5bb`. Its
+[project report](../docs/reports/bidirectional-static-need-replay-batching-20261017.md)
+records these iterations:
+
+| Project | Latest reached | Latest completed | Latest accepted forward |
+| --- | --- | --- | --- |
+| OWASP | run-7 FORWARD | run-6 BACKWARD | run-5 |
+| conductor | run-1 FORWARD | none | none |
+| ThingsBoard | run-1 FORWARD | none | none |
+| Stirling-PDF | run-2 BACKWARD | run-1 FORWARD | run-1 |
+
+Project acceptance and the 60-second run-1 target fail in this study.
+Acceptance of a forward result by the report driver is distinct from
+project acceptance. The historical design baseline is
+`6b9291d7dd69ae5f6a1260c7f1021c7500fa56b8`. The
+[baseline report](../docs/reports/bidirectional-run1-bottom-up-concrete-static-20261017.md)
+records that earlier runtime; its measurements cannot establish acceptance
+for the new implementation.
 
 ## 1. Purpose and reference behavior
 
-ThingsBoard run-1 retained 118 static need source rows, but 688,637 live
-traversals and 21,306,795 StaticNeed event objects. Their visited/mark owner
-union retained 3,273,456,144 bytes. The corresponding conductor run-1 union
-retained 2,115,163,776 bytes. These scopes overlap queued payloads; do not add
-them. The problem is repeated temporary work, not a large source catalog.
+In the historical `6b9291d7dd` study, ThingsBoard run-1 retained 118 static
+need source rows, but 688,637 live traversals and 21,306,795 StaticNeed event
+objects. Their visited/mark owner union retained 3,273,456,144 bytes. The
+corresponding conductor run-1 union retained 2,115,163,776 bytes. These scopes
+overlap queued payloads; do not add them. They motivate this design; they are
+not measurements of `f18b1c5bb`. The problem is repeated temporary work, not
+a large source catalog.
 
-| Operation | Current | New | Expected benefit |
+| Operation | Immediate reference | Batched behavior | Expected benefit |
 | --- | --- | --- | --- |
 | Fresh call FLOW binding | Immediately replay every committed source | Record graph growth; replay once at the end of the runner turn | Several binding additions can share one replay |
 | Source commit | Immediately start a traversal for its fresh marks | Commit now; collect its fresh marks for the same turn flush | Repeated source deltas can share one start |
@@ -49,6 +64,11 @@ The immediate full-source replay in that document's section 5 is the
 source-delta dispatch, graph-change dispatch and per-source traversal policy.
 The need producer, actual-input geometry, source union, Base request protocol,
 actual concrete transport, layers, summaries and observations keep their rules.
+
+The optimization has two independent parts. Turn batching reduces how often
+the router selects sources. Equal-mark grouping reduces the number of
+traversals within one selection. Either part can help without the other.
+Neither part changes which endpoint/mark pairs are required.
 
 This contract does not select queue fairness changes, request-envelope
 coalescing, a FLOW-only subscriber directory, a cache change, selective
@@ -111,6 +131,63 @@ static-root initial or nonempty initial E/mx is introduced. All static-related
 FLOW and concrete propagation stays DEMAND. A need is interest, never actual
 T, a satisfied source/sink condition or an ND witness.
 
+### 2.1 Complete interest workflow
+
+The following rules define the inputs to this scheduling contract. They are
+the unchanged need rules from the concrete-static contract.
+
+1. Prescan resolves calls and collects legal coordinates and local effect
+   locations. It does not create a static request wave or transitive static
+   mark sets. A prescan call edge alone is not a reverse FLOW binding.
+2. At a reached operation, ordinary FLOW evaluation can emit interest in a
+   concrete mark. Producers include source and sink conditions, cleaners,
+   exclusions, conversions and call/rule effects. Preserve an interest even
+   if the operation kills its current fact. No concrete TAINT or ZERO
+   premise propagates that interest backward.
+3. Route the interest by its **original abstract premise**, regardless of
+   the current fact's base. A nonstatic original `b.* (*)` offers ordinary
+   Base request `b/T`. A static original `S.C.f.* (*)` offers source
+   `(full MethodKey, C.f)/T` to the method's local source builder. These are
+   the only two abstract-original slot forms. There is no static root or
+   abstract class slot.
+4. At method-empty, union the local static offers into the router's source
+   map. Clear the committed local builder. Record only fresh source deltas
+   in the executing runner's pending replay accumulator. Ordinary Base P
+   commits separately to R at the same barrier.
+5. At turn end, select starts as specified in section 4.3. Traverse actual
+   reverse FLOW bindings. Relay through static originals; deliver an
+   ordinary Base request at a nonstatic original.
+6. The Base owner unions the delivery into P. At method-empty it commits P
+   to R and applies the unchanged abstraction/request joins. Actual supplied
+   T can then cause a concrete initial and ordinary concrete analysis. A
+   request alone cannot create T.
+7. If an ordinary Base request join maps to a static abstract original,
+   offer it to that method's local static source builder. Continue from
+   step 4. Do not store an ordinary static request row at this boundary.
+
+There is no subtraction of FLOW mark exclusions `mx` from offered marks.
+`mx` is metadata on an abstract FLOW fact, not a set of actual supplied
+concrete marks. Excluding T already emits interest in T. Requests also
+ignore field exclusions E. Concrete truth evaluation and transfer keep
+their usual exclusions and kill rules.
+
+### 2.2 Owners and lifetimes
+
+| State | Owner | Lifetime and meaning |
+| --- | --- | --- |
+| Local static source builder | Method actor | Temporary offers until method-empty; not an answer store |
+| Cumulative source map | Run-1 router, under its source lock | One mark union per full source key until joined run release; authoritative static interest |
+| Actual FLOW binding directories | Existing caller owners | Actual input history for this run; also supplies reverse routing; no copied graph |
+| Ordinary Base P / R | Method actor / SummaryStorage | Existing temporary / committed nonstatic request stores |
+| Pending flag and fresh source deltas | Executing UnitRunner | One turn; records dispatch work already covered by its parent reservation |
+| Detached batch, source snapshot and grouping map | Flush operation | Temporary selection metadata; discard after root dispatch |
+| Immutable mark set and visited set | One traversal wave | Shared by this batch's equal-mark roots and their queued/executing visits |
+
+The local builder, pending deltas and snapshot are temporary views. None is
+a second cumulative source map. Relay nodes retain no static request row.
+The group key does not own a durable cache entry. Different waves can share
+immutable mark values, but must not share mutable visited state.
+
 ## 3. Two distinct barriers
 
 A **method-empty barrier** commits that method's accumulated requests and
@@ -151,6 +228,11 @@ part of the contract.
 
 ### 4.1 Actual binding admission
 
+`graphChanged()` is the recorder for **newly available reverse FLOW
+routing**, not a call-graph update or an instruction to replay immediately.
+Its only scheduling effect is to set the executing owner's `graphGrew` flag.
+The actual binding already exists in the directory when this happens.
+
 Run binding admission under its existing caller owner. Mark the owner dirty
 only after a fresh relevant binding component is visible in its directory.
 Duplicate admission does not require another dirty notification.
@@ -178,6 +260,21 @@ supported by another call port. It can still mark the turn dirty. No new
 global index is needed to recognize unique logical graph edges. The required
 rule is that every newly available route causes a flush, not that every
 dirty notification proves a new distinct node pair.
+
+| Update | Record graph growth? | Other action |
+| --- | --- | --- |
+| Prescan resolves a call | No | Retain ordinary prescan metadata |
+| Fresh ordinary abstract FLOW input supplies a static field, with a legal abstract original | Yes, after registration | Preserve normal input delivery and summary joins |
+| Fresh packed abstract-static relation component | Yes, after registration | Preserve packed actual-input processing |
+| Duplicate directory admission with no new component | No | Keep ordinary duplicate behavior |
+| New concrete TAINT marks on an existing input | No | Process actual marks through ordinary concrete transport |
+| Fresh source marks | No | Commit the source union and record fresh deltas |
+| Source offer already present in the source union | No | No fresh source work |
+
+For example, caller A's actual abstract `C.g -> C.f` input at a call to B
+creates `(B,C.f) -> (A,C.g)`. A need for B's f is routed to A's **g**.
+Caller A's actual `p -> C.f` input creates `(B,C.f) -> Base(A,p)` instead.
+Both are derived from admitted inputs at that call, not from all writes in A.
 
 ### 4.2 Static source commit
 
@@ -255,6 +352,50 @@ posts visits; it must not execute those visits or commit sources inline.
 Thus the reset accumulator remains empty during the flush. If future code
 introduces reentrant mutations, it must provide a proved drain protocol before
 the parent may complete; the check is not permission to discard new work.
+
+### 4.4 Selection table and progress invariant
+
+Let `D` be the turn's unioned fresh source deltas. Let `S` be the cumulative
+source snapshot captured by this flush, if needed.
+
+| `graphGrew` | `D` | Selected starts | Traversal action |
+| --- | --- | --- | --- |
+| false | empty | none | Return without a replay |
+| false | nonempty | D only | Group fresh deltas and dispatch |
+| true | empty | S | Group all committed source rows and dispatch |
+| true | nonempty | S only | D is already included; do not dispatch D again |
+
+Full selection means **all committed sources in the run's router**, not
+only sources owned by the changed binding's method or runner. Without a new
+dependency index, a fresh binding can complete a route from any source.
+If S is empty, the dirty flag can be consumed: no current source needs that
+binding, and a later source commit will schedule its own delta.
+
+The scheduling invariant is:
+
+```text
+accepted owner turn
+  -> register binding / commit source
+  -> record pending dispatch work
+  -> detach and select batch, with parent still reserved
+  -> secure counted root notifications
+  -> release parent, or retain it for Work requeue
+```
+
+Recording, detaching and dispatching are phases of the same admitted turn.
+A detached batch is still unfinished work even though the accumulator has
+been reset. The parent reservation covers it. A COMPLETE transition requires
+successful dispatch of all selected roots, including any deferred counted
+notifications. If the run fails during these phases, it follows the existing
+failure path instead of interpreting the reset accumulator as completion.
+
+The source lock protects cumulative union and snapshot capture. It does not
+protect actor binding directories or pending accumulators. Source callbacks
+and root dispatch run outside that lock. Directory scans execute at their
+existing owners. The visited lock protects only enter-once and must be
+released before subscriber notification. Thus no router lock is held while
+invoking another owner. Existing queue publication must make prior admitted
+bindings visible when that owner services the visit.
 
 ## 5. Exact equal-mark grouping and traversal
 
@@ -363,6 +504,39 @@ The selected A and B starts share one wave; X and Y are visited once in
 that wave. C keeps its own wave. A/B source records stay separate. If a
 later binding adds `Y -> Base(q)`, a fresh graph-growth batch reaches q.
 An old visited(Y) cannot suppress it.
+
+### One turn with graph growth and source growth
+
+```text
+Before: sources A/{T}, B/{T}; no pending replay on runner R.
+R registers three fresh binding components: graphGrew = true.
+R commits A/{U}, then A/{V}: A now has {T,U,V}; pending[A] = {U,V}.
+R commits B/{U,V}: B now has {T,U,V}; pending[B] = {U,V}.
+R ends its incomplete Work quantum.
+
+Flush selects full sources: A/{T,U,V}, B/{T,U,V}.
+It does not also select pending A/{U,V}, B/{U,V}.
+One wave starts at A and B, with marks {T,U,V} and fresh visited state.
+R secures root notifications, then requeues Work with its reservation.
+```
+
+If the same commits occur without graph growth, the selected sets are
+`A/{U,V}` and `B/{U,V}`. They share a delta-only wave. A later source commit
+on another runner owns its own delta and cannot be cleared by R's flush.
+
+### Late edge behind an active wave
+
+```text
+Wave 1 has entered X and scanned its current routes.
+Another accepted turn registers X -> Base(q) and records graph growth.
+That turn flushes all committed sources into fresh waves.
+A fresh wave reaches X and scans the new route to q.
+Wave 1 may also see it, but correctness does not depend on that race.
+```
+
+Starting a fresh wave is essential even when another active wave has the
+same mark set. Equal-mark merging is confined to one selection; it is not a
+global suppression rule.
 
 ## 7. Reservations, completion, failure and release
 
@@ -551,12 +725,36 @@ identifies the landed runtime adapters:
 
 Collect separate run-1 counters for fresh binding changes, dirty turns,
 source commits/deltas, full-source versus delta selections, selected rows,
-distinct mark-set groups, roots, waves, live-wave maximum, static node entries,
+distinct mark-set groups, roots, waves, active-work wave maximum, static node entries,
 actual binding scans, subscriber deliveries, Base offers and committed Base
 members. Count request/source-reentry envelopes separately from Base-only
 rows. Include grouping cost and first-pending-to-flush latency; do not confuse
 this with method-empty source-commit latency. Counters must not retain per-wave
 history. Batch IDs alone must not keep waves alive.
+
+Define the denominators in every report:
+
+- Binding-change count measures fresh admitted directory components that
+  record graph growth. It is not a count of distinct logical node pairs.
+- Full-selection count measures dirty-turn flushes, including selections
+  with no sources. Delta-selection count measures source-only flushes.
+- Selected rows and mark memberships are measured before grouping. Groups
+  are distinct nonempty mark sets within that selection; roots are their
+  selected source keys.
+- Active-work waves have root dispatch or accepted deferred/queued/executing
+  visit owners. This is a work-lifetime gauge, not a JVM-live-object count.
+  Retained waves and bytes require heap evidence. A completed object can
+  remain on the heap until collection.
+- Binding scans include candidate checks by the actual subscriber owners.
+  Subscriber deliveries can include owners with no matching route; this
+  optimization does not change the subscriber directory.
+- Grouping elapsed time is accumulated worker time, not a percentage of
+  engine wall time or a CPU sample share. Charge content comparisons and
+  compared mark cells separately when possible.
+
+Counters are diagnostic. They must not decide whether a route, delivery,
+commit or completion is semantically required. Statistics-disabled runs
+must use exactly the same replay protocol.
 
 Check exact complete-run endpoint and semantic observations against the
 reference. Measure the same OWASP, conductor, ThingsBoard and Stirling-PDF

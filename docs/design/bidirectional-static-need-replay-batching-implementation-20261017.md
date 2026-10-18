@@ -1,7 +1,10 @@
 # Static need replay batching: implementation map
 
 Date: 17 October 2026. Implemented. Core checks pass; the application selection
-has nine strict precision failures. Fresh project measurements are pending.
+has nine strict precision failures. Fresh fixed-configuration project runs
+are closed; their resource and location gates are not passed. The
+[project report](../reports/bidirectional-static-need-replay-batching-20261017.md)
+records exact reached/completed/accepted iterations and current measurements.
 See the [runtime validation](../reports/bidirectional-static-need-replay-batching-validation-20261017.md).
 Contract: [replay batching specification](../../spec/run1-static-need-replay-batching.md).
 The [proof dossier](../../spec/run1-static-need-replay-batching-proofs.md) gives

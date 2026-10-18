@@ -2,17 +2,21 @@
 
 Date: 17 October 2026. Status: historical ranking; order 1 is now implemented.
 Its [runtime validation](../reports/bidirectional-static-need-replay-batching-validation-20261017.md)
-records the checks. Fresh project measurements are pending. The remaining
-items below are unselected proposals; this old ranking is not current evidence
-for their impact after batching.
+records the checks. The [fresh project report](../reports/bidirectional-static-need-replay-batching-20261017.md)
+measures runtime `f18b1c5bb`: latest reached / completed / accepted forward
+are OWASP run-7 / run-6 / run-5, conductor run-1 / none / none, ThingsBoard
+run-1 / none / none, and Stirling-PDF run-2 / run-1 / run-1.
+The [new proposal](bidirectional-next-iteration-after-replay-batching-20261017.md)
+supersedes this ranking. The remaining items below are historical unselected
+proposals; their old byte estimates are not evidence for impact after batching.
 Order 1 now has a [complete specification](../../spec/run1-static-need-replay-batching.md)
 and [proof dossier](../../spec/run1-static-need-replay-batching-proofs.md).
 Evidence: runtime `6b9291d7dd69ae5f6a1260c7f1021c7500fa56b8` and the
-[current project report](../reports/bidirectional-run1-bottom-up-concrete-static-20261017.md).
+[historical project report](../reports/bidirectional-run1-bottom-up-concrete-static-20261017.md).
 The previous [optimization ranking](bidirectional-next-iteration-after-bottom-up-statics-20261017.md)
 uses another runtime and is stale. IR storage is outside scope.
 
-| Project | Latest reached / completed / accepted forward | Run-1 engine |
+| Project, historical runtime `6b9291d7dd` | Reached / completed / accepted forward in that study | Run-1 engine |
 | --- | --- | --- |
 | OWASP | run-8 / run-7 / run-7 | 262.966 s, complete |
 | conductor | run-1 / none / none | 164.524 s, OOM; includes 16.824 s dump |

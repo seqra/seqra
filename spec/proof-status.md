@@ -31,14 +31,17 @@ Two later test-only additions pass in the final 19-case batching/runner
 selection; production sources are unchanged. Application acceptance is
 reported separately. The finite model does not certify the Kotlin scheduler.
 
-Fresh project measurements are pending. Latest reached/completed/accepted
-iterations for the batching implementation are unavailable on all four projects.
-Historical observations on runtime `6b9291d7dd69ae5f6a1260c7f1021c7500fa56b8`:
-OWASP run-8 / run-7 / run-7; conductor run-1 / none / none;
-ThingsBoard run-1 / none / none; Stirling-PDF run-2 / run-1 / run-1.
-See the [historical report](../docs/reports/bidirectional-run1-bottom-up-concrete-static-20261017.md).
+Fresh measurements on `f18b1c5bb` are closed. Latest reached / completed /
+accepted forward: OWASP **run-7 / run-6 / run-5**; conductor **run-1 / none /
+none**; ThingsBoard **run-1 / none / none**; Stirling-PDF **run-2 / run-1 /
+run-1**. All main invocations succeed; the candidate has one timeout and
+three OOMs. None meets the 60-second run-1 engine target. The
+[current project report](../docs/reports/bidirectional-static-need-replay-batching-20261017.md)
+separates strict finding/location and resource failures from finite-model
+proofs. These failed gates do not invalidate the local set laws, and those
+laws do not prove project acceptance.
 
-## Selected bottom-up static FLOW design
+## Earlier bottom-up static FLOW proof checkpoint
 
 The selected next-iteration contract is
 [run-1 bottom-up static FLOW](run1-bottom-up-static-propagation.md). It overrides

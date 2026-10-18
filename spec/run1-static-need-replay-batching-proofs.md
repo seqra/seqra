@@ -8,13 +8,14 @@ ordinary request closure, the scheduling optimization and their implementation.
 
 The [runtime validation](../docs/reports/bidirectional-static-need-replay-batching-validation-20261017.md)
 records the implementation checks. They do not convert the finite model into
-a proof of every Kotlin coroutine schedule. Fresh project measurements are
-pending; latest reached/completed/accepted iterations for this implementation
-are unavailable on all four projects. Historical observations on runtime
-`6b9291d7dd69ae5f6a1260c7f1021c7500fa56b8`:
-OWASP run-8 / run-7 / run-7; conductor run-1 / none / none;
+a proof of every Kotlin coroutine schedule. The contract's workflow and
+ownership descriptions add no analyzer behavior. The latest measured runtime
+is `f18b1c5bb`. Latest reached / completed / accepted forward:
+OWASP run-7 / run-6 / run-5; conductor run-1 / none / none;
 ThingsBoard run-1 / none / none; Stirling-PDF run-2 / run-1 / run-1.
-See the [historical project report](../docs/reports/bidirectional-run1-bottom-up-concrete-static-20261017.md).
+The [project report](../docs/reports/bidirectional-static-need-replay-batching-20261017.md)
+records the failed resource and location gates. These measurements do not
+extend the formal model's proof scope.
 
 ## 1. Model and reference
 
@@ -52,6 +53,26 @@ under a chosen canonical ordering nor set membership claims equal callback
 order or equal JVM object allocation.
 
 ## 2. Source commit and batch selection
+
+### Interest production boundary
+
+The ordinary evaluator supplies each need with its original abstract slot.
+That slot is either a nonstatic base or a static field. Case analysis on this
+two-case value selects Base P or the static source builder, respectively.
+There is no root/class case to lose: the selected run-1 initial grammar
+contains neither abstract root nor abstract class initials. Concrete and ZERO
+premises do not enter this partition. Static-origin reentry uses the same
+partition and therefore cannot disappear at a Base-only request store.
+
+This is a preservation argument for existing producers, not a proof of the
+entire source/sink NNF compiler. In particular, an exclusion-produced interest
+still has an ordinary producer witness. Neither FLOW mx nor field E can
+remove that interest during routing, and its existence cannot prove that an
+actual concrete T exists. The unchanged concrete evaluator must supply such
+evidence separately. The full original/support remains on actual inputs;
+an interest key is not a replacement for concrete provenance.
+
+### Source and selection laws
 
 For a source with old marks O and offered marks A, compute fresh F = A - O.
 The new source set is O union F = O union A. A mark in F has an offered
@@ -323,6 +344,32 @@ The required runtime adapters are:
 6. Ordinary Base reentry and actual concrete replay preserve semantic report
    identities and rule occurrences, not just request-set equality.
 
-Run the model controls first, then implement and test these adapters. No
-analyzer implementation, runtime measurement or whole-engine termination
-claim is part of this documentation change.
+### Complete-contract proof map
+
+The added workflow and ownership tables expose the following refinement
+steps. They do not extend the finite model's scope.
+
+| Contract rule | Constructive argument or checked result | Boundary |
+| --- | --- | --- |
+| Two abstract-original slot forms; Base/static partition and reentry | Section 2 case analysis; existing binding compiler and source partition | Full producer/NNF compilation remains an adapter |
+| `graphChanged` follows actual registration, not prescan | Section 5 path witness uses each admitted binding | Actual matcher and publication visibility remain adapters |
+| Four-row selection table | `fresh_delta_exact`, `every_trace_valid`, `trace_flush_exact`; section 2 full-source subsumption | Finite trace model serializes updates and flush evaluation |
+| Temporary source/delta views do not change authority | `same_source_union`, `fresh_source_decomposition` | Runtime owner confinement and synchronized snapshots remain adapters |
+| Equal selected deltas or cumulative sets share one wave | `group_support`, `grouped_exact`, `multi_path_complete` | Exact Kotlin equality and complete subscriber fan-out remain adapters |
+| An old active wave cannot suppress a late route | Section 5 latest-insertion construction | Fresh per-batch visited state and fair owner service are required |
+| Resetting pending state cannot release detached work | Section 6 parent/child construction; abstract `no_early_completion` | Complete and incomplete Work hooks and cancellation require runtime tests |
+| Diagnostic counters cannot change semantic decisions | Erase diagnostics from the described transition sequence | Runtime instrumentation must preserve that sequence |
+
+For changes to this contract, run the model controls before changing the
+runtime adapters. The focused checks, rerun for this documentation revision,
+are executable from `spec/lean`:
+
+```sh
+lake build ApSpec.StaticNeedReplayBatch
+lake env lean -M1536 static-need-replay-batch-audit.lean
+```
+
+The build and focused audit pass: 303 selected declarations, zero unexpected
+axioms, and 28 executable controls. The model is unchanged. No analyzer
+implementation, project measurement or whole-engine termination claim is
+part of this documentation revision.

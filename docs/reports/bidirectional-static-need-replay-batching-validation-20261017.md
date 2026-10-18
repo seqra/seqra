@@ -5,7 +5,9 @@ Date: 17 October 2026. The selected
 The [implementation map](../design/bidirectional-static-need-replay-batching-implementation-20261017.md)
 describes the owner barrier, exact sharing and optional measurements.
 Core checks pass. The application selection has nine strict precision failures;
-its acceptance gate is not green. Fresh project measurements are pending.
+its acceptance gate is not green. Fresh fixed-configuration project runs
+are closed; their resource and location gates are not passed. See the
+[project measurements](bidirectional-static-need-replay-batching-20261017.md).
 
 ## Executed checks
 
@@ -93,11 +95,25 @@ and finite tests do not prove every concurrent schedule or project termination.
 
 ## Measurement state
 
-Fresh fixed-configuration project runs have not started. For this implementation,
-latest reached / completed / accepted forward iterations are **unavailable**
-for OWASP, conductor, ThingsBoard and Stirling-PDF. Run-1 engine time, project
-locations, resource gates and the 60-second target are not yet measured.
-Previous-commit reports cannot establish acceptance for this implementation.
+The fresh study measures committed runtime
+`f18b1c5bb58e5856e4b15b3a71e09e3708dff0d1` against fresh main
+`f945f92c5ae554ff4f5fc7696ee5a269210478bb`. All eight invocations are terminal
+with positive source stability. Full before/after input audits pass 80 checks
+over 41 byte-identical dataset manifests. The project report gives exact
+engine/barrier timings, locations, profile windows and heap interpretation.
+
+| Project | Latest reached / completed / accepted forward | Run-1 engine | Terminal status |
+| --- | --- | --- | --- |
+| OWASP | run-7 FORWARD / run-6 BACKWARD / run-5 | 268.372 s, COMPLETE | TIMEOUT |
+| conductor | run-1 FORWARD / none / none | 774.693 s, incomplete | OOM |
+| ThingsBoard | run-1 FORWARD / none / none | 193.875 s, incomplete | OOM |
+| Stirling-PDF | run-2 BACKWARD / run-1 FORWARD / run-1 | 98.155 s, COMPLETE | OOM in run-2 |
+
+No project meets the 60-second run-1 engine target. Main succeeds on all
+four projects; it has no bidirectional run-N iteration. Available reports
+and failed prefixes do not establish complete-project semantic equivalence.
+Core/model passes do not convert these resource, location or occurrence
+limits into acceptance. Previous-runtime reports remain historical.
 
 The previous raw captures were cleaned before this iteration: 49 files,
 99,041,937,718 logical bytes. The exact receipt is

@@ -1,9 +1,18 @@
 # Static-need replay batching: proof validation
 
-Date: 17 October 2026. Status: **formal-model validation passed;
-specification only**. Analyzer implementation is unchanged. No project run,
+Date: 17 October 2026. Historical checkpoint: **formal-model validation passed;
+specification only at the revision below**. Analyzer implementation was unchanged
+in that checkpoint. No project run,
 performance benchmark, heap capture or runtime test suite was run for this
 documentation change.
+
+The later implementation is `f18b1c5bb`. Its
+[runtime validation](bidirectional-static-need-replay-batching-validation-20261017.md)
+and [project report](bidirectional-static-need-replay-batching-20261017.md)
+are separate evidence. Latest reached / completed / accepted forward:
+OWASP run-7 / run-6 / run-5; conductor run-1 / none / none; ThingsBoard
+run-1 / none / none; Stirling-PDF run-2 / run-1 / run-1. The historical
+formal checks below do not establish current project acceptance.
 
 Contract: [batched static-need replay](../../spec/run1-static-need-replay-batching.md).
 The [proof dossier](../../spec/run1-static-need-replay-batching-proofs.md)
