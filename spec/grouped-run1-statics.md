@@ -72,6 +72,12 @@ bounded DEMAND eligibility; a widened sibling-field candidate may survive
 as DEMAND. These mechanisms never existed in a80, so their deletion is
 not another semantic change from that base.
 
+Relative to **dac301f2e**, restore publication of reached static alias/model
+value effects. That implementation omitted write descriptors on two JVM
+alias paths. Keep their existing AP transfers and complete premises. The
+[adapter correction](../docs/design/bidirectional-run1-static-alias-publication-fix-20261019.md)
+adds the missing descriptors; it adds no field rule or new approximation.
+
 If a proof or implementation needs another major semantic change, expose
 it and obtain the intended behavior before implementing it, or retain this
 scope. Do not add a hidden helper to change the contract.
@@ -483,7 +489,12 @@ Prescan resolves all calls and retains the ordinary complete call graph,
 legal geometry domain, stable full rule identities, and local read/write/
 condition descriptors. Code reads and actual static condition operands are
 consumers. An alias or write alone does not register a read or mark interest.
-An actual alias/model write can later publish its reached effect.
+Publish every reached static value effect from an existing alias/model
+write, with its complete original premise. The lowerer must identify those
+value transfers as writes. Keep their full alias paths and actual call
+stages. Do not classify keep edges, strong-preservation edges or static
+bindings as writes merely because their destination is static. A write
+descriptor alone creates no read, interest or supplied group.
 
 Do not compute transitive method-by-field or method-by-group sets, F/B/W
 closure, inherited static requests, or a separate run-2 writer-search graph.
@@ -988,6 +999,14 @@ orders; FLOW copies and Base writer bootstrap; no source-free cycle; and
 bounded marked-copy loop closure. The old strict sibling-field writer
 rejection becomes an explicit DEMAND-candidate plus later FULL refinement
 control. Keep real overwrite/disjoint-transfer tests unchanged.
+
+Check both JVM alias value paths: a local field write and a call ALIASES
+stage. Their AP edge sets must stay unchanged, and each static value edge
+must have its exact write descriptor. Check ordinary aliases, conditional
+versus actual group input, original-slot writer requests and no static CFG
+relay. A frontend descriptor omission violates the existing complete
+transfer requirement; a proof that assumes that requirement does not
+verify the lowering.
 
 Use the baseline common/JVM/application gates and fixed project settings.
 Report finding identities against the same main reference and every reached,

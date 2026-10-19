@@ -105,6 +105,7 @@ declarations as well as public theorems.
 | Merged ordinary requests | `RuleGroupRequestRepair.routeWitness`, `Handoff.survivorWitness`; initial-refinement merged join lemmas | Preserve baseline N2 actual inputs and complete ND original; no second input-history store |
 | Rooted static group supply | `Run1StaticGroupDerivation.solution_exact`, `solutionRoot`, `solution_empty_without_seed`; `Run1OrdinaryStaticSupply` | Source-backed bounded AP rules and complete ordinary bindings; requests/initials are not seeds; no runtime support syntax |
 | Connected ordinary publication and supply | `Run1OrdinaryStaticSupplyPipeline.compileConnected`, `compileNdConnected`, `compileMarkedConnected`, `compileRequestedConnected` | Computed wrapper/call/copy/group effects and scalar getter; independent finite full witness; separate reached-write admission and primitive adapters |
+| JVM alias-write adapter coverage | Existing connected-publication model; `JIRStaticAliasMetadataTest` and `Run1StaticAliasEffectTest` | Preserve generated AP edges; declare local/call static alias value writes, full paths and stages; retain complete conditional premises; a descriptor creates no read or rooted group |
 | No static relay requirement | `compact_expanded_exact`, `strict_chain_saving` | Equality for the accepted identity-relay contraction scope, not old flow-sensitive context equality |
 | Write-gated reads, section 8 | `Run1StaticReadAdmission` reached-read/write join and arrival controls; composition `rooted_write_admits_read` | Actual reached FLOW/group write; certified AP overlap/image; no prescan candidate admission |
 | Original-slot/current-point refinement | `Run1StaticInitialRefinement.zero_keeps_static_premise`, `identity_refinement_commutes`, `materializationCertificate`, `materializationRoot` | Same operation input, group-refined premise, ordinary full guard/AP adapter |
@@ -122,6 +123,15 @@ The composition module is
 [GroupedRun1StaticComposition.lean](lean/ApSpec/GroupedRun1StaticComposition.lean).
 The selected initial grammar is
 [GroupedRun1Initials.lean](lean/ApSpec/GroupedRun1Initials.lean).
+
+Runtime `dac301f2e` omitted write descriptors on two JVM alias value paths.
+The [adapter correction](../docs/design/bidirectional-run1-static-alias-publication-fix-20261019.md)
+restores their reached effects without changing the semantic model or its
+theorems. The corrected RED controls fail at descriptor coverage while the
+existing AP-edge assertions pass. Actor controls check the existing
+publication and actual-input join after the descriptor is supplied. These
+checks discharge specific production seams; they are not a proof of the
+whole JVM compiler or project finding parity.
 
 ## 4. Constructive coverage argument
 

@@ -6,8 +6,10 @@ import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodEntrypointResolver
 import org.opentaint.dataflow.bidi.ap.ApManager
+import org.opentaint.dataflow.bidi.ap.ExclusionSet
 import org.opentaint.dataflow.bidi.ap.MethodKey
 import org.opentaint.dataflow.bidi.ap.PathFact
+import org.opentaint.dataflow.bidi.ap.Pattern
 import org.opentaint.dataflow.bidi.interp.CallCleaners
 import org.opentaint.dataflow.bidi.interp.ActionId
 import org.opentaint.dataflow.bidi.interp.ActionRole
@@ -311,8 +313,12 @@ internal class JIRCallPlanBuilder(
             val local = e.edge.to.base as? AccessPathBase.LocalVar ?: continue
             for (alias in persistedAliases(local, s)) {
                 if (alias.base == local && alias.accessors.isEmpty()) continue
-                builder.edge(starEdge(e.edge.from.base, emptyList(), alias.base,
-                    alias.accessors.map { manager.accessors.index(it.apAccessor()) }))
+                val transfer = starEdge(e.edge.from.base, emptyList(), alias.base,
+                    alias.accessors.map { manager.accessors.index(it.apAccessor()) })
+                builder.edge(transfer)
+                if (alias.base == AccessPathBase.ClassStatic)
+                    builder.staticOperation(StaticOperation.Write(OperationId(formKey),
+                        Pattern(transfer.to, ExclusionSet.Empty), transfer))
             }
         }
         return builder.buildStage().takeIf { it.edges.isNotEmpty() }

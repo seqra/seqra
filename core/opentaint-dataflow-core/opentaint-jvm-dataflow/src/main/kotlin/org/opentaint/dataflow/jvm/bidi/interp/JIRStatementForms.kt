@@ -87,11 +87,22 @@ internal class JIRStatementForms(
                 if (from is StaticRefAccess) staticOperation(StaticOperation.Read(operation(s), transfer))
             }
             to is MemoryAccess -> {
-                write(to.base, path(to), weak = (to as? RefAccess)?.accessor == ElementAccessor,
-                    values = listOfNotNull(from?.base), aliasPaths = aliases(s, to.base))
+                val writtenPath = path(to)
+                val aliasTargets = aliases(s, to.base)
+                write(to.base, writtenPath, weak = (to as? RefAccess)?.accessor == ElementAccessor,
+                    values = listOfNotNull(from?.base), aliasPaths = aliasTargets)
                 if (to is StaticRefAccess) staticOperation(StaticOperation.Write(operation(s),
-                    Pattern(starSide(to.base, path(to)), ExclusionSet.Empty),
-                    from?.base?.let { starEdge(it, emptyList(), to.base, path(to)) }))
+                    Pattern(starSide(to.base, writtenPath), ExclusionSet.Empty),
+                    from?.base?.let { starEdge(it, emptyList(), to.base, writtenPath) }))
+                // These value edges already exist in write(). Only mark their
+                // actual static destinations for the run-1 publication seam.
+                val source = from?.base
+                if (source != null) for ((aliasBase, aliasPath) in aliasTargets) {
+                    if (aliasBase != AccessPathBase.ClassStatic || aliasBase == to.base) continue
+                    val transfer = starEdge(source, emptyList(), aliasBase, aliasPath + writtenPath)
+                    staticOperation(StaticOperation.Write(operation(s),
+                        Pattern(transfer.to, ExclusionSet.Empty), transfer))
+                }
             }
             else -> move(to.base, from?.base)
         }
