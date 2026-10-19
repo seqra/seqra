@@ -13,6 +13,10 @@ interner, serialized mark declarations and static demand matching without
 global enumeration. [grouped-run1-statics.md](grouped-run1-statics.md) retains
 all other analyzer behavior.
 
+The [implementation proposal](../docs/design/bidirectional-immutable-mark-groups-implementation-20261019.md)
+maps this contract to current code, removals, fixture migration and validation.
+It introduces no additional semantic changes.
+
 ## 1. What static guidance means
 
 After run-1, backward run-2 uses forward demands to admit actual inputs and

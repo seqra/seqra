@@ -16,6 +16,8 @@ ownership census. Static permissions use the actual input/premise owner.
 No no-insert lookup mode, trace memo, property OR or census wrapper adapter is
 selected. The older code below is historical where it describes those paths.
 Other optimization hypotheses stay unselected. Runtime remains unchanged.
+Use the [implementation proposal](bidirectional-immutable-mark-groups-implementation-20261019.md)
+for the selected code changes, removal list and validation sequence.
 
 **Root-cause review:** the [follow-up analysis](../reports/bidirectional-run1-work-amplification-root-cause-20261019.md)
 supersedes this document's causal priority. MethodEdgeStore and temporary
