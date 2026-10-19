@@ -10,6 +10,8 @@ changes. It follows [proof-guide.md](proof-guide.md). It contains the whole
 feature contract; earlier proposals are not additional requirements.
 The [proof dossier](grouped-run1-statics-proofs.md) maps requirements to
 constructive models, validation and production adapter checks.
+The [implementation proposal](../docs/design/bidirectional-grouped-statics-implementation-20261019.md)
+maps this contract to the pinned analyzer's code, storage and owner protocol.
 
 ## 1. Pinned implementation baseline
 
@@ -78,7 +80,12 @@ class region can intersect field regions. Do not expand broad regions into
 every declared field. The finite proof oracle uses certified overlap cells.
 
 The proof target is inclusion of each finite full-mark witness admitted by
-the pinned reference contracts. It is not equality of run-1 precision:
+the pinned reference contracts with the effective empty end-fact policy in
+section 5. For this semantic proof, apply that policy to both analyzers.
+The project comparator still reports all strict main-reference differences.
+Flows that require the disabled end-fact actions are outside this iteration's
+reference scope.
+It is not equality of run-1 precision:
 run-1 can ignore static call order and caller context, but supplied groups
 must have source/writer derivations. All resulting static candidates are
 DEMAND. Run-2 and later confirmation use ordinary real CFG/call transfer.
@@ -194,6 +201,19 @@ transfer. Do not describe all run-1 writes as weak updates.
 
 ## 5. Conditions, cleaners and NORMAL exclusions
 
+For this iteration, treat `trackFactsReachAnalysisEnd` as an empty list in
+**every run**. Apply this new-core rule policy to method, entry and exit
+sinks before action resolution/validation, effective mark-catalog collection
+and form compilation. Ignore only that action list. Keep each sink's full
+condition, occurrence, finding and backward seed.
+
+Do not emit these end facts, collect their static effects or mark interests,
+or create forward GEN/reversed END_FACTS triggers from them. Marks used only
+by those disabled actions are not eligible for this iteration. A mark still
+used by a condition, source or other retained rule keeps its ordinary role.
+Source actions and conditional source rules remain enabled. Do not modify
+the legacy provider's shared rule objects or the IR.
+
 Keep one owned signed full-literal NNF DAG per bound occurrence. Fold exact
 full literals before group projection:
 
@@ -204,7 +224,7 @@ P(T) AND NOT P(U), T != U -> distinct, even if owner(T) = owner(U)
 
 Keep the baseline eligible residual-negative projection. Group presence
 means possibility for a positive check, not exact truth or absence. Every
-group-dependent condition/source/end action result is DEMAND. Preserve all
+group-dependent condition/source action result is DEMAND. Preserve all
 positive leaf positions, original full identities, ND premises and bound
 support for later refinement. A group shared by two argument slots does
 not satisfy both slots. Use the NNF DAG; do not expand cubes.
@@ -395,8 +415,9 @@ A source/model/boundary group starts supply only with its actual permission
 and all required rooted guards. A writer with an ordinary or static initial
 is a conditional row until that input and its full required support are
 grounded. In particular, merely processing `p/Group(g)` after a hypothetical
-request does not ground `C.f/g`. A ZERO-shaped GEN/end-fact effect also keeps
-its original condition/support obligation; ZERO shape alone is not a root.
+request does not ground `C.f/g`. A conditional source effect keeps its
+original condition/support obligation; ZERO shape alone is not a root.
+The empty end-fact policy needs no waiting sink-GEN storage or event.
 
 Use forward joins over existing ordinary input/summary support and reached
 writer rows. Grounded input growth joins old writer rows; a new writer joins
@@ -465,6 +486,12 @@ ZERO supplies control activation, not the static mark or a nonstatic/ND
 premise. Retain every other guard. Group-valued conditional summaries still
 need their actual compatible group supply/support. No application is a
 new ZERO source hit.
+
+This exception applies **only in run-1**. In run-2 and all later runs,
+ZERO cannot satisfy a C.f premise. An actual matching C.f fact is required,
+with the ordinary AP, mark and complete-premise checks. The shared static
+demand grants query permission; it does not supply that fact. Ordinary
+ZERO-premise summaries and ZERO sink discovery keep their control rules.
 
 For a mark-changing operation, request its declared input groups at that
 operation's input, then execute its real forward operation. Do not request
@@ -616,6 +643,7 @@ this is different from deleting them in the current checkout now.
 | `FrozenStaticRequests`, static R/P rows, wide/class static request views | Remove; ordinary nonstatic Base requests retain P/R |
 | Baseline W-dependent executable S-root default | Remove from run-1 execution; install the implicit GROUP demand after run-1 |
 | Baseline inherited same-slot request suppression | Remove; selected cleaner/check interests stay active even when excluded or unchanged |
+| `trackFactsReachAnalysisEnd` lowering | Treat as empty in all runs; no sink end-fact GEN, static metadata, track-only eligible marks or reversed action triggers |
 | `staticRootFact`/`withoutStaticRootFact` dispatch guards based on current geometry | Remove from rule/condition handling; no synthetic root initial does not make actual broad static data control-only |
 | `Run1StaticFlow`, `Run1ConcreteStaticFlow`, `StaticIdentityEntries`, `ConcreteStaticEntries`, `ConcreteStaticSubscriptions` | Do not port packed bottom-up static lanes/codecs |
 | `StaticNeedRouter`, `PendingNeedReplay`, need waves/replay statistics | Do not port the reverse static graph or graph-change traversals |
@@ -652,7 +680,8 @@ Runtime tests must check: the complete getter/setter/wrapper/pass-only trace;
 a real kill; two distinct full marks in one group; selected-cleaner repair;
 conditional source/ND guard completeness; late read/write/request arrivals;
 static copies with and without a source; ordinary/static original routing;
-class/broad data; and exact SourceHit-to-Seed.Source identity. A callback-count
+class/broad data; ignored nonempty end-fact lists in all three sink roles and
+both directions; and exact SourceHit-to-Seed.Source identity. A callback-count
 match is not semantic validation.
 
 Use the baseline common/JVM/application gates and fixed project settings.
@@ -671,6 +700,7 @@ manager or other analyzer algorithms as part of this implementation.
 | Transitive StaticMayWrite W and default | W chooses executable NORMAL/DEMAND S identity | Remove; no run-1 root execution; all early static effects DEMAND |
 | Run-1 ordinary concrete taint | Full marks, some exact NORMAL starts | Group payloads; all group taint DEMAND |
 | Selected cleaner/mx | Exact full-mark cleaning/exclusion | Group exclusion plus non-cleaning group repair in run-1; full rules from run-2 |
+| Sink `trackFactsReachAnalysisEnd` | Configured end actions are lowered, propagated and reversed | Treat list as empty before resolution/validation and compilation in every run; sink conditions/seeds remain |
 | Direction/limit policy | Positive alternating runs with increasing limits | First two limits 1, then increase; run-1 GROUP, later FULL |
 | StrongQueries and current publication | Actual inputs/results authorized independently of old guides | Retain; no new strict per-method veto |
 | Backward ZERO and sources | Internal seed discovery, zero-only balanced return, exact source hits | Retain exactly; no group on ZERO |

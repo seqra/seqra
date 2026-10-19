@@ -15,6 +15,13 @@ runtime trees, document blobs and document SHA-256 values. The spec's section
 17 states every selected behavior change. Ordinary actual-query, ZERO,
 full-mark primitive, ND and record-reader contracts remain in force.
 
+The selected reference now treats `trackFactsReachAnalysisEnd` as empty in
+every run, for method, entry and exit sinks. Use the same effective rule
+policy in both compared analyzers. Source actions and sink predicates/seeds
+remain enabled. End-fact-dependent paths are outside this iteration's claim.
+Earlier general models may contain GEN examples; they do not require a
+waiting GEN runtime component under the selected empty policy.
+
 The main claim is **finite reference-witness inclusion**. Start with a
 finite full-mark witness in the compiled reference semantics. Construct its
 group candidate and the full backward replay. Retain all positive guards,
@@ -159,6 +166,12 @@ The actual JVM/AP/call compiler contract is separate. It must not be replaced
 by an assumption that the handoff already contains every needed demand.
 
 ## 5. ZERO, wrappers and the connected control
+
+ZERO can activate a C.f-premised conditional summary only in run-1. In
+run-2 and later, a C.f premise requires an actual matching C.f fact. The
+ZERO wrapper protocol below applies to ZERO-premise summaries; it does not
+replace static-premise matching. Shared static demands grant permission,
+not a matching input fact.
 
 For the user example, a getter reverses `return/T` to `C.f/T`. An internal
 sink in a deep wrapper starts under real ZERO discovery. Its requirement

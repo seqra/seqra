@@ -8,6 +8,10 @@ whose core/rules equal measured `28a123f0`. The
 [baseline manifest](baselines/pre-bottom-up-a80d5c580.json) pins the document
 and runtime trees. The selected base predates the bottom-up static runtime.
 The current workspace has not been reset or implemented from that pin.
+The [implementation proposal](../docs/design/bidirectional-grouped-statics-implementation-20261019.md)
+uses that pin. The current scope treats `trackFactsReachAnalysisEnd` as empty
+for every run; it adds no pending end-GEN runtime component. Existing proofs
+apply to the corresponding effective-rule reference subset.
 
 The [combined proof dossier](grouped-run1-statics-proofs.md) separates the
 concept, merged storage and finite inclusion claim. Run-1 uses owner-group
