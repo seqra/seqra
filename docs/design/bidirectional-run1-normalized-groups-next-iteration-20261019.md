@@ -5,20 +5,17 @@ Date: 2026-10-19. This proposal uses the fresh measurements for
 No optimization below is implemented. The previous implementation and
 2,063-test gate are closed. Project acceptance fails.
 
-The selected next iteration combines the primitive metadata fix with
-**Avoid eager bound-rule materialization during ownership census** (item 1).
-The complete code/proof contract is
-[Group primitive filtering and ownership census](../../spec/run1-group-policy-and-ownership-census.md).
-The earlier [primitive metadata proposal](bidirectional-run1-group-primitive-metadata-20261019.md)
-retains the design explanation.
-It uses the user's new decision: all known full marks participate in their
-owner groups. It removes active-eligibility tracking and replaces enumeration
-for the known JVM primitive policy with one bit per valid group. This is an
-explicit membership change from revision 2.1. Census uses exact transient
-binding without miss insertion; it does not require a template scanner.
-This selection does not include the general member-list directory in item 3
-or the other hypotheses below. Analyzer
-implementation remains unchanged.
+The selected next iteration is now
+[Immutable mark groups and static demand guidance](../../spec/run1-group-policy-and-ownership-census.md).
+It supersedes the metadata/census-lookup variants of item 1 and the earlier
+[primitive proposal](bidirectional-run1-group-primitive-metadata-20261019.md).
+Collect complete names/owners from serialized declarations, assert uniform
+primitive tracking, encode the flag in group names and use immutable-key
+interning. Remove member/global-group enumeration and the whole bound-rule
+ownership census. Static permissions use the actual input/premise owner.
+No no-insert lookup mode, trace memo, property OR or census wrapper adapter is
+selected. The older code below is historical where it describes those paths.
+Other optimization hypotheses stay unselected. Runtime remains unchanged.
 
 **Root-cause review:** the [follow-up analysis](../reports/bidirectional-run1-work-amplification-root-cause-20261019.md)
 supersedes this document's causal priority. MethodEdgeStore and temporary
@@ -38,8 +35,10 @@ Earlier FF/Dac proposals are historical; their measurements do not set this orde
 ## Selected semantic boundary
 
 This is a proposal to avoid work and materialization under the current
-semantics. The separate selected proposal above supersedes only the
-eligible-member domain and its group-filter implementation. The unselected
+semantics. The separate selected specification above controls declarations,
+uniform groups, immutable interning, filtering and static-permission matching.
+Mixed groups and undeclared executable marks are explicit invalid inputs.
+The unselected
 ideas below retain their original semantic boundary. Keep:
 
 - Ordinary AP geometry, tails, field exclusions, typed mark exclusions,
@@ -113,11 +112,11 @@ write. No example emits an ANY/MUST initial.
 
 ## 1. Avoid eager bound-rule materialization during ownership census
 
-Selected. Use the complete
+Selected goal, revised implementation. Use the complete
 [next-iteration spec](../../spec/run1-group-policy-and-ownership-census.md)
-for exact cache families, provider capabilities, ordered neutral replay,
-generated identities and lifetime. Its all-known member domain supersedes
-the active-eligibility language in this earlier explanation.
+for serialized declaration collection and complete census removal. The old
+transient-binding/cache-mode/factory/memo design below is superseded, not an
+implementation requirement. Do not retain a fallback binding census.
 
 Current: census queries all eight rule roles and both relevance flags over
 graph methods and call targets. A miss resolves method-specific full rules
@@ -388,8 +387,9 @@ store. Keep each output's layer and current selector validation.
 
 Historical alternative, not selected. The separate selected
 [all-known metadata proposal](bidirectional-run1-group-primitive-metadata-20261019.md)
-removes active eligibility and uses a property bit for the JVM policy.
-It does not add this general member-list directory.
+is also superseded by the uniform group-name specification. No general
+member-list directory or per-group property aggregation is selected.
+The mixed-group example below is invalid under the new uniformity assertion.
 
 Current: each `eligibleMembers(g)` scans all eligible full marks and builds
 lists. PDF starts with 1,172 full marks in 51 groups. One visit can inspect

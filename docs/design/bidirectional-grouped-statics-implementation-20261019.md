@@ -1,10 +1,11 @@
 # Mark groups and direct statics: implementation proposal
 
 The selected next iteration is now
-[Group primitive filtering and ownership census](../../spec/run1-group-policy-and-ownership-census.md).
-Its code/proof contract supersedes eligible-member APIs, census retention,
-primitive filtering and member-domain handoff snippets here. B88 implements
-revision 2.1; the all-known/census revision is not implemented.
+[Immutable mark groups and static demand guidance](../../spec/run1-group-policy-and-ownership-census.md).
+Its code/proof contract removes member/global-group APIs and binding census,
+uses serialized declarations and asserts uniform primitive group names. It
+supersedes mutable ownership, primitive aggregation and member-domain handoff
+snippets here. B88 implements revision 2.1; revision 2.3 is not implemented.
 
 The fixed [specification, revision 2.1](../../spec/grouped-run1-statics.md)
 supersedes the grounding/support and full-alias execution design in this

@@ -1,10 +1,12 @@
 # Use all known marks and group primitive metadata
 
-The complete selected next-iteration contract, including the ownership-census
-optimization, is now in
-[Group primitive filtering and ownership census](../../spec/run1-group-policy-and-ownership-census.md).
-Use that spec for implementation. This proposal retains the earlier design
-and measurement explanation.
+The complete selected next-iteration contract is now in
+[Immutable mark groups and static demand guidance](../../spec/run1-group-policy-and-ownership-census.md).
+It supersedes this proposal's member queries, property aggregation and census
+route: assert uniform groups, encode primitive mode in group names, collect
+serialized declarations, and remove the ownership-binding census. Use that
+spec for implementation. This file retains historical design/measurements;
+its mixed-group examples and generic fallback are not current requirements.
 
 Date: 2026-10-19. Status: selected proposal. Analyzer implementation is
 unchanged. Use ASD-STE100 Simplified Technical English. Code names retain

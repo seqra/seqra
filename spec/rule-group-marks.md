@@ -4,10 +4,11 @@
 > based on pinned analyzer `a80d5c580`. This file keeps historical design and
 > local proof evidence. It does not add runtime requirements to that spec.
 
-The current member domain and census/primitive implementation are defined by
+The current declaration and primitive/group implementation are defined by
 [the selected next-iteration spec](run1-group-policy-and-ownership-census.md).
-Use all known owned full IDs, including inactive declarations. Original
-source/rule admission remains separate from catalog membership.
+Use complete serialized declarations and immutable owned keys. Assert uniform
+primitive flags, encode them in group names and remove binding census plus
+member/global-group queries. Original source/rule admission stays separate.
 
 Date: 18 October 2026. Status: **selected specification; analyzer unchanged**.
 Language: ASD-STE100 Simplified Technical English. Defined technical terms,
@@ -112,12 +113,13 @@ group. This group is different from every user rule ID. Copy-all and
 remove-all actions do not create groups. Method or argument specialization,
 context changes and cache rebuilds do not create groups.
 
-The same owner registry serves prescan and every numbered run. The closed
-known-owned full-mark catalog must cover every full mark that a rule/model
-can produce, test or remove. Active observation is not a membership gate.
-A late provider extension must update matching group-demand
-queries before a complete barrier; it cannot silently add an unseen member.
-The finite Lean decoder uses an explicit closed catalog.
+One immutable declaration index serves every run. It covers every full name
+that a rule/model can produce, test or remove, including raw serialized name
+metadata. Mixed primitive flags in one owner group are rejected before use.
+Each analysis has a fixed declaration snapshot; late use interns only an
+already declared name. A new provider generation needs a new validated
+analysis context. There is no pending ownership or binding census. The finite
+Lean decoder uses the validated closed declaration universe.
 
 ## 3. Run schedule
 
@@ -437,17 +439,16 @@ over full marks, not one representative mark:
 ```kotlin
 fun accepts(d: GroupDemand, m: ExactMark): Boolean = m.group == d.group
 
-fun expand(d: GroupDemand, catalog: FullMarkCatalog): List<FullQuery> =
-    catalog.members(d.group).map { full ->
-        FullQuery(d.point, d.geometry, full,
-                  d.originalCondition, d.supportObligation)
+// Production matches an encountered actual FULL mark directly by owner.
+fun matchActual(d: GroupDemand, actual: ExactMark): FullQuery? =
+    actual.takeIf { accepts(d, it) }?.let { full ->
+        FullQuery(d.point, d.geometry, full, d.originalCondition, d.supportObligation)
     }
 ```
 
-Expand against the complete known-owned catalog, not only full marks observed
-in run-1. The mathematical decoder enumerates all members. An implementation
-can match the group predicate lazily while visiting full rule/operator marks,
-if it produces the same actual concrete queries. Never choose one arbitrary
+The mathematical decoder can enumerate serialized declarations for its finite
+proof. Production uses actual inputs and full rule/operator marks, with no
+knownMembers/groupAtoms API or member scan. Never choose one arbitrary
 member or propagate `(g, *)` as a concrete run-2 taint value.
 
 Preserve demand geometry, owner/context, endpoint, condition and support
@@ -527,10 +528,11 @@ The [proof dossier](rule-group-mark-proofs.md) separates:
 8. Representation equivalence and finite cost laws.
 9. AP, provider, NNF/ND, record-reader, request and driver adapter obligations.
 
-The selected next iteration also proves all-known scalar/metadata equivalence
-and census observation/cache refinement. The old eligible and new all-known
-domains are not equivalent. Existing finite decoders are catalog-parametric;
-instantiate them with the new member domain and retain actual full witnesses.
+The selected next iteration proves uniform direct-name filtering, immutable
+interning, serialized declaration coverage and query-specific static-permission
+equivalence. Mixed groups and undeclared names are explicit invalid inputs.
+Existing finite decoders are catalog-parametric; instantiate them with the
+validated serialized universe and retain actual full witnesses.
 
 ## 14. Required controls
 
@@ -548,8 +550,8 @@ Also check source and sink signed NNF, same-group distinct literals,
 conditional source generation, ND obligations, cross-join mark references,
 old group exclusions in both record directions, late supply/request order,
 unknown-group bootstrap, and all legal initial/AP-tail shapes.
-Use the new spec's inactive-name, primitive-filter, late-owner and no-retain
-census controls. A known declaration alone must not create a source or fact.
+Use the new spec's uniformity, primitive-filter, immutable-owner, serialized
+coverage and no-binding-setup controls. A declaration alone creates no fact.
 Check exactly `F1/GROUP/1`, `B2/FULL/1`, `F3/FULL/2`, `B4/FULL/3`, and reject
 run/limit zero. Current analyzer tests do not validate an unimplemented
 domain. Use the constructive model as the oracle before runtime changes.

@@ -1,1064 +1,698 @@
-# Group primitive filtering and ownership census
+# Immutable mark groups and static demand guidance
 
-Date: 19 October 2026. Revision: **1, selected next iteration**.
-Implementation status: specification and finite models only. Runtime remains
+Date: 19 October 2026. Revision: **2, serialized declarations; no binding census**.
+Status: selected specification, not implemented. Runtime remains
 `b88c85d5b710d28293d7672af92b085a3838fb19` (B88).
-Use ASD-STE100 Simplified Technical English. Defined technical terms and code
-names keep their meanings.
+Use ASD-STE100 Simplified Technical English. Defined code names keep their
+meanings. Follow [proof-guide.md](proof-guide.md).
 
-Follow [proof-guide.md](proof-guide.md). This document gives the complete
-contract and implementation design for these two selected changes:
+This revision replaces the earlier census-lookup and property-aggregation
+design. Keep this file path so existing links remain valid. Its selected scope
+is now: immutable group names, uniform primitive tracking, a small mark
+interner, serialized mark declarations and static demand matching without
+global enumeration. [grouped-run1-statics.md](grouped-run1-statics.md) retains
+all other analyzer behavior.
 
-1. Use all known full marks and group metadata for JVM primitive filtering.
-2. Avoid eager bound-rule cache insertion during ownership census.
+## 1. What static guidance means
 
-The second change can still bind a rule transiently. This iteration does not
-replace exact binding with a serialized-template mark scanner. Its required
-saving is to avoid retaining census-only bound results in runtime caches.
+After run-1, backward run-2 uses forward demands to admit actual inputs and
+restrict computed results. The selected static design provides one implicit
+permission family for every method:
 
-This spec takes precedence over the membership, primitive-filter and census
-parts of the earlier proposals. [grouped-run1-statics.md](grouped-run1-statics.md)
-retains all other analyzer behavior. Earlier optimization lists do not select
-additional changes. Kotlin snippets show proposed APIs and required control
-flow; new helpers do not yet exist in runtime code.
+```text
+For a group g:
+    entry = S / [] / ANY  / Group(g), E={}
+    exit  = S / [] / STAR / Group(g), E={}
+```
 
-## 1. Semantic scope and comparison
+S is the static base. This is a paired demand, not an executable summary,
+initial fact, static source or write. It lets an actual static FULL fact use
+the ordinary demand machinery. It creates no taint by itself. Real backward
+CFG/call transfer, strong writes and original FULL rules still apply.
 
-**Selected major semantic change:** all known full IDs participate in their
-registered owner groups. Delete active-eligibility tracking. This is not an
-equivalence claim against B88's eligible-member policy.
+For example, an actual `S.C.f / ANY / Full(g,T)` input can match this permission
+for g. Matching retains the actual full T and the ordinary AP geometry. A
+FLOW input has no concrete group and cannot use this family to invent T.
 
-The metadata fast path and the census lifetime change must preserve the
-**new all-known reference**. Census must discover the same ordered names and
-owners as the ordinary census under the same effective rule policy.
+B88 constructs these permissions by calling `groupAtoms()` and building one
+pair per catalog group. That enumeration is a representation choice. Only
+the actual input/premise's group can match. This revision constructs that
+one pair at the query point and keeps the ordinary `emit`/`restrict` tests.
 
-| Mechanism | B88 | Selected behavior |
+Initial emission selects g from the actual incoming leaf. Result restriction
+selects g from the current **entry premise**, never from the output mark.
+Keep the exit paired with that same g. This implicit pair contributes no
+cross-group result. Existing explicit demands and actual-current-premise
+admission/publication rules remain unchanged.
+
+## 2. Selected semantic scope
+
+| Mechanism | B88 / earlier proposal | Selected contract |
 | --- | --- | --- |
-| Group member | Known, owned, observed as eligible | Every known full ID with that owner |
-| GROUP primitive filter | Scan eligible catalog, build members, run scalar policy | Exact all-known reference; recognized JVM policy reads group metadata |
-| Opaque/custom GROUP policy | One scalar predicate over eligible members | Same predicate over all known owned members |
-| Implicit static guides | Eligible groups | All known owned groups; guides remain permission only |
-| Census cache miss | Insert bound list in a runtime method/field cache | Known capable provider: bind transiently, observe, release; no insertion |
-| Census cache hit | Reuse existing bound list | Reuse the exact matching existing list |
-| Duplicate census query | Invoke ordinary provider path | Optional ordered name-trace replay only under a proved complete stable key |
-| Runtime rule lookup | Ordinary cached provider | Same ordinary cached provider |
-| Unknown/custom provider | Existing wrapper and role calls | Same calls; no guessed uncached capability or replay key |
+| Group membership | Active/known catalog and member queries | Immutable owner in each full key; all serialized declarations are available |
+| Primitive property | Infer OR from eligible/known members | Assert all marks in one group have the same primitive flag |
+| Group primitive representation | Generic descriptor, per-full bits and group aggregation | Encode the flag once in the group name |
+| MarkTable | Mutable ownership, eligibility, pending names and census seal | Interner of immutable keys and stable opaque IDs |
+| Primitive filtering | Enumerate members or read aggregated metadata | Apply the same suffix policy directly to FULL/GROUP names |
+| GROUP custom policies | Implicit existential lift over full members | Explicit native GROUP policy; no hidden full-member fallback |
+| Shared static guidance | Enumerate all groups and retain patterns | Construct one query-dependent paired demand |
+| Mark discovery | Bind all methods/roles/relevance views | Visit serialized declarations at load time |
+| Rule caches | Census populates them, or proposed CENSUS mode avoids insertion | No ownership-census lookup at all; ordinary runtime caches remain |
 
-Keep these mechanisms unchanged:
+**Explicit input-contract changes:** reject a group with mixed primitive flags;
+reject an executable undeclared full name; and reject a FULL-only policy used
+on a GROUP atom without native GROUP semantics. A custom provider must supply
+complete declarations. Do not silently fall back to method-binding census.
 
-- Original FULL rules, signed folds, role admission, source/sink identities,
-  source AP transfers, ActionIds, complete ND premises and stable rule order.
-- GROUP condition normalization and separate GROUP/FULL compiled forms.
-- Empty `trackFactsReachAnalysisEnd` lists in every run. Source actions remain
-  enabled. A catalog member cannot enable a disabled action.
-- AP paths/tails, initial grammar, field kills, empty run-1 E, layer-only
-  demotion for exclusion updates, cleaner group repair and actual-query rules.
-- Run-1 static write/read/supply service, write-gated reads, saved-point
-  refinement and the accepted static order/context approximation.
-- ZERO satisfies a static premise only in run-1. Later runs require the real
-  static fact. Neither a name nor ZERO supplies a group.
-- Base request P/R, `commit(temporary)` then replacement, existing batching,
-  queue ownership, counted work, cancellation and NORMAL record admission.
-- Runs start at run-1. Limits are `1, 1, 2, 3, ...`; run-1 is GROUP forward,
-  run-2 is FULL backward, and later runs alternate with FULL marks.
-- Existing IR, RefManager, SoftReferenceManager and cache lifetime policy.
-  This change controls census insertion; it does not replace cache managers.
+This includes plain/model groups. An existing SharedModel containing both
+`T` and `U%%primitive%%` is invalid. Do not split it into new groups, OR its
+flags, change an existing group name or retain a dynamic compatibility lane.
+One complete join rule still has one owner/group.
 
-Do not add GroundingSupport, a field validator, a source-admission phase,
-a second fact history, static routing or a general group-member directory.
-If implementation needs another major semantic change, expose it before
-implementation. Do not use a proof of a different model as authorization.
+This is also an explicit declaration-domain change. Inspect all loaded
+serialized mark names, including names in inactive rules, raw branches that
+later fold to false, relevant-mark metadata and disabled sink end actions.
+These names are metadata only. Their presence enables no rule/action, source,
+request, static supply or executable summary. Do not bind or validate disabled
+end-action positions while collecting their names.
 
-## 2. Full names, owners and group membership
+Keep unchanged:
 
-```text
-Known full ID: an ID already created in the shared AP MarkTable.
-K(g):         known full IDs whose assigned owner is g.
-Valid group:  an owner group with at least one known owned full ID.
-Pending ID:  a known full ID with no assigned owner yet.
-```
+- Source/sink rule admission, signed FULL folds, original predicates, source
+  AP primitives, ActionIds, candidate/action order and complete ND premises.
+- Existing GROUP condition normalization and separate GROUP/FULL forms.
+- Empty `trackFactsReachAnalysisEnd` in every run; ordinary source actions.
+- AP grammar/tails, field overwrites and kills, empty run-1 field exclusion E,
+  layer-only demand demotion, selected-cleaner repair and actual-query rules.
+- Run-1 static writer/read/supply joins, saved-point refinement and the
+  accepted static order/context approximation. No static CFG relay is added.
+- ZERO can satisfy a static premise only in run-1 and supplies no group.
+  Later runs require the real static fact.
+- Base P/R requests, commit-then-replace, batching, work ownership, cancellation
+  and valid NORMAL record export.
+- Runs start at run-1 with limits `1,1,2,3,...`; run-1 GROUP, later runs FULL.
+- IR, managed references, runtime rule caches and existing provider factories.
 
-ZERO is control. It has no owner. GROUP handles are selectors, not full IDs.
-A pending ID contributes to no group until the existing owner protocol assigns
-its owner. A raw group key can be empty after a rejected owner registration.
-An empty key is not a published valid group.
+No GroundingSupport, exact-field validator, new static routing, fact history,
+cache-manager rewrite or provider warmup phase is selected.
 
-Known names include provider `markOwners` declarations, imported/discovered
-names, specialized GeneratedMark names and model names. Declarations already
-registered from inactive rules also count. Names used only by disabled end
-actions can count if already declared/imported. Their actions remain disabled.
-Do not scan disabled actions or every possible generated name to enlarge the
-catalog. Keep the current discovery inputs and effective observation rules.
+## 3. Names, ownership and the uniformity assertion
 
-Ownership remains the original top-level rule ID. One entire join rule has
-one group. Imports retain their declared owner. Plain models use their
-existing declared owner or SharedModel. A consuming rule does not reassign
-an owner. Conflicting owners remain an error.
-
-### Required catalog state
-
-The AP module must not depend on the JVM suffix. Install one optional, pure,
-immutable full-name property before actual-catalog full-ID creation.
+Keep original FULL names and public rule IDs. Internal group names use a
+separate tagged encoding. Include owner kind so Rule, Model and SharedModel
+cannot collide.
 
 ```kotlin
-class FullMarkProperty(val holds: (String) -> Boolean)
+@JvmInline value class GroupName(val encoded: String)
 
-class MarkTable(private val property: FullMarkProperty? = null) {
-    // Keep current fullNames, fullByName, handles, owners and group keys.
-    // Delete eligible: LinkedHashSet<FullMarkId>.
-    private val fullHasProperty = ArrayList<Boolean>()
-    private val groupHasProperty = ArrayList<Boolean?>()
-    // null: group allocated, no successful owner assignment.
-    // false/true: group nonempty; value is OR of its full-member properties.
+fun encodeGroup(owner: OwnerKey, primitive: Boolean): GroupName {
+    val payload = canonicalTaggedOwner(owner) // injective, includes owner kind
+    val mode = if (primitive) "%%primitive%%" else "%%ordinary%%"
+    return GroupName("@group:${payload.length}:$payload;$mode")
+}
+
+data class FullKey(val group: GroupName, val name: String)
+```
+
+The length-prefixed owner encoding and final mode distinguish owners and
+flags even when a raw rule ID contains delimiter/suffix text. Original rule
+IDs used by findings and source identities do not change.
+
+For generated rules, take the flag from the outer rule's `primitive-tracking`
+option. RuleConversionCtx.child preserves both this flag and topLevelRuleId.
+All join operands/states belong to the outer join group. Do not parse a
+child GeneratedMark.ruleId to recover that owner.
+
+An imported mark keeps its declared original owner and that owner's flag.
+The consuming rule's option does not change an imported mark.
+
+Define the exact existing FULL policy:
+
+```kotlin
+fun primitive(fullName: String) =
+    fullName.endsWith(PrimitiveTaintExt.PRIMITIVE_TRACKING_ENABLED_MODE)
+```
+
+At declaration finalization, assert for every full name:
+
+```kotlin
+require(primitive(full.name) == primitive(full.group.encoded)) {
+    "Mixed primitive tracking in group ${full.group}"
 }
 ```
 
-All creation/owner hooks below use the existing catalog monitor. Do not
-change allocation order or full/handle IDs while factoring common helpers.
-Both `register` and `reserveFull` currently create full IDs; cover both.
+Also reject contradictory explicit owners or two flag declarations for the
+same owner. This assertion includes a label that accidentally imitates the
+reserved suffix. Do not silently rewrite its full name or choose one member.
+
+An explicitly declared model owner supplies its group. Unclaimed plain names
+keep SharedModel. Resolve all explicit claims across providers **before**
+assigning SharedModel. Determine a model group's flag from its complete
+serialized name declarations and assert all are equal. A first observed name
+at runtime must never choose or change the group's property.
+
+Groups with no full declaration supply no executable taint. Runtime group
+values originate from declared full marks, so the primitive equivalence below
+has a full-member witness. There is no orphan/empty-member fallback in the
+interner or primitive filter.
+
+## 4. Serialized declarations, without rule specialization
+
+Expose complete metadata on the existing loaded provider chain:
 
 ```kotlin
-// Only when a full ID is genuinely new:
-fullHasProperty.add(property?.holds?.invoke(name) == true)
+data class RawMarkDeclarations(
+    val names: Set<String>,
+    val explicitOwners: Map<String, OwnerKey>,
+    val primitiveByOwner: Map<OwnerKey, Boolean>,
+)
 
-// Only when a group key is genuinely new:
-groupHasProperty.add(null)
+// Put this member on the EXISTING TaintRulesProvider interface.
+interface TaintRulesProvider : CommonTaintRulesProvider {
+    val markDeclarations: RawMarkDeclarations
+        get() = error("This provider must declare its mark metadata")
+    // Existing role methods remain unchanged.
+}
 
-// Only after the existing owner conflict check succeeds:
-private fun creditOwned(full: FullMarkId, g: GroupId) {
-    groupHasProperty[g.value] =
-        (groupHasProperty[g.value] == true) || fullHasProperty[full.value]
+// Immutable after merge, validation and model-owner completion.
+interface MarkDeclarations {
+    fun fullKey(name: String): FullKey // fail if not declared
 }
 ```
 
-There is one property bit per valid group. The null slot is an empty/unpublished
-marker, not another eligible-member set. With no descriptor, successful owner
-assignment still changes null to false for group enumeration. Repeated credit
-is idempotent. No credited-member set or counter is needed.
+The member is on TaintRulesProvider so Kotlin `by base` wrappers and the
+existing selected anonymous Semgrep view forward it through their existing
+delegation. JIRTaintRulesProvider, Semgrep and Combined supply their own
+inventory/merge implementations. Add a complete-wrapper-stack control.
+Do not introduce a separate capability that delegated wrappers silently lose.
 
-Keep the current `putIfAbsent`/conflict behavior. A rejected registration
-must not credit the rejected group or alter the accepted owner's metadata.
-Preserve allocation/error order, including an empty group key allocated
-before a conflict is detected. Do not publish that key through `groupAtoms()`.
+No default empty inventory is allowed for an unknown provider. A provider
+that creates no marks can explicitly certify EMPTY. A custom provider that
+creates marks in code must declare them through this metadata boundary.
+Dynamic creation of an undeclared name is an input-contract failure, not an
+invitation to run a census or guess an owner.
 
-### Preserve reservation and late ownership
+### Pure serialized visitor
 
-```kotlin
-reserveFull(name)              // can return a pending full handle
-register(name, originalOwner) // assigns owner and credits metadata
-finishOwnershipCensus()       // completes fallback owners, then seals
-```
-
-Do not eagerly assign SharedModel during `reserveFull`. A later declaration
-can provide the original rule owner. Retain fixture-model owners and current
-late-provider/model completion.
-
-`markEligible` has an ownership side effect today. Remove its set insertion,
-but keep that side effect at its existing call sites:
+Visit all eight method-role lists and staticFieldSource. Read names only;
+do not match functions/signatures, resolve annotations, inspect a method body,
+specialize AnyArgument or construct bound rule objects.
 
 ```kotlin
-@Synchronized
-fun completeObservedFullOwnership(atom: TaintMark) {
-    val full = requireFullHandle(atom)
-    if (isOwnershipCensusComplete && full !in owners) {
-        register(fullNames[full.value], MarkGroupKey.SharedModel)
+fun visitCondition(c: SerializedCondition?, emit: (String) -> Unit) {
+    when (c) {
+        is SerializedCondition.Not -> visitCondition(c.not, emit)
+        is SerializedCondition.And -> c.allOf.forEach { visitCondition(it, emit) }
+        is SerializedCondition.Or -> c.anyOf.forEach { visitCondition(it, emit) }
+        is SerializedCondition.ContainsMark -> emit(c.tainted)
+        else -> Unit
     }
 }
 
-fun observeModelReference(name: String): TaintMark =
-    reserveFull(name).also(::completeObservedFullOwnership)
-```
-
-Before census completion, the existing census completes pending owners.
-After completion, a raw reserved name can still remain pending until its
-existing observation/explicit registration step. It must not become an
-executable GROUP fact while unowned. No owner reassignment, removal, mark
-rename or property mutation is selected.
-
-### Member/group readers and order
-
-```kotlin
-@Synchronized
-fun knownMembers(g: GroupId): List<TaintMark> {
-    check(isOwnershipCensusComplete) {
-        "Finish the mark ownership census before group execution"
+fun visitItem(item: SerializedItem, emit: (String) -> Unit) {
+    when (item) {
+        is SourceRule -> {
+            visitCondition(item.condition, emit)
+            item.taint.forEach { emit(it.kind) }
+        }
+        is SinkRule -> {
+            visitCondition(item.condition, emit)
+            item.trackFactsReachAnalysisEnd.orEmpty().forEach { emit(it.kind) }
+            // Names only. Never bind, validate positions or execute these actions.
+        }
+        is SerializedRule.PassThrough -> {
+            visitCondition(item.condition, emit)
+            item.copy.forEach { it.taintKind?.let(emit) }
+        }
+        is SerializedRule.Cleaner -> {
+            visitCondition(item.condition, emit)
+            item.cleans.forEach { it.taintKind?.let(emit) }
+        }
     }
-    return fullIdsInCreationOrder()
-        .filter { assignedOwnerOrNull(it) == g }
-        .map { fullAtom(it) }
-}
-
-@Synchronized
-fun groupAtoms(): List<TaintMark> {
-    check(isOwnershipCensusComplete)
-    return groupIdsInAllocationOrder()
-        .filter { groupHasProperty[it.value] != null }
-        .map(::group)
+    (item.info as? UserDefinedRuleInfo)?.relevantTaintMarks?.forEach(emit)
 }
 ```
 
-Member order is FullMarkId creation order. Group order is GroupId allocation
-order with empty keys omitted. This replaces active-observation order.
-Original rule/action order is separate and stays unchanged. Batch-dependent
-diagnostic counts need not match. Do not promise the old call order for an
-arbitrary side-effectful custom mark policy under the changed member domain.
+Null clean/copy kinds mean all marks; they are not a full mark name.
+GeneratedMark values are already serialized full strings in these fields.
+Method specialization selects, duplicates or omits positions/actions; it does
+not create another mark kind from the chosen parameter index. If a future
+resolver can create a new name, it must extend the declaration contract first.
 
-The explicit `groupAtoms(GroupSet)` operation still converts only the supplied
-IDs. Do not expand selected wanted/supplied group sets to every catalog group.
-
-## 3. Primitive-filter reference and optimized query
-
-```text
-primitive(m) = fullName(m).endsWith(PRIMITIVE_TRACKING_ENABLED_MODE)
-requires(k)  = current JVM primitive/boxed type test at element level k
-
-referenceKeep(g,k) =
-    K(g).isEmpty OR exists m in K(g): (!requires(k) OR primitive(m))
-
-hasPrimitive(g) = exists m in K(g): primitive(m)
-
-For a valid nonempty group:
-    fastKeep(g,k) = !requires(k) OR hasPrimitive(g)
-```
-
-Keep the existing Character case, unboxing, array traversal and false result
-beyond known levels. A shared/model group need not have a uniform property.
-Do not select one representative full mark.
-
-The all-known semantic change can alter old decisions in both directions:
-
-```text
-primitive position; same group g
-
-old eligible = {nonprimitive T}; known also contains primitive U
-    old: reject; all-known: keep
-
-old eligible = {}; known contains nonprimitive T
-    old empty fallback: keep; all-known: reject
-```
-
-An actual full-policy keep witness is always retained by its all-known group.
-Do not claim old/new GROUP equality. Prove the metadata query equal to the
-new all-known reference. For empty keys, keep the explicit scalar empty-group
-result. A false property bit alone cannot represent an empty key.
-
-### Typed property policy
+### Load, merge and freeze
 
 ```kotlin
-class PropertyMarkPolicy(
-    val catalog: MarkTable,
-    val property: FullMarkProperty,
-    requiredLevels: BooleanArray,
-) : MarkPolicy {
-    private val required = requiredLevels.copyOf()
-    fun requires(k: Int) = required.getOrElse(k) { false }
-    override fun keeps(full: TaintMark, elements: Int): Boolean =
-        !requires(elements) || property.holds(catalog.name(full))
+// TaintConfiguration.loadConfig: visit each serialized item as it is loaded.
+// Keep names/claims only; do not keep a second copy of serialized or bound rules.
+config.itemsInLoadOrder().forEach { visitItem(it, declarationBuilder::name) }
+
+fun finalizeDeclarations(inputs: List<RawMarkDeclarations>): MarkDeclarations {
+    val names = orderedUnion(inputs.map { it.names + it.explicitOwners.keys })
+    val owners = mergeUniqueExplicitClaims(inputs.map { it.explicitOwners })
+    val flags = mergeUniqueOwnerFlags(inputs.map { it.primitiveByOwner })
+    val fullKeys = linkedMapOf<String, FullKey>()
+    for (name in names) {
+        val owner = owners[name] ?: OwnerKey.SharedModel
+        val value = primitive(name)
+        val expected = flags.putIfAbsent(owner, value)
+        require(expected == null || expected == value) { "Mixed primitive tracking: $owner" }
+        fullKeys[name] = FullKey(encodeGroup(owner, value), name)
+    }
+    return immutableIndexCopy(fullKeys)
+}
+```
+
+Include existing generated `markOwners` sidecar keys as declarations even if
+one has no retained rule use. Record rule primitive flags when loading the
+outer normal/join rule; do not construct a bound rule to recover its option.
+The sidecar remains authoritative for imports.
+
+The single pass above completes model flags and checks each generated rule's
+declared flag. It does not select a representative at runtime. Validation
+uses ordinary maps, not a quadratic pairwise scan or a per-group full list.
+
+Leaf providers export raw names and explicit claims separately. Never assign
+SharedModel at a leaf before merging: a different child may supply a generated
+name's original owner. Explicit conflicting claims remain errors.
+
+| Provider | Declaration behavior |
+| --- | --- |
+| JIRTaintRulesProvider | Expose the inventory captured by TaintConfiguration.loadConfig |
+| JIRSemgrepRuleProvider | Add original generated owner claims and outer rule flags; reuse loaded config metadata |
+| JIRCombinedTaintRulesProvider | Union both loaded inventories and claims, independent of EXTEND/OVERRIDE/IGNORE |
+| Spring/MethodExit/StringConcat | Delegate declarations; current extra actions use existing marks or CopyAll/RemoveAll |
+| Custom provider | Supply a complete inventory or explicitly certify mark-free EMPTY |
+
+Declaration union is not executable rule combination. Keep every runtime
+combination, relevance filter and wrapper role unchanged. Do not rerun a
+Semgrep provider loading constructor or create a new wrapper tree to read
+metadata. Preserve current runtime empty-end views and final sink-copy policy.
+
+Finalization happens before engine execution. It loads no methods and calls
+none of the nine bound-rule provider APIs. There is no fallback binding path.
+Defensively copy the resulting names/claims into the immutable index; retain
+no mutable declaration builder or bound/serialized rule payload through it.
+
+## 5. MarkTable is an immutable-key interner
+
+Keep compact existing FullMarkId, GroupId and TaintMark handles. Their numeric
+values are opaque; report/source/action identities do not depend on them.
+Use ordinary append-only interners rather than another owner registry:
+
+```kotlin
+sealed interface MarkAtomKey {
+    data object ControlZero : MarkAtomKey
+    data class Group(val id: GroupId) : MarkAtomKey
+    data class Full(val mark: ExactMark) : MarkAtomKey
 }
 
-internal object JvmPrimitiveProperty {
-    val descriptor = FullMarkProperty { name ->
-        name.endsWith(PrimitiveTaintExt.PRIMITIVE_TRACKING_ENABLED_MODE)
+data class ExactMark(val group: GroupId, val full: FullMarkId)
+
+class MarkTable(private val declarations: MarkDeclarations) {
+    private val groups = Interner<GroupName, GroupId>()
+    private val fulls = Interner<FullKey, FullMarkId>()
+    private val atoms = Interner<MarkAtomKey, TaintMark>(zeroKey = MarkAtomKey.ControlZero)
+
+    fun full(name: String): TaintMark {
+        val key = declarations.fullKey(name)
+        val g = groups.intern(key.group)
+        val f = fulls.intern(key)
+        return atoms.intern(MarkAtomKey.Full(ExactMark(g, f)))
+    }
+    fun group(g: GroupId): TaintMark {
+        groups.key(g) // validate that this ID exists before creating the atom
+        return atoms.intern(MarkAtomKey.Group(g))
+    }
+    fun key(atom: TaintMark): MarkAtomKey = atoms.key(atom)
+    fun isFull(atom: TaintMark) = key(atom) is MarkAtomKey.Full
+    fun isGroup(atom: TaintMark) = key(atom) is MarkAtomKey.Group
+    fun owner(full: FullMarkId): GroupId =
+        groups.existingId(fulls.key(full).group)
+    fun groupOf(atom: TaintMark): GroupId = when (val key = atoms.key(atom)) {
+        is MarkAtomKey.Group -> key.id
+        is MarkAtomKey.Full -> key.mark.group
+        MarkAtomKey.ControlZero -> error("ZERO has no group")
+    }
+    fun name(atom: TaintMark): String = when (val key = atoms.key(atom)) {
+        is MarkAtomKey.Group -> groups.key(key.id).encoded
+        is MarkAtomKey.Full -> fulls.key(key.mark.full).name
+        MarkAtomKey.ControlZero -> "<zero>"
+    }
+    fun coversAtom(guide: TaintMark, actual: TaintMark): Boolean {
+        if (guide == actual) return true
+        if (guide == TaintMark.ZERO || actual == TaintMark.ZERO || !isGroup(guide)) return false
+        return groupOf(guide) == groupOf(actual)
     }
 }
-
-// Preserve JIRTypeFilters.byType and its existing path/type calculation.
-val primitive = currentPrimitiveLevels(t)
-val policy = if (true !in primitive) null else PropertyMarkPolicy(
-    manager.marks, JvmPrimitiveProperty.descriptor, primitive.toBooleanArray())
-return TypeFilter(checker.localFilter(t), policy)
 ```
 
-Install the descriptor through a source-compatible optional ApManager
-constructor argument. The actual catalog needs it before OwnedRulesProvider
-registers declared names. The gather-time scratch catalog needs no JVM policy.
+`Interner` denotes a small canonical key-to-ID/ID-to-key utility, not a new
+reference manager. Retain existing synchronization and cancellation where
+required. Full/group/zero remain typed and distinct. Equal immutable keys
+return the same handle; a new key cannot change an old key or handle.
+
+Full keys include their complete owner at creation. There is no reserve-now,
+assign-owner-later state, mutable owners table, eligibility set, census seal,
+per-full property bit, per-group OR, member directory or null publication slot.
+Keep ownership validation in the declaration builder, outside MarkTable.
+
+Remove `knownMembers`, `eligibleMembers`, global `groupAtoms()` and both
+census-finalization methods. Rename explicit `groupAtoms(GroupSet)` conversion
+so it cannot suggest catalog enumeration:
 
 ```kotlin
-val ap = ApManager(cancellation, refManager, JvmPrimitiveProperty.descriptor)
-val rules = OwnedRulesProvider(taintConfig.forBidirectionalCore(), ap.marks)
+fun atomsFor(groups: GroupSet): MarkSet =
+    MarkSet(groups.ids.map { group(GroupId(it)).id }.toIntArray())
 ```
 
-The descriptor is fixed for the catalog lifetime. Do not install it after
-names already exist or recognize arbitrary lambdas by sampled behavior.
+This converts only IDs already supplied by a request/static join. It discovers
+no group. Keep that required conversion in Run1StaticService/Run1PointResume.
+Diagnostics can count interned IDs directly; they must not enumerate members.
+No runtime algorithm uses those counts as completeness or admission gates.
 
-### Filter query
+## 6. Direct primitive filtering
+
+A FULL atom's name remains its existing full string. A GROUP atom's name is
+the canonical encoded group name. Both use the existing suffix test.
 
 ```kotlin
-@Synchronized
-internal fun groupProperty(g: GroupId, expected: FullMarkProperty): Boolean? {
-    if (property !== expected || !isOwnershipCensusComplete) return null
-    return groupHasProperty[g.value]
+fun isPrimitiveTracking(mark: TaintMark): Boolean =
+    manager.marks.name(mark)
+        .endsWith(PrimitiveTaintExt.PRIMITIVE_TRACKING_ENABLED_MODE)
+```
+
+Keep Character, unboxing, primitive types, arrays, out-of-range levels, path
+filters, root/element traversal, filter order and cancellation unchanged.
+No generic FullMarkProperty or PropertyMarkPolicy is needed.
+
+Make GROUP policy support explicit, instead of silently lifting an arbitrary
+FULL predicate through a member scan:
+
+```kotlin
+fun interface MarkPolicy { fun keeps(mark: TaintMark, elements: Int): Boolean }
+fun interface GroupMarkPolicy : MarkPolicy
+
+// JIRTypeFilters.make: same existing primitive-level computation.
+val policy = if (true !in primitiveLevels) null else GroupMarkPolicy { mark, k ->
+    !primitiveLevels.getOrElse(k) { false } || isPrimitiveTracking(mark)
 }
 
-fun keepMark(atom: TaintMark, policy: MarkPolicy, k: Int): Boolean {
-    val g = marks.groupId(atom)
-    if (g == null) return policy.keeps(atom, k)
-    if (policy is PropertyMarkPolicy && policy.catalog === marks) {
-        val bit = marks.groupProperty(g, policy.property)
-        if (bit != null) return !policy.requires(k) || bit
+fun keepMark(atom: TaintMark, policy: MarkPolicy, level: Int): Boolean {
+    check(!marks.isGroup(atom) || policy is GroupMarkPolicy) {
+        "GROUP filtering requires a native group policy"
     }
-    val members = marks.knownMembers(g) // retains the census guard
-    return members.isEmpty() || members.any { policy.keeps(it, k) }
+    return policy.keeps(atom, level)
 }
 ```
 
-A null metadata answer is not permission to bypass the census guard. FULL
-scalar filtering and pre-census name reservation keep their current rules.
-Missing/mismatched capability, empty keys and opaque policies use the scalar
-reference. Preserve root/element traversal, path filters, all filtering sites
-and cancellation checks. Read metadata under the existing monitor. Do not
-cache a past query answer or add a new replay/invalidation mechanism.
-
-### Conjunction uses one full-member witness
-
-```text
-(!a(k) OR primitive(m)) AND (!b(k) OR primitive(m))
-    = !(a(k) OR b(k)) OR primitive(m)
-```
+The tag is a policy contract, not a general property framework. In this
+iteration the JVM installs only the primitive policy and its conjunctions.
+A full-only arbitrary policy remains usable for FULL values. Do not silently
+keep/drop GROUP facts when such a policy has no native GROUP meaning.
 
 ```kotlin
 fun andPolicies(a: MarkPolicy?, b: MarkPolicy?): MarkPolicy? = when {
     a == null -> b
     b == null -> a
-    a is PropertyMarkPolicy && b is PropertyMarkPolicy &&
-        a.catalog === b.catalog && a.property === b.property ->
-        PropertyMarkPolicy(a.catalog, a.property, orRequirements(a, b))
+    a is GroupMarkPolicy && b is GroupMarkPolicy ->
+        GroupMarkPolicy { mark, k -> a.keeps(mark, k) && b.keeps(mark, k) }
     else -> MarkPolicy { mark, k -> a.keeps(mark, k) && b.keeps(mark, k) }
 }
 ```
 
-`orRequirements` ORs each required level, with false beyond either input's
-known levels. It returns a new immutable mask. `TypeFilter.may` still combines
-by AND. For opaque/mixed/different-property policies, apply the combined scalar
-predicate under one `knownMembers` existential. Independent group decisions
-are wrong: policy A can accept only T while B accepts only U in the same group.
+A native policy must satisfy, for every declared full m in g:
+`keepsFull(m,k) = keepsGroup(g,k)`. Uniform primitive groups satisfy this.
+Conjunction preserves it pointwise. No independent member witnesses, property
+masks, metadata invalidation or generic scalar fallback are involved.
 
-## 4. Reference ownership census
+## 7. Static demand matching without group enumeration
 
-Census is name discovery and ownership completion. It emits no fact, summary,
-request, static supply, finding or source seed.
-
-Keep this complete input traversal, in the current order:
+Keep one enabled flag in DemandStore for the shared static permission family.
+Do not retain a pattern map for every group. Derive a transient pair from the
+actual entry/premise, and apply the existing AP matcher:
 
 ```kotlin
-selectRules(prescanRuleIds)
-for (method in (graph.methods + roots.map { it.method }).distinct()) {
-    val first = method.instructions.firstOrNull() ?: continue
-    censusMethod(method, first)
-    for (statement in method.instructions) {
-        statement.callExpr?.let { censusMethod(it.method.method, statement) }
-        statement.readStaticFieldOrNull()?.let { field ->
-            censusStaticSource(field, statement, allRelevant = false)
-            censusStaticSource(field, statement, allRelevant = true)
-        }
-    }
-}
-for (call in graph.calls) censusMethod(call.callee, call.statement)
-```
-
-The declared/unresolved call target is required. The resolved graph alone
-can omit rule/model candidates. Do not skip methods or replace both walks
-with only transitive call-graph metadata. Keep cancellation checks.
-
-```kotlin
-fun censusMethod(method: CommonMethod, statement: CommonInst) {
-    for (all in listOf(false, true)) {
-        visit(EntryPoint(method, statement, all))
-        visit(MethodSource(method, statement, all))
-        visit(ExitSource(method, statement, all))
-        visit(MethodSink(method, statement, all))
-        visit(EntrySink(method, statement, all))
-        visit(ExitSink(method, statement, all))
-        visit(Cleaner(method, statement, all))
-        visit(PassThrough(method, statement, all))
-    }
-}
-```
-
-Every census rule query uses `fact=null`; exit-sink queries also use
-`initialFacts=null`. Static-field source is the ninth role. Both relevance
-views remain distinct even when they happen to return equal rules.
-
-Register the provider's entire existing `markOwners` sidecar in its existing
-order, before observation. Keep the top-level owner mapping through wrappers.
-Then observe the **effective post-wrapper rule outputs**:
-
-```kotlin
-fun visitEffectiveNames(rule: TaintConfigurationItem, emit: (String) -> Unit) {
-    visitConditionNamesInCurrentOrder(rule.condition, emit)
-    when (rule) {
-        is TaintConfigurationSource -> rule.actionsAfter.forEach { visitAction(it, emit) }
-        is TaintPassThrough -> rule.actionsAfter.forEach { visitAction(it, emit) }
-        is TaintCleaner -> rule.actionsAfter.forEach { visitAction(it, emit) }
-        is TaintConfigurationSink -> Unit // end actions remain disabled
-    }
-    if (rule !is TaintConfigurationSink) {
-        rule.info.relevantTaintMarksOrEmpty().forEach(emit)
-    }
-}
-```
-
-Condition observation includes ContainsMark and ContainsMarkOnAnyField,
-including negated leaves. Keep the current stack traversal order. Actions
-observe AssignMark, CopyMark and RemoveMark; CopyAllMarks/RemoveAllMarks add no
-name. Sink legacy relevance metadata must not restore end-only discovery.
-Factor this visitor from OwnedRulesProvider so census and runtime observation
-cannot drift. A sink's retained condition still contributes names.
-
-All-known membership does not remove this workflow. A serialized declaration
-sidecar does not necessarily cover specialized or model-created names.
-
-## 5. Separate census lookup from runtime lookup
-
-Use an explicit capability. Do not unwrap an unknown delegated provider.
-Do not add a global mutable "census mode" to a shared configuration.
-
-```kotlin
-enum class RuleLookupMode { RUNTIME, CENSUS }
-
-interface OwnershipCensusRulesProviderFactory {
-    fun ownershipCensusView(): CensusView
-}
-
-data class CensusView(
-    val provider: TaintRulesProvider,
-    val replayKey: (CensusQuery) -> StableCensusKey?,
-)
-
-// Keep B88's existing initial new-core view boundary exactly once.
-fun TaintRulesProvider.forOwnershipCensus(): CensusView =
-    forBidirectionalCore().censusViewPreservingState()
-
-// Below that boundary, do not invoke another view-creation boundary.
-internal fun TaintRulesProvider.censusViewPreservingState(): CensusView =
-    (this as? OwnershipCensusRulesProviderFactory)?.ownershipCensusView()
-        ?: CensusView(this, replayKey = { null })
-```
-
-A known view applies the new-core empty-end policy and selects CENSUS lookup
-at capable configuration leaves. The fallback uses exactly the current
-new-core view and ordinary calls/cache behavior. OwnedRulesProvider still
-protects sink end lists for providers without pre-resolution capability.
-
-Construct the entire census wrapper tree **once per gather session**, not
-once per query. Preserve wrapper-local state and invocation order. Keep the
-runtime `forBidirectionalCore()` view on RUNTIME lookup. The legacy provider
-and shared configuration do not change mode. Do not restore or change the
-runtime Spring view factory as part of this optimization. New descent for
-census must reuse each already-selected wrapper's local state or leave that
-branch on its existing path. A fresh clone is not a state-preservation proof.
-
-The leaf lookup capability and the replay certificate are different. Even
-without replay, a capable leaf must have stable binding inputs for its exact
-query/cache key in the session's generation. Standard setup creates that
-session after configuration loading, rule selection and the joined prescan;
-its binding inputs must not mutate during the session. If that contract cannot
-be established, keep ordinary cached lookup for that leaf. A null replay key
-can still use CENSUS lookup when the leaf is stable but a surrounding wrapper
-cannot certify skipped-call equivalence.
-
-### Exact leaf cache behavior
-
-Add an internal lookup parameter to TaintConfiguration. Public/default runtime
-calls keep their existing API and RUNTIME behavior. Cover eight method role
-storages and the static-field source storage.
-
-```kotlin
-@Synchronized
-fun configForMethod(method: JIRMethod, all: Boolean,
-                    ignoreEnd: Boolean, mode: RuleLookupMode): List<T> {
-    val cache = exactCacheFor(all, ignoreEnd)
-    cache[method]?.let { return it } // a cached empty list is also a hit
-    val result = resolveExactlyAsToday(method, all, ignoreEnd).adjustEmptyList()
-    if (mode == RuleLookupMode.RUNTIME) cache[method] = result
-    return result
-}
-
-@Synchronized
-fun configForField(field: JIRField, mode: RuleLookupMode): List<T> {
-    fieldItems[field]?.let { return it }
-    val result = resolveFieldItems(field).adjustEmptyList()
-    if (mode == RuleLookupMode.RUNTIME) fieldItems[field] = result
-    return result
-}
-```
-
-Preserve each storage's current monitor and error behavior. On a CENSUS miss,
-insert neither a nonempty list nor a cached empty entry. Do not clear existing
-entries. Borrow only the exact role/method/relevance/end-policy family; an
-ordinary-end cache is not a no-end cache. Do not move unrelated entries into
-another lifetime manager.
-
-`resolveExactlyAsToday` denotes the existing pipeline, not a new algorithm:
-
-```text
-existing method storage/findRules order
--> existing name/class/hierarchy and signature checks
--> fresh MethodTaintConfigurationResolver for the whole query
--> resolveRule OR resolveRelevantRule, same end-policy flag
--> same specialization, full signed folding, actions, metadata and ordering
-```
-
-The resolver-local generated sink-ID counter must see the same successful
-candidate/specialization sequence. Do not filter selected IDs before binding,
-reset per candidate, hash new IDs or assign GROUP ordinals to FULL rules.
-The shared TaintMarkManager still interns the same strings.
-
-Runtime rebuilding can construct equal immutable rule copies. Preserve
-logical rule/action/source identities, not JVM object addresses. The existing
-form cache remains the runtime owner of compiled forms.
-
-The ordinary provider forwards the lookup mode through all nine role methods:
-
-```kotlin
-class JIRTaintRulesProvider(
-    private val config: TaintConfiguration,
-    private val ignoreSinkEndFacts: Boolean = false,
-    private val lookupMode: RuleLookupMode = RuleLookupMode.RUNTIME,
-) : TaintRulesProvider, BidirectionalRulesProviderFactory,
-    OwnershipCensusRulesProviderFactory {
-    override fun ownershipCensusView(): CensusView = CensusView(
-        JIRTaintRulesProvider(config, true, RuleLookupMode.CENSUS),
-        certifiedConfigurationKeyOrNull(config),
+fun implicitStaticPair(entry: Pattern): DemandPattern? {
+    if (!staticGuidanceEnabled || entry.fact.base != STATIC) return null
+    val atom = (entry.fact.mark as? MarkSlot.Concrete)?.mark ?: return null
+    if (!marks.isFull(atom)) return null // actual later-run FULL input/premise
+    val group = MarkSlot.Concrete(marks.group(marks.groupOf(atom)))
+    return DemandPattern(
+        Pattern(PathFact(STATIC, emptyList(), Tail.ANY, group), ExclusionSet.Empty),
+        Pattern(PathFact(STATIC, emptyList(), Tail.STAR, group), ExclusionSet.Empty),
     )
-
-    override fun bidirectionalRulesView(): TaintRulesProvider =
-        if (ignoreSinkEndFacts && lookupMode == RuleLookupMode.RUNTIME) this
-        else JIRTaintRulesProvider(config, true, RuleLookupMode.RUNTIME)
-
-    override fun sinkRulesForMethod(method, statement, fact, allRelevant) =
-        config.sinkForMethod(method, allRelevant, ignoreSinkEndFacts, lookupMode)
-    // Same forwarding for entry/source/exit/cleaner/pass-through/static roles.
 }
+
+fun near(method: MethodKey, actual: Pattern): List<DemandPattern> =
+    storedNear(method, actual.fact.base, actual.fact.path) +
+        listOfNotNull(implicitStaticPair(actual))
+
+fun covering(method: MethodKey, premise: InitialAp): List<DemandPattern> =
+    storedCovering(method, premise.base, premise.path) +
+        listOfNotNull(implicitStaticPair(premise.toPattern()))
 ```
 
-`certifiedConfigurationKeyOrNull` is a new certificate helper, not an existing
-generation API. It returns no key unless this configuration's inputs are
-fixed for the session. A wrapper must still certify its own complete key;
-a child's key alone cannot certify the wrapper.
+Retain the ordinary ZERO demand in `near` on the zero base. Existing stored
+trie lookups, explicit paired demands and their deduplication stay unchanged.
+The actual input object, not base/path alone, is now part of these two APIs.
 
-## 6. Complete provider wrappers
-
-Implement the capability only where the full wrapper behavior is known.
-Every overridden role stays on the path. A wrapper cannot expose a child's
-name visitor as if it were the complete provider.
-
-| Provider | Required census view |
-| --- | --- |
-| JIRTaintRulesProvider | Same role mapping; CENSUS mode in TaintConfiguration; no-end sinks |
-| JIRSemgrepRuleProvider | Same selected/allRelevant role behavior, unchanged markOwners; selection stays after binding |
-| JIRCombinedTaintRulesProvider | Recreate both child views once, preserve CombinationOptions and full-rule combine order |
-| JIRMethodExitRuleProvider | Keep its initialFacts gate; census passes null as before |
-| StringConcatRuleProvider | Preserve the selected instance's first-rule cache through an explicit state adapter; otherwise retain its existing branch |
-| SpringRuleProvider | Preserve generated-method/field suppression, controller action expansion, cleanup and repository rules |
-| Unknown/custom wrapper | Existing complete provider path; no recursive stripping, no replay-key claim |
-
-A view factory shares each wrapper's current role implementation and changes
-only children/leaf lookup mode. Do not duplicate slightly different role logic.
-For Semgrep, adapt the existing selection view; do not construct another
-JIRSemgrepRuleProvider over the same configuration. Its constructor loads rules
-and can fail after the configuration builder has closed. All nine roles must
-forward CENSUS access; the old anonymous view's three sink overrides alone
-are insufficient.
-
-Preserve the selected Combined instance's lazy `markOwners` sidecar too.
-A census adapter can delegate that property to the selected instance; it must
-not accidentally re-read a stateful child's owner map through a fresh lazy
-initializer. Apply the state-preservation requirement to all wrapper-local
-state, not only the StringConcat cache.
+Update the existing call sites:
 
 ```kotlin
-class SpringRuleProvider(private val base: TaintRulesProvider,
-                         private val springCtx: SpringWebProjectContext)
-    : TaintRulesProvider by base,
-      OwnershipCensusRulesProviderFactory {
-    override fun ownershipCensusView(): CensusView {
-        val child = base.censusViewPreservingState()
-        val wrapped = SpringRuleProvider(child.provider, springCtx)
-        return CensusView(wrapped, completeSpringReplayKeyOrNull(child, springCtx))
-    }
-    // Keep every current overridden role implementation.
+// RunMethodAnalyzer.addLink, after run-1: actual packed input leaves.
+for (leaf in ops.leaves(added)) {
+    found += demand.near(methodKey, leaf)
+}
+val starts = currentQueries.admit(added, found)
+
+// Existing result restriction: select the pair from the ENTRY premise.
+for (guide in demand.covering(methodKey, initial)) {
+    yieldAll(ops.restrict(initial, facts, guide))
 }
 ```
 
-The census route can forward the already-selected empty-end policy to capable
-leaves without bypassing Spring. That binding must preserve full conditions,
-IDs and effective sink outputs under the existing empty-end rule contract.
-Runtime Spring behavior and view-creation boundaries remain as B88. Unknown
-child branches still use ordinary caching and the existing effective sink
-copy path; report that coverage.
+The input can contain multiple actual groups; collect the corresponding pairs
+while visiting its existing leaves. Do not enumerate every declared group.
+Ordinary `emit`/`commonPart`/`restrict` preserve tails, E, mx, layer and paired
+exit checks. A same-group selector keeps the actual FULL mark, not a group
+value in run-2. A static output alone must not authorize a different premise.
+Do not add a guide veto to productive actual-current-query publication.
 
-StringConcat needs explicit state ownership, because its cached rule contains
-the first method. A source-compatible state adapter can use this shape:
-
-```kotlin
-private class ConcatState { var pass: TaintPassThrough? = null }
-
-class StringConcatRuleProvider private constructor(
-    private val base: TaintRulesProvider,
-    private val state: ConcatState,
-) : TaintRulesProvider by base, BidirectionalRulesProviderFactory,
-    OwnershipCensusRulesProviderFactory {
-    constructor(base: TaintRulesProvider) : this(base, ConcatState())
-    override fun bidirectionalRulesView() =
-        StringConcatRuleProvider(base.forBidirectionalCore()) // fresh as in B88
-    override fun ownershipCensusView(): CensusView {
-        val child = base.censusViewPreservingState()
-        return CensusView(StringConcatRuleProvider(child.provider, state), { null })
-    }
-    // Current generated-pass code reads/writes state.pass, in the same order.
-    // Keep the existing method, condition and action construction.
-}
-```
-
-Only a census view of this selected instance shares that instance's cache.
-Do not share one cache across unrelated provider instances or change existing
-fresh `forBidirectionalCore()` boundaries. The conservative StringConcat
-adapter above claims no neutral replay key; its leaves can still avoid bound
-cache insertion. If a state-preserving adapter is unavailable, use the exact
-original branch, with no new descent through it.
-
-Combination must finish before name projection. In OVERRIDE mode the current
-provider compares complete bound conditions, then returns combined rules plus
-non-overridden base rules. Preserve this. Even IGNORE currently evaluates the
-combined provider before returning base rules; do not silently remove that
-call or its errors. AllRelevant is not a substitute for normal selection.
-
-## 7. Optional neutral trace replay
-
-Repeated transient binding can add setup work. Permit session-local reuse of
-an ordered **name trace**, after all wrapper behavior. It stores no bound
-rule, condition, action, sink metadata, compiled form or closure retaining one.
-Do not implement a second long-lived bound cache.
-
-```kotlin
-class CensusSession(private val view: CensusView,
-                    private val owned: OwnedRulesProvider) {
-    private val traces = HashMap<StableCensusKey, List<String>>()
-
-    fun visit(q: CensusQuery) {
-        val key = view.replayKey(q)
-        val cached = key?.let(traces::get)
-        if (cached != null) {
-            cached.forEach(owned::observeFullName)
-            return
-        }
-        val trace = if (key != null) ArrayList<String>() else null
-        for (rule in effectiveRules(view.provider, q)) {
-            visitEffectiveNames(rule) { name ->
-                owned.observeFullName(name)
-                trace?.add(name)
-            }
-        }
-        // Do not cache a partial result if resolution/observation throws.
-        if (key != null) traces[key] = checkNotNull(trace).toList()
-    }
-}
-```
-
-`effectiveRules` performs the exact existing role pipeline on this complete
-view, with sink end lists empty. Preserve its evaluation boundary:
-
-```kotlin
-// Sink roles: finish the eager sink-copy map before observing any sink names.
-val effective = rawSinkRules.map { rule ->
-    if (rule.trackFactsReachAnalysisEnd.isEmpty()) rule
-    else rule.copy(trackFactsReachAnalysisEnd = emptyList())
-}
-for (rule in effective) visitEffectiveNames(rule, emit)
-
-// Source/cleaner/pass roles: retain current iteration-and-observation order.
-for (rule in rawRoleRules) visitEffectiveNames(rule, emit)
-```
-
-If a sink iterator yields a rule then throws, the sink map throws before any
-sink name is observed. A streaming sink observer would change that behavior.
-Reuse the factored OwnedRulesProvider pipeline for fallback providers too;
-ordinary lookup fallback alone does not preserve observation/error order.
-`observeFullName` retains the current ordered
-observed-name set and catalog observation/owner completion. Replay names in
-the same order. Empty traces are valid memo hits.
-
-A replay key is a **capability certificate**, not a key guessed from method
-name. For one frozen session it must include or prove irrelevant:
-
-```kotlin
-data class StableCensusKey(
-    val generation: CensusGeneration, // provider/selection/model/body/context view
-    val role: CensusRole,
-    val subject: MethodOrStaticField,
-    val allRelevant: Boolean,
-    val ignoreSinkEndFacts: Boolean,
-    val statementScope: StatementScope,
-)
-```
-
-The query contract fixes null fact and null initialFacts. For a proved
-method-only chain, StatementScope can be an explicit `Independent` value.
-Otherwise include the actual statement or return no key. Do not merge roles,
-methods/fields, relevance modes, provider instances or selection generations.
-
-A stable immediate name set is insufficient. Skipping a repeated call must
-also preserve subsequent logical rule identities, output order, errors and
-provider state effects. Bind with the existing local-counter sequence.
-Known-child intern/matcher cache warming can be omitted only when its absence
-has no semantic effect. An unknown/stateful child makes the wrapper replay
-key null unless that complete behavior has an explicit proof.
-
-No replay key is required for correctness: the exact CENSUS binding path still
-avoids cache insertion without one. Do not widen a key to claim extra savings.
-No size cap, clipping policy or new pending-work barrier is introduced.
-
-## 8. End-to-end lifetime and runtime handoff
-
-```kotlin
-fun gatherAfterResolvedPrescan(...) {
-    taintConfig.selectRules(ids)
-    val names = collectOwnershipNames(taintConfig, graph, roots)
-    prescan = PrescanResult(ids, lambdas, roots, checker, tracker, graph, names)
-}
-
-private fun collectOwnershipNames(...): List<String> {
-    val view = taintConfig.forOwnershipCensus() // once for this session
-    val owned = OwnedRulesProvider(view.provider, MarkTable())
-    val session = CensusSession(view, owned)
-    visitCurrentPrescanQueries(graph, roots, session::visit)
-    return owned.observedFullNames() // neutral ordered names only
-}
-
-private fun prepareShared(copied: PrescanResult): SharedObjects {
-    val ap = ApManager(cancellation, refManager, JvmPrimitiveProperty.descriptor)
-    val rules = OwnedRulesProvider(taintConfig.forBidirectionalCore(), ap.marks)
-    copied.markNames.forEach(ap.marks::observeModelReference)
-    ap.marks.finishOwnershipCensus()
-    logKnownCatalogStats(ap.marks)
-    return prepareExistingRuntimeObjects(ap, rules, copied)
-}
-```
-
-The helper frame must end before the engine starts. Neither PrescanResult nor
-an engine-owned object retains the census view, session, trace memo, scratch
-catalog or transient rule lists. PrescanResult keeps the same neutral names
-and existing prescan values it kept before. Continue existing clearing of
-prescan/call snapshots. Do not clear unrelated provider caches to obtain a
-memory result.
-
-An already-existing wrapper-local cache can retain its ordinary synthetic
-rule, as before. State-preserving adaptation must not erase that behavior.
-The no-retain claim concerns new census ownership and capable configuration
-cache misses; it does not claim that all provider-owned rule objects disappear.
-
-Runtime rule lookups use RUNTIME mode. They borrow existing entries or bind
-and cache on actual demand as before. Current GROUP/FULL form ownership and
-managed soft references remain unchanged. A cache miss can move binding work
-from setup to engine; measure both clocks.
-
-Rename catalog statistics to `knownFull` and `knownOwnedGroups`. Avoid counting
-by scanning all members once per group; expose synchronized counts from existing
-full-ID storage and nonnull group slots. Counting is setup metadata only.
-Historical eligible counts remain labeled as historical counts.
-
-### Later FULL runs and static guidance
-
-SharedStaticGroupDemand enumerates all known owned groups, including late
-groups, through the same dynamic catalog view. It remains one symbolic family,
-not a method-by-field-by-full-mark product. Empty/orphan groups are omitted.
-
-Production run-2 matches actual FULL leaves with GROUP guides by owner through
-`coversAtom`. It already preserves the actual full identity; keep that path.
-Do not enumerate every catalog member to emit new full facts. Reference drivers
-and finite decoders that enumerate members must use K(g).
-
-More known groups can add guide patterns and GROUP candidates. They cannot
-create a static supply, source hit or finding by themselves. Actual full
-queries, original predicates, exact source/action occurrences, complete joins
-and real transfer decide later results. Preserve the current late-extension
-protocol before a complete barrier; current metadata equality is not a new
-engine replay mechanism.
-
-A late primitive member can change an existing group's decision from reject
-to keep. Updating its bit does not revisit an earlier dropped input. The
-finite witness claim therefore uses a complete fixed catalog generation, or
-the inherited contract that affected work is replayed before completion.
-Do not claim that B88 has a generic catalog-to-filter replay API. The known
-provider adapter must establish census completeness; a new dynamic-generation
-restart/replay mechanism is outside these two selected changes. If an adapter
-needs such a mechanism, expose that gap instead of adding it silently.
-
-## 9. Examples and expected savings
-
-### Primitive query
-
-```java
-int n = parameter();
-consume(n);
-```
-
-Annotated slice: `P -> n/$/Group(g) @DEMAND`. T and U belong to g; U has the
-primitive suffix. Keep P, AP geometry and layer.
+FLOW, ZERO and nonstatic entries contribute no implicit concrete-group pair.
+Retain their ordinary explicit demands and actual-query rules. This change
+adds no unconditional static pass-through or executable S identity.
 
 ```text
-B88: each filter call scans eligible full IDs, creates g's member list,
-     then evaluates member policies.
-New scalar reference: same decision formula over all known owned members.
-New optimized: registration already ORed primitive(U) into g's bit;
-               read the bit and keep this slice. No full-member scan.
+Actual run-2 input: C.f / ANY / Full(g,T)
+Before: enumerate pairs for g,h,j,...; only g contributes an initial.
+After:  construct pair g from this input; obtain the same initial via emit.
+
+Restriction premise has group g; output has group h:
+The implicit g pair contributes no result in either version.
+Ordinary explicit demands and actual-query publication still apply.
 ```
 
-For Q recognized queries, N known full IDs and C owner credits:
+## 8. Setup and runtime pipeline
 
-```text
-all-known scalar lookup: O(Q*N), plus selected member checks/lists
-metadata query:         O(Q), plus O(N) classification and O(C) credits
-retained metadata:      O(N + groups); eligible set removed
+```kotlin
+// Existing rule/config loading; no method binding.
+val declarations = finalizeDeclarations(listOf(rootProvider.markDeclarations))
+
+// Gather keeps resolved call graph, roots, lambdas and existing prescan metadata.
+// Delete the ownership census and its graph/declared/resolved-target role walk.
+// Do not delete normal prescan call resolution or ordinary rule selection.
+
+// Actual analyzer setup.
+val ap = ApManager(cancellation, refManager, MarkTable(declarations))
+val rules = effectiveNewCoreRules(taintConfig.forBidirectionalCore())
+// This view keeps the current empty-end policy and GROUP condition compiler.
+// It performs no name observation or owner mutation.
+
+// On actual rule compilation/use:
+val full = ap.marks.full(resolvedAction.mark.name)
+val runtime = if (run == 1) ap.marks.group(ap.marks.groupOf(full)) else full
 ```
 
-String-test cost and ordinary maps remain separate. Opaque policies retain
-the scalar scan. More known groups can admit work, so local savings are not
-a whole-project performance theorem.
+Remove PrescanResult.markNames, the scratch catalog, observedFullNames,
+censusMethod, census view factories/modes, no-insert lookup, trace replay and
+wrapper-state adapters proposed only for that census. Remove name-observation
+side effects from OwnedRulesProvider; retain its effective rule policy and
+condition compiler. Rename the remaining view to describe those duties.
 
-### Census-only bound rules
+Runtime binding remains lazy and ordinarily cached. Do not change normal /
+allRelevant selection, combination order, original generated sink-ID sequence
+or runtime wrapper construction. Declarations cannot prune executable rules.
 
-```java
-String echoA(String p) { return p; }
-String echoB(String p) { return p; }
-// Broad exit sink r: CM(Result, Full(g,T)); end-action list is empty.
-```
+Removing census warming can change a physical cache's first population.
+For StringConcat the incidental cached rule.method can differ, but the selected
+new-core lowering uses the actual callee and unchanged condition/actions/
+ordinals; it does not read that field. Compare AP operations, type filters,
+FormOwner/ActionIds and semantic observations, not raw cached object equality.
+No StringConcat cache rewrite or new warmup is selected. A custom provider
+must not require census callbacks to establish its runtime semantics.
 
-For either method the runtime slice remains
-`arg0/$/g -> Result/$/g @DEMAND`. Its original method/rule occurrence remains.
-Census itself propagates none of these facts.
+One complete analysis, including all its numbered runs, owns one frozen
+declaration snapshot and one MarkTable. Late mark use means interning a name
+already in that snapshot; it does not append declarations. It cannot change
+a group's owner or primitive flag, or flip a prior filter decision.
 
-```text
-before:
-  bind A/normal, A/allRelevant, B/normal, B/allRelevant
-  observe names -> retain miss results in four runtime cache entries
+A genuinely new provider/configuration generation needs a newly finalized
+snapshot and a new analysis/interner before it executes. Opaque IDs are not
+portable across these contexts. No live-snapshot mutation, extension lane or
+automatic restart/replay protocol is selected. Ordinary later iterations in
+the same analysis retain their interner, valid records and actual-query rules.
+Symbolic guidance needs no refresh when an already-declared mark is first used.
 
-after, cold capable cache:
-  bind the same ordered queries -> observe the same names
-  drop transient lists -> no new runtime bound-cache entries
-  repeated certified query -> replay only its ordered name trace
-  runtime first use -> rebuild the same logical full rules and cache normally
-```
+## 9. Proofs and limits
 
-Normal/allRelevant happen to agree in this example. They remain different keys.
-An existing cached list is borrowed in either version and remains retained.
-The change avoids census-caused retention, not every full-rule allocation.
+The selected reference is the all-serialized, uniformly grouped input domain.
+The earlier eligible/member-OR and no-retain-census designs are historical.
+Do not cite their proofs as proof that mixed groups or undeclared names remain
+supported. The new input assertions are selected semantic restrictions.
 
-Let U be unique capable cold query keys, B(q) their bound payload and T(q) their
-neutral trace. Runtime cache growth caused by census is zero for those keys.
-The old cache can retain the union of B(q); new session state retains only
-traces/keys plus the current transient pipeline. Session state is released
-before engine entry. Wrapper combination can hold several transient lists;
-do not claim one-rule peak memory. Existing cache hits, unsupported branches,
-live forms and immutable provider templates remain retained.
+Required constructive results:
 
-The strict saving requires at least one census-only miss payload with no other
-retaining owner. No universal byte saving or CPU improvement is claimed.
-Transient rebuilding can cost setup/runtime CPU. A verified replay key avoids
-repeated binding only in its certified scope.
+1. **Declaration completeness.** By structural traversal of serialized
+   conditions/actions, every bound executable mark name belongs to the loaded
+   declaration set. Binding preserves the exact kind strings, even when it
+   selects/duplicates positions, folds a branch or adds array positions.
+   Code-created provider marks meet the same explicit declaration contract.
+2. **Owner preservation.** Merge all explicit claims before fallback. An
+   imported/generated name retains its original top-level owner. Uniformity
+   validation rejects mixed flags and contradictory declarations before use.
+3. **Encoding and interning.** Canonical group names distinguish owner/flag.
+   Immutable key interning preserves old keys/IDs and makes repeated insertion
+   idempotent. Group projection preserves the full owner. ZERO stays separate.
+4. **Primitive equivalence.** In a valid nonempty group, all member primitive
+   tests equal the group's test. Therefore scalar existential evaluation equals
+   direct GROUP evaluation. An actual accepted full witness remains accepted.
+   Conjunction preserves equality using the same input, without enumeration.
+5. **Implicit permission equivalence.** For an actual FULL static input,
+   every old group pair except the input owner's pair contributes no initial.
+   For restriction, every pair except the premise owner's pair contributes
+   no result. Keep the same selected pair and opaque AP transfer; thus the
+   successful contribution set equals the old all-groups family. This is not
+   equality of candidate lists or diagnostic callback counts.
+6. **No fact creation.** Declaration validation and key interning create
+   no taint/source. A permission alone emits nothing. FLOW/ZERO receive no
+   concrete-group permission. Existing writer/source/guard derivations remain.
+7. **No specialized setup work.** The metadata collector's recursive steps
+   read only serialized syntax and owner sidecars. Its model makes zero
+   method-specialization calls. Generic wrapper purity or a stable census
+   replay oracle is no longer an assumption needed for setup.
 
-## 10. Correctness and proof obligations
+The additive model is [UniformMarkGroups.lean](lean/ApSpec/UniformMarkGroups.lean),
+with its [focused audit](lean/uniform-mark-groups-audit.lean).
 
-Use a two-stage comparison:
-
-```text
-B88 eligible reference -> selected all-known scalar reference
-    explicit semantic change, not an equality theorem
-
-all-known scalar reference -> metadata + no-retain census implementation
-    equivalence within the stated provider/property contracts
-```
-
-### Primitive policy
-
-The constructive model
-[GroupPrimitiveMetadata.lean](lean/ApSpec/GroupPrimitiveMetadata.lean), namespace
-`AllKnown`, proves owner-only membership, nonempty-group one-bit equality,
-actual full-witness coverage, OR updates, duplicate laws and same-property
-conjunction. It proves the empty-boundary counterexample and both directions
-of changed old eligibility decisions.
-
-| Claim | Checked declaration |
+| Obligation | Checked constructive result |
 | --- | --- |
-| Eligibility flags do not affect membership summary | `AllKnown.ignores_eligibility` |
-| Scalar reference equals owner summary | `AllKnown.reference_eq_guarded` |
-| Fast bit equals scalar for a valid group | `AllKnown.one_bit_nonempty` |
-| Executable owner/property OR | `AllKnown.hasPrimitive_eq_one_bit_summary`, `one_bit_summary_append` |
-| Accepted actual full member remains accepted as a group | `AllKnown.owned_entry_coverage`, `member_one_bit_coverage` |
-| Same-member conjunction | `AllKnown.all_known_conjunction` |
-| Successful owner publication and no-op duplicates | `AllKnown.creation_bit_update`, `register_duplicate_noop` |
-| Stable previous records/owners | `AllKnown.register_preserves_existing`, `owner_cannot_be_reassigned` |
-| Empty-group exception and old/new differences | `AllKnown.empty_boundary`, `eligibility_change_can_reject`, `eligibility_change_can_keep` |
-| Scoped entry-visit comparison | `fixed_members_nonincrease`, `fixed_members_strict` |
+| Uniform declared property and stable owner | `validated_property`, `validated_owners`, `uniform_group` |
+| Canonical typed owner/flag encoding | `decode_encode`, `encode_injective` |
+| Direct primitive decision and conjunction | `full_group_policy`, `nonempty_scalar_eq_group`, `same_witness_and_scalar`, `native_policy_and` |
+| Binding cannot invent a name from position specialization | `Serialized.binding_names_scanned`, `bound_property_from_validated_declarations` |
+| Serialized setup makes no binding query | `Serialized.setup_scan_and_no_binding_queries` |
+| Immutable canonical key slots and projection | `Interner.existing_slot_stable`, `intern_lookup`, `intern_idempotent`, `projected_key_exact` |
+| Entry/premise-specific implicit permission | `Guidance.emission_equivalence`, `restriction_equivalence`, `premise_member_union` |
+| Same pair and no result without ordinary transfer | `Guidance.selected_uses_same_pair`, `no_output_without_ordinary_result` |
+| FLOW/ZERO have no implicit concrete-group pair | `Guidance.flow_zero_no_selection` |
+| Actual-query/other ordinary publication paths retained | `Guidance.unchanged_bypass_equivalence` |
+| Scoped reduction in candidate-guide applications | `Guidance.selected_candidates_nonincrease`, `selected_candidates_strict` |
 
-The owned-record creation model abstracts successful owner publication, not
-raw full-ID reservation. Pending Entry records contribute nothing. Kotlin
-must map every actual owner assignment to the OR update before publication.
-Duplicate state laws do not authorize silently accepting an owner conflict.
+The encoding model is an injective typed owner/flag pair. Exact Kotlin string
+encoding and suffix parsing remain adapter obligations. Declaration validation
+is finite; the Kotlin one-pass map implementation must refine it without
+changing original import precedence. The serialized binding relation permits
+position selection/copying, not arbitrary fresh name creation.
 
-### Census preservation
+The guide proof compares successful contribution sets against a complete
+proof-only enumerated family. It factors the existing entry/premise mark
+guard, then uses the same opaque AP operation and paired exit. It is not
+equality of candidate lists/callback counts or a proof of all AP primitives.
+The unchanged-bypass theorem keeps productive actual-query publication
+outside this implicit permission replacement. No runtime group inventory is
+prescribed by the reference lists in the proof.
 
-For every fixed effective provider generation and complete query q:
+Exact Kotlin serialized-field coverage, suffix/encoding implementation,
+provider declaration forwarding, unchanged full rule lowering and AP matching
+remain production adapter duties. No proof adds a runtime validator for
+fields, guards or source histories.
 
-```text
-ordinary(q) = exact cached result OR existing whole-query binding
-census(q)   = same exact cached result OR same whole-query binding
-observe(q) = ordered effective full-name trace after every wrapper
-```
+The primitive and permission results are local refinements of the validated
+reference. Existing source, ND, request, static supply, record and finite
+handoff models remain catalog-parametric. Instantiate their full universe
+with the validated serialized declarations. No JVM-wide finding, termination,
+wall-time or universal 60-second theorem is claimed.
 
-The required proof has these parts:
+## 10. Implementation sequence, removals and validation
 
-1. Equal complete queries give equal ordered logical bound results, including
-   original rule/action identities. For capable leaves, both miss paths call
-   the same resolver; mode changes only insertion. A cache hit denotes the
-   same generation and result. Keep exact role/relevance/end-policy keys.
-2. Every wrapper preserves that relation by its unchanged role operation.
-   Full-condition OVERRIDE and existing evaluation/error order are included.
-   Projecting names before this step is not a valid proof.
-3. Optional replay requires an equal complete key, equal ordered trace and
-   preservation of subsequent semantic state effects. A finite memo hit
-   replays that same trace. Unsupported providers use ordinary calls.
-4. Induction over the unchanged prescan query list gives the same declaration
-   and observation trace. Each step either invokes the same result or replays
-   its exact certified trace. Shared ordered-name insertion therefore yields
-   the same names, owners/conflicts and stable full-ID creation order.
-5. Census misses do not insert a runtime cache entry; hits do not remove or
-   replace one. Induct over the query list to preserve all preexisting entries.
-   Runtime lookups after census still use the ordinary cache algorithm.
-6. A session trace stores neutral data only. Dropping its frame removes its
-   ownership of transient bound objects. Exact JVM reachability remains an
-   adapter obligation: no closure, result or provider field may retain them.
-7. Equal catalog creation/owner traces give equal all-known K(g) and primitive
-   summaries. Thus census lifetime cannot change the primitive reference.
-   Compose this with the one-bit theorem, not with old eligible equivalence.
+1. Collect names and owner/flag claims during serialized loading. Merge and
+   validate all provider metadata before using MarkTable. Add mixed-group,
+   collision/import and undeclared-name controls first.
+2. Replace mutable ownership/eligibility with immutable-key interning. Update
+   group/full projection, typed exclusions and fixtures; keep original FULL
+   names, opaque-ID stability within the interner and public rule identities.
+3. Encode the group flag and use the current primitive policy directly.
+   Mark native GROUP policies explicitly; preserve that contract through AND.
+4. Replace global static pattern enumeration with entry-dependent matching.
+   Compare successful complete emitted initials/restricted results, including
+   cross-group, FLOW/ZERO, tails/E/mx and both layers.
+5. Delete the entire ownership-binding census and its state. Keep prescan,
+   normal rule selection/binding/caches and current wrapper factories.
+6. Run the selected common/JVM/application/rule gates. When implementation is
+   requested, commit only this iteration's changes, then repeat the same four
+   task.md project configurations with unchanged heaps, timeouts and main pin.
 
-The checked finite model is
-[OwnershipCensus.lean](lean/ApSpec/OwnershipCensus.lean), with its
-[focused audit](lean/ownership-census-audit.lean).
-
-| Claim | Checked declaration |
+| Component | Selected change |
 | --- | --- |
-| Same per-query neutral result/catalog/error | `visit_exact`, `acquisition_same_catalog_or_error` |
-| No capable leaf insertion, even without a replay key | `census_lookup_no_bound_insertion`, `census_only_exact` |
-| Existing cache entries stay unchanged | `preexisting_bound_preserved`, `successful_census_run_preserves_cache` |
-| Unknown/stateful fallback is the ordinary API | `unsupported_is_ordinary`, `fallback_exact` |
-| Replay commits only after successful binding/observation | `failed_observation_no_memo`, `commit_visit_preserves_memo_valid` |
-| Session memo has at most one slot per complete finite key | `memo_slots_bound` |
-| Query-list induction against the ordinary cached reference | `census_equals_cached_reference`, `query_list_exact` |
-| Same completed known catalog and primitive summary | `query_list_same_all_known`, `visit_same_all_known_catalog_and_primitive` |
-| Stable identities when the complete provider certificate holds | `stable_rebuild_identities` |
-| Removed cold cache-root edge and scoped exclusive retention | `fresh_miss_root_edge_difference`, `exclusive_payload_retention_difference`, `fresh_bound_write_cost` |
+| Loader / RuleConversionCtx / TaintRuleFromSemgrep | Original owners and primitive flags before flattening; no new executable marks |
+| Serialized TaintConfiguration.loadConfig | Pure complete mark-name collector; no bound-rule query |
+| Provider declaration capability | Merge all loaded branches; preserve runtime wrappers/roles and original ownership |
+| ap/RuleMarkCatalog.kt | Immutable-key interners; remove owners/eligibility/census/member/global-group APIs |
+| ap/Filter.kt, Primitives.kt, JVM JIRTypeFilters | Direct scalar policy on runtime atom; native GROUP tag and AND |
+| DemandStore and two query call sites | Actual-input/premise-specific implicit static pair |
+| Run1StaticService / Run1PointResume | Rename explicit GroupSet conversion to atomsFor; no universe lookup |
+| JIRBidiAnalysis / OwnedRulesProvider | Remove bound census, scratch/full-name handoff and observation side effects; retain effective rules |
 
-The list proof uses one fixed complete-query resolver world, a semantically
-valid initial cache and valid neutral memo entries. `StableProvider` exposes
-the separate obligation that rebuilding/skipping a call preserves logical
-identities, ordered observations/errors and subsequent observable provider
-state. It does not prove arbitrary mutable JVM wrappers pure. The Kotlin
-adapters must preserve the per-role eager/iteration failure boundary.
+Required controls:
 
-The model's object graph proves a strict retention difference only when the
-removed payload has no other root. It does not measure a JVM heap or prove
-that all objects in the measured bound-cache union become unreachable.
-Finite memo cardinality is a property of the fixed query universe, not a
-new memory threshold or clipping policy.
+- Normal/join/import ownership; delimiters in IDs; raw labels imitating the
+  primitive suffix; both uniform flags; mixed rule/model/SharedModel rejection.
+- All nine serialized roles, signed condition branches, null clean/copy kinds,
+  relevant metadata and disabled end-action names without action validation.
+- No binding calls at declaration setup, including normal/allRelevant and
+  static fields. Unknown/custom providers require declarations, not fallback.
+- Equal immutable keys/handles, owner projection, typed Group/Full exclusions,
+  no pending ownership, no unknown-name registration and no ZERO group.
+- Primitive/boxed/Character/reference/array levels, FULL unchanged, native
+  GROUP AND, and explicit failure for a full-only policy on a GROUP atom.
+- Enumerated-reference versus query-specific permission results for static
+  actual inputs/premises, cross-group output, packed groups, late declared
+  marks, FLOW/ZERO, nonstatic input and all ordinary AP/paired-exit checks.
+- No source/fact from a name or permission; unchanged real writes/kills,
+  requests, conditional sources, ND and exact source/action identities.
+- Warmed versus unwarmed StringConcat at distinct actual signatures: compare
+  compiled AP operations, filters and ActionIds under the same FormOwner.
 
-### Hidden-major-change review
+For 20 fixed primitive GROUP filter calls at declared name populations 51 and
+1,172, require zero full-member scans, zero owner/member probes and zero group
+inventory scans. Count direct name accesses/suffix tests normally. Remove the
+old opaque GROUP fallback diagnostic; retain arbitrary-policy FULL controls
+and a negative GROUP-contract control. Compare complete Facts, not booleans.
 
-The primitive domain changes; fields, sources, calls, cleaners and layers do
-not. The census changes insertion/lifetime; it does not select rules, omit
-role calls, prune the graph or change generated identities. Unknown providers
-keep their complete path. Proofs must not add grounding labels, exact-field
-validation, source gating, new group supplies or later-run guide vetoes.
+For setup, require zero bound-rule lookups caused by mark declaration work
+and zero census-caused runtime cache insertions. Measure ordinary prescan
+binding separately. Existing bound cache entries/live forms remain; do not
+claim that the full measured cache union disappears. No census memo, property
+classifier, generic cache access mode, member list or group-pattern map remains.
 
-The new primitive model proves local full-witness coverage. Existing static,
-request, source and handoff models still require their production adapters.
-No finite model here proves arbitrary JVM compilation, a whole project finding
-set, termination of external provider code or a 60-second engine bound.
+Report setup, engine and barrier times separately. Always include latest
+reached/completed/accepted runs and strict finding identities. No extra test
+configurations, heap changes, IR/cache-manager changes or pending-memory caps
+are selected.
 
-## 11. Implementation plan and tests
+## 11. Measurement and proof checkpoint
 
-Implement in reviewable steps, with no project configuration changes:
-
-1. Keep the selected all-known reference explicit in catalog/filter tests.
-   Update normative decoder terminology and affected existing tests.
-2. Remove active-eligibility state; preserve every creation, owner completion,
-   fixture, conflict, pending-name and late-extension path. Add metadata and
-   counts at those existing catalog owners.
-3. Add typed policy, exact JVM property wiring and same-property AND. Switch
-   only the compatible GROUP branch to metadata. Keep FULL/path behavior.
-4. Add CENSUS leaf lookup mode and known provider factories. Factor shared
-   role/visitor code, preserve exact cache families and use one session view.
-5. Add certified neutral replay only for proved stable complete chains. For
-   any uncertain chain/key use no replay; for an unsupported provider use
-   its existing cached lookup. Release session state before engine entry.
-6. Run the selected common/JVM/application/rule gates. Commit only the selected
-   implementation/tests/docs when implementation is requested. Then repeat
-   task.md's four fixed projects with the same heaps/timeouts and main pin.
-
-Required focused controls:
-
-| Area | Required cases |
-| --- | --- |
-| Membership | Inactive declared primitive/nonprimitive, mixed/shared/model groups, disabled-only declared names, no invented disabled actions |
-| Catalog lifecycle | Both full-ID creation paths, reserve then explicit owner, fixture owner, late SharedModel completion, repeats, conflict/orphan, early GROUP rejection, FULL before census |
-| Policy | Primitive/boxed/Character/array levels, no descriptor, mismatched descriptor/catalog, empty group, FULL scalar, opaque/mixed AND split-witness counterexample |
-| Facts | Compare full root/element-chain filter outputs and path order, not just Boolean results |
-| Leaf caches | Cold/hit/cached-empty for all method roles/relevance/end modes and static fields; CENSUS adds no entries, existing entries untouched, RUNTIME still caches |
-| Resolver identity | Anonymous generated sink IDs, pruned candidates, AnyArgument specialization, signature failures, selected/allRelevant and no-end rebuilds |
-| Wrappers | Combined EXTEND/OVERRIDE/IGNORE; suppressed base names; null-ID models; Spring controller/generated/cleanup/repository roles; StringConcat state across existing/new view boundaries; method-exit gate; no Semgrep constructor reload |
-| Replay | Same key, distinct roles/relevance/statements/generations, empty trace, exception/partial query, late extension, no-key custom/stateful provider |
-| Handoff | Known-owned dynamic static guides, pending/orphan omission, actual FULL mark retained, no fact/source from membership alone |
-| Lifetime | No census frame/memo retains configuration-miss payload after helper return; no raw bound list/closure in trace memo or PrescanResult; account separately for unchanged wrapper/runtime owners |
-
-Include throwing-iterator controls for all three sink roles: yield one rule,
-then throw; no sink observation may escape the eager copy boundary. Keep the
-corresponding source-role prefix behavior. Count both view creation and local
-state reuse; a once-per-session fresh clone alone is not sufficient.
-
-Extend the bounded operation-count diagnostic. With 20 recognized primitive
-GROUP calls at N=51 and N=1,172, require zero member probes, 20 metadata reads,
-no per-visit suffix classification and no member-list allocation. Keep the
-opaque-SAM control on scalar enumeration; with the diagnostic's same known
-members it still has `20*N` owner probes. FULL retains zero member probes.
-Count initialization and metadata reads separately.
-
-For census, count exact cache hits, capable misses, bound results constructed,
-new runtime cache entries, trace replay hits, fallback calls, and role/view
-coverage. A no-retain claim requires zero census-miss cache insertion in every
-selected capable leaf. Count surviving bound payload owners separately.
-Do not infer a whole-cache saving from removed census entries.
-
-Measure setup, engine and report barriers separately. Runtime rebuilding can
-move time into the engine. Compare strict finding identities and original
-rule/source occurrences. Batch-dependent diagnostics can differ. Always report
-latest reached/completed/accepted iteration. Do not broaden/repeat checks after
-they pass unless a new change or unresolved issue requires it.
-
-### Affected code and removal list
-
-| Component | Required change |
-| --- | --- |
-| `ap/RuleMarkCatalog.kt` | Remove eligible set/API, add known readers/counts, optional property and owner metadata hooks |
-| `ap/ApManager.kt`, `ap/Primitives.kt`, `ap/Filter.kt` | Optional descriptor, typed policy/conjunction and compatible GROUP branch |
-| `jvm/bidi/interp/JIRTypeFilters.kt` | Existing level calculation, recognized property policy |
-| `jvm/bidi/interp/OwnedRulesProvider.kt` | Shared effective-name visitor, discovery/ownership helper names, census session entry |
-| `jvm/bidi/JIRBidiAnalysis.kt` | Once-per-gather census view/session, neutral handoff, actual property wiring and known counts |
-| JVM `TaintRulesProvider.kt` | Explicit ownership-census factory/query/view contracts; unknown fallback |
-| `TaintConfiguration.kt`, `JIRTaintRulesProvider.kt` | Exact-key CENSUS cache access for all method/field roles; runtime default unchanged |
-| Semgrep/combined/Spring/exit/StringConcat wrappers | Preserve complete role logic while forwarding view capability |
-| Reference drivers, tests and proof adapters | All-known member domain, census/key/identity/lifetime laws |
-
-Remove only obsolete active-eligibility storage/bookkeeping and old census
-miss insertions on the new route. Keep original declarations and discovery,
-ordinary runtime bound caches, original FULL rules, forms and source metadata.
-Do not blanket-clear normal/allRelevant/no-end maps or remove a provider role.
-
-## 12. Evidence and validation status
-
-The measured baseline is B88. Its selected 2,063-test local gate passes;
-fixed-project acceptance fails. These are previous measurements, not results
-for this specification:
+These are B88 measurements, not results for this revision:
 
 | Project | Latest reached / completed engine / accepted forward report | Run-1 engine |
 | --- | --- | ---: |
@@ -1067,53 +701,33 @@ for this specification:
 | ThingsBoard | run-1 / none / none | 239.084 s, memory-guard OOM |
 | Stirling-PDF | run-2 / run-1 / run-1 | 925.594 s, COMPLETE; run-2 TIMEOUT |
 
-The current fixed-fact diagnostic measured 1,020 versus 23,440 owner probes
-for 20 GROUP calls at eligible-catalog sizes 51 versus 1,172. FULL measured
-zero in both cases. PDF/Conductor have 59.33%/43.80% inclusive eligibleMembers
-Java sample shares. These shares overlap other stacks and do not predict
-wall-time savings.
+B88's selected local gate passes 2,063 tests; fixed-project acceptance fails.
+The fixed-fact diagnostic measured `20*51` versus `20*1172` owner probes for
+GROUP and zero for FULL. PDF/Conductor show 59.33%/43.80% inclusive
+eligibleMembers Java sample shares. These are not wall-time predictions.
 
-ThingsBoard's four bound-cache field families have a nonadditive retained
-union of 3,160,452,352 B. One configuration's eight role storages contain
-940,406 normal/allRelevant method/view key memberships, including empty lists;
-no-end maps are empty in that snapshot. Not all retained bytes are proved to
-be census-only. Existing prescan/runtime cache entries and live forms can
-survive this optimization. Setup savings are outside the 60-second engine
-clock, although lower retention can affect engine memory pressure.
+ThingsBoard's four bound-cache families have a nonadditive retained union
+of 3,160,452,352 B. Not all of it is census-only. Removing mark-setup queries
+avoids their work/retention; ordinary prescan/runtime caches still exist.
+The 60-second target is run-1 engine time. No new project run is part of this
+spec update. See the [current performance report](../docs/reports/bidirectional-run1-normalized-groups-performance-20261019.md).
 
-See the [fresh performance report](../docs/reports/bidirectional-run1-normalized-groups-performance-20261019.md)
-and [root-cause investigation](../docs/reports/bidirectional-run1-work-amplification-root-cause-20261019.md).
-The spec adds no new project run and claims no achieved performance improvement.
+The new focused model/audit pass on Lean 4.33.1: **565 owned declarations,
+zero unexpected axioms, 20 executable controls**. No sorry, custom axiom or
+classical choice is used; the audit permits standard `propext`/`Quot.sound`.
+Only the focused target/audit ran under the three existing workload locks.
+All checks are terminal and the locks are released.
 
-The existing primitive check is Lean 4.33.1: 200 owned declarations audited,
-zero unexpected axioms, 27 executable controls. Its receipt is
-`/drive-testcomp/opentaint-go-rules/grouped-statics-alias-writes-20261019/validation/group-primitive-metadata-proof/coverage-receipt.json`.
-Only the focused module/audit ran under the three existing workload locks.
-No sorry, custom axiom or classical choice is permitted. Standard `propext`
-and `Quot.sound` are the only allowed audit dependencies.
-
-The census model/audit also pass on Lean 4.33.1: **448 owned declarations,
-zero unexpected axioms, 19 executable controls**. Its source/commands/logs
-are bound by
-`/drive-testcomp/opentaint-go-rules/grouped-statics-alias-writes-20261019/validation/ownership-census-proof/receipt.json`.
-The check used the same three locks, ran only the focused target/audit and
-left the primitive proof files unchanged. All checks are terminal and the
-locks are released.
-
-Focused commands, from `spec/lean` while holding the three workload locks:
+Receipt, exact sources/commands and logs:
+`/drive-testcomp/opentaint-go-rules/grouped-statics-alias-writes-20261019/validation/uniform-mark-groups-proof/receipt.json`.
 
 ```sh
-lake env lean -o .lake/build/lib/lean/ApSpec/GroupPrimitiveMetadata.olean ApSpec/GroupPrimitiveMetadata.lean
-lake env lean group-primitive-metadata-audit.lean
-lake env lean -o .lake/build/lib/lean/ApSpec/OwnershipCensus.olean ApSpec/OwnershipCensus.lean
-lake env lean ownership-census-audit.lean
+# From spec/lean, under the three existing workload locks:
+lake env lean -o .lake/build/lib/lean/ApSpec/UniformMarkGroups.olean ApSpec/UniformMarkGroups.lean
+lake env lean uniform-mark-groups-audit.lean
 ```
 
-The receipts bind the actual separate executions, not a new combined project
-run. Do not use an unfiltered Lean build as a substitute for the focused check.
-
-Independent contract and source reviews cover the exact query families,
-wrapper state, effective observation boundaries and generated identities.
-The discovered wrapper-reset and streaming-sink error gaps are fixed in this
-spec. Runtime conformance, Kotlin gate results and fixed-project acceptance
-remain future work. No analyzer implementation is changed by this document.
+Earlier GroupPrimitiveMetadata and OwnershipCensus models remain unchanged
+as historical evidence. Their 200/27 and 448/19 declaration/control audits
+do not certify this revision. Runtime code remains unchanged; no project
+run or Kotlin implementation gate was executed for this spec update.
