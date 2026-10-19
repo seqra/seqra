@@ -1,7 +1,8 @@
 # Mark groups and direct statics: proof dossier
 
 Date: 19 October 2026. Revision: **2.1, source and scope clarification of the
-fixed semantic contract**. Runtime conformance is pending. This dossier supports
+fixed semantic contract**. Candidate B88 passes its selected local gate;
+fixed-project acceptance fails. This dossier supports
 [grouped-run1-statics.md](grouped-run1-statics.md). It follows
 [proof-guide.md](proof-guide.md). It uses ASD-STE100 Simplified Technical
 English. Defined technical terms and program names keep their meanings.
@@ -14,7 +15,9 @@ version. The [manifest](baselines/pre-bottom-up-a80d5c580.json) pins both
 runtime trees, document blobs and document SHA-256 values. The spec's section
 17 states every selected behavior change. Ordinary actual-query, ZERO,
 full-mark primitive, ND and record-reader contracts remain in force.
-The delivered implementation being refactored is `ff2966455`.
+The delivered input to the refactoring was `ff2966455`. The current
+candidate is `b88c85d5b`, including normalized rule views, complete grounding
+removal and the two JVM alias write-descriptor corrections.
 Revision 2 removes its extra exact-field writer validator and runtime
 grounding state. It restores bounded ordinary DEMAND writer eligibility;
 it does not change field transfer. The spec's section 0 is the explicit
@@ -540,10 +543,18 @@ they do not implement this feature or constitute a new project run.
 
 ## 10. Measurement state
 
-No analyzer measurement uses this fixed revision. The latest measured
-runtime remains `ff2966455da2e5ffd0db655a1ff06c5954ed3c8a`, as recorded in
-the [current report](../docs/reports/bidirectional-grouped-statics-performance-20261019.md).
-OWASP, conductor, ThingsBoard and Stirling-PDF each reached **run-1**, completed
-**none** and accepted **none**. All four timed out. No OOM occurred.
+The latest measured runtime is
+`b88c85d5b710d28293d7672af92b085a3838fb19`, recorded in the
+[current report](../docs/reports/bidirectional-run1-normalized-groups-performance-20261019.md).
+The selected implementation gate passes 2,063 tests with no failures,
+errors or skips. Four separate external diagnostic tests also pass; they
+measure finite duplicate work and do not change runtime semantics.
+OWASP and conductor reached **run-1 / none completed / none accepted** and
+timed out. ThingsBoard reached **run-1 / none / none** and hit the memory
+guard. PDF reached **run-2 / run-1 completed / run-1 accepted**; its run-1
+took 925.594 engine seconds and run-2 timed out. All four fail the
+60-second run-1 target. The strict project finding gate also fails.
 The normative spec's section 18 retains engine times and finding caveats.
-Formal validation is not a new project measurement or acceptance result.
+Formal checks and local tests do not override this result. This checkpoint
+changes no theorem or semantic requirement. Older measurements remain
+historical evidence for their pinned runtimes.

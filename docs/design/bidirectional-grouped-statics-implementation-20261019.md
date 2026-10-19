@@ -1,6 +1,6 @@
 # Mark groups and direct statics: implementation proposal
 
-The fixed [specification, revision 2](../../spec/grouped-run1-statics.md)
+The fixed [specification, revision 2.1](../../spec/grouped-run1-statics.md)
 supersedes the grounding/support and full-alias execution design in this
 document. Use the [refactoring proposal and section map](bidirectional-run1-rule-provider-and-grounding-removal-20261019.md)
 for those changes. Reuse existing source AP transfers, positions and actions;
@@ -8,7 +8,10 @@ do not select a different transfer from the normalized guard's leaf count.
 There is no required new source-case API or analysis phase. This document retains the
 earlier implementation/evidence history and is not an extra requirement.
 
-Date: 19 October 2026. Status: **implementation in progress; acceptance pending**.
+Date: 19 October 2026. Status: **historical implementation design, with
+superseded parts**. Candidate B88 implements the fixed contract. Its
+selected local gate passes; fixed-project acceptance fails. Grounding and
+full-alias execution snippets below are historical, not current requirements.
 Use ASD-STE100 Simplified Technical English. Code names and defined technical
 terms keep their meanings. This proposal implements
 [the combined specification](../../spec/grouped-run1-statics.md). Its
@@ -1466,24 +1469,23 @@ standing memberships from attempted callbacks. Add no per-event trace history.
 
 ## 20. Evidence checkpoint
 
-The runtime implementation uses the selected `a80d5c580` base. The final
-combined test pass has no failures or skipped tests: 1,577 common-core
-tests, 416 JVM dataflow tests, 15 selected JVM acceptance/resolver tests and
-31 rule tests. The JVM acceptance controls reach run-3 with limits
-`1, 1, 2`. They retain exact full-mark findings, source action identities
-and negative controls. The Lean build and constructive audit also pass.
-These checks do not establish project performance.
-Fresh measurement of runtime `ff2966455da2e5ffd0db655a1ff06c5954ed3c8a`
-is complete. All four projects reached **run-1 / no completed engine /
-no accepted forward report**. Each stopped with TIMEOUT, without an OOM.
-Run-1 engine times are 908.767 seconds for OWASP, 986.838 for conductor,
-700.235 for ThingsBoard and 1,026.865 for Stirling-PDF.
-All four fail the 60-second run-1 engine target. The strict finding gate
-also fails because no forward result was accepted.
+The primitive base remains `a80d5c580`. The current measured candidate is
+`b88c85d5b710d28293d7672af92b085a3838fb19`. It includes `dac301f2e`'s
+rule-view normalization and complete grounding removal, plus the two JVM
+alias write-descriptor corrections. The selected local gate has 2,063
+passes, no failures, errors or skips: 1,591 common tests, 426 JVM tests,
+15 selected application tests and 31 selected rule tests. This is not an
+unfiltered application-suite pass or proof of project performance.
 
-See the [current performance report](../reports/bidirectional-grouped-statics-performance-20261019.md)
-for the fresh main comparison, source guard, profiles and measurement limits.
-The [next proposal](bidirectional-grouped-statics-next-iteration-20261019.md)
-addresses the measured guard and mark work. No next-iteration runtime
-change is included in this revision. Older runtime reports remain
-historical evidence; they do not establish current acceptance.
+All eight fresh fixed invocations and source/input equality checks are
+closed. OWASP and conductor reach **run-1 / none completed / none accepted**
+and time out after 906.998 and 986.046 engine seconds. ThingsBoard reaches
+**run-1 / none / none** and hits the memory guard after 239.084 engine
+seconds. PDF reaches **run-2 / run-1 completed / run-1 accepted**; run-1
+takes 925.594 seconds, then run-2 times out. All four fail the 60-second
+run-1 target. The strict finding gate also fails.
+
+See the [current performance report](../reports/bidirectional-run1-normalized-groups-performance-20261019.md)
+for the pinned main comparison, finding causes, profiles and memory
+evidence. The old FF report and proposal remain historical. No further
+runtime optimization or semantic change is selected by this checkpoint.

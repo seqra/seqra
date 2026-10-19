@@ -1,5 +1,9 @@
 # Grouped marks and direct statics: performance report
 
+**Historical FF measurements.** The [current B88 report](bidirectional-run1-normalized-groups-performance-20261019.md)
+supersedes this report for current acceptance and optimization selection.
+The results below remain evidence for their exact older runtime only.
+
 Date: 2026-10-19. Measured new-core revision:
 `ff2966455da2e5ffd0db655a1ff06c5954ed3c8a`.
 

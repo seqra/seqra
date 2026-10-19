@@ -1,5 +1,11 @@
 # Next iteration: reduce run-1 guard and propagation work
 
+**Historical FF proposal.** Grounding removal and GROUP rule views are now
+implemented. Use the [current B88 measurements](../reports/bidirectional-run1-normalized-groups-performance-20261019.md)
+and [new ranked proposal](bidirectional-run1-normalized-groups-next-iteration-20261019.md)
+for further optimization selection. Unselected ideas below need fresh
+evidence and design; this document is not a current ranked plan.
+
 The [rule-provider and GroundingSupport removal proposal](bidirectional-run1-rule-provider-and-grounding-removal-20261019.md)
 supersedes this document's guard/certificate retention and full-alias
 designs. It removes `GroundingSupport` entirely and keeps the earlier
@@ -39,8 +45,7 @@ It does not change the reference manager or add a weak cache.
 It does not change the selected empty end-action policy.
 It keeps full rule/source identities and the limits `[1,1,2,3,...]`.
 
-The main code targets are
-[Run1Grounding.kt](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/Run1Grounding.kt),
+The historical FF code targets were `Run1Grounding.kt` (now removed),
 [RunMethodAnalyzer.kt](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunMethodAnalyzer.kt),
 [MarkExclusions.kt](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/MarkExclusions.kt),
 [RuleMarkCatalog.kt](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/RuleMarkCatalog.kt)

@@ -1,7 +1,11 @@
 # Publish reached static alias effects
 
 Date: 19 October 2026. Status: implemented correction. The selected
-2,063-test gate passes. Fresh project measurements are pending.
+2,063-test gate passes. The [fresh B88 study](../reports/bidirectional-run1-normalized-groups-performance-20261019.md)
+is closed. Project acceptance fails: OWASP/Conductor stop in run-1 on
+timeout, ThingsBoard stops in run-1 on the memory guard, and PDF completes
+run-1 then times out in run-2. The exact LicenseKeyChecker sink identity
+missing in Dac is now present. This does not establish overall finding parity.
 Language: ASD-STE100 Simplified Technical English.
 
 ## Problem and selected scope

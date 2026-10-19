@@ -1,6 +1,10 @@
 # Run-1 rule views and removal of GroundingSupport
 
-Date: 2026-10-19. Status: refactoring proposal. No runtime change is made.
+Date: 2026-10-19. Status: implemented in `dac301f2e`, followed by B88's
+alias metadata correction. The selected local gate passes; fixed-project
+acceptance fails. See the [current report](../reports/bidirectional-run1-normalized-groups-performance-20261019.md).
+The current/proposed comparisons below describe the refactoring input and
+its design. They do not select another runtime change.
 Language: ASD-STE100 Simplified Technical English. Defined technical terms,
 code names and mathematical notation keep their stated meanings.
 
@@ -11,7 +15,7 @@ existing source AP transfer. No new `provider.sourceCases` API or runtime
 source-case analysis is selected. The detailed source-family construction
 is proof/regression evidence only.
 
-The runtime under review is `ff2966455da2e5ffd0db655a1ff06c5954ed3c8a`.
+The refactoring input was `ff2966455da2e5ffd0db655a1ff06c5954ed3c8a`.
 The [termination investigation](../reports/bidirectional-grouped-statics-termination-investigation-20261019.md)
 confirms a support-only work cycle with one group and one AP leaf.
 This proposal removes that state dimension instead of making its formulas

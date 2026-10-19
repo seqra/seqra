@@ -1,7 +1,8 @@
 # Mark groups and direct static handling
 
 Date: 19 October 2026. Revision: **2.1, source and semantic-scope clarification**.
-Runtime conformance to this revision is pending. Language: ASD-STE100 Simplified Technical
+Candidate `b88c85d5b` implements this revision and passes the selected local
+gate. Fixed-project acceptance fails; see section 18. Language: ASD-STE100 Simplified Technical
 English. Defined technical terms, program names and mathematical notation
 keep their stated meanings.
 
@@ -101,10 +102,12 @@ the same runtime but already has future bottom-up design text. Use the
 selected checkout for inherited primitive/specification comparison.
 This task records the pin; it does not reset the current workspace.
 
-The delivered implementation to refactor is
+The delivered input to the refactoring was
 `ff2966455da2e5ffd0db655a1ff06c5954ed3c8a`. It already contains the new
 mark/static feature and the grounding state that this revision removes.
-Do not reset that implementation to a80 for this refactoring. Use a80 to
+The selected runtime is now `b88c85d5b710d28293d7672af92b085a3838fb19`:
+`dac301f2e` removes grounding and normalizes rule views; B88 restores the
+two missing alias write descriptors. Use a80 to
 check the unchanged primitive, request, call, ZERO and record contracts.
 The previous spec is retained in Git at `9132d9e22:spec/grouped-run1-statics.md`.
 
@@ -125,7 +128,7 @@ Unchanged AP primitives and normal-call semantics keep the pinned contract.
 The baseline validation had 1,360 common and 297 JVM tests passing, plus
 13 sequence cases. Its application gate had 148 passes, nine failures and
 one skip. It is a useful implementation base, not a claim of full project
-acceptance. Runtime changes are outside this task.
+acceptance. Current runtime validation is separate and appears in section 18.
 
 ## 2. Semantic domain and proof scope
 
@@ -1041,27 +1044,33 @@ and local proof evidence. They do not add hidden runtime phases or storage.
 ## 18. Measurement checkpoint
 
 The latest measured implementation is
-`ff2966455da2e5ffd0db655a1ff06c5954ed3c8a`.
-The primitive baseline in section 1 remains unchanged. These measurements
-use the previous implementation contract, not this fixed revision.
-The [fresh report](../docs/reports/bidirectional-grouped-statics-performance-20261019.md)
+`b88c85d5b710d28293d7672af92b085a3838fb19`.
+The primitive baseline in section 1 remains unchanged. The selected local
+gate passes 2,063 tests with no failures, errors or skips. It includes the
+unfiltered common/JVM modules and selected application/rule classes; it is
+not an unfiltered application-suite pass.
+The [fresh report](../docs/reports/bidirectional-run1-normalized-groups-performance-20261019.md)
 contains these reached / completed engine / accepted forward runs:
 
 | Project | Latest runs | Run-1 engine |
 | --- | --- | --- |
-| OWASP | run-1 / none / none | 908.767 s, TIMEOUT |
-| conductor | run-1 / none / none | 986.838 s, TIMEOUT |
-| ThingsBoard | run-1 / none / none | 700.235 s, TIMEOUT |
-| Stirling-PDF | run-1 / none / none | 1,026.865 s, TIMEOUT |
+| OWASP | run-1 / none / none | 906.998 s, TIMEOUT |
+| conductor | run-1 / none / none | 986.046 s, TIMEOUT |
+| ThingsBoard | run-1 / none / none | 239.084 s, MemoryManager OOM |
+| Stirling-PDF | run-2 / run-1 / run-1 | 925.594 s, COMPLETE; run-2 TIMEOUT |
 
 All four fail the 60-second run-1 engine target.
-No OOM occurred and no forward report was accepted.
-The strict comparison has 4,149 missing project-qualified reference sink
-identities and no additions. The report explains timeout-censored export;
-these differences do not prove 4,149 semantic false negatives.
+All eight fixed invocations and source/input equality checks are closed.
+Only PDF accepted a run-1 DEMAND report. Its strict comparison retains 15
+of 17 main identities, with two return-location differences and 1,641
+added, unconfirmed identities. The first three projects have no accepted
+forward report and miss 4,133 reference identities in their exported results.
+These resource-censored results do not prove individual semantic flow loss.
 Project completion and finding parity fail acceptance.
-The selected 2,039-test pass and formal checks do not override that result.
+The selected local test pass and formal checks do not override that result.
 Older runtime measurements are historical and do not measure this revision.
 The selected [refactoring proposal](../docs/design/bidirectional-run1-rule-provider-and-grounding-removal-20261019.md)
-explains this revision's code changes. They have no new project measurements.
-Other candidates in the earlier next-iteration proposal remain separate work.
+explains this revision's code changes. The fresh report separates engine,
+setup, barrier, profile and memory evidence. No further optimization is
+selected by this checkpoint. This update changes no semantic requirement
+or proof statement.
