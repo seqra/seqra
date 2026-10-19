@@ -4,6 +4,8 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
+import org.opentaint.dataflow.bidi.engine.historical.Run1Slot
+import org.opentaint.dataflow.bidi.engine.historical.normalRun1Slot
 import org.opentaint.dataflow.bidi.fixtures.PipelineFixtures
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import kotlin.test.*
@@ -51,7 +53,7 @@ class MarkQuestionKeyTest {
     @Test fun `borrowing an authoritative row keeps old immutable segments while current marks accumulate`(): Unit {
         PipelineFixtures(limit = 1).use { f ->
             val storage = f.storage()
-            val slot = Run1Slot.Base(AccessPathBase.Argument(0))
+            val slot = org.opentaint.dataflow.bidi.engine.Run1Slot.Base(AccessPathBase.Argument(0))
             val t = f.store.mark("T")
             val u = f.store.mark("U")
             val first = RequestStorage().apply { addAll(slot, RequestMarkSet.of(t)) }
@@ -59,9 +61,8 @@ class MarkQuestionKeyTest {
             val old = storage.borrowRequest(slot)
             val second = RequestStorage().apply { addAll(slot, RequestMarkSet.fromIds(intArrayOf(t.id, u.id))) }
             storage.commit(second)
-            assertEquals(RequestMarkSet.of(t), old.dynamic)
-            assertTrue(old.precomputed.isEmpty)
-            assertEquals(RequestMarkSet.fromIds(intArrayOf(t.id, u.id)), storage.borrowRequest(slot).dynamic)
+            assertEquals(RequestMarkSet.of(t), old.marks)
+            assertEquals(RequestMarkSet.fromIds(intArrayOf(t.id, u.id)), storage.borrowRequest(slot).marks)
             assertEquals(2, storage.borrowRequest(slot).countMarks {})
         }
     }

@@ -35,9 +35,9 @@ class ModesTest {
             assertEquals(setOf(Conclusion(PathFact(x, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty, false)),
                 methodLeaves(f.ops, core.edges.edgesAt(f.inst(0), initial).map { it.second }.toList()))
             assertTrue(core.nonZeroInitial)
-            assertEquals(2L, core.edgeDeltas, "One initial edge plus the shared default schema")
+            assertEquals(1L, core.edgeDeltas, "The static default is shared metadata, not a propagated edge")
             for (input in inputs) core.addLink(caller(input), input.layer, input)
-            assertEquals(2L, core.edgeDeltas, "One initial edge plus the shared default schema")
+            assertEquals(1L, core.edgeDeltas, "The static default is shared metadata, not a propagated edge")
             assertEquals(listOf(initial), core.initials.all().toList())
         }
     }
@@ -137,7 +137,7 @@ class ModesTest {
                 val summary = StatementSummary(setOf(x), listOf(me), emptyList(), emptyMap())
                 assertTrue(applyMethodForm(core, MethodFormMode.STATEMENT, summary, premise, input,
                     Place(f.inst(1), true, true)).isEmpty())
-                assertEquals(if (index == 1 && !excluded) listOf(premise to RequestKind.Mark(t)) else emptyList(), f.requests)
+                assertEquals(if (index == 1) listOf(premise to RequestKind.Mark(f.groupMark(t).mark)) else emptyList(), f.requests)
                 if (f.requests.isNotEmpty()) assertSame(premise, f.requests.single().first)
             }
         }

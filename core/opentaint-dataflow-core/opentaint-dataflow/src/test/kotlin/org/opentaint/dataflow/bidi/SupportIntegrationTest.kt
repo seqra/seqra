@@ -51,6 +51,12 @@ class SupportIntegrationTest {
 
     private fun source(fact: PathFact): PathEdge = PathEdge(ZERO_FACT, fact, ExclusionSet.Empty)
 
+    /** Cached rules stay FULL. These expectations name the selected run-1 execution atom. */
+    private fun grouped(f: FiniteProgramFixtures, fact: PathFact): PathFact {
+        val full = (fact.mark as MarkSlot.Concrete).mark
+        return fact.copy(mark = MarkSlot.Concrete(f.ap.marks.group(f.ap.marks.groupOf(full))))
+    }
+
     private fun rules(vararg sinks: SinkRule): RuleStatement =
         RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY, sinks.toList())
 
@@ -114,7 +120,7 @@ class SupportIntegrationTest {
         assertFalse(witness.confirmed, "No confirmation certificate has been supplied")
     }
 
-    @Test fun `a joined root zero normal exact sink remains a candidate without a certificate`(): Unit {
+    @Test fun `a joined root zero group exact sink remains a demand candidate without a certificate`(): Unit {
         FiniteProgramFixtures().use { f ->
             val method = f.method("rootExact", listOf(listOf(1), emptyList()), 1)
             val key = method.key("root context")
@@ -133,7 +139,7 @@ class SupportIntegrationTest {
             assertEquals(VulnerabilityKey(sink.rule, key.method, method.inst(1)), vulnerability)
             val witness = witnesses.single()
             checkWitness(f, witness, key, 1, listOf(f.ap.zero),
-                listOf(Conclusion(target, ExclusionSet.Empty, false)))
+                listOf(Conclusion(grouped(f, target), ExclusionSet.Empty, true)))
 
             val support = historical(result, config, f)
             assertTrue(support.isSupported(key, listOf(f.ap.zero)))
@@ -144,7 +150,7 @@ class SupportIntegrationTest {
         }
     }
 
-    @Test fun `a primitive exact cleaner demotes a root must sink to demand despite supported zero`(): Unit {
+    @Test fun `a selected exact cleaner preserves the group demand despite supported zero`(): Unit {
         FiniteProgramFixtures().use { f ->
             val method = f.method("rootPartialCleaner", listOf(listOf(1), listOf(2), emptyList()), 2)
             val key = method.key()
@@ -158,7 +164,7 @@ class SupportIntegrationTest {
             val result = joined(f, config)
             assertTrue(links(result.analyzers.single().key).isEmpty())
             val witness = result.witnessesByKey().values.single().single()
-            val demand = Conclusion(target, ExclusionSet.Empty, true)
+            val demand = Conclusion(grouped(f, target), ExclusionSet.Empty, true)
             checkWitness(f, witness, key, 1, listOf(f.ap.zero), listOf(demand))
             assertTrue(result.demandLayerEdges > 0L)
 
@@ -186,14 +192,14 @@ class SupportIntegrationTest {
             f.call(caller, 1, call(callee))
             f.exit(callee, 1, ExitRules(rules(sink), false, emptySet()))
             val seeds = listOf(Seed.Source(caller, main.inst(0), sourceX), Seed.Source(caller, main.inst(0), sourceY))
-            val config = f.config(index = 3, L = 1, roots = listOf(caller),
+            val config = f.config(index = 3, L = 2, roots = listOf(caller),
                 demand = listOf(callee to DemandPattern(px, null), callee to DemandPattern(py, null)), seeds = seeds)
             assertTrue(config.seeds.allowsSource(caller, main.inst(0), sourceX))
             assertTrue(config.seeds.allowsSource(caller, main.inst(0), sourceY))
             val result = joined(f, config)
             assertEquals(setOf(caller, callee), result.analyzers.map { it.key }.toSet())
             val calleeActor = result.analyzers.single { it.key == callee }
-            val ref = CallerRef(caller, f.ap.zero, Layer.NORMAL, main.inst(1))
+            val ref = CallerRef(caller, f.ap.zero, Layer.NORMAL, main.inst(1), stageOrdinal = 2)
             assertEquals(setOf(Link(ZERO_PATTERN, Layer.NORMAL, ref), Link(px, Layer.NORMAL, ref),
                 Link(py, Layer.NORMAL, ref)), links(calleeActor.key))
             val (key, witnesses) = result.witnessesByKey().entries.single()
@@ -241,8 +247,8 @@ class SupportIntegrationTest {
                 f.call(callerY, 1, call(callee))
                 roots = listOf(callerX, callerY)
                 seeds = listOf(Seed.Source(callerX, left.inst(0), sourceX), Seed.Source(callerY, right.inst(0), sourceY))
-                refX = CallerRef(callerX, f.ap.zero, Layer.NORMAL, left.inst(1))
-                refY = CallerRef(callerY, f.ap.zero, Layer.NORMAL, right.inst(1))
+                refX = CallerRef(callerX, f.ap.zero, Layer.NORMAL, left.inst(1), stageOrdinal = 2)
+                refY = CallerRef(callerY, f.ap.zero, Layer.NORMAL, right.inst(1), stageOrdinal = 2)
             } else {
                 val main = f.method("twoSites", listOf(listOf(1, 3), listOf(2), listOf(5),
                     listOf(4), listOf(5), emptyList()), 5)
@@ -253,10 +259,10 @@ class SupportIntegrationTest {
                 f.call(caller, 4, call(callee))
                 roots = listOf(caller)
                 seeds = listOf(Seed.Source(caller, main.inst(1), sourceX), Seed.Source(caller, main.inst(3), sourceY))
-                refX = CallerRef(caller, f.ap.zero, Layer.NORMAL, main.inst(2))
-                refY = CallerRef(caller, f.ap.zero, Layer.NORMAL, main.inst(4))
+                refX = CallerRef(caller, f.ap.zero, Layer.NORMAL, main.inst(2), stageOrdinal = 2)
+                refY = CallerRef(caller, f.ap.zero, Layer.NORMAL, main.inst(4), stageOrdinal = 2)
             }
-            val config = f.config(index = 3, L = 1, roots = roots,
+            val config = f.config(index = 3, L = 2, roots = roots,
                 demand = listOf(callee to DemandPattern(px, null), callee to DemandPattern(py, null)), seeds = seeds)
             val result = joined(f, config)
             val calleeActor = result.analyzers.single { it.key == callee }
@@ -315,8 +321,8 @@ class SupportIntegrationTest {
             assertEquals(6, witnesses.values.sumOf { it.size })
             for (witness in witnesses.values.flatten()) {
                 val demand = witness.methodKey == demandContext
-                val conclusion = Conclusion(if (demand) must else exact.fact,
-                    ExclusionSet.Empty, demand)
+                val conclusion = Conclusion(grouped(f, if (demand) must else exact.fact),
+                    ExclusionSet.Empty, true)
                 checkWitness(f, witness, witness.methodKey, 1, listOf(f.ap.zero), listOf(conclusion))
             }
 
@@ -327,7 +333,7 @@ class SupportIntegrationTest {
                     "Unproved contexts and alternatives remain separate candidate witnesses")
         }
     }
-    @Test fun `mixed caller sink end GEN under zero stays an unproved derived candidate`(): Unit {
+    @Test fun `mixed caller sink keeps its joint candidate while empty end actions create no derived source`(): Unit {
         FiniteProgramFixtures(threads = 3).use { f ->
             val left = f.method("end left", listOf(listOf(1), listOf(2), emptyList()), 2).key()
             val right = f.method("end right", listOf(listOf(1), listOf(2), emptyList()), 2).key()
@@ -344,12 +350,10 @@ class SupportIntegrationTest {
             f.entry(right, RuleStatement(summary(ZERO_KEEP, sy), StatementSummary.EMPTY, emptyList()))
             f.call(left, 1, call(callee))
             f.call(right, 1, call(callee))
-            val end = MicroEdge.of(source(output.fact))
-            val pooled = SinkRule(rule("pooled trigger"), 0, listOf(px, py), listOf(end))
+            val pooled = SinkRule(rule("pooled trigger"), 0, listOf(px, py), emptyList())
             val keep = summary(keepEdge(x), keepEdge(y), keepEdge(AccessPathBase.Return), ZERO_KEEP)
             f.call(callee, 1, CallPlan(setOf(x, y, AccessPathBase.Return), listOf(
                 CallStage.Edges(BEFORE, BOUND, BIND_IN, keep),
-                CallStage.Edges(BOUND, RETURNED, END_FACTS, summary(end.forward), Guard.SinkTriggered(pooled)),
                 CallStage.Actions(BOUND, ADDED, emptyList()),
                 CallStage.Edges(ADDED, RETURNED, UNRESOLVED, keep),
                 CallStage.Actions(RETURNED, REWRITTEN, emptyList()),
@@ -357,7 +361,7 @@ class SupportIntegrationTest {
             ), listOf(pooled), BEFORE, AFTER))
             val derived = SinkRule(rule("zero GEN candidate"), 0, listOf(output), emptyList())
             f.exit(callee, 2, ExitRules(rules(derived), false, emptySet()))
-            val config = f.config(index = 3, L = 3, roots = listOf(left, right),
+            val config = f.config(index = 3, L = 2, roots = listOf(left, right),
                 demand = listOf(callee to DemandPattern(px, null), callee to DemandPattern(py, null)),
                 seeds = listOf(Seed.Source(left, f.inst(left, 0), sx), Seed.Source(right, f.inst(right, 0), sy)))
             val result = joined(f, config)
@@ -369,12 +373,9 @@ class SupportIntegrationTest {
                 "Different callers supply separate members, never the full AND at one call")
             val emitted = result.analyzers.single { it.key == callee }.summaries.all().filter { it.first.isZero }
                 .flatMap { (_, facts) -> f.ops.leaves(facts) }.toSet()
-            assertContains(emitted, output)
-            val downstream = all.entries.single { it.key.rule === derived.rule }.value.single()
-            assertTrue(downstream.supportPremise(f.ap).isZero,
-                "Sink-triggered GEN deliberately runs from zero, so its old ND premise is not a return guard")
-            assertEquals(listOf(setOf(Conclusion(output.fact, output.exclusion, false))),
-                downstream.edges.map { decoded(f, it.facts) })
+            assertFalse(output in emitted, "A sink cannot manufacture an end-action source")
+            assertTrue(pooled.endFacts.isEmpty())
+            assertTrue(all.keys.none { it.rule === derived.rule }, "No downstream output witness exists")
             candidateReport(config, result)
         }
     }

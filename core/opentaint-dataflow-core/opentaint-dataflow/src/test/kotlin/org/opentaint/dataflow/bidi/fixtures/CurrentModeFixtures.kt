@@ -60,11 +60,6 @@ class CurrentModeFixtures : AutoCloseable {
         val handlers = RunMethodHandlers(local, MethodCallServicesFactory(::RunMethodCallServices))
         val factory = RunnerHandlerFactory<RunMethodAnalyzer> { port ->
             handlers.create(object : RunnerPort<RunMethodAnalyzer> by port {
-                override fun subscribe(sub: Subscription) {
-                    if (config.run1) for (leaf in ops.leaves(sub.added))
-                        linkRows += CurrentLink(config.index, sub.callee, sub.ref, sub.linkLayer, leaf)
-                    port.subscribe(sub)
-                }
                 override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
                     for (leaf in ops.leaves(added)) linkRows += CurrentLink(config.index, callee, ref, linkLayer, leaf)
                     port.link(callee, ref, linkLayer, added)
@@ -82,7 +77,7 @@ class CurrentModeFixtures : AutoCloseable {
         return RunManager(config, shared, factory, quantum = 1).run(timeout).also(actual.results::add)
     }
 
-    fun driver(): IterationDriver = actual.driver(FixedLimits(listOf(1, 2, 3)), 15.seconds, this::run)
+    fun driver(): IterationDriver = actual.driver(FixedLimits(listOf(1, 1, 2)), 15.seconds, this::run)
     fun actor(run: Int, method: MethodKey): RunMethodAnalyzer =
         actual.results.single { it.runIndex == run }.analyzers.single { it.key == method }
     fun summaries(run: Int, method: MethodKey, selected: Boolean = false): Set<CurrentSummary> {

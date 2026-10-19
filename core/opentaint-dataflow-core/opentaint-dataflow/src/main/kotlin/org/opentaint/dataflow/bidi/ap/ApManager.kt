@@ -17,6 +17,7 @@ class ApManager(val cancellation: Cancellation, refManager: RefManager = RefMana
     val taintAlg = TaintAlgebra(this)
 
     private val markSets = ConcurrentHashMap<MarkSet, MarkSet>()
+    private val markExclusions = ConcurrentHashMap<MarkExclusions, MarkExclusions>()
     private val exclusions = ConcurrentHashMap<ExclusionSet, ExclusionSet>()
     private val paths = ConcurrentHashMap<PathKey, PathNode>()
     private val initials = ConcurrentHashMap<InitialKey, InitialAp>()
@@ -39,9 +40,28 @@ class ApManager(val cancellation: Cancellation, refManager: RefManager = RefMana
     )
 
     fun intern(set: MarkSet): MarkSet = if (set.isEmpty) MarkSet.EMPTY else markSets.putIfAbsent(set, set) ?: set
+    fun intern(mx: MarkExclusions): MarkExclusions {
+        val owned = mx.withCatalog(marks)
+        return if (owned.isEmpty) MarkExclusions.EMPTY else markExclusions.putIfAbsent(owned, owned) ?: owned
+    }
     fun intern(exclusion: ExclusionSet): ExclusionSet =
         if (exclusion == ExclusionSet.Empty) exclusion else exclusions.putIfAbsent(exclusion, exclusion) ?: exclusion
     fun markSetOf(mark: TaintMark): MarkSet = intern(MarkSet(intArrayOf(mark.id)))
+    fun runtimeMarks(set: MarkSet, mode: ApMode): MarkSet =
+        if (mode.markMode == MarkMode.FULL) set else intern(MarkSet(set.data.map {
+            marks.runtimeAtom(TaintMark(it), mode.markMode).id
+        }.toIntArray()))
+
+    fun runtimeFact(f: Facts, mode: ApMode): Facts = if (mode.markMode == MarkMode.FULL) f else when (f) {
+        is Reach -> f
+        is FlowTree -> flowTree(f.base, if (mode.markMode == MarkMode.GROUP && f.base == STATIC) Layer.DEMAND else f.layer,
+            f.exclusion, f.markExclusion.projected(marks, mode.markMode), f.root, f.tail)
+        is TaintTree -> taintTree(f.base, if (mode.markMode == MarkMode.GROUP) Layer.DEMAND else f.layer,
+            checkNotNull(taintAlg.mapLeaves(f.root, cancellation) {
+                taintLeaves(runtimeMarks(it.exact, mode), runtimeMarks(it.any, mode))
+            }), f.exclusion, f.anyTail)
+    }
+
     fun path(accessor: AccessorIdx, next: PathNode?): PathNode {
         check(next == null || next.manager === this) { "A path suffix must use this AP manager" }
         return paths.computeIfAbsent(PathKey(accessor, next)) { PathNode(it.accessor, it.next, this) }
@@ -97,9 +117,13 @@ class ApManager(val cancellation: Cancellation, refManager: RefManager = RefMana
 
     val zero: InitialAp = initial(AccessPathBase.Zero, null, Tail.EXACT, ExclusionSet.Empty, MarkSlot.Concrete(TaintMark.ZERO))
 
-    fun flowTree(base: AccessPathBase, layer: Layer, exclusion: ExclusionSet, mx: MarkSet, root: FlowNode,
+    fun flowTree(base: AccessPathBase, layer: Layer, exclusion: ExclusionSet, mx: MarkExclusions, root: FlowNode,
                  tail: Tail = if (layer == Layer.NORMAL) Tail.STAR else Tail.ANY): FlowTree =
         FlowTree(base, layer, if (tail == Tail.ANY) ExclusionSet.Empty else intern(exclusion), intern(mx), root, tail)
+
+    fun flowTree(base: AccessPathBase, layer: Layer, exclusion: ExclusionSet, mx: MarkSet, root: FlowNode,
+                 tail: Tail = if (layer == Layer.NORMAL) Tail.STAR else Tail.ANY): FlowTree =
+        flowTree(base, layer, exclusion, MarkExclusions.fromMarks(mx, marks), root, tail)
 
     fun taintTree(base: AccessPathBase, layer: Layer, root: TaintNode, exclusion: ExclusionSet = ExclusionSet.Empty,
                   anyTail: Tail = if (layer == Layer.NORMAL) Tail.ANY_TAINT else Tail.ANY): TaintTree =

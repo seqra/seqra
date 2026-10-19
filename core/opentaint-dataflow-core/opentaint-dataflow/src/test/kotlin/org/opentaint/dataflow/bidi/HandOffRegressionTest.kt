@@ -26,7 +26,7 @@ class HandOffRegressionTest {
         edges.flatMap { listOf(it.from.base, it.to.base) }.toSet(), edges.map(MicroEdge::of), emptyList(), emptyMap())
 
     @Test
-    fun `provisional end fact trigger and F1 candidates retain B2 source seeds and the later demand finding`(): Unit {
+    fun `ignored end facts retain the original candidate and its B2 source seed`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val x = AccessPathBase.Argument(0)
             val y = AccessPathBase.Argument(1)
@@ -64,39 +64,36 @@ class HandOffRegressionTest {
             val laterKey = VulnerabilityKey(later.rule, f.key.method, f.inst(2))
             report.add(forwardConfig, forward)
             assertTrue(forward.witnessesByKey().getValue(earlyKey).all { !it.confirmed })
-            assertTrue(forward.witnessesByKey().getValue(laterKey).all { !it.confirmed })
-            assertEquals(setOf(earlyKey, laterKey), report.demandEntries().map { it.key }.toSet())
+            assertFalse(laterKey in forward.witnessesByKey())
+            assertEquals(setOf(earlyKey), report.demandEntries().map { it.key }.toSet())
             assertEquals(0, report.confirmedCount)
             val toBackward = HandOff.of(forwardConfig, forward, report, f.shared)
             assertEquals(listOf(Seed.Sink(early.rule, f.key, f.inst(1), early.patterns.single())),
                 toBackward.seeds.at(f.key, f.inst(1)), "A normal F1 candidate still supplies its exact seed")
-            assertEquals(listOf(Seed.Sink(later.rule, f.key, f.inst(2), later.patterns.single())),
-                toBackward.seeds.at(f.key, f.inst(2)))
+            assertTrue(toBackward.seeds.at(f.key, f.inst(2)).isEmpty())
             val backwardConfig = f.config(index = 2, L = 1, demand = toBackward.demand, seeds = toBackward.seeds)
             val backward = run(backwardConfig)
             val actor = backward.analyzers.single()
-            assertEquals(1L, actor.triggerSeeds, "The reversed end fact still fires its trigger")
+            assertEquals(0L, actor.triggerSeeds, "Ignored end facts cannot create triggers")
             assertEquals(listOf(Triple(f.key, f.inst(0), source)), actor.sourceHits!!.entries().toList())
             assertSame(source, actor.sourceHits.entries().single().third)
             assertTrue(f.vulnerabilities.witnessesOf(2).none(), "Backward has no sink check")
             f.records.persist(Direction.BACKWARD, backward.analyzers.asSequence().map { it.key to it.summaries })
             val toForward = HandOff.of(backwardConfig, backward, report, f.shared)
             assertEquals(listOf(Seed.Source(f.key, f.inst(0), source)), toForward.seeds.at(f.key, f.inst(0)))
-            assertEquals(1, toForward.seeds.size, "End facts create a trigger, not a synthetic source hit")
-            val refinedConfig = f.config(index = 3, L = 1, demand = toForward.demand, seeds = toForward.seeds)
+            assertEquals(1, toForward.seeds.size, "Only the real source supplies the next forward seed")
+            val refinedConfig = f.config(index = 3, L = 2, demand = toForward.demand, seeds = toForward.seeds)
             val refined = run(refinedConfig)
             report.add(refinedConfig, refined)
             assertTrue(refined.witnessesByKey().getValue(earlyKey).all { !it.confirmed },
                 "Strong raw NORMAL alone still is not a confirmation certificate")
-            assertTrue(refined.witnessesByKey().getValue(laterKey).all { !it.confirmed })
+            assertFalse(laterKey in refined.witnessesByKey())
             val final = report.build(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.POLICY))
-            assertEquals(setOf(earlyKey, laterKey), final.entries.map { it.key }.toSet())
+            assertEquals(setOf(earlyKey), final.entries.map { it.key }.toSet())
             assertEquals(ReportState.DEMAND, final.entries.single { it.key == earlyKey }.state)
             assertEquals(3, final.entries.single { it.key == earlyKey }.run)
-            assertEquals(ReportState.DEMAND, final.entries.single { it.key == laterKey }.state)
-            assertEquals(3, final.entries.single { it.key == laterKey }.run)
             // A separate direct-core control omits the recovered source seed; this is not a driver schedule.
-            val noSource = run(f.config(index = 5, L = 1, demand = toForward.demand, seeds = SeedIndex.EMPTY))
+            val noSource = run(f.config(index = 5, L = 4, demand = toForward.demand, seeds = SeedIndex.EMPTY))
             assertTrue(noSource.witnessesByKey().isEmpty(), "Without the source seed neither positive sink fires")
         }
     }

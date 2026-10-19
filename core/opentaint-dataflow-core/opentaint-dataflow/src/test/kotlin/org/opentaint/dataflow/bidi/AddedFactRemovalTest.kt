@@ -4,7 +4,16 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
-import org.opentaint.dataflow.bidi.fixtures.Run1RequestPipelineFixtures
+import org.opentaint.dataflow.bidi.engine.historical.*
+import org.opentaint.dataflow.bidi.engine.historical.Run1Slot
+import org.opentaint.dataflow.bidi.engine.historical.RunEvent
+import org.opentaint.dataflow.bidi.engine.historical.SummaryStorage
+import org.opentaint.dataflow.bidi.engine.historical.RequestStorage
+import org.opentaint.dataflow.bidi.engine.historical.RequestRows
+import org.opentaint.dataflow.bidi.engine.historical.RequestedRow
+import org.opentaint.dataflow.bidi.engine.historical.RequestRowView
+import org.opentaint.dataflow.bidi.engine.historical.CalleeSubscriptions
+import org.opentaint.dataflow.bidi.fixtures.HistoricalRun1RequestPipelineFixtures as Run1RequestPipelineFixtures
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import kotlin.test.*
 
@@ -49,7 +58,7 @@ class AddedFactRemovalTest {
         }
     }
 
-    @Test fun `actual static marks admit without requests and an absent mark is never fabricated`(): Unit {
+    @Test fun `supplier E does not reject a requested static field but a missing mark still cannot answer`(): Unit {
         Run1RequestPipelineFixtures().use { h ->
             val f = h.f
             val cls = f.ap.accessors.index(ClassStaticAccessor("C"))
@@ -58,23 +67,21 @@ class AddedFactRemovalTest {
             h.declareIdentityStaticDomain(slot)
             val t = f.store.mark("T")
             val u = f.store.mark("U")
+            h.publish(slot, t.id)
             h.submit(f.subscription(f.store.fact(STATIC, listOf(cls), Tail.ANY_TAINT,
                 MarkSlot.Concrete(u), ExclusionSet.of(field))))
             h.drain()
-            val suppliedU = f.ap.initial(STATIC, f.ap.path(slot.pathData), Tail.STAR,
-                ExclusionSet.Empty, MarkSlot.Concrete(u))
-            assertEquals(setOf(suppliedU), h.initials.map { it.second }.filter { it.mark is MarkSlot.Concrete }.toSet())
+            assertTrue(h.initials.none { it.second.mark is MarkSlot.Concrete })
             h.submit(f.subscription(f.store.fact(STATIC, listOf(cls), Tail.ANY_TAINT,
                 MarkSlot.Concrete(t), ExclusionSet.of(field)), call = 2))
             h.drain()
             val expected = f.ap.initial(STATIC, f.ap.path(slot.pathData), Tail.STAR,
                 ExclusionSet.Empty, MarkSlot.Concrete(t))
-            assertEquals(setOf(suppliedU, expected), h.initials.map { it.second }.filter { it.mark is MarkSlot.Concrete }.toSet())
-            assertTrue(h.storage().borrowRequest(slot).isEmpty, "No static ordinary request row was retained")
+            assertEquals(setOf(expected), h.initials.map { it.second }.filter { it.mark is MarkSlot.Concrete }.toSet())
         }
     }
 
-    @Test fun `actual static siblings retain their own geometry without a request rendezvous`(): Unit {
+    @Test fun `a static sibling request cannot consume another field supplier and later matching request still answers`(): Unit {
         Run1RequestPipelineFixtures().use { h ->
             val f = h.f
             val cls = f.ap.accessors.index(ClassStaticAccessor("C"))
@@ -83,17 +90,13 @@ class AddedFactRemovalTest {
             h.declareIdentityStaticDomain(first, second)
             val t = f.store.mark("T")
             h.submit(f.subscription(f.store.fact(STATIC, first.pathData.toList(), mark = MarkSlot.Concrete(t))))
-            h.drain()
+            h.drain(); h.publish(second, t.id); h.drain()
+            assertTrue(h.initials.none { it.second.mark is MarkSlot.Concrete })
+            h.publish(first, t.id); h.drain()
             val expected = f.ap.initial(STATIC, f.ap.path(first.pathData), Tail.EXACT,
                 ExclusionSet.Empty, MarkSlot.Concrete(t))
             assertEquals(setOf(expected), h.initials.map { it.second }.filter { it.mark is MarkSlot.Concrete }.toSet())
-            assertTrue(h.initials.none { it.second.pathData.contentEquals(second.pathData) },
-                "No actual sibling mark was supplied")
-            assertTrue(h.storage().borrowRequest(first).isEmpty)
-            assertTrue(h.storage().borrowRequest(second).isEmpty)
-            h.submit(f.subscription(f.store.fact(STATIC, first.pathData.toList(), mark = MarkSlot.Concrete(t)), call = 2))
-            h.drain()
-            assertEquals(setOf(expected), h.initials.map { it.second }.filter { it.mark is MarkSlot.Concrete }.toSet())
+            assertTrue(t in h.storage().borrowRequest(second), "Unanswered sibling interest remains active")
         }
     }
 
@@ -114,11 +117,8 @@ class AddedFactRemovalTest {
                 ExclusionSet.Empty, MarkSlot.Concrete(mark)) }.toSet()
             assertEquals(expected, h.initials.filter { it.second.mark is MarkSlot.Concrete }.toSet())
             assertEquals(128, h.storage().borrowRequest(slot).countMarks {})
-            val batches = h.sent.filterIsInstance<RunEvent.InitialAnswersIn>()
-            assertEquals(8, batches.size, "Eight distinct caller owners have independent method-empty barriers")
-            assertTrue(batches.all { batch -> batch.method == f.callee && batch.answers.size == 128 })
-            assertEquals(expected, batches.flatMap { batch -> batch.answers.map { batch.method to it } }.toSet(),
-                "Caller envelopes may repeat; callee canonical admission retains exactly the same128 initials")
+            assertEquals(1, h.sent.filterIsInstance<RunEvent.InitialAnswersIn>().size,
+                "The caller visit merges equal callee answers before sending")
         }
     }
 }

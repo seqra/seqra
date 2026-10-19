@@ -299,7 +299,7 @@ class KindFactoryTest {
                 assertEquals(setOf(expected), decode(actual), "$path on $row")
                 assertEquals(if (row.demand) Layer.DEMAND else Layer.NORMAL, actual.layer)
                 val kind = if (row.mark is MarkSlot.Star) FactsKind.FLOW else FactsKind.TAINT
-                val mx = if (row.mark is MarkSlot.Star) row.mark.excluded else MarkSet.EMPTY
+                val mx = if (row.mark is MarkSlot.Star) row.mark.excluded else MarkExclusions.EMPTY
                 assertEquals(GroupKey(kind, actual.layer, x, row.expectedE, mx,
                     if (row.expectedTail == Tail.EXACT) Tail.ANY_TAINT else row.expectedTail), actual.groupKey)
             }

@@ -4,8 +4,17 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
+import org.opentaint.dataflow.bidi.engine.historical.*
+import org.opentaint.dataflow.bidi.engine.historical.Run1Slot
+import org.opentaint.dataflow.bidi.engine.historical.RunEvent
+import org.opentaint.dataflow.bidi.engine.historical.SummaryStorage
+import org.opentaint.dataflow.bidi.engine.historical.RequestStorage
+import org.opentaint.dataflow.bidi.engine.historical.RequestRows
+import org.opentaint.dataflow.bidi.engine.historical.RequestedRow
+import org.opentaint.dataflow.bidi.engine.historical.RequestRowView
+import org.opentaint.dataflow.bidi.engine.historical.CalleeSubscriptions
 import org.opentaint.dataflow.bidi.fixtures.QueuedProtocolSteps
-import org.opentaint.dataflow.bidi.fixtures.Run1RequestPipelineFixtures
+import org.opentaint.dataflow.bidi.fixtures.HistoricalRun1RequestPipelineFixtures as Run1RequestPipelineFixtures
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import org.opentaint.dataflow.util.Cancellation
 import kotlin.test.*
@@ -130,7 +139,7 @@ class MarkQuestionProtocolTest {
             val t = f.store.mark("T")
             h.submit(f.subscription(f.store.fact(mark = MarkSlot.Concrete(t)))); h.drain()
             h.publish(Run1Slot.Base(AccessPathBase.Argument(0)), t.id)
-            h.rejectAnswerSends = true
+            h.acceptSends = false
             assertFailsWith<IllegalStateException> { h.drain() }
             assertEquals(1L, h.statistics.snapshot().replayAnswers)
             assertTrue(h.initials.none { it.second.mark == MarkSlot.Concrete(t) })
@@ -143,7 +152,7 @@ class MarkQuestionProtocolTest {
             val t = f.store.mark("T")
             h.submit(f.subscription(f.store.fact(mark = MarkSlot.Concrete(t)))); h.drain()
             h.publish(Run1Slot.Base(AccessPathBase.Argument(0)), t.id)
-            h.cancelOnAnswerSend = true
+            h.cancelOnSend = true
             assertFailsWith<Cancellation.Cancelled> { h.drain() }
             assertTrue(h.initials.none { it.second.mark == MarkSlot.Concrete(t) })
             assertTrue(h.events.isNotEmpty(), "An accepted queued answer is not an applied answer")

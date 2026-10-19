@@ -10,7 +10,8 @@ val Tail.isAny: Boolean get() = this == Tail.ANY || this == Tail.ANY_TAINT
 infix fun Layer.or(demand: Boolean): Layer = if (demand) Layer.DEMAND else this
 
 /** Run 1 is forward. Every run has a positive field limit. */
-class ApMode(val run1: Boolean, val direction: Direction, val fieldLimit: Int) {
+class ApMode(val run1: Boolean, val direction: Direction, val fieldLimit: Int,
+             val markMode: MarkMode = if (run1) MarkMode.GROUP else MarkMode.FULL) {
     val restricted: Boolean get() = !run1
 
     init {
@@ -51,7 +52,9 @@ class MarkSet(ids: IntArray) {
 }
 
 sealed interface MarkSlot {
-    data class Star(val excluded: MarkSet) : MarkSlot
+    data class Star(val excluded: MarkExclusions) : MarkSlot {
+        constructor(excluded: MarkSet) : this(MarkExclusions.fromMarks(excluded))
+    }
     data class Concrete(val mark: TaintMark) : MarkSlot
     companion object { val STAR = Star(MarkSet.EMPTY) }
 }

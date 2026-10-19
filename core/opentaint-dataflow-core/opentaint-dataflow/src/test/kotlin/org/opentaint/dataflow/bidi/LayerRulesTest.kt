@@ -14,6 +14,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** Focused operation sequences keep normal and demand facts distinct, with explicit expected leaves. */
+/** Full-mark primitive/reference regression; selected GROUP behavior has separate differential controls. */
 class LayerRulesTest {
     private val manager = ApManager(Cancellation())
     private val ops = ApOps(manager)
@@ -27,7 +28,7 @@ class LayerRulesTest {
     private val v = manager.marks.mark("V")
     private val mt = MarkSlot.Concrete(t)
     private val mu = MarkSlot.Concrete(u)
-    private val run1 = ApMode(true, Direction.FORWARD, Int.MAX_VALUE)
+    private val run1 = ApMode(true, Direction.FORWARD, Int.MAX_VALUE, markMode = MarkMode.FULL)
     private val restricted = listOf(ApMode(false, Direction.FORWARD, Int.MAX_VALUE),
         ApMode(false, Direction.BACKWARD, Int.MAX_VALUE))
     private val acceptAll = TypeFilter(FactTypeChecker.AlwaysAcceptFilter)

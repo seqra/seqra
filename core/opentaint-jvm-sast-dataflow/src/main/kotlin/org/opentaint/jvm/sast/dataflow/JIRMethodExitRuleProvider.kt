@@ -4,10 +4,13 @@ import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSink
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.jvm.ap.ifds.taint.BidirectionalRulesProviderFactory
+import org.opentaint.dataflow.jvm.ap.ifds.taint.forBidirectionalCore
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 
-class JIRMethodExitRuleProvider(val base: TaintRulesProvider) : TaintRulesProvider by base {
+class JIRMethodExitRuleProvider(val base: TaintRulesProvider) : TaintRulesProvider by base, BidirectionalRulesProviderFactory {
+    override fun bidirectionalRulesView(): TaintRulesProvider = JIRMethodExitRuleProvider(base.forBidirectionalCore())
     override fun sinkRulesForMethodExit(
         method: CommonMethod,
         statement: CommonInst,

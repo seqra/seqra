@@ -11,11 +11,11 @@ import org.opentaint.dataflow.util.Cancellation
 import kotlin.test.*
 
 class Run1RequestStatisticsTest {
-    @Test fun `uncovered static relays use shared views and authoritative rows without inherited base`() {
-        Run1RequestPipelineFixtures().use { h ->
+    @Test fun `dynamic only same static slot routes upstream without counting an inherited base row skip`() {
+        org.opentaint.dataflow.bidi.fixtures.HistoricalRun1RequestPipelineFixtures().use { h ->
             val f = h.f
             val cls = f.ap.accessors.index(ClassStaticAccessor("C"))
-            val slot = Run1Slot.StaticField(cls,f.store.field("f"))
+            val slot = org.opentaint.dataflow.bidi.engine.historical.Run1Slot.StaticField(cls,f.store.field("f"))
             val t = f.store.mark("T")
             h.declareIdentityStaticDomain(slot)
             val input = f.store.fact(STATIC,slot.pathData.toList(),Tail.STAR,MarkSlot.STAR)
@@ -24,10 +24,7 @@ class Run1RequestStatisticsTest {
             assertTrue(h.storage().borrowRequest(slot).precomputed.isEmpty)
             h.publish(slot,t.id)
             h.drain()
-            assertEquals(setOf(Triple(f.caller,slot as Run1Slot,t.id)),h.climbs,
-                "Without a prescan coverage certificate the ordinary same-field join remains")
-            assertEquals(RequestMarkSet.of(t),h.needs(f.callee,slot))
-            assertEquals(1,h.staticRequests.snapshot().sources)
+            assertEquals(setOf<Triple<MethodKey,org.opentaint.dataflow.bidi.engine.historical.Run1Slot,Int>>(Triple(f.caller,slot,t.id)),h.climbs)
             val totals = h.statistics.snapshot()
             assertEquals(1L,totals.replayClimbs)
             assertEquals(0L,totals.inheritedBaseRowsSkipped,
@@ -67,7 +64,7 @@ class Run1RequestStatisticsTest {
 
     @Test fun `admission counters distinguish authoritative duplicates temporary duplicates and new members`() {
         val slot = Run1Slot.Base(AccessPathBase.Argument(0))
-        val authority = RequestStorage(freezeRequestRows(mapOf(slot to RequestMarkSet.of(TaintMark.ZERO))))
+        val authority = RequestStorage().also { it.addAll(slot, RequestMarkSet.of(TaintMark.ZERO)) }
         val temporary = RequestStorage()
         val statistics = Run1AbstractionStatistics()
         fun collect(vararg ids: Int) {
@@ -105,7 +102,7 @@ class Run1RequestStatisticsTest {
 
     @Test fun `cancelled admission counts only the examined prefix and does not create a P membership`() {
         val slot = Run1Slot.Base(AccessPathBase.Argument(0))
-        val authority = RequestStorage(freezeRequestRows(mapOf(slot to RequestMarkSet.of(TaintMark.ZERO))))
+        val authority = RequestStorage().also { it.addAll(slot, RequestMarkSet.of(TaintMark.ZERO)) }
         val counts = RequestAdmissionCounts()
         val cancellation = Cancellation()
         var checks = 0

@@ -72,7 +72,7 @@ class JIRStaticDomainProducerTest : BidiJIRTestUtils() {
         val out = CollectingOut()
         v.ops.applyEdge(input, v.manager.zero, org.opentaint.dataflow.bidi.ap.PathEdge(
             org.opentaint.dataflow.bidi.interp.ZERO_FACT, action, org.opentaint.dataflow.bidi.ap.ExclusionSet.Empty),
-            statementEdge = true, ApMode(true, Direction.FORWARD, 1), out)
+            statementEdge = true, ApMode(true, Direction.FORWARD, 1, org.opentaint.dataflow.bidi.ap.MarkMode.FULL), out)
         val facts = assertIs<TaintTree>(out.results.single())
         assertEquals(listOf(ClassStaticAccessor(className)), v.ops.leaves(facts).single().fact.path.map(v.manager.accessors::accessor))
     }

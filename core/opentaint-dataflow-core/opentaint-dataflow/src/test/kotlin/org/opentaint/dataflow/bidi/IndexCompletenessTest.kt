@@ -12,10 +12,11 @@ import org.opentaint.dataflow.util.Cancellation
 import kotlin.test.*
 
 /** Positional indexes are checked against complete AP matches, never against another index. */
+/** Full-mark primitive/reference regression; selected GROUP behavior has separate differential controls. */
 class IndexCompletenessTest {
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Return
-    private val modes = listOf(ApMode(true, Direction.FORWARD, 3),
+    private val modes = listOf(ApMode(true, Direction.FORWARD, 3, markMode = MarkMode.FULL),
         ApMode(false, Direction.FORWARD, 3), ApMode(false, Direction.BACKWARD, 3))
     private data class Match(val publication: Publication, val member: Int, val subscription: Subscription, val selected: Facts)
     private data class SelectedLeaf(val publication: Publication, val member: Int, val callee: MethodKey,

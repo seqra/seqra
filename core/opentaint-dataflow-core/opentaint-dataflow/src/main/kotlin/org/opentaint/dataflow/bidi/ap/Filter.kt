@@ -126,7 +126,11 @@ private fun keepPolicyMarks(m: ApManager, marks: MarkSet, policy: MarkPolicy, le
     val kept = ArrayList<Int>()
     for (id in marks.data) {
         m.cancellation.checkpoint()
-        val keep = policy.keeps(TaintMark(id), level)
+        val atom = TaintMark(id)
+        val keep = if (!m.marks.isGroup(atom)) policy.keeps(atom, level) else {
+            val members = m.marks.eligibleMembers(m.marks.groupOf(atom))
+            members.isEmpty() || members.any { policy.keeps(it, level) }
+        }
         m.cancellation.checkpoint()
         if (keep) kept += id
     }

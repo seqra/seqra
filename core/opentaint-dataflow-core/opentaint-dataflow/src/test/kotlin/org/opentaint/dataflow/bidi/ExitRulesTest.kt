@@ -18,9 +18,9 @@ class ExitRulesTest {
     @Test
     fun `the ordinary transfer at an end runs before the exit source and sink worklist`(): Unit {
         val f = MethodAnalysisFixtures()
-        val t = mark(f, "input")
-        val u = mark(f, "exit-source")
-        val v = mark(f, "end-fact")
+        val t = groupMark(f, "input")
+        val u = groupMark(f, "exit-source")
+        val v = groupMark(f, "end-fact")
         val j = initial(f, argument, emptyList(), Tail.EXACT, t)
         f.statements[2] = summary(PathEdge(PathFact(argument, emptyList(), Tail.EXACT, t),
             PathFact(result, emptyList(), Tail.EXACT, t), ExclusionSet.Empty))
@@ -36,17 +36,17 @@ class ExitRulesTest {
         core.addInitial(j)
         f.drain(core)
         assertEquals(setOf(
-            j to Conclusion(PathFact(result, emptyList(), Tail.EXACT, t), ExclusionSet.Empty, demand = false),
-            j to Conclusion(generated, ExclusionSet.Empty, demand = false),
-            f.manager.zero to Conclusion(endTarget, ExclusionSet.Empty, demand = false), defaultRow(f)), raw(core))
+            j to Conclusion(PathFact(result, emptyList(), Tail.EXACT, t), ExclusionSet.Empty, demand = true),
+            j to Conclusion(generated, ExclusionSet.Empty, demand = true)), raw(core))
+        assertTrue(raw(core).none { it.second.fact == endTarget }, "Sink end actions are ignored")
         assertEquals(1, f.sinkEvaluations.count { it.first === exitSink })
     }
 
     @Test
     fun `unconditional exit rules run at both forward exits but only the normal exit summarizes`(): Unit {
         val f = MethodAnalysisFixtures(listOf(listOf(1, 2), emptyList(), emptyList()), normalExit = 1, exceptionalExit = 2)
-        val normalMark = mark(f, "normal")
-        val exceptionalMark = mark(f, "exceptional")
+        val normalMark = groupMark(f, "normal")
+        val exceptionalMark = groupMark(f, "exceptional")
         val normalTarget = PathFact(result, emptyList(), Tail.EXACT, normalMark)
         val exceptionalTarget = PathFact(AccessPathBase.Exception, emptyList(), Tail.EXACT, exceptionalMark)
         f.exitRules[1] = ExitRules(rule(summary(keepEdge(AccessPathBase.Zero),
@@ -61,7 +61,7 @@ class ExitRulesTest {
         core.addRootZero()
         f.drain(core)
         assertEquals(setOf(f.manager.zero to Conclusion(ZERO_FACT, ExclusionSet.Empty, demand = false),
-            f.manager.zero to Conclusion(normalTarget, ExclusionSet.Empty, demand = false), defaultRow(f)), raw(core))
+            f.manager.zero to Conclusion(normalTarget, ExclusionSet.Empty, demand = true)), raw(core))
         assertEquals(setOf(normalSink, exceptionalSink), f.sinkEvaluations.map { it.first }.toSet())
         assertTrue(raw(core).none { it.second.fact.mark == exceptionalMark })
     }
@@ -151,7 +151,7 @@ class ExitRulesTest {
             f.sinkCheck = { _, _, value, sinks ->
                 assertEquals(listOf(incomplete), sinks)
                 val parts = ArrayList<Facts>()
-                for (literal in incomplete.patterns) when (val answer = f.ops.checkMark(value, literal, ApMode(true, Direction.FORWARD, 2))) {
+                for (literal in incomplete.patterns) when (val answer = f.ops.checkMark(value, literal, ApMode(false, Direction.FORWARD, 2))) {
                     is MarkCheck.Holds -> parts += answer.facts
                     MarkCheck.None -> Unit
                     is MarkCheck.Request -> fail("A concrete static input raises no mark request")
@@ -234,8 +234,9 @@ class ExitRulesTest {
     fun `run one and backward zero publication bypass demand reduction without changing raw selection`(): Unit {
         for (index in listOf(1, 2)) {
             val f = MethodAnalysisFixtures()
-            val t = mark(f, "T")
-            val target = fact(f, result, listOf(field(f, "return")), Tail.EXACT, t)
+            val t = if (index == 1) groupMark(f, "T") else mark(f, "T")
+            val target = fact(f, result, listOf(field(f, "return")), Tail.EXACT, t,
+                if (index == 1) Layer.DEMAND else Layer.NORMAL)
             val core = f.core(index = index)
             val end = if (index == 1) f.inst(2) else f.inst(0)
             core.emitAfter(f.manager.zero, end, target)
@@ -250,9 +251,9 @@ class ExitRulesTest {
     @Test
     fun `synchronous publication may add local work and another pending batch before completion`(): Unit {
         val f = MethodAnalysisFixtures()
-        val first = fact(f, result, emptyList(), Tail.EXACT, mark(f, "first"))
-        val follow = fact(f, AccessPathBase.Argument(1), emptyList(), Tail.EXACT, mark(f, "follow"))
-        val queued = initial(f, argument, emptyList(), Tail.EXACT, mark(f, "queued"))
+        val first = fact(f, result, emptyList(), Tail.EXACT, groupMark(f, "first"), Layer.DEMAND)
+        val follow = fact(f, AccessPathBase.Argument(1), emptyList(), Tail.EXACT, groupMark(f, "follow"), Layer.DEMAND)
+        val queued = initial(f, argument, emptyList(), Tail.EXACT, groupMark(f, "queued"))
         val core = f.core()
         var injected = false
         f.onPublish = { _, _ ->
@@ -267,15 +268,15 @@ class ExitRulesTest {
         if (complete) {
             assertEquals(2, f.publications.size, "True requires both accepted publication batches to be flushed")
             assertTrue(f.processed.any { it.premise === queued }, "True requires callback-enqueued work to be processed")
-            assertEquals(4, raw(core).size, "Three data outcomes plus the ordinary static default")
+            assertEquals(3, raw(core).size, "Shared static defaults are not method data outcomes")
         }
         f.drain(core)
         assertTrue(core.work(1000))
         assertEquals(2, f.publications.size)
-        assertSame(first, f.publications[0].single().conclusion)
-        assertTrue(f.publications.flatten().any { it.conclusion === follow })
+        assertEquals(first, f.publications[0].single().conclusion)
+        assertTrue(f.publications.flatten().any { it.conclusion == follow })
         assertTrue(f.processed.any { it.premise === queued })
-        assertEquals(4, raw(core).size, "Three data outcomes plus the ordinary static default")
+        assertEquals(3, raw(core).size, "Shared static defaults are not method data outcomes")
     }
 
     @Test
@@ -336,11 +337,8 @@ class ExitRulesTest {
         }
     }
 
-    private fun defaultRow(f: MethodAnalysisFixtures): Pair<PremiseKey, Conclusion> {
-        val identity = PathFact(STATIC, emptyList(), Tail.STAR, MarkSlot.STAR)
-        return f.manager.initial(Pattern(identity, ExclusionSet.Empty)) to
-            Conclusion(identity, ExclusionSet.Empty, true)
-    }
+    private fun groupMark(f: MethodAnalysisFixtures, name: String): MarkSlot.Concrete =
+        f.groupMark(f.mark(name))
 
     private fun mark(f: MethodAnalysisFixtures, name: String) = MarkSlot.Concrete(f.manager.marks.mark(name))
     private fun field(f: MethodAnalysisFixtures, name: String) =
@@ -405,11 +403,11 @@ class ExitRulesTest {
         when (facts) {
             is Reach -> put(emptyList(), Tail.EXACT, MarkSlot.Concrete(TaintMark.ZERO))
             is FlowTree -> walk(facts.root) { path, _ ->
-                put(path, facts.tail, MarkSlot.Star(facts.markExclusion), facts.exclusion)
+                put(path, if (demand) Tail.ANY else Tail.STAR, MarkSlot.Star(facts.markExclusion), facts.exclusion)
             }
             is TaintTree -> walk(facts.root) { path, leaf ->
                 for (id in leaf.exact.ids) put(path, Tail.EXACT, MarkSlot.Concrete(TaintMark(id)))
-                for (id in leaf.any.ids) put(path, facts.anyTail,
+                for (id in leaf.any.ids) put(path, if (demand) Tail.ANY else Tail.ANY_TAINT,
                     MarkSlot.Concrete(TaintMark(id)), facts.exclusion)
             }
         }

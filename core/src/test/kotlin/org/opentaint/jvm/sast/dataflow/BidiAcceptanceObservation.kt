@@ -5,6 +5,7 @@ import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.*
 import org.opentaint.dataflow.bidi.engine.RunStatus
+import org.opentaint.dataflow.bidi.interp.ActionId
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 /** Decode while the real joined run owns the AP tables; retain no analyzer or mutable store. */
@@ -30,7 +31,8 @@ data class JvmObservedRequest(val method: MethodKey, val originalPremise: JvmObs
                               val mark: String? = null, val position: List<String>? = null)
 data class JvmObservedSourceHit(val method: MethodKey, val statement: CommonInst,
                                 val forwardFrom: JvmObservedPath, val forwardTo: JvmObservedPath,
-                                val sharedExclusion: Set<String> = emptySet())
+                                val sharedExclusion: Set<String> = emptySet(),
+                                val action: ActionId? = null)
 
 /** These scalars are copied from the actual frozen actor, never counted from decoded leaves. */
 data class JvmObservedMethodCounters(
@@ -67,6 +69,8 @@ data class CompleteJvmRun(
     val recordCrossings: Long,
     val triggerSeeds: Long,
     val nonZeroInitials: Set<MethodKey>,
+    /** Actual ownership catalog: full name to its run-1 group atom label. */
+    val markGroups: Map<String, String> = emptyMap(),
 )
 data class BidiAcceptanceResult(val output: List<VulnerabilityWithTrace>,
                                val report: Report, val runs: List<CompleteJvmRun>, val frontiers: List<Frontier>,

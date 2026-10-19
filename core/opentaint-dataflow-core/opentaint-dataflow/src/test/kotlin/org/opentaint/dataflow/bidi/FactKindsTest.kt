@@ -124,17 +124,13 @@ class FactKindsTest {
             val added = f.fact(x, layer = Layer.DEMAND)
             f.admit(core, ref, Layer.DEMAND, added)
             f.drain(core, quantum = 1)
-            assertEquals(2L, core.demandLayerEdges, "Incoming DEMAND plus the universal static default")
-            assertEquals(2L, core.edgeDeltas, "One killed start plus the default schema")
-            val defaults = core.summaries.all().toList()
-            assertEquals(1, defaults.size)
-            assertEquals(AccessPathBase.ClassStatic, defaults.single().first.members.single().base)
-            assertEquals(emptyList(), defaults.single().first.members.single().pathArray.toList())
-            assertEquals(Layer.DEMAND, defaults.single().second.layer)
-            assertEquals(1, f.publications.flatten().size)
+            assertEquals(1L, core.demandLayerEdges)
+            assertEquals(1L, core.edgeDeltas, "Only the killed ordinary start is counted")
+            assertTrue(core.summaries.all().none(), "Shared static defaults do not fabricate method summaries")
+            assertTrue(f.publications.isEmpty())
             f.admit(core, ref, Layer.DEMAND, added)
-            assertEquals(2L, core.demandLayerEdges, "Incoming DEMAND plus the universal static default")
-            assertEquals(2L, core.edgeDeltas, "One killed start plus the default schema")
+            assertEquals(1L, core.demandLayerEdges)
+            assertEquals(1L, core.edgeDeltas, "Only the killed ordinary start is counted")
         }
     }
 

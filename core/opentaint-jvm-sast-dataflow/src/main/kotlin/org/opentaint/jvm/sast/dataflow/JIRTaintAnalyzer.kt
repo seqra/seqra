@@ -1,5 +1,6 @@
 package org.opentaint.jvm.sast.dataflow
 
+import org.opentaint.dataflow.jvm.ap.ifds.taint.forBidirectionalCore
 import kotlinx.coroutines.runBlocking
 import org.opentaint.common.sast.dataflow.TaintAnalyzer
 import org.opentaint.common.sast.dataflow.TaintAnalyzerOptions
@@ -73,7 +74,7 @@ class JIRTaintAnalyzer(
     }
 
     private val taintConfig: TaintRulesProvider by lazy {
-        StringConcatRuleProvider(taintConfiguration)
+        StringConcatRuleProvider(taintConfiguration).let { if (bidiPolicy != null) it.forBidirectionalCore() else it }
     }
 
     override fun analysisManager() =

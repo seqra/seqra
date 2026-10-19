@@ -2,36 +2,28 @@ package org.opentaint.dataflow.bidi.engine
 
 import org.opentaint.dataflow.bidi.ap.ApOps
 import org.opentaint.dataflow.bidi.ap.MethodKey
-import org.opentaint.ir.api.common.CommonMethod
 
 /** Notification posts to this subscribed runner, independently of the callee's unit. */
 interface SubscriptionPort {
     val config: RunConfig
     val ops: ApOps
     val steps: ProtocolSteps
-    val staticNeedRouter: StaticNeedRouter? get() = null
-    val staticRequests: CallerOwnedStaticRequests? get() = null
-    val pendingNeedReplay: PendingNeedReplay? get() = null
     val statistics: N2Statistics? get() = null
     val abstractionStatistics: Run1AbstractionStatistics? get() = null
     val requestBatchStatistics: RequestBatchStatistics? get() = null
+    val staticService: Run1StaticService? get() = null
     fun summaryStorage(key: MethodKey): SummaryStorage
-    fun staticFootprint(method: CommonMethod): Run1StaticFootprint? = null
-    fun staticProfile(method: CommonMethod): Run1StaticProfile? = null
     fun applier(key: MethodKey): SummaryApplier
     fun post(event: RunEvent.Delivery): Boolean
     fun post(event: RunEvent.ChangedRequests): Boolean = error("Request delivery needs its subscribed runner")
-    fun post(event: RunEvent.StaticNeed): Boolean = error("Static need delivery needs its subscribed runner")
-    fun post(event: RunEvent.CallsiteRequests): Boolean = error("Callsite requests need their subscribed runner")
     /** Must enqueue, including same-unit answers/climbs; never invoke an actor inline during a visit. */
     fun send(event: RunEvent): Boolean = error("Question results need counted queued delivery")
 }
 
 /** The actual method handler supplies subscriptions and releases them after joining. */
 interface SubscriptionHandler {
-    fun drainRequests(caller: MethodKey)
     fun subscribe(sub: Subscription)
-    fun subscribeStatic(sub: StaticSubscription): Unit = error("Static identity transport is unavailable")
-    fun subscribeConcreteStatic(sub: ConcreteStaticSubscription): Unit = error("Concrete static transport is unavailable")
+    fun borrowN2(row: N2InputRef): org.opentaint.dataflow.bidi.ap.Facts? = null
+    fun borrowN2Cofactors(row: N2InputRef): List<Subscription> = emptyList()
     fun freeze()
 }

@@ -8,6 +8,9 @@ import org.opentaint.dataflow.bidi.driver.Seed
 import org.opentaint.dataflow.bidi.driver.SeedIndex
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
+import org.opentaint.dataflow.bidi.fixtures.GroupedScalarMarks
+import org.opentaint.dataflow.bidi.fixtures.SelectedReferenceAlgebra
+import org.opentaint.dataflow.bidi.fixtures.SelectedFormsReference
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.interp.CallPoint.*
 import org.opentaint.dataflow.bidi.interp.StageKind.*
@@ -40,7 +43,20 @@ class CallPlanTest {
         return CallPlan(setOf(x), stages, emptyList(), BEFORE, AFTER)
     }
 
-    private fun service(f: MethodAnalysisFixtures, index: Int = 1, L: Int = 3): Pair<RunMethodAnalyzer, RunMethodCallServices> {
+    private fun initial(f: MethodAnalysisFixtures, pattern: Pattern, index: Int = 1): InitialAp =
+        f.manager.initial(if (index == 1) GroupedScalarMarks(f.manager.marks).pattern(pattern) else pattern)
+
+    private fun process(f: MethodAnalysisFixtures, calls: RunMethodCallServices, delta: EdgeDelta, index: Int = 1) {
+        val facts = if (index == 1 && delta.facts !is Reach &&
+            methodLeaves(f.ops, listOf(delta.facts)).any { it.fact.mark is MarkSlot.Concrete && !f.manager.marks.isGroup((it.fact.mark as MarkSlot.Concrete).mark) }) {
+            val value = GroupedScalarMarks(f.manager.marks).conclusion(
+                methodLeaves(f.ops, listOf(delta.facts)).single())
+            f.manager.factsOf(value.fact, value.exclusion, if (value.demand) Layer.DEMAND else Layer.NORMAL)
+        } else delta.facts
+        calls.process(delta.copy(facts = facts))
+    }
+
+    private fun service(f: MethodAnalysisFixtures, index: Int = 1, L: Int = maxOf(1, index - 1)): Pair<RunMethodAnalyzer, RunMethodCallServices> {
         lateinit var service: RunMethodCallServices
         val core = f.core(index = index, L = L, callFactory = MethodCallServicesFactory {
             RunMethodCallServices(it).also { result -> service = result }
@@ -54,15 +70,18 @@ class CallPlanTest {
         }.toSet()
 
     private fun expected(f: MethodAnalysisFixtures, plan: CallPlan, premise: InitialAp, input: Conclusion,
-                         index: Int = 1, L: Int = 3, atBound: (List<PlanItem>) -> List<Pair<SinkRule, Layer>> = { emptyList() }):
+                         index: Int = 1, L: Int = maxOf(1, index - 1), atBound: (List<PlanItem>) -> List<Pair<SinkRule, Layer>> = { emptyList() }):
             Set<Pair<Set<Pattern>, Conclusion>> {
         val directed = if (index % 2 == 1) plan else plan.reversed()
         val mode = ApMode(index == 1, if (index % 2 == 1) Direction.FORWARD else Direction.BACKWARD, L)
         val hooks = PlanHooks(guards = index % 2 == 1, atBound = atBound,
-            clean = { cl, item -> cleanRes(cl, item.c, run1 = index == 1).facts.map { item.copy(c = it) } },
+            clean = { cl, item -> (if (index == 1) GroupedScalarMarks(f.manager.marks).clean(cl, item.c) else cleanRes(cl, item.c)).facts.map { item.copy(c = it) } },
             statementCut = { it.copy(c = limit(it.c, L)) }, exit = { it.copy(c = limit(it.c, L)) })
-        return FormsReference(f.ops, ReferenceAlgebra(mode, manager = f.manager))
-            .run(directed, listOf(PlanItem(setOf(premise.toPattern()), input, null)),
+        val algebra = SelectedReferenceAlgebra(mode, { _, _ -> }, { _, _ -> true }, { _, _ -> },
+            f.manager) { _, _, _, _, _ -> error("No conjunction in these call plans") }
+        val value = if (index == 1) GroupedScalarMarks(f.manager.marks).conclusion(input) else input
+        return SelectedFormsReference(f.ops, algebra)
+            .run(directed, listOf(PlanItem(setOf(premise.toPattern()), value, null)),
                 Place(f.inst(1), index == 1, false), hooks).filter { it.first == directed.exit }
             .map { it.second.premise to it.second.c }.toSet()
     }
@@ -72,14 +91,14 @@ class CallPlanTest {
             val path = listOf(f.field("f"), f.field("g"))
             val mark = MarkSlot.Concrete(f.mark("T"))
             val pattern = Pattern(PathFact(x, path, Tail.EXACT, mark), ExclusionSet.Empty)
-            val initial = f.manager.initial(pattern)
+            val initial = initial(f,pattern, index = index)
             val input = f.fact(x, path, mark = mark)
             val plan = straight()
             f.call(1, plan)
             val (core, calls) = service(f, index)
             assertSame(core.forms.call(f.key, f.inst(1), f.callExpression),
                 core.forms.call(f.key, f.inst(1), f.callExpression))
-            calls.process(EdgeDelta(initial, f.inst(1), input))
+            process(f, calls, EdgeDelta(initial, f.inst(1), input), index = index)
             assertEquals(expected(f, plan, initial, Conclusion(pattern.fact, pattern.exclusion, false), index),
                 stored(f, core, index))
             assertEquals(listOf(Cut.CALL), f.cuts.map { it.first })
@@ -91,23 +110,22 @@ class CallPlanTest {
         MethodAnalysisFixtures().use { f ->
             val other = AccessPathBase.Argument(9)
             val mark = MarkSlot.Concrete(f.mark("T"))
-            val input = f.fact(other, mark = mark)
-            val initial = f.manager.initial(f.pattern(other, mark = mark))
+            val input = f.run1Fact(other, full = mark.mark)
+            val initial = initial(f,f.pattern(other, mark = mark))
             f.call(1, straight(actions = listOf(CleanStep.Clean(Cleaner(other, null,
                 CleanReach.AT_AND_BELOW, null))), aliases = true))
             val (core, calls) = service(f)
-            calls.process(EdgeDelta(initial, f.inst(1), input))
+            process(f, calls, EdgeDelta(initial, f.inst(1), input))
             assertTrue(stored(f, core).isEmpty(), "Unchanged propagation stays in the worklist")
             assertTrue(f.cuts.isEmpty())
             assertTrue(f.subscriptions.isEmpty() && f.sentLinks.isEmpty())
             f.drain(core)
-            assertEquals(setOf(initial to Conclusion(PathFact(other, emptyList(), Tail.EXACT, mark),
-                ExclusionSet.Empty, false)), methodEntries(f.ops, core.summaries.all()))
+            assertEquals(setOf(initial to Conclusion(initial.toPattern().fact, ExclusionSet.Empty, true)), methodEntries(f.ops, core.summaries.all()))
             assertTrue(f.processed.all { it.premise === initial && it.facts === input })
         }
     }
 
-    @Test fun `resolved stage admits caller owned inputs with complete caller callee and stage coordinates`(): Unit {
+    @Test fun `resolved stage subscribes before linking with complete caller and callee coordinates`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val first = f.store.key("callee-one")
             val second = f.store.key("callee-two")
@@ -126,10 +144,11 @@ class CallPlanTest {
             val path = listOf(f.field("f"))
             val mark = MarkSlot.Concrete(f.mark("T"))
             val input = f.fact(x, path, layer = Layer.DEMAND, mark = mark)
-            val initial = f.manager.initial(f.pattern(x, path, mark = mark))
+            val initial = initial(f,f.pattern(x, path, mark = mark))
             val (core, calls) = service(f)
-            calls.process(EdgeDelta(initial, f.inst(1), input))
-            assertEquals(listOf("subscribe:${first.context}", "subscribe:${second.context}"), order)
+            process(f, calls, EdgeDelta(initial, f.inst(1), input))
+            assertEquals(listOf("subscribe:${first.context}", "link:${first.context}",
+                "subscribe:${second.context}", "link:${second.context}"), order)
             assertEquals(listOf(first, second), f.subscriptions.map { it.callee })
             for (part in f.subscriptions) {
                 assertEquals(f.key, part.ref.caller)
@@ -137,19 +156,18 @@ class CallPlanTest {
                 assertSame(f.inst(1), part.ref.call)
                 assertEquals(Layer.DEMAND, part.ref.callerLayer)
                 assertEquals(Layer.DEMAND, part.linkLayer)
-                assertEquals(setOf(Conclusion(PathFact(bind, path, Tail.EXACT, mark), ExclusionSet.Empty, true)),
+                assertEquals(setOf(Conclusion(PathFact(bind, path, Tail.EXACT, f.groupMark(mark.mark)), ExclusionSet.Empty, true)),
                     methodLeaves(f.ops, listOf(part.added)))
                 assertFalse(part.zeroOnly)
             }
-            assertTrue(f.sentLinks.isEmpty(), "Run-1 entry descriptors are dispatched by caller admission")
-            assertTrue(f.subscriptions.all { it.stageFrom == ADDED && it.stageTo == RETURNED })
+            assertEquals(f.subscriptions.map { it.ref }, f.sentLinks.map { it.ref })
             assertTrue(stored(f, core).isEmpty())
             assertTrue(f.cuts.isEmpty(), "The suspended callee stage has no call result to cut")
         }
     }
 
     @Test fun `forward alias guard distinguishes normal identities demand identities and normal effects`(): Unit {
-        for (layer in Layer.entries) for (effect in listOf(false, true)) MethodAnalysisFixtures().use { f ->
+        for (index in listOf(1, 3)) for (layer in Layer.entries) for (effect in listOf(false, true)) MethodAnalysisFixtures().use { f ->
             val t = MarkSlot.Concrete(f.mark("T"))
             val u = MarkSlot.Concrete(f.mark("U"))
             val path = listOf(f.field("f"))
@@ -157,12 +175,12 @@ class CallPlanTest {
                 PathFact(x, path, Tail.EXACT, u), ExclusionSet.Empty)) else summary(keepEdge(x))
             val plan = straight(pass = pass, aliases = true)
             f.call(1, plan)
-            val initial = f.manager.initial(f.pattern(x, path, mark = t))
+            val initial = initial(f,f.pattern(x, path, mark = t), index)
             val input = Conclusion(PathFact(x, path, Tail.EXACT, t), ExclusionSet.Empty, layer == Layer.DEMAND)
-            val (core, calls) = service(f)
-            calls.process(EdgeDelta(initial, f.inst(1), f.fact(x, path, mark = t, layer = layer)))
-            assertEquals(expected(f, plan, initial, input), stored(f, core))
-            assertEquals(effect || layer == Layer.DEMAND, stored(f, core).any { it.second.fact.base == alias })
+            val (core, calls) = service(f, index)
+            process(f, calls, EdgeDelta(initial, f.inst(1), f.fact(x, path, mark = t, layer = layer)), index)
+            assertEquals(expected(f, plan, initial, input, index), stored(f, core, index))
+            assertEquals(index == 1 || effect || layer == Layer.DEMAND, stored(f, core, index).any { it.second.fact.base == alias })
         }
     }
 
@@ -172,10 +190,10 @@ class CallPlanTest {
             f.call(1, plan)
             val path = listOf(f.field("f"))
             val mark = MarkSlot.Concrete(f.mark("T"))
-            val initial = f.manager.initial(f.pattern(alias, path, mark = mark))
+            val initial = initial(f,f.pattern(alias, path, mark = mark), index = 2)
             val input = Conclusion(PathFact(alias, path, Tail.EXACT, mark), ExclusionSet.Empty, false)
             val (core, calls) = service(f, index = 2)
-            calls.process(EdgeDelta(initial, f.inst(1), f.fact(alias, path, mark = mark)))
+            process(f, calls, EdgeDelta(initial, f.inst(1), f.fact(alias, path, mark = mark)), index = 2)
             assertEquals(expected(f, plan, initial, input, index = 2), stored(f, core, index = 2))
             assertEquals(setOf(x, alias), stored(f, core, index = 2).map { it.second.fact.base }.toSet())
         }
@@ -194,10 +212,10 @@ class CallPlanTest {
             f.call(1, plan)
             val path = listOf(f.field("f"))
             val mark = MarkSlot.Concrete(f.mark("T"))
-            val initial = f.manager.initial(f.pattern(x, path, mark = mark))
+            val initial = initial(f,f.pattern(x, path, mark = mark), index = index)
             val input = Conclusion(PathFact(x, path, Tail.EXACT, mark), ExclusionSet.Empty, false)
             val (core, calls) = service(f, index)
-            calls.process(EdgeDelta(initial, f.inst(1), f.fact(x, path, mark = mark)))
+            process(f, calls, EdgeDelta(initial, f.inst(1), f.fact(x, path, mark = mark)), index = index)
             assertEquals(expected(f, plan, initial, input, index), stored(f, core, index))
             assertEquals(index == 2, stored(f, core, index).isNotEmpty())
             assertEquals(if (index == 2) listOf(Cut.CALL) else emptyList(), f.cuts.map { it.first })
@@ -213,12 +231,12 @@ class CallPlanTest {
             val other = CleanStep.Clean(Cleaner(x, null, CleanReach.AT_AND_BELOW, f.mark("other")))
             val plan = straight(actions = listOf(first, other))
             f.call(1, plan)
-            val initial = f.manager.initial(f.pattern(x, mark = mark))
+            val initial = initial(f,f.pattern(x, mark = mark))
             val input = Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, mark), e, false)
             val (core, calls) = service(f)
-            calls.process(EdgeDelta(initial, f.inst(1), f.fact(x, tail = Tail.ANY_TAINT, mark = mark, exclusion = e)))
+            process(f, calls, EdgeDelta(initial, f.inst(1), f.fact(x, tail = Tail.ANY_TAINT, mark = mark, exclusion = e)))
             assertEquals(expected(f, plan, initial, input), stored(f, core))
-            assertEquals(setOf(setOf(initial.toPattern()) to input.copy(exclusion = ExclusionSet.Empty, demand = true)),
+            assertEquals(setOf(setOf(initial.toPattern()) to GroupedScalarMarks(f.manager.marks).conclusion(input).copy(exclusion = ExclusionSet.Empty)),
                 stored(f, core))
             assertEquals(listOf(Cut.CALL), f.cuts.map { it.first })
         }
@@ -233,10 +251,10 @@ class CallPlanTest {
             f.call(1, plan)
             val path = listOf(if (excluded) field else other)
             val mark = MarkSlot.Concrete(f.mark("T"))
-            val initial = f.manager.initial(f.pattern(x, path, mark = mark))
+            val initial = initial(f,f.pattern(x, path, mark = mark))
             val input = Conclusion(PathFact(x, path, Tail.EXACT, mark), ExclusionSet.Empty, false)
             val (core, calls) = service(f)
-            calls.process(EdgeDelta(initial, f.inst(1), f.fact(x, path, mark = mark)))
+            process(f, calls, EdgeDelta(initial, f.inst(1), f.fact(x, path, mark = mark)))
             assertEquals(expected(f, plan, initial, input), stored(f, core))
             assertEquals(!excluded, stored(f, core).isNotEmpty())
             assertEquals(if (excluded) emptyList() else listOf(Cut.CALL), f.cuts.map { it.first })
@@ -244,7 +262,7 @@ class CallPlanTest {
     }
 
     @Test fun `field actions run read clean write statement cuts and remove the temporary before storage`(): Unit {
-        for (index in listOf(1, 2)) for (L in listOf(1, 2, 3)) MethodAnalysisFixtures().use { f ->
+        for ((index, L) in listOf(1 to 1, 2 to 1, 3 to 2, 4 to 3, 5 to 4)) MethodAnalysisFixtures().use { f ->
             val field = f.field("f")
             val g = f.field("g")
             val h = f.field("h")
@@ -256,10 +274,10 @@ class CallPlanTest {
             f.call(1, plan)
             val mark = MarkSlot.Concrete(f.mark("T"))
             val path = listOf(field, g, h)
-            val initial = f.manager.initial(f.pattern(x, path, mark = mark))
+            val initial = initial(f,f.pattern(x, path, mark = mark), index = index)
             val input = Conclusion(PathFact(x, path, Tail.EXACT, mark), ExclusionSet.Empty, false)
             val (core, calls) = service(f, index, L)
-            calls.process(EdgeDelta(initial, f.inst(1), f.fact(x, path, mark = mark)))
+            process(f, calls, EdgeDelta(initial, f.inst(1), f.fact(x, path, mark = mark)), index = index)
             assertEquals(expected(f, plan, initial, input, index, L), stored(f, core, index))
             assertTrue(stored(f, core, index).none { it.second.fact.base == temporary })
             assertEquals(listOf(Cut.STATEMENT, Cut.STATEMENT, Cut.CALL), f.cuts.map { it.first })
@@ -277,7 +295,7 @@ class CallPlanTest {
         return SinkRule(rule, 0, listOf(f.pattern(x)), listOf(MicroEdge.of(end)))
     }
 
-    @Test fun `bound sink guards generate end facts with their effective layer and preserve the ordinary branch`(): Unit {
+    @Test fun `bound sink observation ignores END facts and preserves the ordinary branch`(): Unit {
         for (layer in Layer.entries) for (matching in listOf(false, true)) MethodAnalysisFixtures().use { f ->
             val t = MarkSlot.Concrete(f.mark("T"))
             val mark = if (matching) t else MarkSlot.Concrete(f.mark("other"))
@@ -295,20 +313,20 @@ class CallPlanTest {
                     summary(keepEdge(x), starEdge(y, emptyList(), x, listOf(field)))),
             ), listOf(sink), BEFORE, AFTER)
             f.call(1, plan)
-            val initial = f.manager.initial(f.pattern(x, mark = mark))
+            val initial = initial(f,f.pattern(x, mark = mark))
             val input = Conclusion(PathFact(x, emptyList(), Tail.EXACT, mark), ExclusionSet.Empty, layer == Layer.DEMAND)
             val (core, calls) = service(f)
-            calls.process(EdgeDelta(initial, f.inst(1), f.fact(x, mark = mark, layer = layer)))
+            process(f, calls, EdgeDelta(initial, f.inst(1), f.fact(x, mark = mark, layer = layer)))
             assertEquals(expected(f, plan, initial, input,
                 atBound = { if (matching) listOf(sink to layer) else emptyList() }), stored(f, core))
-            assertEquals(if (matching) listOf(sink to layer) else emptyList(), f.sinkEvaluations)
+            assertEquals(if (matching) listOf(sink to Layer.DEMAND) else emptyList(), f.sinkEvaluations)
             val endResults = stored(f, core).filter { it.second.fact.mark == u }
-            assertEquals(if (matching) 1 else 0, endResults.size)
-            assertTrue(endResults.all { it.first == setOf(f.manager.zero.toPattern()) && it.second.demand == (layer == Layer.DEMAND) })
+            assertEquals(0, endResults.size)
+            assertEquals(setOf(x), stored(f, core).map { it.second.fact.base }.toSet())
         }
     }
 
-    @Test fun `constructor pass bypasses returned actions and remains a normal identity for aliases`(): Unit {
+    @Test fun `constructor pass bypasses returned actions and grouped identities remain demanded for aliases`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val mark = MarkSlot.Concrete(f.mark("T"))
             val plan = CallPlan(setOf(x), listOf(
@@ -322,17 +340,17 @@ class CallPlanTest {
                     summary(starEdge(x, emptyList(), alias, emptyList())), Guard.MemoryEffect),
             ), emptyList(), BEFORE, AFTER)
             f.call(1, plan)
-            val initial = f.manager.initial(f.pattern(x, mark = mark))
+            val initial = initial(f,f.pattern(x, mark = mark))
             val input = Conclusion(PathFact(x, emptyList(), Tail.EXACT, mark), ExclusionSet.Empty, false)
             val (core, calls) = service(f)
-            calls.process(EdgeDelta(initial, f.inst(1), f.fact(x, mark = mark)))
+            process(f, calls, EdgeDelta(initial, f.inst(1), f.fact(x, mark = mark)))
             assertEquals(expected(f, plan, initial, input), stored(f, core))
-            assertEquals(setOf(x), stored(f, core).map { it.second.fact.base }.toSet())
-            assertEquals(listOf(Cut.CALL), f.cuts.map { it.first })
+            assertEquals(setOf(x, alias), stored(f, core).map { it.second.fact.base }.toSet())
+            assertEquals(listOf(Cut.CALL, Cut.CALL), f.cuts.map { it.first })
         }
     }
 
-    @Test fun `synchronous subscription replay resumes at the stored callee stage without a raw run1 link`(): Unit {
+    @Test fun `synchronous subscription replay resumes after the callee stage before its link is sent`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val callee = f.store.key("callee")
             val bound = AccessPathBase.Argument(2)
@@ -345,18 +363,17 @@ class CallPlanTest {
             ), emptyList(), BEFORE, AFTER)
             f.call(1, plan)
             val mark = MarkSlot.Concrete(f.mark("T"))
-            val initial = f.manager.initial(f.pattern(x, mark = mark))
-            val native = f.manager.initial(f.pattern(bound, mark = mark))
+            val initial = initial(f,f.pattern(x, mark = mark))
+            val native = initial(f,f.pattern(bound, mark = mark))
             val (core, calls) = service(f)
             f.onSubscribe = { part ->
-                calls.applySummary(part, Publication(native, f.fact(y, mark = mark)), 0)
+                calls.applySummary(part, Publication(native, f.run1Fact(y, full = mark.mark)), 0)
                 assertTrue(f.sentLinks.isEmpty())
-                assertEquals(setOf(setOf(initial.toPattern()) to Conclusion(PathFact(x, emptyList(), Tail.EXACT, mark),
-                    ExclusionSet.Empty, false)), stored(f, core))
+                assertEquals(setOf(setOf(initial.toPattern()) to Conclusion(initial.toPattern().fact, ExclusionSet.Empty, true)), stored(f, core))
             }
             f.onLink = { assertEquals(1, f.subscriptions.size) }
-            calls.process(EdgeDelta(initial, f.inst(1), f.fact(x, mark = mark)))
-            assertTrue(f.sentLinks.isEmpty())
+            process(f, calls, EdgeDelta(initial, f.inst(1), f.fact(x, mark = mark)))
+            assertEquals(1, f.sentLinks.size)
             assertEquals(listOf(Cut.CALL), f.cuts.map { it.first })
         }
     }
@@ -364,15 +381,15 @@ class CallPlanTest {
     @Test fun `pre-cancelled call processing makes no cut subscription link or result and can retry`(): Unit {
         MethodAnalysisFixtures().use { f ->
             f.call(1, straight())
-            val initial = f.manager.initial(f.pattern())
+            val initial = initial(f,f.pattern())
             val input = f.fact()
             val (core, calls) = service(f)
             f.cancellation.cancel()
-            assertFailsWith<Cancellation.Cancelled> { calls.process(EdgeDelta(initial, f.inst(1), input)) }
+            assertFailsWith<Cancellation.Cancelled> { process(f, calls, EdgeDelta(initial, f.inst(1), input)) }
             assertTrue(f.cuts.isEmpty() && f.subscriptions.isEmpty() && f.sentLinks.isEmpty())
             f.cancellation.activate()
-            calls.process(EdgeDelta(initial, f.inst(1), input))
-            assertEquals(setOf(setOf(initial.toPattern()) to Conclusion(initial.toPattern().fact, ExclusionSet.Empty, false)),
+            process(f, calls, EdgeDelta(initial, f.inst(1), input))
+            assertEquals(setOf(setOf(initial.toPattern()) to Conclusion(initial.toPattern().fact, ExclusionSet.Empty, true)),
                 stored(f, core))
         }
     }
@@ -384,11 +401,11 @@ class CallPlanTest {
                 CallStage.Edges(BEFORE, AFTER, UNRESOLVED, summary(starEdge(x, emptyList(), alias, emptyList()))),
             ), emptyList(), BEFORE, AFTER)
             f.call(1, plan)
-            val initial = f.manager.initial(f.pattern())
+            val initial = initial(f,f.pattern())
             val input = f.fact()
             val (_, calls) = service(f)
             f.onCut = { point, _ -> assertEquals(Cut.CALL, point); f.cancellation.cancel() }
-            assertFailsWith<Cancellation.Cancelled> { calls.process(EdgeDelta(initial, f.inst(1), input)) }
+            assertFailsWith<Cancellation.Cancelled> { process(f, calls, EdgeDelta(initial, f.inst(1), input)) }
             assertEquals(1, f.cuts.size)
         }
     }
@@ -401,8 +418,8 @@ class CallPlanTest {
             val owner = calls.javaClass.declaredFields.single { it.type == RunMethodAnalyzer::class.java }
                 .apply { isAccessible = true }
             assertNull(owner.get(calls))
-            val initial = f.manager.initial(f.pattern())
-            assertFails { calls.process(EdgeDelta(initial, f.inst(1), f.fact())) }
+            val initial = initial(f,f.pattern())
+            assertFails { process(f, calls, EdgeDelta(initial, f.inst(1), f.fact())) }
             val part = Subscription(f.store.key("callee"), org.opentaint.dataflow.bidi.store.CallerRef(
                 f.key, initial, Layer.NORMAL, f.inst(1)), Layer.NORMAL, f.fact())
             assertFails { calls.applySummary(part, Publication(initial, f.fact()), 0) }
@@ -414,11 +431,11 @@ class CallPlanTest {
         MethodAnalysisFixtures().use { f ->
             val field = f.field("f")
             val path = List(32768) { field }
-            val initial = f.manager.initial(f.pattern(x, path))
+            val initial = initial(f,f.pattern(x, path))
             f.call(1, straight())
-            val (core, calls) = service(f, L = Int.MAX_VALUE)
-            calls.process(EdgeDelta(initial, f.inst(1), f.fact(x, path)))
-            assertEquals(setOf(setOf(initial.toPattern()) to Conclusion(initial.toPattern().fact, ExclusionSet.Empty, false)),
+            val (core, calls) = service(f)
+            process(f, calls, EdgeDelta(initial, f.inst(1), f.fact(x, path)))
+            assertEquals(setOf(setOf(initial.toPattern()) to Conclusion(initial.toPattern().fact.copy(path = path.take(1), tail = Tail.ANY), ExclusionSet.Empty, true)),
                 stored(f, core))
             assertEquals(1, f.cuts.size)
         }
@@ -430,8 +447,8 @@ class CallPlanTest {
             f.call(1, plan)
             val initial = when (kind) {
                 FactsKind.REACH -> f.manager.zero
-                FactsKind.FLOW -> f.manager.initial(f.pattern(x, tail = Tail.STAR, mark = MarkSlot.STAR))
-                FactsKind.TAINT -> f.manager.initial(f.pattern())
+                FactsKind.FLOW -> initial(f,f.pattern(x, tail = Tail.STAR, mark = MarkSlot.STAR), index = index)
+                FactsKind.TAINT -> initial(f,f.pattern(), index = index)
             }
             val input = when (kind) {
                 FactsKind.REACH -> Reach.NORMAL
@@ -439,7 +456,7 @@ class CallPlanTest {
                 FactsKind.TAINT -> f.fact()
             }
             val (core, calls) = service(f, index)
-            repeat(2) { calls.process(EdgeDelta(initial, f.inst(1), input)) }
+            repeat(2) { process(f, calls, EdgeDelta(initial, f.inst(1), input), index = index) }
             assertEquals(if (index == 1 && kind == FactsKind.TAINT) 1 else 0, f.unresolvedCalls.size)
             if (f.unresolvedCalls.isNotEmpty()) {
                 val observed = f.unresolvedCalls.single()
@@ -463,27 +480,27 @@ class CallPlanTest {
             f.call(0, plan)
             f.call(1, plan)
             val (core, calls) = service(f)
-            val j = f.manager.initial(f.pattern())
-            val other = f.manager.initial(f.pattern(y))
+            val j = initial(f,f.pattern())
+            val other = initial(f,f.pattern(y))
             val input = f.fact()
-            repeat(2) { calls.process(EdgeDelta(j, f.inst(1), input)) }
-            calls.process(EdgeDelta(j, f.inst(1), f.fact(x, listOf(f.field("growth")))))
-            calls.process(EdgeDelta(other, f.inst(1), input))
-            calls.process(EdgeDelta(j, f.inst(0), input))
+            repeat(2) { process(f, calls, EdgeDelta(j, f.inst(1), input)) }
+            process(f, calls, EdgeDelta(j, f.inst(1), f.fact(x, listOf(f.field("growth")))))
+            process(f, calls, EdgeDelta(other, f.inst(1), input))
+            process(f, calls, EdgeDelta(j, f.inst(0), input))
             assertEquals(4, f.unresolvedCalls.size)
             assertTrue(f.unresolvedCalls.all { it.second == x && it.third === plan })
             assertTrue(core.steps == 0L, "Direct service tests do not process the actor worklist")
         }
         MethodAnalysisFixtures().use { f ->
             val mark = f.mark("T")
-            val plan = straight(actions = listOf(CleanStep.Clean(Cleaner(x, null, CleanReach.EXACT, mark))))
+            val plan = straight(actions = listOf(CleanStep.Clean(Cleaner(x, null, CleanReach.EXACT, null))))
             f.call(1, plan)
             val (_, calls) = service(f)
-            val j = f.manager.initial(f.pattern())
-            calls.process(EdgeDelta(j, f.inst(1), f.fact()))
+            val j = initial(f,f.pattern())
+            process(f, calls, EdgeDelta(j, f.inst(1), f.fact()))
             assertTrue(f.unresolvedCalls.isEmpty(), "A dropped cleaner input never reaches ADDED")
-            repeat(2) { calls.process(EdgeDelta(j, f.inst(1), f.fact(tail = Tail.ANY_TAINT))) }
-            calls.process(EdgeDelta(j, f.inst(1), f.fact(tail = Tail.ANY, layer = Layer.DEMAND)))
+            repeat(2) { process(f, calls, EdgeDelta(j, f.inst(1), f.fact(tail = Tail.ANY_TAINT))) }
+            process(f, calls, EdgeDelta(j, f.inst(1), f.fact(tail = Tail.ANY, layer = Layer.DEMAND)))
             assertEquals(2, f.unresolvedCalls.size,
                 "The same added demand fact has two distinct original caller layers")
         }
@@ -500,7 +517,7 @@ class CallPlanTest {
             f.onSubscribe = { assertTrue(f.unresolvedCalls.isEmpty()) }
             f.onLink = { assertTrue(f.unresolvedCalls.isEmpty()) }
             val (_, calls) = service(f)
-            calls.process(EdgeDelta(f.manager.initial(f.pattern()), f.inst(1), f.fact()))
+            process(f, calls, EdgeDelta(initial(f,f.pattern()), f.inst(1), f.fact()))
             assertEquals(1, f.subscriptions.size)
             assertTrue(f.unresolvedCalls.isEmpty())
         }

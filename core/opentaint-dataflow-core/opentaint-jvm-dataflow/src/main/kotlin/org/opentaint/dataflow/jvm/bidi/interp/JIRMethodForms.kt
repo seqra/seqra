@@ -2,6 +2,7 @@ package org.opentaint.dataflow.jvm.bidi.interp
 
 import org.opentaint.dataflow.bidi.ap.Direction
 import org.opentaint.dataflow.bidi.ap.MethodKey
+import org.opentaint.dataflow.bidi.interp.FormKey
 import org.opentaint.dataflow.bidi.interp.CallPlan
 import org.opentaint.dataflow.bidi.interp.FormsCache
 import org.opentaint.dataflow.bidi.interp.MethodForms
@@ -33,7 +34,9 @@ class JIRMethodForms internal constructor(
                         add(alias to path.map(interp::idx))
                     }
                 } },
-                readSources = interp.ruleForms::readSources).build(s as JIRInst)
+                readSources = { builder, at -> interp.ruleForms.readSources(builder, at,
+                    FormKey(entry.shared.formOwner, key.method, null, at)) },
+                formOwner = entry.shared.formOwner).build(s as JIRInst)
         }, use)
 
     override fun call(direction: Direction, s: CommonInst, call: CommonCallExpr) = withCall(direction, s, call) { it }

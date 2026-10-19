@@ -19,7 +19,9 @@ class RunConfig(
 ) {
     init {
         require(index >= 1) { "The run index must be positive" }
-        require(fieldLimit >= 1) { "The field limit must be positive" }
+        require(fieldLimit == maxOf(1, index - 1)) {
+            "The selected schedule requires limits 1, 1, 2, 3, ..."
+        }
         require((index == 1) == (demand == null)) { "Only run 1 has no demand snapshot" }
     }
 

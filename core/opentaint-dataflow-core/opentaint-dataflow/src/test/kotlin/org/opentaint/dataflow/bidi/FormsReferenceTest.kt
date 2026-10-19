@@ -34,7 +34,7 @@ class FormsReferenceTest {
         FormsReference(fixture.ops, ReferenceAlgebra(mode, manager = m))
 
     @Test fun `all three form modes agree with tree transfers on complete leaf identities`(): Unit {
-        val modes = listOf(ApMode(true, Direction.FORWARD, 1), ApMode(false, Direction.FORWARD, 2),
+        val modes = listOf(ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.FULL), ApMode(false, Direction.FORWARD, 2),
             ApMode(false, Direction.BACKWARD, 3))
         val marks = listOf(mt, mu, MarkSlot.STAR, MarkSlot.Star(MarkSet(intArrayOf(t.id))))
         val paths = listOf(emptyList(), listOf(f), listOf(g), listOf(f, g))
@@ -113,7 +113,7 @@ class FormsReferenceTest {
         val staticRead = MicroEdge.of(starEdge(STATIC, listOf(f, g, f), y, emptyList()))
         for (run1 in listOf(false, true)) for (statement in listOf(false, true)) {
             val requests = ArrayList<Pair<Set<Pattern>, RequestKind>>()
-            val algebra = ReferenceAlgebra(ApMode(run1, Direction.FORWARD, 1),
+            val algebra = ReferenceAlgebra(ApMode(run1, Direction.FORWARD, 1, markMode = MarkMode.FULL),
                 request = { p, r -> requests += p to r }, manager = m, historicalRun1 = true)
             algebra.applyEdge(markRead, star, premise, statement) { _, _ -> fail("A star mark cannot supply T") }
             assertEquals(if (run1) listOf(premise to RequestKind.Mark(t)) else emptyList(), requests)

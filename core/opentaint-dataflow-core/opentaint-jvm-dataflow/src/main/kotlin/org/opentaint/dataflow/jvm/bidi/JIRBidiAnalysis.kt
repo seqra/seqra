@@ -1,10 +1,10 @@
 package org.opentaint.dataflow.jvm.bidi
 
+import org.opentaint.dataflow.jvm.ap.ifds.taint.forBidirectionalCore
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.ResolvedPrescanGraph
-import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisManager
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.taint.ExternalMethodTracker
@@ -20,7 +20,6 @@ import org.opentaint.dataflow.bidi.driver.Report
 import org.opentaint.dataflow.bidi.driver.ReportState
 import org.opentaint.dataflow.bidi.engine.MethodContextCache
 import org.opentaint.dataflow.bidi.engine.RunStatus
-import org.opentaint.dataflow.bidi.engine.Run1StaticProfiles
 import org.opentaint.dataflow.bidi.engine.SharedObjects
 import org.opentaint.dataflow.bidi.store.ConcurrentVulnerabilityStore
 import org.opentaint.dataflow.bidi.store.PersistentRecordStore
@@ -32,10 +31,11 @@ import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRAnalysisManager
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodEntrypointResolver
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.bidi.interp.JIRInterpreter
-import org.opentaint.dataflow.jvm.bidi.interp.JIRStaticMetadata
-import org.opentaint.dataflow.jvm.bidi.interp.JIRStaticMetadataCollector
-import org.opentaint.dataflow.jvm.bidi.interp.MetadataAliases
-import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
+import org.opentaint.dataflow.jvm.bidi.interp.OwnedRulesProvider
+import org.opentaint.dataflow.bidi.ap.MarkTable
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.dataflow.jvm.bidi.interp.JIRMethodEntries
 import org.opentaint.dataflow.jvm.bidi.interp.PrescanLambdas
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
@@ -78,7 +78,7 @@ class JIRBidiAnalysis internal constructor(
         val checker: JIRFactTypeChecker,
         val externalMethodTracker: ExternalMethodTracker?,
         var calls: ResolvedPrescanGraph,
-        var staticLocals: Map<CommonMethod, JIRStaticMetadata>,
+        val markNames: List<String>,
     )
 
     private var prescan: PrescanResult? = null
@@ -99,50 +99,34 @@ class JIRBidiAnalysis internal constructor(
         val ids = source.prescanRuleIds()
         val lambdas = source.prescanLambdas()
         taintConfig.selectRules(ids)
-        // These managers and forward forms are temporary. Only neutral value descriptors escape.
-        val scratch = ApManager(cancellation)
-        val callResolver = JIRCallResolver(cp, unitResolver)
-        val entries = JIRMethodEntries(this.graph, JIRLanguageManager(cp), callResolver, taintConfig,
-            JIRLocalAliasAnalysis.Params(useAliasAnalysis = false), cancellation, lambdas, formStatistics = null)
-        val compiler = JIRInterpreter(scratch, taintConfig, source.factTypeChecker, callResolver, resolver,
-            entries, params.defaultGetModel, externalMethodTracker = null)
-        // Scratch forms disable AA construction. Metadata knowledge follows the real
-        // runtime policy, including methods with no retained prescan context/AA owner.
-        val aliasKnowledge = MetadataAliases.forRuntime(params.aliasAnalysisParams.useAliasAnalysis)
-        val collector = JIRStaticMetadataCollector(compiler, aliasKnowledge, graph.calls.mapTo(HashSet()) { it.statement })
-        val locals = LinkedHashMap<CommonMethod, JIRStaticMetadata>()
-        var unknownAliasContexts = 0L
-        var graphOnlyMethods = 0L
-        source.forEachPrescanContext { context ->
+        // Reserve complete full names without constructing group views or IR copies.
+        val census = OwnedRulesProvider(taintConfig.forBidirectionalCore(), MarkTable())
+        for (method in (graph.methods + roots.map { it.method }).distinct()) {
             cancellation.checkpoint()
-            val key = context.methodEntryPoint
-            if (aliasKnowledge == MetadataAliases.Unknown) unknownAliasContexts++
-            val metadata = collector.collect(key)
-            locals[key.method] = locals[key.method]?.union(metadata) ?: metadata
-        }
-        for (method in graph.methods + roots.map { it.method }) {
-            cancellation.checkpoint()
-            if (method in locals) continue
-            graphOnlyMethods++
             val jir = method as JIRMethod
-            if (jir.instList.size == 0) { locals[method] = JIRStaticMetadata.EMPTY; continue }
-            val keys = resolver.resolveEntryPoints(jir, EmptyMethodContext)
-            for (node in keys) {
-                val metadata = collector.collect(MethodEntryPoint(EmptyMethodContext, node))
-                locals[method] = locals[method]?.union(metadata) ?: metadata
+            val node = jir.instList.instructions.firstOrNull() ?: continue
+            census.censusMethod(method, node)
+            for (statement in jir.instList.instructions) {
+                // Rule application uses the declared call target, including unresolved calls.
+                // The resolved graph alone can omit this source/sink/model candidate set.
+                statement.callExpr?.let { call -> census.censusMethod(call.method.method, statement) }
+                val field = ((statement as? JIRAssignInst)?.rhv as? JIRFieldRef)
+                    ?.takeIf { it.instance == null }?.field
+                if (field != null) {
+                    census.sourceRulesForStaticField(field.field, statement, null, false)
+                    census.sourceRulesForStaticField(field.field, statement, null, true)
+                }
             }
         }
+        for (call in graph.calls) {
+            cancellation.checkpoint()
+            census.censusMethod(call.callee, call.statement)
+        }
         prescan = PrescanResult(ids, lambdas, roots, source.factTypeChecker,
-            source.externalMethodTracker, graph, java.util.Collections.unmodifiableMap(locals))
-        logger.info { "Bidi static metadata setup: elapsed=${setupStarted.elapsedNow()}, methods=${locals.size}, " +
-            "resolvedCalls=${graph.calls.size}, localAccesses=${locals.values.sumOf { it.accesses.size.toLong() }}, " +
-            "localAbstractions=${locals.values.sumOf { it.abstractions.size.toLong() }}, " +
-            "localStaticMayWrite=${locals.values.count { it.staticMayWrite }}, " +
-            "declaredMarks=${locals.values.sumOf { it.marks.size.toLong() }}, " +
-            "potentialPassInputGates=${locals.values.sumOf { local -> local.marks.count { it.role == org.opentaint.dataflow.bidi.engine.StaticMarkRole.INPUT_GATE }.toLong() }}, " +
-            "metadataAliasPolicy=$aliasKnowledge, contextsUnderUnknownAliasPolicy=$unknownAliasContexts, " +
-            "graphOnlyMethods=$graphOnlyMethods, baseWideCleanerMarks=${locals.values.sumOf { it.cleanerMarks.size.toLong() }}; " +
-            "pass needs conservatively include potential unresolved branches" }
+            source.externalMethodTracker, graph, census.observedFullNames())
+        logger.info { "Bidi rule ownership census: elapsed=${setupStarted.elapsedNow()}, " +
+            "methods=${graph.methods.size}, resolvedCalls=${graph.calls.size}, fullMarks=${census.observedFullNames().size}" }
+
     }
 
     override fun run(budget: Duration): Report {
@@ -170,24 +154,33 @@ class JIRBidiAnalysis internal constructor(
     /** The preparation frame exits before the driver, so temporary metadata cannot pin run-1 profiles. */
     private fun prepareShared(copied: PrescanResult): SharedObjects {
         val ap = ApManager(cancellation, refManager)
+        val rules = OwnedRulesProvider(taintConfig.forBidirectionalCore(), ap.marks)
+        for (name in copied.markNames) ap.marks.observeModelReference(name)
+        ap.marks.finishOwnershipCensus()
+        val groups = ap.marks.groupAtoms()
+        var eligibleFull = 0L
+        var eligibleGroups = 0
+        for (group in groups) {
+            cancellation.checkpoint()
+            val members = ap.marks.eligibleMembers(ap.marks.groupOf(group)).size
+            eligibleFull += members
+            if (members != 0) eligibleGroups++
+        }
+        logger.info { "BIDI_MARK_CATALOG eligibleFull=$eligibleFull, eligibleGroups=$eligibleGroups, " +
+            "declaredGroups=${groups.size}, ownershipClaims=${rules.markOwners.size}" }
         val language = JIRLanguageManager(cp)
         val callResolver = JIRCallResolver(cp, unitResolver)
         val formReferences = refManager.softRefManager("bidi-method-forms")
-        val entries = JIRMethodEntries(graph, language, callResolver, taintConfig, params.aliasAnalysisParams,
+        val entries = JIRMethodEntries(graph, language, callResolver, rules, params.aliasAnalysisParams,
             cancellation, copied.lambdas, formReferences, run1Adjacency = copied.calls.adjacency)
-        val interpreter = JIRInterpreter(ap, taintConfig, copied.checker, callResolver,
+        val interpreter = JIRInterpreter(ap, rules, copied.checker, callResolver,
             JIRMethodEntrypointResolver(graph), entries, params.defaultGetModel, copied.externalMethodTracker)
-        val closureStarted = TimeSource.Monotonic.markNow()
-        val staticProfiles = Run1StaticProfiles.build(ap, copied.calls.adjacency,
-            copied.staticLocals.mapValues { (_, local) -> local.compile(ap) })
-        logger.info { "Bidi static catalog setup: elapsed=${closureStarted.elapsedNow()}, ${staticProfiles.statistics}" }
         copied.calls = ResolvedPrescanGraph.EMPTY
-        copied.staticLocals = emptyMap()
         val contexts = MethodContextCache(interpreter, JIRMethodContextCache(interpreter, entries))
         @Suppress("UNCHECKED_CAST")
         return SharedObjects(ap, ApOps(ap), interpreter, language, contexts, PersistentRecordStore(ap),
             ConcurrentVulnerabilityStore(ap), unitResolver as UnitResolver<CommonMethod>, refManager, cancellation,
-            formStatistics = entries.formStatistics, run1StaticProfiles = staticProfiles,
+            formStatistics = entries.formStatistics,
             releaseRun1CatalogCoverage = entries::releaseRun1CatalogCoverage)
     }
 

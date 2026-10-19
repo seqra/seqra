@@ -170,6 +170,23 @@ class JIRStatementFormsTest : BasicTestUtils() {
     }
 
     @Test
+    fun `only semantic static reads and stores have stable logical operation metadata`(): Unit {
+        val read = v.assign("staticRead") { it.rhv is JIRFieldRef }
+        val write = v.assign("staticWrite") { it.lhv is JIRFieldRef }
+        val forms = v.forms()
+        val readForm = forms.build(read)
+        val readOp = readForm.staticOperations.single() as StaticOperation.Read
+        assertEquals(move(STATIC, base(read.lhv), fp = listOf(v.cls, v.field("sField"))), readOp.transfer)
+        assertEquals(readOp.id, forms.build(read).staticOperations.single().id)
+        assertTrue(readForm.reversed().staticOperations.isEmpty(), "Descriptors are F1 forward operation sites")
+        val writeOp = forms.build(write).staticOperations.single() as StaticOperation.Write
+        assertEquals(move(base(write.rhv as JIRValue), STATIC, tp = listOf(v.cls, v.field("sField"))), writeOp.transfer)
+        assertEquals(writeOp.transfer!!.to, writeOp.target.fact)
+        assertTrue(form(v.assign("fieldRead") { it.rhv is JIRFieldRef }).staticOperations.isEmpty())
+        assertTrue(form(copy("copy")).staticOperations.isEmpty())
+    }
+
+    @Test
     fun `field writes keep only siblings and place source and receiver filters on inputs`(): Unit {
         val inst = v.assign("fieldWrite") { it.lhv is JIRFieldRef }
         val ref = inst.lhv as JIRFieldRef

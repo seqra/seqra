@@ -10,6 +10,8 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.jvm.ap.ifds.taint.BidirectionalRulesProviderFactory
+import org.opentaint.dataflow.jvm.ap.ifds.taint.forBidirectionalCore
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
@@ -20,8 +22,27 @@ import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 class JIRSemgrepRuleProvider(
     rules: List<TaintRuleFromSemgrep<SerializedItem>>,
     taintConfiguration: TaintConfiguration
-) : TaintRulesProvider, SemgrepRuleProvider<SerializedItem, TaintConfigurationItem>(rules) {
+) : TaintRulesProvider, BidirectionalRulesProviderFactory, SemgrepRuleProvider<SerializedItem, TaintConfigurationItem>(rules) {
     val base = JIRTaintRulesProvider(taintConfiguration)
+    override val markOwners: Map<String, String> = buildMap {
+        for (rule in rules) for ((mark, owner) in rule.markOwners) {
+            val previous = put(mark, owner)
+            require(previous == null || previous == owner) { "Conflicting generated mark owner: $mark" }
+        }
+    }
+
+    override fun bidirectionalRulesView(): TaintRulesProvider {
+        val selected = base.forBidirectionalCore()
+        return object : TaintRulesProvider by this {
+            override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) =
+                selected.sinkRulesForMethod(method, statement, fact, allRelevant).select(allRelevant)
+            override fun sinkRulesForMethodEntry(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) =
+                selected.sinkRulesForMethodEntry(method, statement, fact, allRelevant).select(allRelevant)
+            override fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst, fact: FactAp?,
+                                              initialFacts: Set<InitialFactAp>?, allRelevant: Boolean) =
+                selected.sinkRulesForMethodExit(method, statement, fact, initialFacts, allRelevant).select(allRelevant)
+        }
+    }
 
     override fun SerializedItem.ruleItemId(): String? = serializedId
     override fun TaintConfigurationItem.resolvedRuleId(): String? = serializedId

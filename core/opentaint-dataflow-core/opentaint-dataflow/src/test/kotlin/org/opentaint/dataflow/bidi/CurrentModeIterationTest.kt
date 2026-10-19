@@ -15,7 +15,7 @@ class CurrentModeIterationTest {
 
     private fun checkRuns(f: CurrentModeFixtures, driver: IterationDriver): Unit {
         assertEquals(listOf(1, 2, 3), f.actual.configs.map { it.index })
-        assertEquals(listOf(1, 2, 3), f.actual.configs.map { it.fieldLimit })
+        assertEquals(listOf(1, 1, 2), f.actual.configs.map { it.fieldLimit })
         assertTrue(f.actual.results.all { it.status == RunStatus.COMPLETE })
         assertTrue(f.requests.none { it.run != 1 }, "F72 suppresses every restricted request")
         assertEquals(listOf(Direction.FORWARD, Direction.BACKWARD, Direction.FORWARD),
@@ -87,8 +87,9 @@ class CurrentModeIterationTest {
             assertContains(driver.frontiers[2].analysed, c.callee)
             assertTrue(f.actual.results[2].recordCrossings >= 2)
             for (mark in listOf(c.t, c.u)) {
-                assertTrue(f.links.any { it.run == 1 && it.callee == c.callee && it.layer == Layer.NORMAL &&
-                    it.added == f.p(arg, tail = Tail.ANY_TAINT, mark = MarkSlot.Concrete(mark)) })
+                assertTrue(f.links.any { it.run == 1 && it.callee == c.callee && it.layer == Layer.DEMAND &&
+                    it.added == f.p(arg, tail = Tail.ANY_TAINT,
+                        mark = GroupedScalarMarks(f.manager.marks).slot(MarkSlot.Concrete(mark))) })
             }
             assertEquals(2, driver.frontiers[0].demandVulnerabilities)
             assertEquals(0, driver.frontiers[2].confirmedVulnerabilities)
@@ -112,7 +113,8 @@ class CurrentModeIterationTest {
             val report = driver.analyze(listOf(c.root))
             checkRuns(f, driver)
             val input = f.p(arg, tail = Tail.STAR)
-            val excluded = MarkSlot.Star(MarkSet(intArrayOf(c.t.id)))
+            val groupT = GroupedScalarMarks(f.manager.marks).slot(MarkSlot.Concrete(c.t)) as MarkSlot.Concrete
+            val excluded = MarkSlot.Star(MarkExclusions.of(f.manager.marks, groupT.mark))
             val output = f.p(ret, tail = Tail.ANY, mark = excluded)
             val native = CurrentSummary(setOf(input), Conclusion(output.fact, ExclusionSet.Empty, true))
             assertContains(f.summaries(1, c.callee), native)
@@ -124,15 +126,19 @@ class CurrentModeIterationTest {
             val retU = f.p(ret, mark = MarkSlot.Concrete(c.u))
             val argU = f.p(arg, c.fields, mark = MarkSlot.Concrete(c.u))
             val boundU = f.p(c.outputs[1], mark = MarkSlot.Concrete(c.u))
-            assertEquals(setOf(retU, boundU), f.premises(2, c.callee))
+            val retT = f.p(ret, mark = MarkSlot.Concrete(c.t))
+            val boundT = f.p(c.outputs[0], mark = MarkSlot.Concrete(c.t))
+            assertEquals(setOf(retT, boundT, retU, boundU), f.premises(2, c.callee))
             assertTrue(f.links.any { it.run == 2 && it.callee == c.callee && it.added == boundU })
             normalBackwardRecord(f, c, retU, argU)
             assertEquals(setOf(f.p(arg, tail = Tail.ANY_TAINT, mark = MarkSlot.Concrete(c.u))),
                 f.premises(3, c.callee))
             assertTrue(f.actual.results[2].recordCrossings > 0)
-            assertEquals(setOf(CurrentRequest(1, c.callee, input, RequestKind.Mark(c.t))), f.requests)
+            assertEquals(setOf(CurrentRequest(1, c.callee, input, RequestKind.Mark(groupT.mark))), f.requests)
             val blocked = reportKey(c, 0)
-            assertTrue(f.actual.results.all { blocked !in it.witnessesByKey() })
+            assertTrue(blocked in f.actual.results[0].witnessesByKey(),
+                "A selected-mark cleaner retains the provisional Group candidate")
+            assertTrue(f.actual.results.drop(1).all { blocked !in it.witnessesByKey() })
             assertTrue(report.entries.none { it.key == blocked })
             assertEquals(ReportState.DEMAND, report.entries.single { it.key == reportKey(c, 1) }.state)
             assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)

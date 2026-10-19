@@ -20,10 +20,13 @@ class FlowTree internal constructor(
     override val base: AccessPathBase,
     override val layer: Layer,
     val exclusion: ExclusionSet,
-    val markExclusion: MarkSet,
+    val markExclusion: MarkExclusions,
     val root: FlowNode,
     val tail: Tail = if (layer == Layer.NORMAL) Tail.STAR else Tail.ANY,
 ) : Facts {
+    internal constructor(base: AccessPathBase, layer: Layer, exclusion: ExclusionSet, mx: MarkSet,
+                         root: FlowNode, tail: Tail = if (layer == Layer.NORMAL) Tail.STAR else Tail.ANY) :
+        this(base, layer, exclusion, MarkExclusions.fromMarks(mx), root, tail)
     init {
         check(base != AccessPathBase.Zero) { "Only REACH represents zero" }
         check(!root.isEmpty) { "A conclusion tree must be nonempty" }
@@ -66,13 +69,20 @@ data class GroupKey(
     val layer: Layer,
     val base: AccessPathBase,
     val exclusion: ExclusionSet = ExclusionSet.Empty,
-    val markExclusion: MarkSet = MarkSet.EMPTY,
+    val markExclusion: MarkExclusions = MarkExclusions.EMPTY,
     val tail: Tail = when (kind) {
         FactsKind.REACH -> Tail.EXACT
         FactsKind.FLOW -> if (layer == Layer.NORMAL) Tail.STAR else Tail.ANY
         FactsKind.TAINT -> if (layer == Layer.NORMAL) Tail.ANY_TAINT else Tail.ANY
     },
-)
+) {
+    constructor(kind: FactsKind, layer: Layer, base: AccessPathBase, exclusion: ExclusionSet,
+                markExclusion: MarkSet, tail: Tail = when (kind) {
+                    FactsKind.REACH -> Tail.EXACT
+                    FactsKind.FLOW -> if (layer == Layer.NORMAL) Tail.STAR else Tail.ANY
+                    FactsKind.TAINT -> if (layer == Layer.NORMAL) Tail.ANY_TAINT else Tail.ANY
+                }) : this(kind, layer, base, exclusion, MarkExclusions.fromMarks(markExclusion), tail)
+}
 
 val Facts.groupKey: GroupKey get() = when (this) {
     is Reach -> GroupKey(FactsKind.REACH, layer, base)

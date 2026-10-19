@@ -16,10 +16,11 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** Expected leaves are stated directly; no reference transfer computes them. */
+/** Full-mark primitive/reference regression; selected GROUP behavior has separate differential controls. */
 class Run1FieldPreservationTest {
     private val m = ApManager(Cancellation())
     private val ops = ApOps(m)
-    private val run1 = ApMode(true, Direction.FORWARD, 1)
+    private val run1 = ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.FULL)
     private val later = ApMode(false, Direction.FORWARD, 3)
     private val x = AccessPathBase.Argument(0)
     private val c = m.accessors.index(ClassStaticAccessor("C"))

@@ -11,7 +11,7 @@ import org.opentaint.dataflow.bidi.interp.CallStage
 import org.opentaint.dataflow.bidi.interp.StageKind
 import org.opentaint.dataflow.bidi.engine.Run1Slot
 import org.opentaint.dataflow.bidi.engine.RunStatus
-import org.opentaint.dataflow.bidi.engine.StaticMarkRole
+import org.opentaint.dataflow.jvm.bidi.interp.StaticMarkRole
 import org.opentaint.dataflow.bidi.ap.Tail
 import org.opentaint.dataflow.configuration.CommonCondition
 import org.opentaint.dataflow.configuration.jvm.*
@@ -23,7 +23,6 @@ import org.opentaint.dataflow.jvm.bidi.fixtures.JIRPrescanFixtures
 import org.opentaint.dataflow.jvm.bidi.fixtures.JIRRuleTestFixtures
 import org.opentaint.dataflow.jvm.bidi.fixtures.NoTaintRules
 import org.opentaint.dataflow.jvm.bidi.interp.JIRStaticMetadataCollector
-import org.opentaint.dataflow.jvm.bidi.interp.JIRStaticMetadata
 import org.opentaint.dataflow.jvm.bidi.interp.JIRBoundaryForms
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -32,6 +31,7 @@ import kotlin.test.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
+/** Historical metadata laws plus the current production ownership-census seam. */
 class JIRStaticMetadataFallbackTest : BidiJIRTestUtils() {
     private val owner = "sample.bidi.BidiStaticMetadataSample"
     private val fieldOwner = "sample.bidi.BidiStatementSample"
@@ -90,7 +90,8 @@ class JIRStaticMetadataFallbackTest : BidiJIRTestUtils() {
         val runtime = interp(rules, JIRLocalAliasAnalysis.Params(useAliasAnalysis = true))
         val metadata = JIRStaticMetadataCollector(runtime).collect(key(m))
         assertTrue(org.opentaint.dataflow.ap.ifds.ClassStaticAccessor("coverage.SourcePoint") in metadata.classPoints)
-        assertTrue(org.opentaint.dataflow.ap.ifds.ClassStaticAccessor("coverage.SinkPoint") in metadata.classPoints)
+        assertFalse(org.opentaint.dataflow.ap.ifds.ClassStaticAccessor("coverage.SinkPoint") in metadata.classPoints,
+            "Ignored sink end actions have no metadata effect")
         val checkedPath = listOf(org.opentaint.dataflow.ap.ifds.ClassStaticAccessor(fieldOwner),
             org.opentaint.dataflow.ap.ifds.FieldAccessor(fieldOwner, "sField", "java.lang.Object"))
         assertTrue(checkedPath in metadata.accesses)
@@ -211,7 +212,7 @@ class JIRStaticMetadataFallbackTest : BidiJIRTestUtils() {
 
     @Test
     @Suppress("UNCHECKED_CAST")
-    fun `actual gather graph-only fallback follows enabled runtime policy rather than disabled scratch forms`(): Unit {
+    fun `actual gather completes its ownership census with no retained prescan context`(): Unit {
         val m = method("aliasRule", owner)
         val rules = rules()
         JIRPrescanFixtures(cp, graph, rules, aliases = true).use { f ->
@@ -222,47 +223,34 @@ class JIRStaticMetadataFallbackTest : BidiJIRTestUtils() {
             val resolved = f.engine.prescanResolvedGraph()
             assertTrue(m in resolved.methods)
             assertTrue(f.contexts().any { it.methodEntryPoint.method == m })
-            // Exercise the real gather fallback with an actual joined graph and no AA/context
-            // for this method. No resolved edge or metadata descriptor is fabricated.
+            // The completed call graph and configured full rules supply the census.
+            // No analysis context or static request profile is required.
             val contexts = JIRAnalysisManager::class.java.getDeclaredField("contexts")
                 .also { it.isAccessible = true }.get(f.manager) as MutableCollection<JIRMethodAnalysisContext>
             contexts.removeAll { it.methodEntryPoint.method == m }
             assertTrue(f.contexts().none { it.methodEntryPoint.method == m })
             var inspected = false
-            val bidi = JIRBidiAnalysis(cp, graph, f.units, rules, f.params, FixedLimits(listOf(1, 2, 3)), f.refManager,
+            val bidi = JIRBidiAnalysis(cp, graph, f.units, rules, f.params, FixedLimits(listOf(1, 1, 2)), f.refManager,
                 driverFactory = { policy, shared, remaining ->
-                    val profiles = assertNotNull(shared.run1StaticProfiles)
-                    val profile = profiles[m]
-                    val slot = Run1Slot.StaticField(shared.ap.accessors.index(org.opentaint.dataflow.ap.ifds.ClassStaticAccessor(fieldOwner)),
-                        shared.ap.accessors.index(org.opentaint.dataflow.ap.ifds.FieldAccessor(fieldOwner, "sField", "java.lang.Object")))
-                    val declaring = "$owner\$Parent"
-                    val read = Run1Slot.StaticField(
-                        shared.ap.accessors.index(org.opentaint.dataflow.ap.ifds.ClassStaticAccessor(declaring)),
-                        shared.ap.accessors.index(org.opentaint.dataflow.ap.ifds.FieldAccessor(
-                            declaring, "inherited", "java.lang.Object")))
-                    assertEquals(setOf(read), profiles.localReads(m), "The actual Parent.inherited load stays local reader metadata")
-                    assertFalse(slot in profiles.localReads(m), "The rule's ContainsMark needs no value-reader seed")
-                    assertTrue(slot in profile.footprint.fieldUniverse, "A mark-only coordinate remains in the legal domain")
-                    assertTrue(profile.precomputedRequests.isEmpty,
-                        "The actual gather remap retains no inherited static mark plan")
-                    assertTrue(profile.markInterests.isEmpty())
+                    assertTrue(shared.ap.marks.isOwnershipCensusComplete)
+                    for (name in listOf("SOURCE_POS", "SOURCE_NEG", "SINK_POS", "SINK_NEG")) {
+                        val full = shared.ap.marks.mark(name)
+                        assertTrue(full in shared.ap.marks.eligibleMembers(shared.ap.marks.groupOf(full)), name)
+                    }
+                    val staticOrigin = shared.ap.initial(org.opentaint.dataflow.bidi.ap.STATIC,
+                        shared.ap.path(listOf(shared.ap.accessors.index(org.opentaint.dataflow.ap.ifds.ClassStaticAccessor(fieldOwner)),
+                            shared.ap.accessors.index(org.opentaint.dataflow.ap.ifds.FieldAccessor(fieldOwner, "sField", "java.lang.Object")))),
+                        Tail.STAR, org.opentaint.dataflow.bidi.ap.ExclusionSet.Empty,
+                        org.opentaint.dataflow.bidi.ap.MarkSlot.STAR)
+                    assertNull(Run1Slot.fromInitial(staticOrigin), "A static origin never enters ordinary request storage")
                     inspected = true
                     IterationDriver(policy, shared, remaining)
                 })
             bidi.gather(f.manager, roots, resolved)
-            // Inspect the actual graph-only fallback output before prepareShared
-            // consumes it. A second synthetic collector would not test this route.
-            val copied = assertNotNull(JIRBidiAnalysis::class.java.getDeclaredField("prescan")
-                .also { it.isAccessible = true }.get(bidi))
-            val staticLocals = copied.javaClass.getDeclaredField("staticLocals")
-                .also { it.isAccessible = true }.get(copied) as Map<CommonMethod, JIRStaticMetadata>
-            val local = staticLocals.getValue(m)
-            assertEquals(setOf("SOURCE_POS", "SOURCE_NEG", "SINK_POS", "SINK_NEG"),
-                local.marks.map { it.mark }.toSet(), "Enabled unknown AA preserves exactly the live local need producers")
             f.manager.releasePrescan()
             f.engine.releasePrescan()
             assertEquals(RunStatus.TIMEOUT, bidi.run(Duration.ZERO).end.status)
-            assertTrue(inspected, "The actual prepareShared remap must consume the collected fallback")
+            assertTrue(inspected, "The actual prepareShared path must consume the full ownership census")
         }
     }
 }

@@ -7,11 +7,14 @@ import org.opentaint.dataflow.configuration.jvm.Result
 import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.mkTrue
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.jvm.ap.ifds.taint.BidirectionalRulesProviderFactory
+import org.opentaint.dataflow.jvm.ap.ifds.taint.forBidirectionalCore
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRMethod
 
-class StringConcatRuleProvider(private val base: TaintRulesProvider) : TaintRulesProvider by base {
+class StringConcatRuleProvider(private val base: TaintRulesProvider) : TaintRulesProvider by base, BidirectionalRulesProviderFactory {
+    override fun bidirectionalRulesView(): TaintRulesProvider = StringConcatRuleProvider(base.forBidirectionalCore())
     private var stringConcatPassThrough: TaintPassThrough? = null
 
     private fun stringConcatPassThrough(method: JIRMethod): TaintPassThrough =

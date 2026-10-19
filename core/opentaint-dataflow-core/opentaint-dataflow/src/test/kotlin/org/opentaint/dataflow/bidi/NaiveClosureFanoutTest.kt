@@ -9,7 +9,7 @@ import org.opentaint.dataflow.bidi.interp.CallPoint.*
 import org.opentaint.dataflow.bidi.interp.StageKind.*
 import kotlin.test.*
 
-/** Every consumer registers before the callee can publish its nonzero summary. */
+/** Later Full-mode reference: every consumer registers before the callee publishes a nonzero summary. */
 class NaiveClosureFanoutTest {
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Argument(1)
@@ -78,7 +78,7 @@ class NaiveClosureFanoutTest {
             ) + (consumerKeys + producer).map { caller ->
                 caller to DemandPattern(ZERO_PATTERN, f.pattern(y, tail = Tail.ANY, mark = MarkSlot.STAR))
             }
-            val config = f.config(index = 3, L = 1, roots = consumerKeys + producer, demand = demand, seeds = seeds)
+            val config = f.config(index = 3, L = 2, roots = consumerKeys + producer, demand = demand, seeds = seeds)
             val expected = NaiveClosure(f, config, semantics = NaiveClosure.Semantics.SELECTED).run()
             val schedule = ProductionSchedule(f, config, sameUnit = sameUnit,
                 policy = SchedulePolicy.REPLAY_FIRST, quantum = 1)

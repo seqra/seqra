@@ -29,6 +29,7 @@ import org.opentaint.ir.api.jvm.cfg.*
 import kotlin.test.*
 
 /** Expected caller facts follow the call rules, independently of the generated stages. */
+/** Full-mark primitive/lowering laws. Group execution is checked by actual engine suites. */
 class JIRCallTransferTest : BasicTestUtils() {
     private val v by lazy { JIRCallTestFixtures(cp) }
     private val m get() = v.manager
@@ -210,7 +211,7 @@ class JIRCallTransferTest : BasicTestUtils() {
         check(plan, s, listOf(item(fact(AccessPathBase.This))), setOf(fact(receiver), fact(resultBase(s))), from = ADDED)
     }
 
-    @Test fun `run one unresolved static pass retains original field origin without a root position request`(): Unit {
+    @Test fun `FULL static pass primitive retains field origin at the first field limit without a position request`(): Unit {
         val s = v.call("staticExternal")
         val cls = m.accessors.index(ClassStaticAccessor(CLS))
         val staticField = field("sField")
@@ -226,7 +227,7 @@ class JIRCallTransferTest : BasicTestUtils() {
         check(plan,s,listOf(item(sibling,premise = original)),setOf(sibling),run1 = true,fieldLimit = 1)
     }
 
-    @Test fun `sink sees uncleaned bound T and its end fact survives the cleaner chain`(): Unit {
+    @Test fun `sink sees uncleaned bound T and ignored end actions add no fact after the cleaner chain`(): Unit {
         val local = localCall()
         val s = local.inst
         val rules = CallRules().apply {
@@ -237,12 +238,11 @@ class JIRCallTransferTest : BasicTestUtils() {
         val plan = v.builder(s, rules, persistedAliases = { b, _ ->
             if (b == local.result) listOf(alias(other, "next", "next")) else emptyList()
         }).build()
-        val result = check(plan, s, listOf(item(fact(inputBase(s)))), setOf(fact(resultBase(s), mark = mu),
-            fact(other, p(next, next), mark = mu)))
+        val result = check(plan, s, listOf(item(fact(inputBase(s)))), emptySet())
         assertEquals(setOf(fact(arg0)), result.bound)
         assertEquals(setOf(fact(arg0)), result.cleanInputs.toSet())
         assertTrue(result.at(ADDED).isEmpty())
-        assertTrue(result.final.all { it.premise == setOf(ZERO_PATTERN) })
+        assertTrue(result.final.isEmpty())
         assertEquals(listOf("bound", "clean"), result.events.filter { it == "bound" || it == "clean" })
     }
 
@@ -522,7 +522,7 @@ class JIRCallTransferTest : BasicTestUtils() {
         assertTrue(other in plan.touched)
     }
 
-    @Test fun `reversed end fact retains sink trigger and adds its independent bound seed`(): Unit {
+    @Test fun `backward call keeps the full sink predicate and ignores end triggers without handoff seeds`(): Unit {
         val s = v.call("staticExternal")
         val rules = CallRules().apply {
             sinks = listOf(sink(s, listOf(AssignMark(RuleMark("U"), Result)), contains(Argument(0), "T")))
@@ -536,13 +536,9 @@ class JIRCallTransferTest : BasicTestUtils() {
             Pattern(fact(arg0, p(element)).fact, ExclusionSet.Empty)), predicate.leaves.toSet(),
             "An Object argument retains both root and element reads in one original sink (SI1)")
         val input = fact(resultBase(s), mark = mu, demand = true)
-        val result = check(backward, s, listOf(item(input)), setOf(fact(inputBase(s), demand = false),
-            fact(inputBase(s), p(element)), Conclusion(ZERO_FACT, ExclusionSet.Empty, true)),
-            direction = Direction.BACKWARD, triggerSeeds = { sink ->
-                sink.patterns.map { pattern -> item(Conclusion(pattern.fact, pattern.exclusion, pattern.fact.tail == Tail.ANY),
-                    premise = setOf(ZERO_PATTERN)) }
-            }, triggers = forward.sinks.toSet())
-        assertEquals(setOf(Conclusion(ZERO_FACT, ExclusionSet.Empty, true), fact(arg0), fact(arg0, p(element))), result.at(BOUND))
+        val result = check(backward, s, listOf(item(input)), emptySet(), direction = Direction.BACKWARD)
+        assertTrue(sink.endFacts.isEmpty())
+        assertTrue(result.at(BOUND).none { it.fact.base == AccessPathBase.Zero || it.fact.mark == mt })
     }
 
     private data class LocalCall(val inst: JIRAssignInst, val argument: AccessPathBase.LocalVar,
@@ -622,7 +618,7 @@ class JIRCallTransferTest : BasicTestUtils() {
         marks: List<TaintMark> = emptyList(), positions: List<PathNode> = emptyList(), sourceHits: Int = 0,
         triggerSeeds: (SinkRule) -> List<PlanItem> = { emptyList() }, triggers: Set<SinkRule> = emptySet(),
     ): WalkResult {
-        val mode = ApMode(run1, direction, fieldLimit)
+        val mode = ApMode(run1, direction, fieldLimit, MarkMode.FULL)
         for (input in inputs) {
             val key = m.premiseOf(input.premise.map(m::initial))
             if (input.c.fact.base != AccessPathBase.Zero)

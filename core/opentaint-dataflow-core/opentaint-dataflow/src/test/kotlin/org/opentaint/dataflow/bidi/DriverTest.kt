@@ -1,6 +1,6 @@
 package org.opentaint.dataflow.bidi
 
-import org.opentaint.dataflow.bidi.ap.*
+import org.opentaint.dataflow.bidi.ap.Direction
 import org.opentaint.dataflow.bidi.driver.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.DriverFixtures
@@ -13,7 +13,7 @@ import kotlin.time.TimeSource
 
 class DriverTest {
     private fun policy(
-        limit: (Int) -> Int = { 1 },
+        limit: (Int) -> Int = IncreasingLimits::fieldLimit,
         next: (RunConfig, RunResult<RunMethodAnalyzer>, List<Frontier>) -> Boolean = { _, _, _ -> false },
         timeoutOf: (RunConfig, Duration) -> Duration = { _, remaining -> remaining },
     ): IterationPolicy = object : IterationPolicy {
@@ -70,25 +70,25 @@ class DriverTest {
 
     @Test
     fun `FixedLimits owns its list before caller mutation`(): Unit {
-        val limits = arrayListOf(1, 2, 3, 4, 5)
+        val limits = arrayListOf(1, 1, 2, 3, 4)
         val p = FixedLimits(limits)
         limits[0] = 0
         limits[2] = -1
         limits.clear()
-        assertEquals(listOf(1, 2, 3, 4, 5), (1..5).map(p::fieldLimit))
+        assertEquals(listOf(1, 1, 2, 3, 4), (1..5).map(p::fieldLimit))
     }
 
     @Test
-    fun `a decreasing third limit fails after preserving both completed barriers and the forward report`(): Unit {
+    fun `a wrong third limit fails after preserving both completed barriers and the forward report`(): Unit {
         DriverFixtures().use { f ->
             val c = f.persistentDemand()
             val reads = ArrayList<Int>()
-            val driver = f.driver(policy(limit = { index -> reads += index; if (index == 2) 2 else 1 },
+            val driver = f.driver(policy(limit = { index -> reads += index; 1 },
                 next = { _, _, _ -> true }))
             val report = driver.analyze(listOf(c.root))
             assertEquals(listOf(1, 2, 3), reads)
             assertEquals(listOf(1, 2), f.configs.map { it.index })
-            assertEquals(listOf(1, 2), f.configs.map { it.fieldLimit })
+            assertEquals(listOf(1, 1), f.configs.map { it.fieldLimit })
             assertEquals(AnalysisEnd(RunStatus.FAILED, 2, Direction.BACKWARD, EndReason.ABNORMAL), report.end)
             assertEquals(ReportState.DEMAND, report.entries.single().state)
             assertEquals(c.rule, report.entries.single().key.rule)
@@ -146,29 +146,8 @@ class DriverTest {
             assertEquals(ReportState.DEMAND, report.entries.single().state)
             assertEquals(c.rule, report.entries.single().key.rule)
             assertTrue(report.entries.single().witnesses.all { !it.confirmed })
-            val result = f.results.single()
-            val demandRows = result.analyzers.flatMap { actor -> actor.summaries.all().toList() }
-                .filter { it.second.layer == Layer.DEMAND }
-            assertEquals(result.analyzers.size, demandRows.size,
-                "Each reached actor contributes exactly its ordinary static DEMAND default")
-            assertTrue(demandRows.all { (premise, facts) -> premise is InitialAp &&
-                isSpecialStaticRoot(premise) && facts is FlowTree && facts.tail == Tail.STAR &&
-                facts.markExclusion.isEmpty })
-            assertEquals(demandRows.size.toLong(), result.demandLayerEdges)
-            val native = result.analyzers.flatMap { actor ->
-                actor.summaries.all().flatMap { (premise, facts) ->
-                    if (premise is InitialAp && facts.layer == Layer.NORMAL)
-                        f.records.byEntry(actor.key, premise.toPattern()).filter { it.premise === premise }
-                    else emptySequence()
-                }.toList()
-            }
-            assertTrue(native.isNotEmpty(), "Eligible NORMAL singleton records are written even in run 1")
-            assertTrue(native.all { it.conclusion.layer == Layer.NORMAL })
-            assertEquals(setOf(1, 2), f.results.single().analyzers.flatMap { actor ->
-                f.links(1, actor.key).filter { it.addedFact.fact.mark is MarkSlot.Concrete &&
-                    !it.addedFact.fact.let { fact -> fact.base == org.opentaint.dataflow.ap.ifds.AccessPathBase.Zero } }
-                    .map { it.caller.call.location.index }
-            }.toSet(), "Separate call-site support is preserved despite native singleton records")
+            assertTrue(f.results.single().demandLayerEdges > 0,
+                "Grouped run-1 taint is DEMAND even before joint-support confirmation")
             assertEquals(1, driver.frontiers.single().demandVulnerabilities)
             assertTrue(driver.frontiers.single().seeds >= 2)
             assertEquals(listOf(1), f.configs.map { it.index })
@@ -176,7 +155,7 @@ class DriverTest {
     }
 
     @Test
-    fun `equal positive limits are accepted and complete backward runs never call the stop policy`(): Unit {
+    fun `the first equal limits are accepted and complete backward runs never call the stop policy`(): Unit {
         DriverFixtures().use { f ->
             val c = f.persistentDemand()
             val calls = ArrayList<Int>()
@@ -188,7 +167,7 @@ class DriverTest {
             }))
             val report = driver.analyze(listOf(c.root))
             assertEquals(listOf(1, 2, 3), f.configs.map { it.index })
-            assertEquals(listOf(1, 1, 1), f.configs.map { it.fieldLimit })
+            assertEquals(listOf(1, 1, 2), f.configs.map { it.fieldLimit })
             assertEquals(listOf(Direction.FORWARD, Direction.BACKWARD, Direction.FORWARD), f.configs.map { it.direction })
             assertEquals(listOf(1, 3), calls)
             assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.POLICY), report.end)

@@ -14,6 +14,7 @@ import kotlin.time.Duration.Companion.seconds
 
 /** These controls use actual actor P, method work and synchronous SummaryStorage commit. */
 class RequestWorkBarrierTest {
+    private fun mark(f: MethodAnalysisFixtures, name: String): TaintMark = f.groupMark(f.mark(name)).mark
     private val slot = Run1Slot.Base(AccessPathBase.Argument(0))
     private fun actor(f: MethodAnalysisFixtures) =
         f.core(localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
@@ -21,7 +22,7 @@ class RequestWorkBarrierTest {
     @Test fun `request-only actor schedules real Work and cannot freeze before its method-empty commit`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val actor = actor(f)
-            val marks = (0 until 3).map { f.mark("T$it") }
+            val marks = (0 until 3).map { mark(f, "T$it") }
             marks.forEach { actor.addMarkRequest(slot.initial(f.manager), it) }
             assertTrue(actor in f.enqueued)
             assertEquals(0L, actor.steps)
@@ -37,7 +38,7 @@ class RequestWorkBarrierTest {
     @Test fun `late answer stays queued after commit and schedules fact work only when delivered`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val actor = actor(f)
-            val t = f.mark("T")
+            val t = mark(f, "T")
             val input = f.fact(mark = MarkSlot.Concrete(t))
             val ref = CallerRef(f.store.key("supplier"), f.manager.zero, Layer.NORMAL, f.inst(1))
             f.admit(actor, ref, Layer.NORMAL, input); f.drain(actor)
@@ -56,7 +57,7 @@ class RequestWorkBarrierTest {
     @Test fun `a finite fact quantum does not submit P while the method fact queue is busy`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val actor = actor(f)
-            val t = f.mark("T")
+            val t = mark(f, "T")
             actor.addInitial(f.manager.initial(slot.base, null, Tail.EXACT,
                 ExclusionSet.Empty, MarkSlot.Concrete(t)))
             actor.addMarkRequest(slot.initial(f.manager), t)
@@ -71,7 +72,7 @@ class RequestWorkBarrierTest {
     @Test fun `zero work retains priority and requests commit only after that method drains`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val actor = actor(f)
-            val t = f.mark("T")
+            val t = mark(f, "T")
             actor.addRootZero()
             actor.addMarkRequest(slot.initial(f.manager), t)
             assertFalse(actor.work(1))
@@ -89,7 +90,7 @@ class RequestWorkBarrierTest {
             val ref = CallerRef(f.store.key("caller"), initial, Layer.NORMAL, f.inst(1))
             f.admit(actor, ref, Layer.NORMAL, f.fact(tail = Tail.STAR, mark = MarkSlot.STAR))
             f.drain(actor)
-            val t = f.mark("T")
+            val t = mark(f, "T")
             f.onRequestNotification = { f.cancellation.cancel() }
             actor.addMarkRequest(initial, t)
             assertFailsWith<Cancellation.Cancelled> { actor.work(1) }
@@ -119,7 +120,6 @@ class RequestWorkBarrierTest {
                 val delegate = handlers.create(observed)
                 object : RunnerHandler<RunMethodAnalyzer>, SubscriptionHandler {
                     override fun createActor(key: MethodKey) = delegate.createActor(key)
-                    override fun drainRequests(caller: MethodKey) = (delegate as SubscriptionHandler).drainRequests(caller)
                     override fun subscribe(sub: Subscription) = (delegate as SubscriptionHandler).subscribe(sub)
                     override fun freeze() = (delegate as SubscriptionHandler).freeze()
                     override fun handle(event: RunEvent) {

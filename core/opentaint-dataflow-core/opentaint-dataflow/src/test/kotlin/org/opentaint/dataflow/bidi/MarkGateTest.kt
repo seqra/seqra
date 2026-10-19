@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.bidi
 
 import org.opentaint.dataflow.bidi.ap.ApManager
+import org.opentaint.dataflow.bidi.ap.MarkExclusions
 import org.opentaint.dataflow.bidi.ap.MarkGate
 import org.opentaint.dataflow.bidi.ap.MarkSet
 import org.opentaint.dataflow.bidi.ap.MarkSlot
@@ -57,7 +58,7 @@ class MarkGateTest {
         )
         for (row in rows) {
             val gate = MarkGate(manager, MarkSlot.STAR, row.target)
-            assertEquals(row.output, gate.flowMarks(row.input), row.toString())
+            assertEquals(MarkExclusions.fromMarks(row.output, manager.marks), gate.flowMarks(row.input), row.toString())
             assertNull(gate.flowRequest(row.input))
         }
     }
@@ -89,7 +90,7 @@ class MarkGateTest {
         assertSame(manager.markSetOf(u), concrete.taintMarks(input))
         val abstract = MarkGate(manager, MarkSlot.STAR, excluded(t.id))
         assertSame(manager.intern(marks(u.id, fresh.id)), abstract.taintMarks(input))
-        assertSame(manager.intern(marks(t.id, u.id, fresh.id)), abstract.flowMarks(input))
+        assertSame(manager.intern(MarkExclusions.fromMarks(marks(t.id, u.id, fresh.id), manager.marks)), abstract.flowMarks(input))
         assertEquals(marks(t.id, u.id, fresh.id), input)
     }
 }

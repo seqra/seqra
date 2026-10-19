@@ -5,13 +5,6 @@ import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.ir.api.common.cfg.CommonInst
 
-/** Independent concrete-static concept rule. Any static original/current value
- * is DEMAND before evaluation. Ordinary layer joins keep its later local
- * dependents DEMAND; unrelated nonstatic derivations remain independent. */
-internal fun scalarStaticFlow(run1: Boolean, premise: Set<Pattern>, value: Conclusion): Conclusion =
-    if (run1 && (value.fact.base == STATIC || premise.any { it.fact.base == STATIC }))
-        value.copy(demand = true) else value
-
 /** Scalar selected transfer: no packed AP kernel, emitter, request table or static-frame reader. */
 internal class SelectedReferenceAlgebra(
     private val mode: ApMode,
@@ -20,9 +13,9 @@ internal class SelectedReferenceAlgebra(
     private val hit: (CommonInst, MicroEdge) -> Unit,
     private val manager: ApManager,
     private val join: (ConjunctiveEdge, Set<Pattern>, Conclusion, CommonInst, ReferenceSink) -> Unit,
-    private val coveredCheck: (Set<Pattern>, Conclusion, TaintMark) -> Boolean = { _, _, _ -> false },
 ) : FactAlgebra<Set<Pattern>, Conclusion> {
-    private val sourcePredicates = ReferenceSourcePredicates(manager)
+    private val sourcePredicates = GroupedSourcePredicates(manager, mode.run1 && mode.markMode == MarkMode.GROUP)
+    private val groups = if (mode.run1 && mode.markMode == MarkMode.GROUP) GroupedScalarMarks(manager.marks) else null
     private val filters = ReferenceAlgebra(mode, manager = manager)
     override fun base(c: Conclusion) = c.fact.base
     override fun filter(c: Conclusion, filter: TypeFilter) = c.takeIf { filters.passes(filter, c) }
@@ -32,19 +25,16 @@ internal class SelectedReferenceAlgebra(
                              node: CommonInst, out: ReferenceSink) = join(cj, premise, c, node, out)
     override fun sourcePredicate(source: SourceRuleOccurrence, premise: Set<Pattern>, c: Conclusion,
                                  node: CommonInst, statementEdge: Boolean, out: ReferenceSink) =
-        sourcePredicates.apply(source, premise, scalarStaticFlow(mode.run1, premise, c), node, mode, statementEdge,
-            ::applyEdge, { pr, kind ->
-                if (kind !is ReferenceRequestKind.Mark || !coveredCheck(pr, c, kind.mark)) request(pr, kind)
-            }, out)
+        sourcePredicates.apply(source, premise, c, node, mode, statementEdge, ::applyEdge, request, out,
+            allows = { allows(node, it) }, hit = { hit(node, it) })
     override fun applyEdge(me: MicroEdge, c: Conclusion, premise: Set<Pattern>,
                            statementEdge: Boolean, out: ReferenceSink) {
         if (mode.run1 && c.fact.base == me.edge.from.base && c.fact.mark is MarkSlot.Star)
             for (id in (me.edge.to.mark as? MarkSlot.Star)?.excluded?.ids ?: intArrayOf())
-                request(premise, ReferenceRequestKind.Mark(TaintMark(id)))
-        when (val o = concat(scalarStaticFlow(mode.run1, premise, c), me.edge, edgeDemand = me.may, restricted = mode.restricted, run1 = mode.run1)) {
-            is EdgeOutcome.Fact -> out(premise, scalarStaticFlow(mode.run1, premise, o.conclusion))
-            is EdgeOutcome.Request -> if (mode.run1 && !coveredCheck(premise, c, o.mark))
-                request(premise, ReferenceRequestKind.Mark(o.mark))
+                request(premise, ReferenceRequestKind.Mark(groups?.atom(TaintMark(id)) ?: TaintMark(id)))
+        when (val o = groups?.apply(c, me.edge, me.may) ?: concat(c, me.edge, edgeDemand = me.may, restricted = mode.restricted, run1 = mode.run1)) {
+            is EdgeOutcome.Fact -> out(premise, o.conclusion)
+            is EdgeOutcome.Request -> if (mode.run1) request(premise, ReferenceRequestKind.Mark(o.mark))
             is EdgeOutcome.PositionRequest -> error("Selected statics have no Position protocol")
             EdgeOutcome.None -> Unit
         }
@@ -55,7 +45,6 @@ internal class SelectedReferenceAlgebra(
 internal class SelectedFormsReference(
     private val ops: ApOps,
     algebra: FactAlgebra<Set<Pattern>, Conclusion>,
-    private val run1: Boolean = false,
 ) {
     val applier = FormApplier(algebra)
     private val zeroPremise = setOf(ZERO_PATTERN)
@@ -88,9 +77,7 @@ internal class SelectedFormsReference(
     fun run(plan: CallPlan, inputs: List<PlanItem>, at: Place, hooks: PlanHooks = PlanHooks(),
             from: CallPoint = plan.entry, pendingDemotion: Boolean = false): List<Pair<CallPoint, PlanItem>> {
         check(!pendingDemotion || (from == CallPoint.RETURNED && plan.exit == CallPoint.AFTER))
-        fun policy(i: PlanItem): PlanItem = i.copy(c = scalarStaticFlow(run1, i.premise, i.c))
-        fun finish(input: PlanItem): PlanItem {
-            val i = policy(input)
+        fun finish(i: PlanItem): PlanItem {
             val result = if (!pendingDemotion) i else {
                 check(i.c.fact.mark is MarkSlot.Concrete && i.c.fact.tail != Tail.STAR)
                 i.copy(c = i.c.copy(demand = true), identityCandidate = false)
@@ -114,7 +101,7 @@ internal class SelectedFormsReference(
         val work = ArrayDeque<Pair<CallPoint, List<PlanItem>>>()
         val start = ArrayList<PlanItem>()
         for (input in inputs) {
-            val i = policy(if (pendingDemotion) input.copy(identityCandidate = false) else input)
+            val i = if (pendingDemotion) input.copy(identityCandidate = false) else input
             when {
                 from != plan.entry -> start += i
                 i.c.fact.base == AccessPathBase.Zero -> { seen += plan.exit to finish(i); start += i }
@@ -132,6 +119,7 @@ internal class SelectedFormsReference(
                 val out = ArrayList<PlanItem>()
                 when (st) {
                     is CallStage.Edges -> {
+                        if (st.kind == StageKind.END_FACTS) continue
                         val place = at.copy(statementEdge = st.kind.statementEdges, sources = st.kind == StageKind.SOURCES)
                         val guard = if (hooks.guards) st.guard else null
                         when {
@@ -156,7 +144,7 @@ internal class SelectedFormsReference(
                     is CallStage.Actions -> out += cleanSteps(st.steps, items)
                     is CallStage.Callees -> for (i in items) out += hooks.callees(st, i)
                 }
-                val next = if (st.to == plan.exit) out.map(::finish) else out.map(::policy)
+                val next = if (st.to == plan.exit) out.map(::finish) else out
                 if (next.isNotEmpty()) work.addLast(st.to to next)
             }
         }

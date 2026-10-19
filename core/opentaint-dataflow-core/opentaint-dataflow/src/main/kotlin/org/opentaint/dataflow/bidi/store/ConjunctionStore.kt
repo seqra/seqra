@@ -2,22 +2,29 @@ package org.opentaint.dataflow.bidi.store
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
-import org.opentaint.dataflow.bidi.interp.CallPoint
 import org.opentaint.dataflow.bidi.engine.N2Statistics
+import org.opentaint.dataflow.bidi.engine.N2InputRef
+import org.opentaint.dataflow.bidi.engine.RegionGroups
+import org.opentaint.dataflow.bidi.engine.GroundingSupport
 import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.Collections
 
 /** The semantic E6 member after full matching; no accepted Facts version is retained. */
-internal data class NdBinding(val ref: CallerRef, val linkLayer: Layer,
-    val stageFrom: CallPoint = CallPoint.ADDED, val stageTo: CallPoint = CallPoint.RETURNED)
+internal data class NdBinding(val ref: CallerRef, val linkLayer: Layer, val initial: InitialAp? = null,
+                              val inputRef: N2InputRef? = null, val staticInputs: List<RegionGroups> = emptyList())
 
 /** Standing literal inputs for one method and run. One writer owns this store. */
 class ConjunctionStore(private val m: ApManager, private val statistics: N2Statistics? = null) {
     /** Facts already accepted by the literal; layer is the effective contribution layer. */
-    data class Input(val premise: PremiseKey, val layer: Layer, val facts: Facts? = null)
+    data class Input(val premise: PremiseKey, val layer: Layer, val facts: Facts? = null,
+                     val requirement: Pattern? = null, val leafOrdinal: Int = -1,
+                     val grounding: GroundingSupport? = null)
     class Combination(val premise: PremiseKey, val layer: Layer, val inputs: List<Input>)
 
     private val joins = HashMap<Pair<Any, CommonInst>, KaryJoin<Input>>()
+    private data class InputKey(val premise: PremiseKey, val layer: Layer, val facts: Facts?,
+                                val requirement: Pattern?, val leaf: Int)
+    private val currentInputs = HashMap<Pair<Any, CommonInst>, MutableMap<Pair<Int, InputKey>, Input>>()
 
     /** Rule alternatives and statements have separate joins; repeated literals retain separate slots. */
     fun add(rule: Any, statement: CommonInst, arity: Int, literal: Int, input: Input): List<Combination> {
@@ -27,7 +34,15 @@ class ConjunctionStore(private val m: ApManager, private val statistics: N2Stati
         val key = rule to statement
         val join = joins[key]
         require(join == null || join.arity == arity) { "A rule at a statement has one fixed arity" }
-        val inputs = (join ?: KaryJoin<Input>(arity, m.cancellation).also { joins[key] = it }).add(literal, input)
+        val active = join ?: KaryJoin<Input>(arity, m.cancellation).also { joins[key] = it }
+        val rows = currentInputs.getOrPut(key) { HashMap() }
+        val inputKey = literal to InputKey(input.premise, input.layer, input.facts, input.requirement, input.leafOrdinal)
+        val previous = rows[inputKey]
+        val next = if (previous?.grounding != null && input.grounding != null)
+            input.copy(grounding = previous.grounding.or(input.grounding)) else input
+        if (previous == next) return emptyList()
+        rows[inputKey] = next
+        val inputs = if (previous == null) active.add(literal, next) else active.replace(literal, previous, next)
         val out = ArrayList<Combination>(inputs.size)
         for (combination in inputs) {
             m.cancellation.checkpoint()
@@ -49,8 +64,8 @@ class ConjunctionStore(private val m: ApManager, private val statistics: N2Stati
     }
 
     /** An E6 join belongs to one callee context, premise set, publication layer and caller call. */
-    data class NdKey(val callee: MethodKey, val premise: PremiseKey, val layer: Layer, val call: CommonInst,
-        val stageFrom: CallPoint = CallPoint.ADDED, val stageTo: CallPoint = CallPoint.RETURNED)
+    data class NdKey(val callee: MethodKey, val premise: PremiseKey, val layer: Layer,
+                     val call: CommonInst, val stageOrdinal: Int = 0)
     private val ndJoins = HashMap<NdKey, NdSummaryJoin<*>>()
 
     @Suppress("UNCHECKED_CAST")
@@ -66,6 +81,55 @@ class NdSummaryJoin<S : Any>(private val m: ApManager, arity: Int, private val s
     private val full = ArrayList<List<S>>()
     private val interners = m.newInterners()
     private val conclusion = HashMap<AccessPathBase, TaintGroup>(2)
+    private data class SupportedKey(val leaf: Pattern, val layer: Layer)
+    private val supported = LinkedHashMap<SupportedKey, GroundingSupport>()
+    private val supportedRevisions = HashMap<Pair<Int, S>, Long>()
+    private val supportedRelationRevisions = HashMap<Pair<Int, S>, Long>()
+    class SupportedResult<S>(val parts: List<S>, val facts: TaintTree, val support: GroundingSupport)
+
+    /** Guard metadata belongs to exact accepted conclusion cofactors, never to a broader T2 union. */
+    fun addSupportedConclusion(g: TaintTree, support: GroundingSupport): List<SupportedResult<S>> {
+        val result = ArrayList<SupportedResult<S>>()
+        for (leaf in ApOps(m).leaves(g)) {
+            val key = SupportedKey(leaf, g.layer)
+            val old = supported[key]
+            val next = old?.or(support) ?: support
+            if (old == next) continue
+            supported[key] = next
+            val fact = m.factsOf(leaf.fact, leaf.exclusion, g.layer) as TaintTree
+            for (parts in full) result += SupportedResult(parts, fact, next)
+        }
+        return result
+    }
+
+    fun addSupportedSubscription(index: Int, s: S, revision: Long = 0,
+                                 relationRevision: Long = 0): List<SupportedResult<S>> {
+        val key = index to s
+        val previousRevision = supportedRevisions[key]
+        if (previousRevision == null || revision > previousRevision) supportedRevisions[key] = revision
+        val previousRelationRevision = supportedRelationRevisions[key]
+        if (previousRelationRevision == null || relationRevision > previousRelationRevision)
+            supportedRelationRevisions[key] = relationRevision
+        val before = members.memberCount
+        val fresh = members.add(index, s)
+        statistics?.recordE6(members.memberCount - before, 1 - (members.memberCount - before), fresh.size)
+        val result = ArrayList<SupportedResult<S>>()
+        for (inputs in fresh) {
+            val parts: List<S> = Collections.unmodifiableList(ArrayList(inputs))
+            full += parts
+            for ((key, support) in supported) result += SupportedResult(parts,
+                m.factsOf(key.leaf.fact, key.leaf.exclusion, key.layer) as TaintTree, support)
+        }
+        // Re-use the same binding identity and current cofactor rows after support-only
+        // growth. Revisions are metadata, not additional standing member alternatives.
+        if (fresh.isEmpty() && previousRevision != null && (revision > previousRevision ||
+                relationRevision > (previousRelationRevision ?: 0))) {
+            for (parts in full) if (parts[index] == s) for ((part, support) in supported)
+                result += SupportedResult(parts,
+                    m.factsOf(part.leaf.fact, part.leaf.exclusion, part.layer) as TaintTree, support)
+        }
+        return result
+    }
 
     internal val memberCount: Int get() = members.memberCount
     internal val combinationCount: Int get() = full.size

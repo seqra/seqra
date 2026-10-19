@@ -3,6 +3,7 @@ package org.opentaint.dataflow.bidi.engine
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.interp.SinkRule
 import org.opentaint.dataflow.bidi.interp.SourceRuleOccurrence
+import org.opentaint.dataflow.bidi.interp.ResumeSite
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.ConjunctionStore
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
@@ -38,11 +39,18 @@ interface MethodLocalServices {
     fun flushRequests(quantum: Int): Boolean = true
     fun conjunction(edge: ConjunctiveEdge, premise: PremiseKey, facts: Facts, node: CommonInst,
                     sink: (PremiseKey, Facts) -> Unit)
+    fun conjunctionAt(edge: ConjunctiveEdge, premise: PremiseKey, facts: Facts, node: CommonInst,
+                      at: OperationInput, sink: (PremiseKey, Facts) -> Unit) = conjunction(edge, premise, facts, node, sink)
     fun sourcePredicate(source: SourceRuleOccurrence, premise: PremiseKey, facts: Facts, node: CommonInst,
                         statementEdge: Boolean, sink: (PremiseKey, Facts) -> Unit) {
         error("These local services do not implement rule predicates")
     }
+    fun sourcePredicateAt(source: SourceRuleOccurrence, premise: PremiseKey, facts: Facts, node: CommonInst,
+                          statementEdge: Boolean, at: OperationInput,
+                          sink: (PremiseKey, Facts) -> Unit) = sourcePredicate(source, premise, facts, node, statementEdge, sink)
     fun checkSinks(premise: PremiseKey, node: CommonInst, facts: Facts, sinks: List<SinkRule>): Triggers
+    fun checkSinksAt(premise: PremiseKey, node: CommonInst, facts: Facts, sinks: List<SinkRule>, at: OperationInput): Triggers =
+        checkSinks(premise, node, facts, sinks)
     fun fireSinkSeeds(node: CommonInst, emit: (Facts) -> Unit)
     fun fireTriggerSeeds(node: CommonInst, sink: SinkRule, emit: (Facts) -> Unit)
     fun freeze()
@@ -55,10 +63,12 @@ fun interface MethodLocalServicesFactory {
 /** Call processing and resume operations are supplied by the call engine. */
 interface MethodCallServices : SummaryApplier {
     fun process(item: EdgeDelta)
-    fun processStatic(node: CommonInst, entries: FlowTree): Unit = error("Static identity transport is unavailable")
-    fun resumeStatic(part: StaticSubscription, entries: FlowTree): Unit = error("Static identity transport is unavailable")
-    fun processConcreteStatic(node: CommonInst, entries: TaintTree): Unit = error("Concrete static transport is unavailable")
-    fun resumeConcreteStatic(part: ConcreteStaticSubscription, entries: TaintTree): Unit = error("Concrete static transport is unavailable")
+    fun resumePoint(premise: PremiseKey, facts: Facts, site: ResumeSite, state: CallResumeState?) {
+        error("These call services cannot resume a static point")
+    }
+    fun staticSupply(part: Subscription, pub: Publication, member: Int, supply: RegionGroups) {
+        error("These call services cannot join static supply")
+    }
     fun freeze()
 }
 

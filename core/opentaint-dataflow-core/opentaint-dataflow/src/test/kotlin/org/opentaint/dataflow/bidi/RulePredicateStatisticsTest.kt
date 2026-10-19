@@ -27,7 +27,7 @@ class RulePredicateStatisticsTest {
     private fun checked(index: Int, path: List<Int> = emptyList()): ConjunctionStore.Input {
         val facts = fixture.fact(base = AccessPathBase.Argument(index), path = path)
         val holds = assertIs<MarkCheck.Holds>(fixture.ops.checkMark(facts, requirements[index],
-            ApMode(run1 = true, direction = Direction.FORWARD, fieldLimit = 1)))
+            ApMode(run1 = true, direction = Direction.FORWARD, fieldLimit = 1, markMode = MarkMode.FULL)))
         return ConjunctionStore.Input(premises[index], holds.facts.layer, holds.facts)
     }
 

@@ -4,7 +4,9 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
-import org.opentaint.dataflow.bidi.fixtures.PipelineFixtures
+import org.opentaint.dataflow.bidi.engine.historical.Run1Slot
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticFootprint
+import org.opentaint.dataflow.bidi.fixtures.HistoricalPipelineFixtures as PipelineFixtures
 import org.opentaint.dataflow.bidi.fixtures.QueuedProtocolSteps
 import kotlin.test.*
 

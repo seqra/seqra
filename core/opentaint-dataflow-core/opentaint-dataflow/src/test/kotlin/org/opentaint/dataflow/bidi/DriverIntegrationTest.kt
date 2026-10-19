@@ -11,18 +11,19 @@ import kotlin.time.Duration.Companion.seconds
 
 class DriverIntegrationTest {
     @Test
-    fun `actual limits one two three carry selected demand sink seed source hit and final raw record through joined barriers`(): Unit {
+    fun `limits one one two carry selected demand sink seed source hit and final raw record through joined barriers`(): Unit {
         DriverFixtures().use { f ->
             val program = f.refining()
-            val driver = f.driver(FixedLimits(listOf(1, 2, 3)))
+            val driver = f.driver(FixedLimits(listOf(1, 1, 2)))
             val report = driver.analyze(listOf(program.root))
             val mark = program.source.to.mark
             val path = program.source.to.path
             val zero = f.manager.zero.toPattern()
-            val coarse = Pattern(PathFact(AccessPathBase.Return, path.take(1), Tail.ANY, mark), ExclusionSet.Empty)
+            val group = MarkSlot.Concrete(f.manager.marks.group(f.manager.marks.groupOf((mark as MarkSlot.Concrete).mark)))
+            val coarse = Pattern(PathFact(AccessPathBase.Return, path.take(1), Tail.ANY, group), ExclusionSet.Empty)
             val precise = Pattern(program.source.to, ExclusionSet.Empty)
             assertEquals(listOf(1, 2, 3), f.configs.map { it.index })
-            assertEquals(listOf(1, 2, 3), f.configs.map { it.fieldLimit })
+            assertEquals(listOf(1, 1, 2), f.configs.map { it.fieldLimit })
             assertEquals(listOf(Direction.FORWARD, Direction.BACKWARD, Direction.FORWARD), f.configs.map { it.direction })
             assertTrue(f.results.all { it.status == RunStatus.COMPLETE })
             assertEquals(listOf(1, 2, 3), driver.frontiers.map { it.run })
@@ -38,7 +39,8 @@ class DriverIntegrationTest {
             assertEquals(listOf(Triple(program.root, program.root.statement, program.source)),
                 backward.sourceHits!!.entries().toList())
             assertSame(program.source, backward.sourceHits.entries().single().third)
-            assertEquals(setOf(DemandPattern(precise, null)),
+            val backwardCoarse = coarse.copy(fact = coarse.fact.copy(mark = mark))
+            assertEquals(setOf(DemandPattern(backwardCoarse, null)),
                 f.configs[2].demand!!.near(program.root, AccessPathBase.Return, null).toSet())
             assertEquals(listOf(Seed.Source(program.root, program.root.statement, program.source)),
                 f.configs[2].seeds.at(program.root, program.root.statement))
@@ -61,12 +63,12 @@ class DriverIntegrationTest {
     }
 
     @Test
-    fun `equal positive limits still run a real forward backward forward sequence before the fixed policy stops`(): Unit {
+    fun `selected limits run a real forward backward forward sequence before the fixed policy stops`(): Unit {
         DriverFixtures().use { f ->
             val program = f.persistentDemand()
-            val driver = f.driver(FixedLimits(listOf(1, 1, 1)))
+            val driver = f.driver(FixedLimits(listOf(1, 1, 2)))
             val report = driver.analyze(listOf(program.root))
-            assertEquals(listOf(1, 1, 1), f.configs.map { it.fieldLimit })
+            assertEquals(listOf(1, 1, 2), f.configs.map { it.fieldLimit })
             assertEquals(listOf(1, 2, 3), driver.frontiers.map { it.run })
             assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.POLICY), report.end)
             assertEquals(ReportState.DEMAND, report.entries.single().state)

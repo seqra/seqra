@@ -13,7 +13,6 @@ import org.opentaint.semgrep.pattern.JoinSinkMetavarConflict
 import org.opentaint.semgrep.pattern.LeftTaintRuleMustHaveSources
 import org.opentaint.semgrep.pattern.LeftTaintRuleShouldNotHaveSinks
 import org.opentaint.semgrep.pattern.Mark.GeneratedMark
-import org.opentaint.semgrep.pattern.Mark.RuleUniqueMarkPrefix
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.RuleWithMetaVars
 import org.opentaint.semgrep.pattern.SemgrepJoinOnOperation
@@ -83,14 +82,14 @@ fun <Item, Cond, Assign, Clean> RuleConversionCtx.convertTaintAutomataJoinToTain
         // collide with another's; a single-sink join keeps the original id.
         val sinkCtx =
             if (operationsBySink.size == 1) this
-            else RuleConversionCtx("$ruleId#$sinkItemId", modeModifier, meta, trace, typeOps)
+            else child("$ruleId#$sinkItemId")
 
         val converted = sinkCtx.convertCompositionJoinOperations(strategy, rule, rightItemRef, sinkOps.map { it.lhs })
             ?: return null
         branches += converted
     }
 
-    return TaintRuleFromSemgrep(ruleId, TaintRuleFromSemgrep.Structure.Join(branches))
+    return TaintRuleFromSemgrep(ruleId, TaintRuleFromSemgrep.Structure.Join(branches), markOwners())
 }
 
 private fun validateNoChainedOperations(operations: List<TaintAutomataJoinOperation>): Boolean {
@@ -112,7 +111,7 @@ private fun <Item, Cond, Assign, Clean> RuleConversionCtx.convertCompositionJoin
         val leftItem = rule.items.getValue(leftItemRef.itemId)
         val leftAutomata = leftItem.rule
 
-        val leftCtx = RuleConversionCtx("$ruleId#${leftItemRef.itemId}", modeModifier, meta, trace, typeOps)
+        val leftCtx = child("$ruleId#${leftItemRef.itemId}")
         val (leftStructure, leftFinalMarks) = leftCtx.convertCompositionLeftRule(
             leftItemRef.itemId, strategy, leftAutomata, leftItemRef.metaVar
         ) ?: return null
@@ -175,7 +174,7 @@ private fun <Item, Cond, Assign, Clean> RuleConversionCtx.convertCompositionLeft
             edgesToFinalAccept = emptyList()
         )
         TaintRuleGenerationCtx(
-            RuleUniqueMarkPrefix(ruleId, modeModifier, idx),
+            markPrefix(idx),
             taintEdgesWithAssign,
             compositionStrategy = null,
             strategy,
@@ -252,7 +251,7 @@ private fun <Item, Cond, Assign, Clean> RuleConversionCtx.composeRuleJoinRight(
     idx: Int
 ): TaintRuleGenerationCtx<Item, Cond, Assign, Clean> {
     val composition = JoinRightCompositionStrategy(r, initialVar, leftFinalMarks, taintStrategy)
-    return TaintRuleGenerationCtx(RuleUniqueMarkPrefix(ruleId, modeModifier, idx), r, composition, taintStrategy)
+    return TaintRuleGenerationCtx(markPrefix(idx), r, composition, taintStrategy)
 }
 
 private fun <Item, Cond, Assign, Clean> RuleConversionCtx.convertCompositionRightTaintRule(

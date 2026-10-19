@@ -1,0 +1,74 @@
+package org.opentaint.dataflow.bidi.ap
+
+/** FLOW restrictions denote either an entire owner group or an exact full
+ * mark. The atom IDs are private representation, never raw set semantics. */
+class MarkExclusions private constructor(
+    private val atoms: MarkSet,
+    private val catalog: MarkTable?,
+) {
+    val isEmpty: Boolean get() = atoms.isEmpty
+    val ids: IntArray get() = atoms.ids
+    internal val data: IntArray get() = atoms.data
+    fun withCatalog(table: MarkTable): MarkExclusions {
+        require(catalog == null || catalog === table) { "Mixed mark catalogs in FLOW exclusions" }
+        return normalized(atoms, table)
+    }
+    operator fun contains(mark: TaintMark): Boolean = excludes(mark, catalog)
+    private fun excludes(mark: TaintMark, table: MarkTable?): Boolean {
+        if (mark in atoms) return true
+        if (mark == TaintMark.ZERO || table == null || table.isGroup(mark)) return false
+        return atoms.data.any { id ->
+            val atom = TaintMark(id)
+            table.isGroup(atom) && table.groupOf(atom) == table.groupOf(mark)
+        }
+    }
+    operator fun plus(mark: TaintMark): MarkExclusions = normalized(atoms + mark, catalog)
+    operator fun plus(other: MarkExclusions): MarkExclusions = union(other)
+    operator fun plus(other: MarkSet): MarkExclusions = union(fromMarks(other))
+    fun union(other: MarkExclusions): MarkExclusions = normalized(atoms + other.atoms, tableWith(other))
+    fun intersect(other: MarkExclusions): MarkExclusions {
+        val table = tableWith(other)
+        val left = atoms.data.filter { other.excludes(TaintMark(it), table) }
+        val right = other.atoms.data.filter { excludes(TaintMark(it), table) }
+        return normalized(MarkSet((left + right).toIntArray()), table)
+    }
+    fun isSubsetOf(other: MarkExclusions): Boolean {
+        val table = tableWith(other)
+        return atoms.data.all { id ->
+            val atom = TaintMark(id)
+            // A finite list of full members does not cover a group, even if
+            // it happens to contain the current catalog's complete population.
+            if (table?.isGroup(atom) == true) atom in other.atoms else other.excludes(atom, table)
+        }
+    }
+    fun filterMarks(marks: MarkSet): MarkSet = MarkSet(marks.data.filter { TaintMark(it) !in this }.toIntArray())
+    fun projected(table: MarkTable, mode: MarkMode): MarkExclusions =
+        if (mode == MarkMode.FULL) withCatalog(table)
+        else normalized(MarkSet(atoms.data.map { table.runtimeAtom(TaintMark(it), mode).id }.toIntArray()), table)
+    fun forEach(visit: (TaintMark) -> Unit) = atoms.data.forEach { visit(TaintMark(it)) }
+    private fun tableWith(other: MarkExclusions): MarkTable? {
+        require(catalog == null || other.catalog == null || catalog === other.catalog) { "Mixed mark catalogs" }
+        return catalog ?: other.catalog
+    }
+    override fun equals(other: Any?): Boolean = other is MarkExclusions && atoms == other.atoms
+    override fun hashCode(): Int = atoms.hashCode()
+    override fun toString(): String = atoms.toString()
+    companion object {
+        val EMPTY = MarkExclusions(MarkSet.EMPTY, null)
+        fun fromMarks(marks: MarkSet, catalog: MarkTable? = null): MarkExclusions = normalized(marks, catalog)
+        fun of(catalog: MarkTable, atom: TaintMark): MarkExclusions = fromMarks(MarkSet(intArrayOf(atom.id)), catalog)
+        fun of(catalog: MarkTable, atoms: Iterable<TaintMark>): MarkExclusions =
+            normalized(MarkSet(atoms.map { it.id }.toIntArray()), catalog)
+        private fun normalized(atoms: MarkSet, catalog: MarkTable?): MarkExclusions {
+            if (atoms.isEmpty) return EMPTY
+            if (catalog == null || atoms.data.none { catalog.isGroup(TaintMark(it)) }) return MarkExclusions(atoms, catalog)
+            val groups = atoms.data.filter { catalog.isGroup(TaintMark(it)) }.map { catalog.groupOf(TaintMark(it)) }.toSet()
+            return MarkExclusions(MarkSet(atoms.data.filter { id ->
+                val atom = TaintMark(id)
+                catalog.isGroup(atom) || atom == TaintMark.ZERO || catalog.groupOf(atom) !in groups
+            }.toIntArray()), catalog)
+        }
+    }
+}
+
+operator fun MarkSet.minus(excluded: MarkExclusions): MarkSet = excluded.filterMarks(this)

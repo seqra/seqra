@@ -26,6 +26,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
+/** Full-mark primitive/reference regression; selected GROUP behavior has separate differential controls. */
 class RequestActionTest {
     private val manager = ApManager(Cancellation())
     private val ops = ApOps(manager)
@@ -39,7 +40,7 @@ class RequestActionTest {
     private val u = manager.marks.mark("U")
     private val mt = MarkSlot.Concrete(t)
     private val mu = MarkSlot.Concrete(u)
-    private val run1 = ApMode(true, Direction.FORWARD, 3)
+    private val run1 = ApMode(true, Direction.FORWARD, 3, markMode = MarkMode.FULL)
     private fun p(vararg accessors: Int) = accessors.toList()
     private fun ex(vararg accessors: Int) = ExclusionSet.of(accessors)
     private fun marks(vararg ids: Int) = MarkSet(ids)

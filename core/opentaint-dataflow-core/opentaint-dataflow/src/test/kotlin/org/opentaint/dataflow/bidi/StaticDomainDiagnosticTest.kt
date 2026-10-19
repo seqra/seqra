@@ -1,11 +1,21 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticProfiles
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticLocalProfile
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticFootprint
+import org.opentaint.dataflow.bidi.engine.historical.staticDomainMissMessage
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.MethodContext
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
+import org.opentaint.dataflow.bidi.engine.historical.*
+import org.opentaint.dataflow.bidi.engine.historical.Run1Slot
+import org.opentaint.dataflow.bidi.engine.historical.RequestStorage
+import org.opentaint.dataflow.bidi.engine.historical.SummaryStorage
+import org.opentaint.dataflow.bidi.engine.historical.Run1Abstraction
 import org.opentaint.dataflow.bidi.fixtures.StoreFixtures
 import org.opentaint.dataflow.bidi.store.CallerRef
 import kotlin.test.*

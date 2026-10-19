@@ -37,7 +37,7 @@ class NaiveClosure(
     }
 
     private val inputs = rawInputs ?: program.inputs(config)
-    private val plan = if (selected && config.run1) SelectedScalarPlan(program) else null
+    private val groups = if (selected && config.run1) GroupedScalarMarks(program.manager.marks) else null
     private val reached = LinkedHashSet<MethodKey>()
     private val currentStarts = LinkedHashMap<MethodKey, MutableSet<Pattern>>()
     private val admittedRequests = LinkedHashMap<MethodKey, MutableMap<Pattern, MutableSet<TaintMark>>>()
@@ -130,7 +130,7 @@ class NaiveClosure(
         if (!program.isKnown(method) || !initials.add(ObservedInitial(method, initial))) return
         check(initial.fact.tail != Tail.ANY_TAINT || (config.restricted && forward))
         work += {
-            val value = staticFlow(setOf(initial), startFact(initial))
+            val value = startFact(initial)
             val model = program.programMethod(method)
             val nodes = if (forward) listOf(method.statement) else buildList {
                 add(program.inst(method, model.normalExit))
@@ -150,7 +150,7 @@ class NaiveClosure(
     }
 
     private fun putEdge(method: MethodKey, node: CommonInst, premise: Set<Pattern>, conclusion: Conclusion) {
-        val edge = ObservedEdge(method, premise, staticFlow(premise, cover(conclusion)), node)
+        val edge = ObservedEdge(method, premise, cover(conclusion), node)
         if (processed.add(edge)) work += { process(edge) }
     }
 
@@ -253,9 +253,9 @@ class NaiveClosure(
             program.manager.cancellation.checkpoint()
             val (pr, value) = items[index++]
             val checks = sinks(method, node, pr, value, rules.sinks)
-            for ((sink, layer) in checks.fired)
+            for ((sink, layer) in if (selected) emptyList() else checks.fired)
                 applier.gen(sink.endFacts, zero, Conclusion(ZERO_FACT, ExclusionSet.Empty, layer == Layer.DEMAND), add)
-            if (!forward) for (sink in rules.sinks) {
+            if (!selected && !forward) for (sink in rules.sinks) {
                 val ends = rules.endFacts.edges.filter { edge -> sink.endFacts.any { it.forward == edge.forward } }
                 var applied = false
                 applier.gen(ends, pr, value) { p, result -> applied = true; add(p, result) }
@@ -267,18 +267,9 @@ class NaiveClosure(
     }
 
     private fun summary(method: MethodKey, premise: Set<Pattern>, conclusion: Conclusion) {
-        val result = staticFlow(premise, conclusion)
-        // Independent scalar Compact: the universal D root already supplies this
-        // exact unchanged field identity; requests/effects have run before here.
-        val initial = premise.singleOrNull()
-        if (selected && config.run1 && initial != null && initial.fact.base == STATIC &&
-            initial.fact.path.size == 2 && initial.exclusion == ExclusionSet.Empty &&
-            result.fact == initial.fact && result.exclusion == ExclusionSet.Empty && result.demand &&
-            ((initial.fact.mark == MarkSlot.STAR && initial.fact.tail == Tail.STAR) ||
-                (initial.fact.mark is MarkSlot.Concrete && initial.fact.tail == Tail.EXACT))) return
-        val raw = ObservedEdge(method, premise, result)
+        val raw = ObservedEdge(method, premise, conclusion)
         if (!rawSummaries.add(raw)) return
-        publish(method, premise, result)
+        publish(method, premise, conclusion)
     }
 
     private fun publish(method: MethodKey, premise: Set<Pattern>, conclusion: Conclusion) {
@@ -309,7 +300,7 @@ class NaiveClosure(
                 emptyList()
             },
             clean = { cleaner, item ->
-                val result = cleanRes(cleaner, item.c, run1 = selected && config.run1)
+                val result = groups?.clean(cleaner, item.c) ?: cleanRes(cleaner, item.c, run1 = selected && config.run1)
                 if (config.run1) result.request?.let { raise(method, item.premise, RequestKind.Mark(it)) }
                 result.facts.map { item.copy(c = it) }
             },
@@ -418,13 +409,10 @@ class NaiveClosure(
     }
 
     private fun checkLiteral(method: MethodKey, premise: Set<Pattern>, conclusion: Conclusion, literal: Pattern): Conclusion? =
-        when (val checked = markCheck(premise.first(), conclusion, literal, config.restricted)) {
+        when (val checked = groups?.check(premise.first(), conclusion, literal) ?: markCheck(premise.first(), conclusion, literal, config.restricted)) {
             CheckResult.None -> null
-            is CheckResult.Request -> {
-                raise(method, premise, RequestKind.Mark(checked.mark))
-                null
-            }
-            CheckResult.Holds -> conclusion.copy(demand = conjDemand(conclusion, literal))
+            is CheckResult.Request -> { raise(method, premise, RequestKind.Mark(checked.mark)); null }
+            CheckResult.Holds -> groups?.conclusion(conclusion) ?: conclusion.copy(demand = conjDemand(conclusion, literal))
         }
 
     private fun sinks(method: MethodKey, node: CommonInst, premise: Set<Pattern>, conclusion: Conclusion,
@@ -442,7 +430,7 @@ class NaiveClosure(
                         predicate, index, premise, checked)) {
                         witnesses += ObservedWitness(sink.rule, method, node, sink.alternative, config.index,
                             combination.inputs.map { ObservedSinkEdge(it.premise, it.layer, it.facts, it.group) },
-                            sink.endFacts.mapTo(LinkedHashSet()) { it.edge.to }, proof = combination.proof)
+                            if (selected) emptySet() else sink.endFacts.mapTo(LinkedHashSet()) { it.edge.to }, proof = combination.proof)
                         fired += sink to combination.layer
                     }
                 }
@@ -458,7 +446,7 @@ class NaiveClosure(
                     val effectiveLayer = if (combination.any { it.conclusion.demand }) Layer.DEMAND else Layer.NORMAL
                     witnesses += ObservedWitness(sink.rule, method, node, sink.alternative, config.index,
                         combination.map { ObservedSinkEdge(it.premise, layer(it.conclusion), setOf(it.conclusion)) },
-                        sink.endFacts.mapTo(LinkedHashSet()) { it.edge.to },
+                        if (selected) emptySet() else sink.endFacts.mapTo(LinkedHashSet()) { it.edge.to },
                         proof = sink.occurrenceId?.let { ProofKey(it, emptyList()) })
                     fired += sink to effectiveLayer
                 }
@@ -507,12 +495,11 @@ class NaiveClosure(
         }
     }
 
-    private fun staticFlow(premise: Set<Pattern>, value: Conclusion): Conclusion =
-        if (selected) scalarStaticFlow(config.run1, premise, value) else value
-
-    private fun cover(value: Conclusion): Conclusion =
-        if (selected && config.run1 && value.exclusion != ExclusionSet.Empty)
-            value.copy(exclusion = ExclusionSet.Empty, demand = true) else value
+    private fun cover(value: Conclusion): Conclusion {
+        val current = groups?.conclusion(value) ?: value
+        return if (selected && config.run1 && current.exclusion != ExclusionSet.Empty)
+            current.copy(exclusion = ExclusionSet.Empty, demand = true) else current
+    }
 
     private fun selectedReference(method: MethodKey): SelectedFormsReference = selectedReferences.getOrPut(method) {
         val algebra = SelectedReferenceAlgebra(config.mode,
@@ -531,7 +518,7 @@ class NaiveClosure(
                             combination.any { it.conclusion.demand }))
                 }
             })
-        SelectedFormsReference(program.ops, algebra, config.run1)
+        SelectedFormsReference(program.ops, algebra)
     }
     private fun applier(method: MethodKey): FormApplier<Set<Pattern>, Conclusion> =
         if (selected) selectedReference(method).applier else reference(method).applier
@@ -543,11 +530,9 @@ class NaiveClosure(
     /** Ordinary stored edge, independently generated when a reached owner is initialized. */
     private fun reach(method: MethodKey) {
         if (!selected || !config.run1 || !program.isKnown(method) || !reached.add(method)) return
-        // Expanded ordinary reference only: static interests traverse each
-        // actual caller input. There is no inherited B/startup interest wave.
+        // The selected engine has neither inherited static B nor executable S-root
+        // identity summaries. Static permission is a later shared demand view.
         admittedRequests[method] = linkedMapOf()
-        val root = SelectedScalarPlan.slot(STATIC)
-        summary(method, setOf(root), Conclusion(root.fact, ExclusionSet.Empty, true))
     }
     private fun permitted(method: MethodKey, premise: Set<Pattern>): Boolean {
         val starts = currentStarts[method].orEmpty()
@@ -597,7 +582,7 @@ class NaiveClosure(
         check(config.run1)
         check(kind is RequestKind.Mark) { "The selected protocol has no Position requests" }
         val slot = origin(premise) ?: return
-        admitRequest(method, slot, kind.mark, observed = true)
+        admitRequest(method, slot, groups?.atom(kind.mark) ?: kind.mark, observed = true)
     }
     private fun emitSelected(link: ObservedLink) {
         val input = link.added
@@ -605,29 +590,10 @@ class NaiveClosure(
             addInitial(link.callee, ZERO_PATTERN); return
         }
         if (input.fact.base != STATIC) addInitial(link.callee, SelectedScalarPlan.slot(input.fact.base))
-        else {
-            val profile = checkNotNull(plan)
-            // OrdinaryD is exhaustive: every legal actual field is projected,
-            // independently of the optimization's local reader/relay placement.
-            for (field in profile.suppliedFields(input)) {
-                addInitial(link.callee, SelectedScalarPlan.slot(STATIC, field))
-                val actual = input.fact.mark as? MarkSlot.Concrete
-                if (actual != null) {
-                    val exact = input.fact.tail == Tail.EXACT && input.fact.path == field
-                    addInitial(link.callee, Pattern(PathFact(STATIC, field,
-                        if (exact) Tail.EXACT else Tail.STAR, actual), ExclusionSet.Empty))
-                }
-            }
-            val mark = input.fact.mark as? MarkSlot.Concrete
-            if (mark != null) {
-                if (input.fact.path.size == 1 && input.fact.tail == Tail.EXACT)
-                    addInitial(link.callee, input.copy(exclusion = ExclusionSet.Empty))
-                else if (input.fact.path.size <= 1 && input.fact.tail != Tail.EXACT)
-                    for (cls in profile.points(link.callee)) if (input.fact.path.isEmpty() || input.fact.path[0] == cls)
-                        addInitial(link.callee, Pattern(PathFact(STATIC, listOf(cls), Tail.STAR, mark), ExclusionSet.Empty))
-            }
-        }
+        // Static values are handled by explicit local read/write descriptors, never
+        // by ordinary method-entry requests. No inherited field/mark plan participates.
     }
+
     private fun replaySelected(link: ObservedLink) {
         if (!config.run1) return
         for ((slot, marks) in selectedRequests(link.callee).entries.toList())
@@ -643,11 +609,8 @@ class NaiveClosure(
             }
             is MarkSlot.Star -> {
                 val target = origin(link.premise) ?: return
-                // The expanded static walk is an independent reference, not
-                // the optimized storage protocol. Observe Base endpoints;
-                // intermediate static R/P rows have no public counterpart.
-                admitRequest(link.caller, target, mark,
-                    observed = target.fact.base != STATIC || slot.fact.base != STATIC)
+                if (mark in selectedRequests(link.caller)[target].orEmpty()) return
+                admitRequest(link.caller, target, mark, observed = true)
             }
         }
     }

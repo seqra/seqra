@@ -66,7 +66,7 @@ class MicroEdgeBuilderTest {
                        premise: Pattern = if (input.fact.base == AccessPathBase.Zero) ZERO_PATTERN
                            else Pattern(side(input.fact.base), empty)): Pair<Set<Conclusion>, List<RequestKind>> {
         val requests = ArrayList<RequestKind>()
-        val algebra = ReferenceAlgebra(ApMode(run1, Direction.FORWARD, Int.MAX_VALUE),
+        val algebra = ReferenceAlgebra(ApMode(run1, Direction.FORWARD, Int.MAX_VALUE, markMode = MarkMode.FULL),
             request = { _, request -> requests += request }, manager = m)
         val result = FormsReference(fixture.ops, algebra).apply(FormsReference.Mode.STATEMENT, s, setOf(premise), input, at)
         return result.toSet() to requests

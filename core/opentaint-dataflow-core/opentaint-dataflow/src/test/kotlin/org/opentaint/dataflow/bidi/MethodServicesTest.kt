@@ -20,18 +20,19 @@ class MethodServicesTest {
                 assertFailsWith<UnsupportedOperationException> { (batch as MutableList).clear() }
                 batches += batch
             }
-            val first = method.fact()
+            val first = method.run1Fact()
             core.emitAfter(method.manager.zero, method.inst(2), first)
             method.drain(core)
             val publication = batches.single().single()
-            assertSame(first, publication.conclusion)
+            assertEquals(first, publication.conclusion)
+            val publishedFact = publication.conclusion
             core.emitAfter(method.manager.zero, method.inst(2),
-                method.fact(mark = MarkSlot.Concrete(method.mark("next"))))
+                method.run1Fact(full = method.mark("next")))
             method.drain(core)
             assertEquals(2, batches.size)
             assertEquals(1, batches[0].size)
             assertSame(publication, batches[0].single())
-            assertSame(first, batches[0].single().conclusion)
+            assertSame(publishedFact, batches[0].single().conclusion)
         }
     }
 

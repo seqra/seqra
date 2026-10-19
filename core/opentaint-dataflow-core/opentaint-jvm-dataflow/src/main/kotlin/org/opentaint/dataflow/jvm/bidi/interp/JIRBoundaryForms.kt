@@ -65,6 +65,7 @@ internal object JIRBoundaryForms {
                 if (condition.isTrue) interp.ruleForms.sinks(rule, condition,
                     RuleOccurrenceId(form, RuleKind.ENTRY_SINK, ordinal)) else emptyList()
             }
+        interp.ruleForms.sinkInputs(sinks).forEach(builder::staticOperation)
         return RuleStatement(builder.build(), genSummary(sinks), sinks)
     }
 
@@ -98,6 +99,7 @@ internal object JIRBoundaryForms {
                 if (!forms.valid(rule)) emptyList() else forms.sinks(rule, forms.rewriteSourceOrSink(rule, rewriter),
                     RuleOccurrenceId(form, RuleKind.EXIT_SINK, ordinal))
             }
+        forms.sinkInputs(sinks).forEach(builder::staticOperation)
         return ExitRules(RuleStatement(builder.build(), genSummary(sinks), sinks),
             globalStateDrop = normal && sinks.isNotEmpty(),
             entryMarks = if (normal) entryMarks(entryRules) else emptySet())

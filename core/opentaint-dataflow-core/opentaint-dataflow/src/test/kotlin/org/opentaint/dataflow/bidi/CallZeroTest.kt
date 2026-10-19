@@ -25,7 +25,7 @@ class CallZeroTest {
                 StatementSummary.identities(setOf(AccessPathBase.Zero, result))),
         ), emptyList(), CallPoint.BEFORE, CallPoint.AFTER)
 
-    private fun core(f: MethodAnalysisFixtures, index: Int = 1, limit: Int = 3,
+    private fun core(f: MethodAnalysisFixtures, index: Int = 1, limit: Int = maxOf(1, index - 1),
                      seeds: SeedIndex = SeedIndex.EMPTY, key: MethodKey = f.key): RunMethodAnalyzer =
         f.core(index = index, L = limit, seeds = seeds, key = key,
             localFactory = MethodLocalServicesFactory(::RunMethodLocalServices),
@@ -41,10 +41,11 @@ class CallZeroTest {
             f.onSubscribe = {}
             f.onLink = {}
             val actor = core(f)
+            val groupedTarget = target.copy(mark = f.groupMark(t.mark))
             actor.emitAfter(f.manager.zero, f.inst(0), Reach.of(layer))
             f.drain(actor, quantum = 1)
             assertEquals(setOf(f.manager.zero to Conclusion(ZERO_FACT, ExclusionSet.Empty, layer == Layer.DEMAND),
-                f.manager.zero to Conclusion(target, ExclusionSet.Empty, layer == Layer.DEMAND)),
+                f.manager.zero to Conclusion(groupedTarget, ExclusionSet.Empty, true)),
                 methodEntries(f.ops, actor.summaries.all()))
             val subscription = f.subscriptions.single()
             assertEquals(callee, subscription.callee)
@@ -53,11 +54,9 @@ class CallZeroTest {
             assertEquals(layer, subscription.linkLayer)
             assertEquals(Reach.of(layer), subscription.added)
             assertFalse(subscription.zeroOnly)
-            assertTrue(f.sentLinks.isEmpty(), "Caller admission dispatches the run-1 ZERO descriptor")
-            assertEquals(CallPoint.ADDED, subscription.stageFrom)
-            assertEquals(CallPoint.RETURNED, subscription.stageTo)
+            assertEquals(listOf(RunEvent.LinkIn(callee, subscription.ref, layer, Reach.of(layer))), f.sentLinks)
             assertTrue(f.events.none { it is RunEvent.ZeroIn })
-            assertEquals(setOf(Conclusion(target, ExclusionSet.Empty, layer == Layer.DEMAND)),
+            assertEquals(setOf(Conclusion(groupedTarget, ExclusionSet.Empty, true)),
                 methodLeaves(f.ops, f.cuts.filter { it.first == Cut.CALL }.map { it.second }))
             assertNull(actor.sourceHits)
         }

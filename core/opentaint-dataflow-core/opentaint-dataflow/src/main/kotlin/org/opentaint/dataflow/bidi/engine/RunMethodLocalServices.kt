@@ -6,6 +6,9 @@ import org.opentaint.dataflow.bidi.interp.SinkRule
 import org.opentaint.dataflow.bidi.interp.ProofKey
 import org.opentaint.dataflow.bidi.interp.SourceRuleOccurrence
 import org.opentaint.dataflow.bidi.interp.RulePredicate
+import org.opentaint.dataflow.bidi.interp.ResumeSite
+import org.opentaint.dataflow.bidi.interp.StaticOperation
+import org.opentaint.dataflow.bidi.interp.OperationId
 import org.opentaint.dataflow.bidi.store.*
 import org.opentaint.ir.api.common.cfg.CommonInst
 
@@ -43,21 +46,34 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
     }
 
     override fun conjunction(edge: ConjunctiveEdge, premise: PremiseKey, facts: Facts, node: CommonInst,
-                             sink: (PremiseKey, Facts) -> Unit) {
+                             sink: (PremiseKey, Facts) -> Unit) = conjunctionAt(edge, premise, facts, node,
+        OperationInput(ResumeSite.StatementInput(activeCore().operation(node)), premise, facts), sink)
+
+    override fun conjunctionAt(edge: ConjunctiveEdge, premise: PremiseKey, facts: Facts, node: CommonInst,
+                               at: OperationInput, sink: (PremiseKey, Facts) -> Unit) {
         val core = activeCore()
+        core.observeGrounding(at)
         val store = checkNotNull(conjunctionStore) { "A backward form has independent conjunction branches" }
         for ((index, literal) in edge.literals.withIndex()) {
             core.ap.cancellation.checkpoint()
             if (literal.fact.base != facts.base) continue
             when (val checked = core.ops.checkMark(facts, literal, core.mode, core.unchangedStaticInitial(premise))) {
                 MarkCheck.None -> Unit
-                is MarkCheck.Request -> core.raiseMark(premise, facts, checked.mark)
+                is MarkCheck.Request -> core.needGroups(at, checked.mark)
                 is MarkCheck.Holds -> {
                     val combinations = store.add(edge, node, edge.literals.size, index,
-                        ConjunctionStore.Input(premise, checked.facts.layer))
+                        ConjunctionStore.Input(premise, checked.facts.layer, checked.facts, literal, index,
+                            core.guardGrounding(at, checked.facts, literal, leaf = index)))
                     for (combination in combinations) {
                         core.ap.cancellation.checkpoint()
-                        sink(combination.premise, core.ops.targetTree(edge.target, combination.layer))
+                        val result = core.ops.targetTree(edge.target, combination.layer, core.mode)
+                        val input = at.copy(premise = combination.premise, support = combinationSupport(combination.inputs))
+                        val write = if (edge.target.base == STATIC) StaticOperation.Write(at.site.operation,
+                            Pattern(edge.target, ExclusionSet.Empty)) else null
+                        val value = core.forceRun1Layer(combination.premise, result)
+                        val support = if (edge.target.tail != Tail.STAR) core.fixedGrounding(input)
+                            else checkNotNull(input.support)
+                        core.withGroundingSupport(support) { sink(combination.premise, value) }
                         core.ap.cancellation.checkpoint()
                     }
                 }
@@ -66,18 +82,37 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
     }
 
     override fun sourcePredicate(source: SourceRuleOccurrence, premise: PremiseKey, facts: Facts, node: CommonInst,
-                                 statementEdge: Boolean, sink: (PremiseKey, Facts) -> Unit) {
+                                 statementEdge: Boolean, sink: (PremiseKey, Facts) -> Unit) =
+        sourcePredicateAt(source, premise, facts, node, statementEdge,
+            OperationInput(ResumeSite.StatementInput(activeCore().operation(node)), premise, facts), sink)
+
+    override fun sourcePredicateAt(source: SourceRuleOccurrence, premise: PremiseKey, facts: Facts, node: CommonInst,
+                                   statementEdge: Boolean, at: OperationInput, sink: (PremiseKey, Facts) -> Unit) {
         val core = activeCore()
         if (source.actions.isEmpty()) return
+        core.observeGrounding(at)
         val predicate = source.predicate
         fun transfer(leaf: Int, multi: Boolean) {
             for (action in source.actions) {
                 core.ap.cancellation.checkpoint()
                 val edge = source.transfer(predicate.leaves[leaf], action, multi)
                 if (edge.edge.from.base != facts.base) continue
+                if (core.config.seededSources && !core.config.seeds.allowsSource(core.key, node, edge.forward, action.id)) continue
+                val checked = if (core.forward && !multi) core.ops.checkMark(facts, predicate.leaves[leaf], core.mode) else null
+                val sourceSupport = if (checked is MarkCheck.Holds) {
+                    core.guardGrounding(at, checked.facts, predicate.leaves[leaf], ProofKey(source.id, listOf(leaf)), leaf)
+                } else at.support
+                val sourceAt = at.copy(support = sourceSupport)
                 core.ops.applyEdge(facts, premise, edge.edge, statementEdge, core.mode,
-                    core.collect(premise, facts, sink), may = edge.may,
-                    unchangedStaticInitial = core.unchangedStaticInitial(premise))
+                    core.collect(sourceAt) { _, result ->
+                        core.sourceHits?.add(core.key, node, edge.forward, action.id)
+                        val write = if (action.target.base == STATIC) StaticOperation.Write(
+                            OperationId(action.id.occurrence.form, at.site.operation.stageOrdinal, action.id),
+                            Pattern(action.target, ExclusionSet.Empty), action = action.id) else null
+                        val support = if (action.target.tail != Tail.STAR) core.fixedGrounding(sourceAt)
+                            else sourceAt.support ?: core.currentGroundingSupport
+                        core.withGroundingSupport(support) { sink(premise, result) }
+                    }, may = edge.may)
             }
         }
         if (source.backward) {
@@ -96,12 +131,25 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
             if (predicate.isUnary(leaf)) transfer(leaf, multi = false)
             if (predicate.isMulti(leaf)) when (val checked = core.ops.checkMark(facts, pattern, core.mode, core.unchangedStaticInitial(premise))) {
                 MarkCheck.None -> Unit
-                is MarkCheck.Request -> core.raiseMark(premise, facts, checked.mark)
+                is MarkCheck.Request -> core.needGroups(at, checked.mark)
                 is MarkCheck.Holds -> checkNotNull(predicateStore).add(source.id, node, predicate, leaf,
-                    ConjunctionStore.Input(premise, checked.facts.layer)) { combination ->
+                    ConjunctionStore.Input(premise, checked.facts.layer, checked.facts, pattern, leaf,
+                        core.guardGrounding(at, checked.facts, pattern, ProofKey(source.id, listOf(leaf)), leaf))) { combination ->
                     if (combination.leaves.size >= 2) for (action in source.actions) {
                         core.ap.cancellation.checkpoint()
-                        sink(combination.premise, core.ops.targetTree(action.target, combination.layer))
+                        if (core.config.seededSources && combination.leaves.none { selected ->
+                            core.config.seeds.allowsSource(core.key, node,
+                                source.transfer(predicate.leaves[selected], action, multi = true).forward, action.id)
+                        }) continue
+                        val result = core.ops.targetTree(action.target, combination.layer, core.mode)
+                        val input = at.copy(premise = combination.premise, support = combinationSupport(combination.inputs, combination.proof))
+                        val write = if (action.target.base == STATIC) StaticOperation.Write(
+                            OperationId(action.id.occurrence.form, at.site.operation.stageOrdinal, action.id),
+                            Pattern(action.target, ExclusionSet.Empty), action = action.id) else null
+                        val value = core.forceRun1Layer(combination.premise, result)
+                        val support = if (action.target.tail != Tail.STAR) core.fixedGrounding(input)
+                            else checkNotNull(input.support)
+                        core.withGroundingSupport(support) { sink(combination.premise, value) }
                     }
                 }
             }
@@ -109,8 +157,14 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
     }
 
     override fun checkSinks(premise: PremiseKey, node: CommonInst, facts: Facts, sinks: List<SinkRule>): Triggers {
+        return checkSinksAt(premise, node, facts, sinks,
+            OperationInput(ResumeSite.StatementInput(activeCore().operation(node)), premise, facts))
+    }
+
+    override fun checkSinksAt(premise: PremiseKey, node: CommonInst, facts: Facts, sinks: List<SinkRule>, at: OperationInput): Triggers {
         val core = activeCore()
         if (!core.forward || sinks.isEmpty()) return Triggers.NONE
+        core.observeGrounding(at)
         val fired = ArrayList<Pair<SinkRule, Layer>>()
         val parts = ArrayList<Facts>()
         for (sink in sinks) {
@@ -121,7 +175,7 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
                     core.ap.cancellation.checkpoint()
                     when (val checked = core.ops.checkMark(facts, literal, core.mode, core.unchangedStaticInitial(premise))) {
                         MarkCheck.None -> Unit
-                        is MarkCheck.Request -> core.raiseMark(premise, facts, checked.mark)
+                        is MarkCheck.Request -> core.needGroups(at, checked.mark)
                         is MarkCheck.Holds -> {
                             parts += checked.facts
                             checkNotNull(predicateStore).add(checkNotNull(sink.occurrenceId), node, predicate, index,
@@ -141,7 +195,7 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
                 core.ap.cancellation.checkpoint()
                 when (val checked = core.ops.checkMark(facts, literal, core.mode, core.unchangedStaticInitial(premise))) {
                     MarkCheck.None -> Unit
-                    is MarkCheck.Request -> core.raiseMark(premise, facts, checked.mark)
+                    is MarkCheck.Request -> core.needGroups(at, checked.mark)
                     is MarkCheck.Holds -> {
                         parts += checked.facts
                         if (!sink.conjunctive) {
@@ -183,9 +237,22 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
         }
     }
 
+    private fun combinationSupport(inputs: List<ConjunctionStore.Input>, proof: ProofKey? = null): GroundingSupport {
+        val core = activeCore()
+        var inherited = GroundingSupport.TRUE
+        val requirements = ArrayList<GroundingRequirement>()
+        for (input in inputs) {
+            val facts = input.facts ?: continue
+            if (input.grounding != null) { inherited = inherited.and(input.grounding); continue }
+            inherited = inherited.and(core.currentGroundingSupport)
+            input.requirement?.let { requirements += GroundingRequirement(input.premise, facts, it, proof, input.leafOrdinal) }
+        }
+        return inherited.and(GroundingSupport.require(requirements))
+    }
+
     private fun witness(core: RunMethodAnalyzer, sink: SinkRule, node: CommonInst, edges: List<SinkEdge>, proof: ProofKey? = null) {
         core.ap.cancellation.checkpoint()
-        val endFacts = sink.endFacts.map { edge -> core.ap.cancellation.checkpoint(); edge.edge.to }
+        val endFacts = emptyList<PathFact>() // selected policy ignores sink end actions in every run
         val scopedProof = proof ?: sink.occurrenceId?.let { ProofKey(it, emptyList()) }
         core.context.vulnerabilities.add(VulnerabilityKey(sink.rule, core.key.method, node),
             SinkWitness(sink.alternative, core.key, edges, core.config.index, endFacts, scopedProof))

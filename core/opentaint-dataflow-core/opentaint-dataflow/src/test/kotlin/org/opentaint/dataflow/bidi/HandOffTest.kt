@@ -24,6 +24,14 @@ class HandOffTest {
             it != DemandPattern(f.manager.zero.toPattern(), null)
         }
 
+    /** The run-1 handoff adds one symbolic static guide for each eligible group. */
+    private fun implicitStatics(f: HandOffFixtures): Set<DemandPattern> = if (f.index != 1) emptySet() else
+        f.manager.marks.groupAtoms().mapTo(LinkedHashSet()) { group ->
+            val mark = MarkSlot.Concrete(group)
+            DemandPattern(f.pattern(STATIC, tail = Tail.ANY, mark = mark),
+                f.pattern(STATIC, tail = Tail.STAR, mark = mark))
+        }
+
     private fun rule(id: String): RuleId = object : CommonTaintConfigurationSink {
         override val id = id
         override val meta = object : CommonTaintConfigurationSinkMeta {
@@ -70,7 +78,7 @@ class HandOffTest {
             val before = result.analyzers.single().summaries.all().toList()
             val handOff = HandOff.of(f.config, result, f.report, f.shared)
             val expected = DemandPattern(f.pattern(returned, listOf(b), Tail.ANY, u), initial.toPattern())
-            assertEquals(setOf(expected), explicit(f, handOff, key))
+            assertEquals(setOf(expected) + implicitStatics(f), explicit(f, handOff, key))
             assertEquals(mapOf(key to 1), handOff.demandEdges)
             assertEquals(0, handOff.seeds.size)
             assertEquals(before, result.analyzers.single().summaries.all().toList())
@@ -79,7 +87,7 @@ class HandOffTest {
             val record = f.records.byEntry(key, initial.toPattern()).single()
             assertSame(initial, record.premise)
             assertEquals(recordFact, record.conclusion)
-            assertEquals(setOf(expected), explicit(f, handOff, key))
+            assertEquals(setOf(expected) + implicitStatics(f), explicit(f, handOff, key))
         }
     }
 
@@ -99,7 +107,7 @@ class HandOffTest {
             f.selected(key, premise, normal)
             val result = f.result()
             val handOff = HandOff.of(f.config, result, f.report, f.shared)
-            assertEquals(setOf(DemandPattern(target, a.toPattern()), DemandPattern(target, b.toPattern())),
+            assertEquals(setOf(DemandPattern(target, a.toPattern()), DemandPattern(target, b.toPattern())) + implicitStatics(f),
                 explicit(f, handOff, key))
             assertEquals(mapOf(key to 2), handOff.demandEdges)
             assertEquals(listOf(premise to normal), result.analyzers.single().summaries.demandEdges().toList())
@@ -317,7 +325,7 @@ class HandOffTest {
     }
 
     @Test
-    fun `actual conjunction handoffs keep backward literal branches demand and exclude them from singleton records`(): Unit {
+    fun `exact conjunction handoffs keep backward literal branches demand and exclude them from singleton records`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val aMark = MarkSlot.Concrete(f.mark("A"))
             val bMark = MarkSlot.Concrete(f.mark("B"))
@@ -329,7 +337,11 @@ class HandOffTest {
             val conjunction = ConjunctiveEdge(listOf(a.toPattern(), b.toPattern()), target)
             f.statement(1, StatementSummary(setOf(x, y), emptyList(), listOf(conjunction), emptyMap()))
             val local = MethodLocalServicesFactory(::RunMethodLocalServices)
-            val forwardConfig = f.config(index = 1, L = 1)
+            val incomingDemand = DemandStore.Builder(f.manager).apply {
+                add(f.key, DemandPattern(a.toPattern(), targetPattern))
+                add(f.key, DemandPattern(b.toPattern(), targetPattern))
+            }.build()
+            val forwardConfig = f.config(index = 3, demand = incomingDemand)
             val forward = f.core(forwardConfig, localFactory = local)
             forward.addInitial(a)
             f.drain(forward, quantum = 1)
@@ -339,24 +351,21 @@ class HandOffTest {
             forward.freeze()
             val premise = f.manager.premiseOf(listOf(a, b))
             val normalTarget = Conclusion(target, ExclusionSet.Empty, false)
-            val identity = PathFact(STATIC, emptyList(), Tail.STAR, MarkSlot.STAR)
-            val default = f.manager.initial(Pattern(identity, ExclusionSet.Empty)) to
-                Conclusion(identity, ExclusionSet.Empty, true)
-            val forwardExpected = setOf<Pair<PremiseKey, Conclusion>>(premise to normalTarget, default)
+            val forwardExpected = setOf<Pair<PremiseKey, Conclusion>>(premise to normalTarget)
             assertEquals(forwardExpected, decoded(f.ops, forward.summaries.all()))
             assertEquals(forwardExpected, decoded(f.ops, forward.summaries.demandEdges()))
             val report = ReportBuilder()
-            val forwardResult = RunResult(RunStatus.COMPLETE, listOf(forward), 1, Direction.FORWARD, f.vulnerabilities)
+            val forwardResult = RunResult(RunStatus.COMPLETE, listOf(forward), 3, Direction.FORWARD, f.vulnerabilities)
             val forwardHandOff = HandOff.of(forwardConfig, forwardResult, report, f.shared)
             assertEquals(setOf(DemandPattern(targetPattern, a.toPattern()), DemandPattern(targetPattern, b.toPattern())),
                 forwardHandOff.demand.near(f.key, returned, null).toSet())
-            assertEquals(mapOf(f.key to 3), forwardHandOff.demandEdges, "Two conjunction members and one ordinary default guide")
-            // Ordinary persistence keeps its singleton admission guard in run 1 too.
+            assertEquals(mapOf(f.key to 2), forwardHandOff.demandEdges, "One backward guide per conjunction member")
+            // Only eligible singleton NORMAL summaries can enter the record store.
             f.records.persist(Direction.FORWARD, sequenceOf(f.key to forward.summaries))
             assertTrue(f.records.byEntry(f.key, a.toPattern()).none())
             assertTrue(f.records.byEntry(f.key, b.toPattern()).none())
 
-            val backwardConfig = f.config(index = 2, L = 1, demand = forwardHandOff.demand, seeds = forwardHandOff.seeds)
+            val backwardConfig = f.config(index = 4, demand = forwardHandOff.demand, seeds = forwardHandOff.seeds)
             val backward = f.core(backwardConfig, localFactory = local)
             val requirement = f.manager.initial(targetPattern)
             backward.addInitial(requirement)
@@ -370,7 +379,7 @@ class HandOffTest {
             f.records.persist(Direction.BACKWARD, sequenceOf(f.key to backward.summaries))
             assertTrue(f.records.byExit(f.key, a.toPattern()).none(), "A reversed literal is not a normal one-literal record")
             assertTrue(f.records.byExit(f.key, b.toPattern()).none(), "Each literal branch keeps its DEMAND layer")
-            val backwardResult = RunResult(RunStatus.COMPLETE, listOf(backward), 2, Direction.BACKWARD, f.vulnerabilities)
+            val backwardResult = RunResult(RunStatus.COMPLETE, listOf(backward), 4, Direction.BACKWARD, f.vulnerabilities)
             val backwardHandOff = HandOff.of(backwardConfig, backwardResult, report, f.shared)
             assertEquals(setOf(DemandPattern(a.toPattern(), targetPattern)),
                 backwardHandOff.demand.near(f.key, x, null).toSet())

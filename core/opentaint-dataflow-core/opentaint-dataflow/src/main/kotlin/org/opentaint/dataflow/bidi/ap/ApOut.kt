@@ -9,26 +9,30 @@ interface ApOut {
 }
 
 internal fun ApOut.run1Policy(m: ApManager, mode: ApMode): ApOut = if (!mode.run1) this else object : ApOut {
-    override fun result(f: Facts) = run1CoverFacts(m, f) { this@run1Policy.result(it) }
-    override fun markRequest(mark: TaintMark) = this@run1Policy.markRequest(mark)
+    override fun result(f: Facts) = run1CoverFacts(m, m.runtimeFact(f, mode)) { this@run1Policy.result(it) }
+    override fun markRequest(mark: TaintMark) = this@run1Policy.markRequest(m.marks.runtimeAtom(mark, mode.markMode))
 }
 
 /** One result per kind and canonical key, without store subsumption. */
 internal class Results(private val m: ApManager, private val base: AccessPathBase) {
     private val reach = BooleanArray(2)
-    private data class FlowKey(val layer: Layer, val exclusion: ExclusionSet, val mx: MarkSet, val tail: Tail)
+    private data class FlowKey(val layer: Layer, val exclusion: ExclusionSet, val mx: MarkExclusions, val tail: Tail)
     private data class TaintKey(val layer: Layer, val exclusion: ExclusionSet, val anyTail: Tail)
     private val flow = LinkedHashMap<FlowKey, FlowNode>(2)
     private val taint = LinkedHashMap<TaintKey, TaintNode>(2)
 
     fun reach(layer: Layer) { reach[layer.ordinal] = true }
 
-    fun flow(layer: Layer, exclusion: ExclusionSet, mx: MarkSet, node: FlowNode,
+    fun flow(layer: Layer, exclusion: ExclusionSet, mx: MarkExclusions, node: FlowNode,
              tail: Tail = if (layer == Layer.NORMAL) Tail.STAR else Tail.ANY) {
         if (node.isEmpty) return
         val key = FlowKey(layer, if (tail == Tail.ANY) ExclusionSet.Empty else m.intern(exclusion), m.intern(mx), tail)
         flow[key] = flow[key]?.let { FlowAlgebra.mergeAdd(it, node, m.cancellation) } ?: node
     }
+
+    fun flow(layer: Layer, exclusion: ExclusionSet, mx: MarkSet, node: FlowNode,
+             tail: Tail = if (layer == Layer.NORMAL) Tail.STAR else Tail.ANY) =
+        flow(layer, exclusion, MarkExclusions.fromMarks(mx, m.marks), node, tail)
 
     fun taint(layer: Layer, node: TaintNode, exclusion: ExclusionSet = ExclusionSet.Empty,
               anyTail: Tail = if (layer == Layer.NORMAL) Tail.ANY_TAINT else Tail.ANY) {

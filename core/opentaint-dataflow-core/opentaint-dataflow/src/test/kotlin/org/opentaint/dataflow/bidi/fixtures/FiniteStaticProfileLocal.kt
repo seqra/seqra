@@ -2,6 +2,13 @@ package org.opentaint.dataflow.bidi.fixtures
 
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
+import org.opentaint.dataflow.bidi.engine.historical.Run1Slot as HistoricalRun1Slot
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticProfiles
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticProfile
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticLocalProfile
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticFootprint
+import org.opentaint.dataflow.bidi.engine.historical.StaticMarkInterest
+import org.opentaint.dataflow.bidi.engine.historical.StaticMarkRole
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 

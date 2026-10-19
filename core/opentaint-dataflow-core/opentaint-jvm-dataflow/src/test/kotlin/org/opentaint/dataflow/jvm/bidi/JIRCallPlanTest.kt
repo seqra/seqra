@@ -354,7 +354,7 @@ class JIRCallPlanTest : BasicTestUtils() {
         assertTrue(actions(p, CallPoint.BOUND, CallPoint.ADDED).isEmpty())
     }
 
-    @Test fun `sink end facts and source forms bypass returned actions through the rewritten point`(): Unit {
+    @Test fun `sink end actions are absent and source forms bypass returned actions through the rewritten point`(): Unit {
         val rules = CallRules().apply {
             sources = listOf(source(listOf(AssignMark(RuleMark("T"), any(Result)))))
             sinks = listOf(sink(listOf(AssignMark(RuleMark("U"), Result))))
@@ -362,17 +362,13 @@ class JIRCallPlanTest : BasicTestUtils() {
         }
         val p = v.builder(rules = rules, resolutions = listOf(v.resolved())).build()
         val sk = p.sinks.single()
-        val ends = stage(p, StageKind.END_FACTS)
-        assertEquals(CallPoint.BOUND, ends.from)
-        assertEquals(CallPoint.REWRITTEN, ends.to)
-        assertSame(sk, (ends.guard as Guard.SinkTriggered).sink)
-        assertSame(sk.endFacts.single().edge, ends.summary.edges.single().edge)
-        assertEquals(listOf(PathEdge(ZERO_FACT, fact(ret, mark = u), empty)), ends.summary.edges.map { it.edge })
+        assertTrue(sk.endFacts.isEmpty())
+        assertTrue(p.stages.filterIsInstance<CallStage.Edges>().none { it.kind == StageKind.END_FACTS })
         val sources = stage(p, StageKind.SOURCES)
         assertEquals(CallPoint.REWRITTEN, sources.to)
         assertEquals(listOf(ZERO_KEEP, PathEdge(ZERO_FACT, fact(ret, Tail.ANY_TAINT), empty)), sources.summary.edges.map { it.edge })
         assertEquals(CleanReach.AT_AND_BELOW, (actions(p, CallPoint.RETURNED, CallPoint.REWRITTEN).single() as CleanStep.Clean).cleaner.reach)
-        assertEquals(listOf(StageKind.BIND_IN, StageKind.END_FACTS, StageKind.SOURCES, StageKind.BIND_BACK), p.stages.filterIsInstance<CallStage.Edges>().map { it.kind })
+        assertEquals(listOf(StageKind.BIND_IN, StageKind.SOURCES, StageKind.BIND_BACK), p.stages.filterIsInstance<CallStage.Edges>().map { it.kind })
     }
 
     @Test fun `signed false user source preserves ordinary returned pass facts while a live source rewriter removes them`(): Unit {
@@ -501,16 +497,15 @@ class JIRCallPlanTest : BasicTestUtils() {
         assertEquals(me.edge.to, reversedAlias.summary.edges.single().edge.from)
     }
 
-    @Test fun `reversed end facts keep sink triggers and reverse action order while bindings lose filters`(): Unit {
+    @Test fun `reverse call keeps empty sink end actions and reverses cleaners while bindings lose filters`(): Unit {
         val rules = CallRules().apply {
             sinks = listOf(sink(listOf(AssignMark(RuleMark("U"), Result))))
             cleaners = listOf(cleaner(listOf(RemoveMark(RuleMark("T"), Argument(0)), RemoveMark(RuleMark("U"), Argument(1)))))
         }
         val p = v.builder(rules = rules).build()
         val reversed = p.reversed()
-        val ends = stage(reversed, StageKind.END_FACTS)
-        assertSame(p.sinks.single(), ends.trigger)
-        assertNull(ends.guard)
+        assertTrue(p.sinks.single().endFacts.isEmpty())
+        assertTrue(reversed.stages.filterIsInstance<CallStage.Edges>().none { it.kind == StageKind.END_FACTS })
         assertEquals(listOf(arg1, arg0), actions(reversed, CallPoint.ADDED, CallPoint.BOUND).map { (it as CleanStep.Clean).cleaner.base })
         for (st in reversed.stages.filterIsInstance<CallStage.Edges>()) {
             assertTrue(st.summary.typeFilters.isEmpty())
@@ -569,10 +564,12 @@ class JIRCallPlanTest : BasicTestUtils() {
         assertEquals(RuleKind.CALL_SOURCE, source.id.kind)
         assertEquals(source.id, stage(rebuilt, StageKind.SOURCES).summary.sources.single().id)
         assertEquals(source.actions.single().id, stage(rebuilt, StageKind.SOURCES).summary.sources.single().actions.single().id)
-        val sink = first.sinks.single()
+        assertEquals(listOf(1, 2), first.sinks.map { it.occurrenceId!!.ordinal },
+            "An invalid ignored end action cannot reject the otherwise valid sink")
+        val sink = first.sinks.single { it.occurrenceId!!.ordinal == 2 }
         assertEquals(2, sink.occurrenceId!!.ordinal)
         assertEquals(RuleKind.CALL_SINK, sink.occurrenceId!!.kind)
-        assertEquals(sink.occurrenceId, rebuilt.sinks.single().occurrenceId)
+        assertEquals(sink.occurrenceId, rebuilt.sinks.single { it.occurrenceId!!.ordinal == 2 }.occurrenceId)
         assertNotEquals(source.id, stage(build(FormOwner()), StageKind.SOURCES).summary.sources.single().id)
         assertEquals(listOf(ZERO_KEEP), stage(first, StageKind.SOURCES).summary.edges.map { it.edge })
     }
@@ -625,7 +622,7 @@ class JIRCallPlanTest : BasicTestUtils() {
         val first = cache.get(0, Direction.FORWARD, ::build)
         val oldReverse = cache.get(0, Direction.BACKWARD, ::build)
         assertEquals(1, builds)
-        assertSame(first.sinks.single(), stage(oldReverse, StageKind.END_FACTS).trigger)
+        assertSame(first.sinks.single(), oldReverse.sinks.single())
         assertEquals(1, refs.cleanup())
         refs.enable()
         val rebuilt = cache.get(0, Direction.FORWARD, ::build)
@@ -639,8 +636,8 @@ class JIRCallPlanTest : BasicTestUtils() {
         val oldField = actions(first, CallPoint.BOUND, CallPoint.ADDED).single() as CleanStep.Field
         val newField = actions(rebuilt, CallPoint.BOUND, CallPoint.ADDED).single() as CleanStep.Field
         assertEquals(oldField.temporary, newField.temporary)
-        assertSame(rebuilt.sinks.single(), (stage(rebuilt, StageKind.END_FACTS).guard as Guard.SinkTriggered).sink)
-        assertSame(rebuilt.sinks.single(), stage(newReverse, StageKind.END_FACTS).trigger)
+        assertTrue(rebuilt.stages.filterIsInstance<CallStage.Edges>().none { it.kind == StageKind.END_FACTS })
+        assertSame(rebuilt.sinks.single(), newReverse.sinks.single())
         assertEquals(oldReverse.sinks.single().joinKey, newReverse.sinks.single().joinKey)
     }
 

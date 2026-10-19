@@ -71,7 +71,7 @@ class ConcreteDesignDifferentialTest {
 
     private fun compareVersions(f: DriverFixtures, root: MethodKey, keys: List<MethodKey>, bases: List<AccessPathBase>,
                                 fields: List<Int>, marks: List<TaintMark>,
-                                limits: List<Int> = listOf(1, 2, 3)): HistoricalIterationResult {
+                                limits: List<Int> = listOf(1, 1, 2)): HistoricalIterationResult {
         val old = HistoricalConcreteIteration(f.program, listOf(root), limits).run()
         val expected = DirectCurrentIteration(f.program, listOf(root), limits).run()
         val barriers = ArrayList<ProgramRunInputs>()
@@ -140,7 +140,7 @@ class ConcreteDesignDifferentialTest {
         val sink = SinkRule(f.rule("F71 WRAP sink"), 0, listOf(p.pattern(output, listOf(field, a, b, c), mark = t)), emptyList())
         p.exit(root, 2, ExitRules(RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY, listOf(sink)), false, emptySet()))
         val old = compareVersions(f, root, listOf(root, wrap), listOf(AccessPathBase.Zero, x, ret, input, output, z),
-            listOf(a, b, c, field), listOf(t.mark), listOf(1, 2, 3, 4, 5))
+            listOf(a, b, c, field), listOf(t.mark), listOf(1, 1, 2, 3, 4))
         assertEquals(mapOf(HistoricalFinding(sink.rule, p.inst(root, 2)) to HistoricalState.CONFIRMED), old.findings)
         assertEquals(listOf(1, 2, 3, 4, 5), old.runs.map { it.index })
     }
@@ -360,8 +360,8 @@ class ConcreteDesignDifferentialTest {
         ), emptyList(), BEFORE, AFTER))
         val sink = SinkRule(f.rule("excluded-mark sink"), 0, listOf(f.program.pattern(x, listOf(a), mark = u)), emptyList())
         f.program.exit(root, 2, ExitRules(RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY, listOf(sink)), false, emptySet()))
-        val old = HistoricalConcreteIteration(f.program, listOf(root), listOf(1, 2, 3)).run()
-        val current = DirectCurrentIteration(f.program, listOf(root), listOf(1, 2, 3)).run()
+        val old = HistoricalConcreteIteration(f.program, listOf(root), listOf(1, 1, 2)).run()
+        val current = DirectCurrentIteration(f.program, listOf(root), listOf(1, 1, 2)).run()
         val excluded = MarkSlot.Star(MarkSet.EMPTY + t)
         assertTrue(old.runs.size >= 2 && current.runs.size >= 2)
         assertContains(old.runs[1].inputs.demand, callee to DemandPattern(
@@ -372,7 +372,7 @@ class ConcreteDesignDifferentialTest {
             (d.entry.fact.mark as? MarkSlot.Star)?.excluded?.isEmpty == false })
         assertTrue(old.runs[0].observation.requests.isEmpty(), "Earlier INSIDE selected cleaner does not request")
         assertEquals(setOf(ObservedRequest(callee, f.program.pattern(x, tail = Tail.STAR, mark = MarkSlot.STAR),
-            RequestKind.Mark(t))), current.runs[0].observation.requests,
+            RequestKind.Mark(f.manager.marks.group(f.manager.marks.groupOf(t))))), current.runs[0].observation.requests,
             "F75 requests before spatial geometry, including INSIDE")
         assertContains(old.runs[0].observation.selectedDemand, ObservedEdge(callee,
             setOf(f.program.pattern(x, tail = Tail.STAR, mark = MarkSlot.STAR)),
@@ -416,7 +416,7 @@ class ConcreteDesignDifferentialTest {
             val sink = SinkRule(f.rule("generated sink $seed"), 0,
                 listOf(f.program.pattern(ret, suffix, mark = sinkMark)), emptyList())
             f.program.exit(root, 2, ExitRules(RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY, listOf(sink)), false, emptySet()))
-            val limits = listOf(1, 2, 3)
+            val limits = listOf(1, 1, 2)
             val old = HistoricalConcreteIteration(f.program, listOf(root), limits).run()
             val reference = DirectCurrentIteration(f.program, listOf(root), limits).run()
             val actualBarriers = ArrayList<ProgramRunInputs>()

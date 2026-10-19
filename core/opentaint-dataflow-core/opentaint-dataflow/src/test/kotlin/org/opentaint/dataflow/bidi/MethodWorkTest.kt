@@ -65,16 +65,16 @@ class MethodWorkTest {
             assertFailsWith<Cancellation.Cancelled> { core.work(1000) }
             assertEquals(1L, core.steps)
             assertTrue(f.publications.isEmpty())
-            assertFailsWith<Cancellation.Cancelled> { core.summaries.all().withoutPrecomputedStaticDefault().none() }
+            assertFailsWith<Cancellation.Cancelled> { core.summaries.all().none() }
             f.cancellation.activate()
-            assertTrue(core.summaries.all().withoutPrecomputedStaticDefault().none())
+            assertTrue(core.summaries.all().none())
         }
     }
 
     @Test fun `publication failure propagates and cannot report completion or lose its pending batch`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val core = f.core()
-            val facts = f.fact()
+            val facts = f.run1Fact()
             val failure = AssertionError("publication")
             core.emitAfter(f.manager.zero, f.inst(2), facts)
             f.onPublish = { _, _ -> throw failure }
@@ -83,7 +83,7 @@ class MethodWorkTest {
             f.onPublish = null
             assertTrue(core.work(10))
             assertEquals(2, f.publications.size)
-            assertSame(facts, f.publications[0].single().conclusion)
+            assertEquals(facts, f.publications[0].single().conclusion)
             assertSame(f.publications[0].single(), f.publications[1].single())
             assertEquals(1L, core.edgeDeltas)
         }

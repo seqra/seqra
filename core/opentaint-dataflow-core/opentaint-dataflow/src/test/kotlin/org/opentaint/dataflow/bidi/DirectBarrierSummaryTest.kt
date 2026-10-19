@@ -11,7 +11,7 @@ import kotlin.test.*
 
 class DirectBarrierSummaryTest {
     @Test
-    fun `exit only demand summary keeps both direct barriers alternating without processed demand or links`(): Unit = DriverFixtures().use { f ->
+    fun `an exact forward exit demand keeps refinement live without processed demand or links`(): Unit = DriverFixtures().use { f ->
         val base = AccessPathBase.LocalVar(0)
         val ret = AccessPathBase.Return
         val t = MarkSlot.Concrete(f.program.mark("summary-only T"))
@@ -24,17 +24,17 @@ class DirectBarrierSummaryTest {
         f.program.exit(root, 1, ExitRules(RuleStatement(f.summary(may, ZERO_KEEP),
             StatementSummary.EMPTY, listOf(sink)), false, emptySet()))
         for (reference in listOf(
-            HistoricalConcreteIteration(f.program, listOf(root), listOf(1, 2, 3)).run(),
-            DirectCurrentIteration(f.program, listOf(root), listOf(1, 2, 3)).run())) {
-            val first = reference.runs.first().observation
-            assertTrue(first.processed.all { !it.conclusion.demand })
-            assertTrue(first.links.isEmpty())
-            assertContains(first.rawSummaries, ObservedEdge(root, setOf(ZERO_PATTERN),
+            HistoricalConcreteIteration(f.program, listOf(root), listOf(1, 1, 2)).run(),
+            DirectCurrentIteration(f.program, listOf(root), listOf(1, 1, 2)).run())) {
+            val exact = reference.runs.last().observation
+            assertTrue(exact.processed.all { !it.conclusion.demand })
+            assertTrue(exact.links.isEmpty())
+            assertContains(exact.rawSummaries, ObservedEdge(root, setOf(ZERO_PATTERN),
                 Conclusion(PathFact(ret, emptyList(), Tail.ANY, t), ExclusionSet.Empty, true)))
             assertEquals(listOf(1, 2, 3), reference.runs.map { it.index }, "Raw summaries count as demand objects at the barrier")
             assertEquals(mapOf(HistoricalFinding(sink.rule, f.program.inst(root, 1)) to HistoricalState.DEMAND), reference.findings)
         }
-        val report = f.driver(FixedLimits(listOf(1, 2, 3))).analyze(listOf(root))
+        val report = f.driver(FixedLimits(listOf(1, 1, 2))).analyze(listOf(root))
         assertEquals(listOf(1, 2, 3), f.configs.map { it.index })
         assertTrue(f.results.first().demandLayerEdges > 0)
         assertEquals(EndReason.POLICY, report.end.reason)

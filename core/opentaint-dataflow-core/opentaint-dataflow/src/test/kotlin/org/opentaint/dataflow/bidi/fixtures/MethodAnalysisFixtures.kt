@@ -7,6 +7,13 @@ import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.bidi.driver.Seed
 import org.opentaint.dataflow.bidi.driver.SeedIndex
 import org.opentaint.dataflow.bidi.engine.*
+import org.opentaint.dataflow.bidi.engine.historical.Run1Slot as HistoricalRun1Slot
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticProfiles
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticProfile
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticLocalProfile
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticFootprint
+import org.opentaint.dataflow.bidi.engine.historical.StaticMarkInterest
+import org.opentaint.dataflow.bidi.engine.historical.StaticMarkRole
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.store.*
 import org.opentaint.dataflow.graph.CompactGraph
@@ -131,7 +138,7 @@ class MethodAnalysisFixtures(
         override fun graph(key: MethodKey, direction: Direction): MethodInstGraph = graph(direction)
     })
     private var profileBound = false
-    private val staticDomain = LinkedHashSet<Run1Slot.StaticField>()
+    private val staticDomain = LinkedHashSet<HistoricalRun1Slot.StaticField>()
     private val staticClasses = LinkedHashSet<Int>()
 
     /** Declare the canonical supplier domain before creating an actor. This does not make it owned. */
@@ -140,7 +147,7 @@ class MethodAnalysisFixtures(
         for (path in paths) {
             require(path.size in 1..2 && path[0].isClass())
             staticClasses += path[0]
-            if (path.size == 2) staticDomain += Run1Slot.StaticField(path[0], path[1])
+            if (path.size == 2) staticDomain += HistoricalRun1Slot.StaticField(path[0], path[1])
         }
     }
 
@@ -148,13 +155,13 @@ class MethodAnalysisFixtures(
         profileBound = true
         SharedObjects(manager, ops, interpreter, language, contexts, records, vulnerabilities,
             UnitResolver { UnknownUnit }, refManager, cancellation, threads = 1,
-            run1StaticProfiles = staticProfiles?.invoke(this) ?: collectStaticProfiles(),
             abstractionStatistics = abstractionStatistics, requestBatchStatistics = requestBatchStatistics)
     }
     val shared: SharedObjects get() = sharedOwner.value
 
     /** Only configured forward forms enter this finite prescan. No runtime input is read here. */
-    private fun collectStaticProfiles(): Run1StaticProfiles {
+    /** Explicit historical prescan oracle, never installed in SharedObjects. */
+    fun historicalStaticProfiles(): Run1StaticProfiles {
         val local = FiniteStaticProfileLocal()
         statements.values.forEach(local::summary)
         local.rules(entryRules)
@@ -171,24 +178,14 @@ class MethodAnalysisFixtures(
     val requests = ArrayList<Pair<InitialAp, RequestKind>>()
     val addedLinks = ArrayList<Triple<CallerRef, Layer, Facts>>()
     private val inputRows = IdentityHashMap<RunMethodAnalyzer, MutableList<Link>>()
+    private val staticServices = IdentityHashMap<RunConfig, Run1StaticService>()
     private val questionManagers = IdentityHashMap<RunMethodAnalyzer, SubscriptionManager>()
     private val questionQueue = ArrayDeque<() -> Unit>()
     private val summaryStores = LinkedHashMap<MethodKey, SummaryStorage>()
-    private val staticRequestOwner = lazy {
-        CallerOwnedStaticRequests(manager, shared.run1StaticProfiles?.reachability ?: FixedPrescanReachability.empty())
-    }
-    val staticRequests get() = staticRequestOwner.value
     var onRequestNotification: ((RunEvent.ChangedRequests) -> Unit)? = null
 
     fun requestRow(core: RunMethodAnalyzer, slot: Run1Slot): RequestRowView =
         summaryStores.getValue(core.key).borrowRequest(slot)
-
-    /** Decode both transport descriptors into their logical initial identities. */
-    fun initials(core: RunMethodAnalyzer): Set<InitialAp> = buildSet {
-        addAll(core.initials.all())
-        core.staticEntryFacts()?.let { addAll(StaticIdentityEntries(ops).originals(it)) }
-        core.concreteStaticEntryFacts()?.let { addAll(ConcreteStaticEntries(ops).originals(it)) }
-    }
 
     /** Test-owned arrival observations; actors retain none of this input history. */
     fun links(core: RunMethodAnalyzer): List<Link> = inputRows[core].orEmpty().distinct()
@@ -201,8 +198,7 @@ class MethodAnalysisFixtures(
         if (facts !is Reach) questionManagers.getValue(core).subscribe(
             Subscription(core.key, ref, layer, facts, zeroOnly = false))
         (core.localServices as? ScalarPositionLocalServices)?.onInput(ref, facts)
-        if (!core.config.run1 || facts is Reach) core.addLink(ref, layer, facts)
-        pumpQuestions()
+        core.addLink(ref, layer, facts)
     }
 
     /** Queued question delivery never calls an actor during a captured N2 visit. */
@@ -226,8 +222,6 @@ class MethodAnalysisFixtures(
     val events = ArrayList<RunEvent>()
     internal val positionDeliveries = ArrayList<ReferenceRequestDelivery>()
     val subscriptions = ArrayList<Subscription>()
-    val staticSubscriptions = ArrayList<StaticSubscription>()
-    var onSubscribeStatic: ((StaticSubscription) -> Unit)? = null
     val sentLinks = ArrayList<RunEvent.LinkIn>()
     var onSubscribe: ((Subscription) -> Unit)? = null
     var onLink: ((RunEvent.LinkIn) -> Unit)? = null
@@ -240,12 +234,12 @@ class MethodAnalysisFixtures(
     val sinkSeedCalls = ArrayList<CommonInst>()
     val sinkEvaluations = ArrayList<Pair<SinkRule, Layer>>()
 
-    fun config(index: Int = 1, L: Int = 1,
+    fun config(index: Int = 1, L: Int = maxOf(1, index - 1),
                demand: DemandStore? = if (index == 1) null else DemandStore.Builder(manager).build(),
                seeds: SeedIndex = SeedIndex.EMPTY): RunConfig =
         RunConfig(index, L, demand, records, seeds, listOf(key))
 
-    fun core(index: Int = 1, L: Int = 1,
+    fun core(index: Int = 1, L: Int = maxOf(1, index - 1),
              demand: DemandStore? = if (index == 1) null else DemandStore.Builder(manager).build(),
              seeds: SeedIndex = SeedIndex.EMPTY,
              localFactory: MethodLocalServicesFactory? = null,
@@ -263,39 +257,32 @@ class MethodAnalysisFixtures(
             override val forms = contexts.directed(config.direction)
             override val ops = this@MethodAnalysisFixtures.ops
             override val steps = ProtocolSteps.Inline
-            override val staticRequests get() = this@MethodAnalysisFixtures.staticRequests
-            override fun post(event: RunEvent.CallsiteRequests): Boolean {
-                questionQueue += { questionManagers.getValue(actor).onCallsiteRequests(event.key, event.rows) }
-                return true
-            }
-            override fun send(event: RunEvent): Boolean { events += event; return true }
-            override fun post(event: RunEvent.Delivery): Boolean {
+            override val staticService = if (config.run1)
+                staticServices.getOrPut(config) { Run1StaticService(manager) } else null
+            override fun borrowN2(row: N2InputRef): Facts? = questionManagers.getValue(actor).borrowN2(row)
+            override fun borrowN2Cofactors(row: N2InputRef): List<Subscription> =
+                questionManagers.getValue(actor).borrowN2Cofactors(row)
+            override fun send(event: RunEvent): Boolean {
                 events += event
-                questionQueue += { questionManagers.getValue(actor).onDelivery(event.callee, event.publications) }
+                // This fixture owns one actor. Foreign-owner effects remain
+                // outbound observations; full-program fixtures route those.
+                if (event is RunEvent.StaticOwner && event.effect.owner == actor.key) questionQueue += {
+                    actor.onStaticEffect(event.effect)
+                }
                 return true
             }
+            override fun post(event: RunEvent.Delivery): Boolean { events += event; return true }
             override fun post(event: RunEvent.ChangedRequests): Boolean {
                 questionQueue += { questionManagers.getValue(actor).onRequests(event.callee, event.rows) }
                 onRequestNotification?.invoke(event)
                 return true
             }
             override fun summaryStorage(key: MethodKey): SummaryStorage =
-                summaryStores.getOrPut(key) { SummaryStorage(key, manager, ops, steps,
-                    shared.run1StaticProfiles?.get(key.method)?.precomputedRequests ?: EmptyFrozenRequestBase,
-                    staticRequests = if (config.run1) staticRequests else null) }
+                summaryStores.getOrPut(key) { SummaryStorage(key, manager, ops, steps) }
             override fun subscribe(sub: Subscription) {
                 val receive = checkNotNull(onSubscribe) { "Subscriptions require an explicit protocol fixture" }
                 subscriptions += sub
                 receive(sub)
-            }
-            override fun subscribeConcreteStatic(sub: ConcreteStaticSubscription) {
-                questionManagers.getValue(actor).subscribeConcreteStatic(sub)
-            }
-            override fun subscribeStatic(sub: StaticSubscription) {
-                staticSubscriptions += sub
-                val receive = onSubscribeStatic
-                if (receive != null) receive(sub)
-                else questionManagers.getValue(actor).subscribeStatic(sub)
             }
             override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
                 val receive = checkNotNull(onLink) { "Links require an explicit protocol fixture" }
@@ -311,22 +298,6 @@ class MethodAnalysisFixtures(
             override val onProcess: (MethodKey, EdgeDelta) -> Unit = { key, edge ->
                 processed += edge
                 this@MethodAnalysisFixtures.onProcess?.invoke(key, edge)
-            }
-            override val onStaticProcess: (MethodKey, CommonInst, FlowTree) -> Unit = { key, node, entries ->
-                val codec = StaticIdentityEntries(ops)
-                for (initial in codec.originals(entries)) {
-                    val edge = EdgeDelta(initial, node, codec.single(initial))
-                    processed += edge
-                    this@MethodAnalysisFixtures.onProcess?.invoke(key, edge)
-                }
-            }
-            override val onConcreteStaticProcess: (MethodKey, CommonInst, TaintTree) -> Unit = { key, node, entries ->
-                val codec = ConcreteStaticEntries(ops)
-                for (initial in codec.originals(entries)) {
-                    val edge = EdgeDelta(initial, node, codec.current(initial))
-                    processed += edge
-                    this@MethodAnalysisFixtures.onProcess?.invoke(key, edge)
-                }
             }
             override val onCut: (Cut, Facts) -> Unit = { point, facts ->
                 cuts += point to facts
@@ -347,36 +318,15 @@ class MethodAnalysisFixtures(
             override val config = config
             override val ops = this@MethodAnalysisFixtures.ops
             override val steps = ProtocolSteps.Inline
-            override val staticRequests get() = this@MethodAnalysisFixtures.staticRequests
-            override fun post(event: RunEvent.CallsiteRequests): Boolean = port.post(event)
+            override val staticService get() = port.staticService
             override fun summaryStorage(key: MethodKey): SummaryStorage = port.summaryStorage(key)
-            override fun staticFootprint(method: org.opentaint.ir.api.common.CommonMethod): Run1StaticFootprint? =
-                shared.run1StaticProfiles?.get(method)?.footprint
-            override fun staticProfile(method: org.opentaint.ir.api.common.CommonMethod): Run1StaticProfile? =
-                shared.run1StaticProfiles?.get(method)
             override fun applier(key: MethodKey): SummaryApplier = actor
             override fun post(event: RunEvent.Delivery): Boolean = port.post(event)
             override fun post(event: RunEvent.ChangedRequests): Boolean = port.post(event)
             override fun send(event: RunEvent): Boolean {
                 events += event
-                when (event) {
-                    is RunEvent.PreparedInitialsIn -> if (event.callee == actor.key)
-                        questionQueue += { actor.addPreparedInitials(event.prepared) }
-                    is RunEvent.RequestDrain -> questionQueue += { questions.drainRequests(event.caller) }
-                    is RunEvent.MarkRequestsIn -> if (event.method == actor.key)
-                        questionQueue += { event.rows.forEach { (slot, marks) -> actor.collectRequests(slot, marks) } }
-                    is RunEvent.ConcreteStaticEntriesIn -> {
-                        check(event.callee == actor.key)
-                        questionQueue += { actor.addConcreteStaticEntries(event.entries) }
-                    }
-                    is RunEvent.InitialAnswersIn -> if (event.method == actor.key)
-                        questionQueue += { event.answers.forEach(actor::addInitial) }
-                    is RunEvent.StaticEntriesIn -> {
-                        check(event.callee == actor.key) { "The finite port owns one method actor" }
-                        questionQueue += { actor.addStaticEntries(event.entries) }
-                    }
-                    else -> Unit
-                }
+                if (event is RunEvent.InitialAnswersIn && event.method == actor.key)
+                    questionQueue += { event.answers.forEach(actor::addInitial) }
                 return true
             }
         })
@@ -460,7 +410,6 @@ class MethodAnalysisFixtures(
             cancellation.checkpoint()
             check(++attempts <= 10000) { "The finite method fixture did not reach closure" }
             val complete = core.work(quantum)
-            if (complete) questionManagers.getValue(core).drainRequests(core.key)
             val delivered = pumpQuestions()
             // An answer delivered after work() returned can schedule a new initial/fact delta.
             if (complete && !delivered && !core.localServices.hasPendingRequests && questionQueue.isEmpty()) return attempts
@@ -475,12 +424,23 @@ class MethodAnalysisFixtures(
              tail: Tail = Tail.EXACT, mark: MarkSlot = MarkSlot.Concrete(mark("T")),
              exclusion: ExclusionSet = ExclusionSet.Empty, layer: Layer = Layer.NORMAL): Facts =
         store.fact(base, path, tail, mark, exclusion, layer)
+
+    /** Explicit run-1 actor inputs. Full rule forms keep using pattern()/fact(). */
+    fun groupMark(full: TaintMark = mark("T")): MarkSlot.Concrete =
+        MarkSlot.Concrete(manager.marks.group(manager.marks.groupOf(full)))
+    fun run1Pattern(base: AccessPathBase = AccessPathBase.Argument(0), path: List<Int> = emptyList(),
+                    tail: Tail = Tail.EXACT, full: TaintMark = mark("T")): Pattern =
+        pattern(base, path, tail, groupMark(full))
+    fun run1Fact(base: AccessPathBase = AccessPathBase.Argument(0), path: List<Int> = emptyList(),
+                 tail: Tail = Tail.EXACT, full: TaintMark = mark("T")): Facts =
+        fact(base, path, tail, groupMark(full), layer = Layer.DEMAND)
     override fun close() {
         questionManagers.values.forEach { it.freeze() }
         questionManagers.clear()
+        staticServices.values.forEach { it.clear() }
+        staticServices.clear()
         questionQueue.clear()
         summaryStores.clear()
-        if (staticRequestOwner.isInitialized()) staticRequestOwner.value.clear()
         inputRows.clear()
         if (sharedOwner.isInitialized()) sharedOwner.value.close()
     }

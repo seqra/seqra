@@ -13,7 +13,10 @@ import org.opentaint.dataflow.bidi.ap.mergeAddDelta
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 /** The exact caller side of a link. */
-data class CallerRef(val caller: MethodKey, val premise: PremiseKey, val callerLayer: Layer, val call: CommonInst)
+data class CallerRef(val caller: MethodKey, val premise: PremiseKey, val callerLayer: Layer,
+                     val call: CommonInst, val stageOrdinal: Int = 0) {
+    init { require(stageOrdinal >= 0) }
+}
 
 /** Exact accumulation has no positional index and retains no historical delta values. */
 internal class AddedFactAccumulator(private val m: ApManager) {
@@ -55,6 +58,8 @@ internal class AddedFactAccumulator(private val m: ApManager) {
         val entry = entries[handle]
         return Snapshot(entry.key.ref, entry.key.group, entry.facts)
     }
+
+    internal fun handleOf(ref: CallerRef, added: Facts): Int = handles.getInt(Key(ref, added.groupKey))
 
     fun clear() {
         handles.clear()

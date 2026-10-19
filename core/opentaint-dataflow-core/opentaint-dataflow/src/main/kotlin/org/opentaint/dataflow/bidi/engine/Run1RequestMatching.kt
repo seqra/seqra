@@ -14,41 +14,28 @@ internal fun validateRun1Supplier(ap: ApManager, premise: PremiseKey, input: Fac
     ap.cancellation.checkpoint()
     check((input is FlowTree) == premise.isFlow) { "K6: input kind follows its original premise" }
     check(premise !is PremiseSet || input is TaintTree) { "A conjunctive supplier is concrete" }
-    if (input is FlowTree) check(normalRun1Slot(premise) != null) {
-        "A run-1 FLOW supplier needs an admitted original abstract slot"
+    if (input is FlowTree) {
+        val original = premise as? InitialAp ?: error("A run-1 FLOW supplier needs one abstract origin")
+        validateRun1Initial(original, 1)
+        check(original.mark == MarkSlot.STAR) { "A FLOW supplier needs an abstract original mark" }
     }
 }
 
-internal fun TrieNode<*>.run1BroadLeaf(): Boolean = when (val value = leaf) {
-    is FlowLeaf -> !value.isEmpty
-    is TaintLeaves -> !value.any.isEmpty
-    else -> error("Unexpected run-1 leaf")
-}
-
-/** Geometry only. E and FLOW mx are ordinary annotations, not request filters. */
-internal fun slotMatches(slot: Run1Slot, input: Facts): Boolean {
-    if (input is Reach || slot.base != input.base) return false
-    val root: TrieNode<*> = when (input) {
-        is FlowTree -> input.root
-        is TaintTree -> input.root
-        is Reach -> return false
+/** Non-static request geometry has one empty-path base row. */
+internal fun slotMatches(slot: Run1Slot, input: Facts): Boolean = input !is Reach &&
+    slot.base == input.base && when (input) {
+        is FlowTree -> !input.root.isEmpty
+        is TaintTree -> !input.root.isEmpty
+        is Reach -> false
     }
-    return when (slot) {
-        is Run1Slot.Base -> !root.isEmpty
-        is Run1Slot.StaticField -> root.run1BroadLeaf() || root.child(slot.cls)?.let { cls ->
-            cls.run1BroadLeaf() || cls.child(slot.field)?.isEmpty == false
-        } == true
-    }
-}
 
-/** All concrete branches and all actual requested Base marks, with no supplier memo.
- * A merged batch can also contain static rows; they cannot match this nonstatic input.
+/** All concrete branches and all actual requested marks, with no supplier memo.
  * Exact and nonexact alternatives remain distinct; every nonexact answer is STAR. */
 internal fun forEachConcreteAnswer(
     ap: ApManager, input: Facts, rows: List<RequestedRow>,
     statistics: RequestBatchStatistics.Counts? = null, emit: (InitialAp) -> Unit,
 ) {
-    if (input !is TaintTree || input.base == STATIC || rows.isEmpty()) return
+    if (input !is TaintTree || rows.isEmpty()) return
     val stack = ArrayDeque<Pair<TaintNode, IntArray>>()
     stack.addLast(input.root to EMPTY_PATH)
     while (stack.isNotEmpty()) {
@@ -59,7 +46,7 @@ internal fun forEachConcreteAnswer(
             for (row in rows) {
                 ap.cancellation.checkpoint()
                 if (statistics != null) statistics.groupGeometrySteps++
-                val slot = row.slot as? Run1Slot.Base ?: continue
+                val slot = row.slot
                 if (slot.base != input.base) continue
                 val tail = if (exact && path.isEmpty()) Tail.EXACT else Tail.STAR
                 var canonicalPath: PathNode? = null
@@ -82,35 +69,6 @@ internal fun forEachConcreteAnswer(
             ap.cancellation.checkpoint()
             stack.addLast(children[i] to (path + accessors[i]))
         }
-    }
-}
-
-/** A direct class point is not a request slot. Broad components need structural
- * ownership, then every actual mark participates (a cleaner for T must preserve
- * an unrelated U). Only an exact supplier starts an EXACT class initial. */
-internal fun forEachDirectClassInitial(
-    ap: ApManager, input: Facts, profile: Run1StaticProfile?, emit: (InitialAp) -> Unit,
-) {
-    if (input !is TaintTree || input.base != STATIC) return
-    fun emitMarks(cls: Int, actual: MarkSet, exact: Boolean, selected: Boolean) {
-        if (selected && (profile == null || !profile.footprint.ownsPoint(cls))) return
-        for (id in actual.data) {
-            ap.cancellation.checkpoint()
-            val mark = TaintMark(id)
-            emit(ap.initial(STATIC, ap.path(cls, null), if (exact) Tail.EXACT else Tail.STAR,
-                ExclusionSet.Empty, MarkSlot.Concrete(mark)))
-        }
-    }
-    if (!input.root.leaf.any.isEmpty && profile != null) for (cls in profile.classPointClasses) {
-        ap.cancellation.checkpoint()
-        emitMarks(cls, input.root.leaf.any, exact = false, selected = true)
-    }
-    val children = input.root.childData ?: return
-    val accessors = checkNotNull(input.root.accessorData)
-    for (i in children.indices) {
-        ap.cancellation.checkpoint()
-        emitMarks(accessors[i], children[i].leaf.exact, exact = true, selected = false)
-        emitMarks(accessors[i], children[i].leaf.any, exact = false, selected = true)
     }
 }
 

@@ -4,7 +4,16 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
-import org.opentaint.dataflow.bidi.fixtures.Run1RequestPipelineFixtures
+import org.opentaint.dataflow.bidi.engine.historical.*
+import org.opentaint.dataflow.bidi.engine.historical.Run1Slot
+import org.opentaint.dataflow.bidi.engine.historical.RunEvent
+import org.opentaint.dataflow.bidi.engine.historical.SummaryStorage
+import org.opentaint.dataflow.bidi.engine.historical.RequestStorage
+import org.opentaint.dataflow.bidi.engine.historical.RequestRows
+import org.opentaint.dataflow.bidi.engine.historical.RequestedRow
+import org.opentaint.dataflow.bidi.engine.historical.RequestRowView
+import org.opentaint.dataflow.bidi.engine.historical.CalleeSubscriptions
+import org.opentaint.dataflow.bidi.fixtures.HistoricalRun1RequestPipelineFixtures as Run1RequestPipelineFixtures
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import kotlin.test.*
 
@@ -56,37 +65,37 @@ class Run1RequestPipelineIntegrationTest {
             h.collect(f.callee, first, RequestMarkSet.of(t))
             h.collect(f.callee, second, RequestMarkSet.of(u))
             h.commit(); h.drain()
-            val batches = h.sent.filterIsInstance<RunEvent.MarkRequestsIn>()
-            assertTrue(batches.all { it.rows.keys == setOf(original) })
-            h.commit(f.caller)
-            assertEquals(RequestMarkSet.fromIds(intArrayOf(t.id,u.id)),h.storage(f.caller).borrowRequest(original).dynamic)
-            assertEquals(2,h.sourceNeeds().size)
-            assertEquals(RequestMarkSet.of(t), h.storage().borrowRequest(first).dynamic)
-            assertEquals(RequestMarkSet.of(u), h.storage().borrowRequest(second).dynamic)
+            assertEquals(1L, h.statistics.snapshot().replayCandidates)
+            val batch = h.sent.filterIsInstance<RunEvent.MarkRequestsIn>().single()
+            assertEquals(setOf<Run1Slot>(original), batch.rows.keys)
+            assertEquals(RequestMarkSet.fromIds(intArrayOf(t.id, u.id)), batch.rows.getValue(original))
             assertEquals(setOf<Triple<MethodKey, Run1Slot, Int>>(Triple(f.caller, original, t.id), Triple(f.caller, original, u.id)), h.climbs)
         }
     }
 
-    @Test fun `uncovered canonical static sources and changed fields retain ordinary outgoing needs`(): Unit {
+    @Test fun `inherited precomputed segment skips only unchanged queried slot and still routes changed static origin`(): Unit {
         Run1RequestPipelineFixtures().use { h ->
-            val f=h.f;val cls=f.ap.accessors.index(ClassStaticAccessor("C"))
-            val first=Run1Slot.StaticField(cls,f.store.field("f"));val second=Run1Slot.StaticField(cls,f.store.field("g"))
-            h.declareIdentityStaticDomain(first,second)
-            val t=f.store.mark("T");val u=f.store.mark("U")
-            val a=f.store.fact(STATIC,first.pathData.toList(),Tail.STAR,MarkSlot.STAR) as FlowTree
-            val b=f.store.fact(STATIC,second.pathData.toList(),Tail.STAR,MarkSlot.STAR) as FlowTree
-            h.submit(f.subscription(a.withRoot(FlowAlgebra.mergeAdd(a.root,b.root)),first.initial(f.ap)));h.drain()
-            h.collect(f.callee,first,RequestMarkSet.of(t));h.collect(f.callee,second,RequestMarkSet.of(u))
-            h.commit();h.drain()
-            assertEquals(RequestMarkSet.of(t),h.needs(f.callee,first))
-            assertEquals(RequestMarkSet.of(u),h.needs(f.callee,second))
-            assertEquals(2,h.sourceNeeds().size)
-            val routed = h.sent.filterIsInstance<RunEvent.MarkRequestsIn>().single()
-            assertEquals(mapOf<Run1Slot, RequestMarkSet>(first to RequestMarkSet.fromIds(intArrayOf(t.id,u.id))), routed.rows)
-            assertTrue(h.storage(f.caller).borrowRequest(first).isEmpty, "Outgoing needs remain temporary until the caller barrier")
+            val f = h.f
+            val cls = f.ap.accessors.index(ClassStaticAccessor("C"))
+            val first = Run1Slot.StaticField(cls, f.store.field("f"))
+            val second = Run1Slot.StaticField(cls, f.store.field("g"))
+            h.declareIdentityStaticDomain(first, second)
+            val t = f.store.mark("T")
+            val u = f.store.mark("U")
+            val frozen: RequestRows = mapOf(first to RequestMarkSet.of(t), second to RequestMarkSet.of(u))
+            h.bases[f.callee] = frozen
+            h.bases[f.caller] = frozen
+            val a = f.store.fact(STATIC, first.pathData.toList(), Tail.STAR, MarkSlot.STAR) as FlowTree
+            val b = f.store.fact(STATIC, second.pathData.toList(), Tail.STAR, MarkSlot.STAR) as FlowTree
+            val input = a.withRoot(FlowAlgebra.mergeAdd(a.root, b.root))
+            h.submit(f.subscription(input, first.initial(f.ap))); h.drain()
+            assertEquals(setOf<Triple<MethodKey, Run1Slot, Int>>(Triple(f.caller, first, u.id)), h.climbs,
+                "Inherited g/U does not mean that the original f/U interest is admitted")
+            assertSame(frozen.getValue(first), h.storage().borrowRequest(first).precomputed)
+            assertTrue(h.storage().borrowRequest(first).dynamic.isEmpty)
+            assertTrue(h.events.isEmpty(), "B generates no initial ChangedRequests wave")
             h.commit(f.caller)
-            assertEquals(RequestMarkSet.fromIds(intArrayOf(t.id,u.id)), h.needs(f.caller,first))
-            assertEquals(0L,h.statistics.snapshot().inheritedBaseRowsSkipped)
+            assertEquals(RequestMarkSet.of(u), h.storage(f.caller).borrowRequest(first).dynamic)
         }
     }
 

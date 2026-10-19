@@ -53,7 +53,7 @@ class ReportTest {
 
     private fun add(builder: ReportBuilder, run: Int, status: RunStatus = RunStatus.COMPLETE,
                     witnesses: VulnerabilityStore = store) =
-        builder.add(fixture.config(index = run, L = 1), result(run, status, witnesses))
+        builder.add(fixture.config(index = run), result(run, status, witnesses))
 
     private fun end(run: Int = 1, status: RunStatus = RunStatus.COMPLETE,
                     reason: EndReason = EndReason.POLICY) =

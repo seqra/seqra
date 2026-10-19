@@ -76,7 +76,6 @@ class AnyTaintIterationTest {
                             port.summaryStorage(method).publish(batch)
                         }, local, calls)
                     override fun handle(event: RunEvent): Unit = handler.handle(event)
-                    override fun drainRequests(caller: MethodKey) = (handler as SubscriptionHandler).drainRequests(caller)
                     override fun subscribe(sub: Subscription): Unit = (handler as SubscriptionHandler).subscribe(sub)
                     override fun freeze(): Unit = (handler as SubscriptionHandler).freeze()
                 }
@@ -150,23 +149,19 @@ class AnyTaintIterationTest {
                 }
             }
             assertEquals(f.configs.size, barriers.size)
-            val eligibleRecords = LinkedHashSet<Native>()
+            val first = barriers.first()
+            val eligible = first.observation.rawSummaries.filter {
+                !it.conclusion.demand && it.premise.size == 1
+            }.map { Native(it.method, Direction.FORWARD, it.premise.single(), it.conclusion) }.toSet()
+            assertEquals(eligible, first.records, "Persist each eligible NORMAL singleton after run-1")
             for (barrier in barriers) {
                 if (barrier.config.restricted) {
                     assertTrue(barrier.observation.requests.isEmpty())
                     assertTrue(barrier.observation.processed.none { it.conclusion.fact.mark is MarkSlot.Star },
                         "Concrete production queries never execute old abstract guidance as FLOW")
-                }
-                // R1 is structural in every run: NORMAL singleton rows are native;
-                // DEMAND, whole ND and backward ZERO summaries are not.
-                for (row in barrier.observation.rawSummaries) {
-                    val initial = row.premise.singleOrNull() ?: continue
-                    if (row.conclusion.demand || (barrier.config.direction == Direction.BACKWARD &&
-                            initial.fact.base == AccessPathBase.Zero)) continue
-                    eligibleRecords += Native(row.method, barrier.config.direction, initial, row.conclusion)
-                }
-                assertEquals(eligibleRecords, barrier.records,
-                    "The ordinary native writer retains exactly eligible joined rows, including F1 NORMAL rows")
+                } else assertTrue(barrier.records.all { record ->
+                    record.conclusion.fact.mark is MarkSlot.Star || record.conclusion.fact.base == AccessPathBase.Zero
+                }, "Run-1 can persist eligible NORMAL FLOW rows; all group-valued TAINT rows remain DEMAND")
                 if (barrier.config.direction == Direction.BACKWARD) {
                     assertTrue(barrier.observation.witnesses.isEmpty())
                     assertTrue(barrier.observation.processed.none { it.conclusion.fact.tail == Tail.ANY_TAINT })
@@ -216,6 +211,8 @@ class AnyTaintIterationTest {
     ), emptyList(), BEFORE, AFTER)
     private fun conclusions(rows: Set<ObservedEdge>, key: MethodKey, base: AccessPathBase): Set<Conclusion> =
         rows.filter { it.method == key && it.conclusion.fact.base == base }.map { it.conclusion }.toSet()
+    private fun group(f: DriverFixtures, mark: MarkSlot.Concrete): MarkSlot.Concrete =
+        MarkSlot.Concrete(f.manager.marks.group(f.manager.marks.groupOf(mark.mark)))
     private fun zero(f: DriverFixtures): Pattern = f.manager.zero.toPattern()
     private fun initialRows(barrier: Barrier, key: MethodKey): Set<Pattern> =
         barrier.observation.initials.filter { it.method == key }.map { it.initial }.toSet()
@@ -236,11 +233,11 @@ class AnyTaintIterationTest {
             val literal = f.program.pattern(result, tail = Tail.ANY, mark = t)
             sink(f, root, 2, SinkRule(rule, 0, listOf(literal), emptyList()))
             val runs = SequenceRun(f, listOf(root, get), listOf(AccessPathBase.Zero, value, argument, result))
-            val (report, frontiers) = runs.analyze(root, listOf(1, 2, 3), mapOf("G sinkAny" to HistoricalState.CONFIRMED),
+            val (report, frontiers) = runs.analyze(root, listOf(1, 1, 2), mapOf("G sinkAny" to HistoricalState.CONFIRMED),
                 "Earlier D6X/DRXs: AnyTaintExCases2.G.run3_confirmed_handoff")
             val j = f.program.pattern(argument, tail = Tail.STAR, mark = MarkSlot.STAR)
             val demandResult = f.program.pattern(result, tail = Tail.ANY, mark = MarkSlot.STAR)
-            assertEquals(listOf(1, 2, 3), f.configs.map { it.fieldLimit })
+            assertEquals(listOf(1, 1, 2), f.configs.map { it.fieldLimit })
             assertEquals(setOf(Conclusion(demandResult.fact, ExclusionSet.Empty, true)),
                 conclusions(runs.barriers[0].observation.rawSummaries, get, result))
             assertEquals(setOf(DemandPattern(demandResult, j),
@@ -255,8 +252,8 @@ class AnyTaintIterationTest {
             assertEquals(setOf(ObservedEdge(get, setOf(ZERO_PATTERN),
                 Conclusion(ZERO_FACT, ExclusionSet.Empty, false)),
                 ObservedEdge(get, setOf(backward), Conclusion(readBack.fact, ExclusionSet.Empty, true))), selectedGetter)
-            assertTrue(runs.barriers[1].records.none { it.direction == Direction.BACKWARD },
-                "The concrete backward may answer is not a normal native record")
+            assertTrue(runs.barriers[1].records.none { it.method == get && it.direction == Direction.BACKWARD },
+                "The concrete backward may answer is DEMAND and cannot become a native record")
             assertEquals(setOf(DemandPattern(zero(f), null), DemandPattern(readBack, backward)),
                 runs.barriers[1].demand.getValue(get))
             val actualMust = f.program.pattern(argument, tail = Tail.ANY_TAINT, mark = t)
@@ -270,8 +267,9 @@ class AnyTaintIterationTest {
             assertContains(frontiers[0].analysed, get)
             assertContains(frontiers[1].analysed, get)
             assertContains(frontiers[2].analysed, get)
-            assertTrue(frontiers[2].recordCrossings > 0L,
-                "Eligible F1 identities can be reused while the actual getter query is also analyzed")
+            assertContains(runs.barriers[0].records, Native(get, Direction.FORWARD, j,
+                Conclusion(j.fact, ExclusionSet.Empty, false)))
+            assertTrue(frontiers[2].recordCrossings > 0L, "Eligible NORMAL FLOW records remain reusable")
             assertContains(runs.barriers[2].records, Native(get, Direction.FORWARD, narrowMust,
                 Conclusion(PathFact(result, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, false)))
             assertEquals(ReportState.DEMAND, report.entries.single { it.key == finding(f, rule, root, 2) }.state)
@@ -291,10 +289,10 @@ class AnyTaintIterationTest {
             val rule = f.rule("C sinkAny name")
             sink(f, use, 1, SinkRule(rule, 0, listOf(f.program.pattern(argument, listOf(name), Tail.ANY, t)), emptyList()))
             val runs = SequenceRun(f, listOf(root, use), listOf(AccessPathBase.Zero, value, argument, result))
-            val (report, frontiers) = runs.analyze(root, listOf(1, 2, 3), mapOf("C sinkAny name" to HistoricalState.CONFIRMED),
+            val (report, frontiers) = runs.analyze(root, listOf(1, 1, 2), mapOf("C sinkAny name" to HistoricalState.CONFIRMED),
                 "Earlier D6X/DRXs: AnyTaintExCases2.C.run3_confirmed_handoff")
             val flow = f.program.pattern(argument, tail = Tail.STAR, mark = MarkSlot.STAR)
-            assertEquals(setOf(ObservedRequest(use, flow, RequestKind.Mark((t as MarkSlot.Concrete).mark))),
+            assertEquals(setOf(ObservedRequest(use, flow, RequestKind.Mark(group(f, t).mark))),
                 runs.barriers[0].observation.requests)
             assertTrue(runs.barriers[0].observation.witnesses.any { it.methodKey == use && it.edges.single().layer == Layer.DEMAND })
             assertEquals(setOf(Seed.Source(root, root.statement, src)), runs.barriers[1].seeds)
@@ -317,7 +315,8 @@ class AnyTaintIterationTest {
 
     @Test
     fun `I normal must source still undergoes strong refinement with each later limit policy`(): Unit {
-        for (limit in listOf(1, 2, 3)) DriverFixtures().use { f ->
+        DriverFixtures().use { f ->
+            val limit = 2
             val root = f.program.method("I root L$limit", listOf(listOf(1), listOf(2), emptyList()), 2).key()
             val id = f.program.method("I id L$limit", listOf(listOf(1), listOf(2), emptyList()), 2).key()
             val t = MarkSlot.Concrete(f.program.mark("I T"))
@@ -327,19 +326,16 @@ class AnyTaintIterationTest {
             val rule = f.rule("I sinkAny")
             sink(f, root, 2, SinkRule(rule, 0, listOf(f.program.pattern(result, tail = Tail.ANY, mark = t)), emptyList()))
             val runs = SequenceRun(f, listOf(root, id), listOf(AccessPathBase.Zero, value, argument, result))
-            val (report, frontiers) = runs.analyze(root, listOf(1, limit, limit), mapOf("I sinkAny" to HistoricalState.CONFIRMED),
+            val (report, frontiers) = runs.analyze(root, listOf(1, 1, 2), mapOf("I sinkAny" to HistoricalState.CONFIRMED),
                 "Earlier D6X/DRXs: AnyTaintExCases2.I.run1_confirmed")
             assertEquals(listOf(1, 2, 3), f.configs.map { it.index })
             val normal = Conclusion(PathFact(result, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, false)
-            for (barrier in listOf(runs.barriers[0], runs.barriers[2]))
-                assertEquals(setOf(normal), conclusions(barrier.observation.rawSummaries, root, result))
-            assertContains(runs.barriers[0].records, Native(id, Direction.FORWARD,
-                f.program.pattern(argument, tail = Tail.STAR, mark = MarkSlot.STAR),
-                Conclusion(PathFact(result, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty, false)))
-            assertTrue(runs.barriers[1].records.none { it.direction == Direction.BACKWARD })
+            assertEquals(setOf(normal.copy(fact = normal.fact.copy(mark = group(f, t)), demand = true)),
+                conclusions(runs.barriers[0].observation.rawSummaries, root, result))
+            assertEquals(setOf(normal), conclusions(runs.barriers[2].observation.rawSummaries, root, result))
             assertContains(runs.barriers[2].records, Native(id, Direction.FORWARD,
                 f.program.pattern(argument, tail = Tail.ANY_TAINT, mark = t), normal))
-            assertTrue(runs.barriers[0].counts.getValue(id) > 0, "Eligible NORMAL F1 summaries also remain typed guidance")
+            assertTrue(runs.barriers[0].counts.getValue(id) > 0, "Group-valued F1 summaries are DEMAND")
             assertTrue(runs.barriers[2].counts.isEmpty())
             assertEquals(setOf(Seed.Sink(rule, root, f.program.inst(root, 2),
                 f.program.pattern(result, tail = Tail.ANY, mark = t))), runs.barriers[0].seeds)
@@ -354,7 +350,8 @@ class AnyTaintIterationTest {
 
     @Test
     fun `S and SD setters refine an E-free provisional cover to strong sibling preservation`(): Unit {
-        for (deeper in listOf(false, true)) for (limit in listOf(1, 2, 3)) DriverFixtures().use { f ->
+        for (deeper in listOf(false, true)) DriverFixtures().use { f ->
+            val limit = 2
             val root = f.program.method("S root L$limit", listOf(listOf(1), listOf(2), emptyList()), 2).key()
             val set = f.program.method("S set L$limit", listOf(listOf(1), listOf(2), emptyList()), 2).key()
             val name = f.program.field("name")
@@ -374,17 +371,14 @@ class AnyTaintIterationTest {
             sink(f, root, 2, SinkRule(overwritten, 0, listOf(f.program.pattern(result, listOf(name), Tail.ANY, t)), emptyList()),
                 SinkRule(admitted, 0, listOf(f.program.pattern(result, listOf(email), Tail.ANY, t)), emptyList()))
             val runs = SequenceRun(f, listOfNotNull(root, set, wrapper), listOf(AccessPathBase.Zero, value, argument, result))
-            val (report, frontiers) = runs.analyze(root, listOf(1, limit, limit), mapOf("S email" to HistoricalState.CONFIRMED),
+            val (report, frontiers) = runs.analyze(root, listOf(1, 1, 2), mapOf("S email" to HistoricalState.CONFIRMED),
                 "Earlier D6X/DRXs: AnyTaintExCases.S.run1_email_confirmed; SD.run1_email_confirmed")
             val exclusion = ExclusionSet.of(name)
-            assertEquals(setOf(Conclusion(PathFact(result, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, true)),
+            assertEquals(setOf(Conclusion(PathFact(result, emptyList(), Tail.ANY_TAINT, group(f, t)), ExclusionSet.Empty, true)),
                 conclusions(runs.barriers[0].observation.rawSummaries, root, result))
             assertEquals(setOf(Conclusion(PathFact(result, emptyList(), Tail.ANY_TAINT, t), exclusion, false)),
                 conclusions(runs.barriers[2].observation.rawSummaries, root, result))
             val must = f.program.pattern(argument, tail = Tail.ANY_TAINT, mark = t)
-            assertTrue(runs.barriers[0].records.none { it.method == set && it.conclusion.fact.base == argument },
-                "The F1 DEMAND preservation cover cannot be persisted")
-            assertTrue(runs.barriers[1].records.none { it.direction == Direction.BACKWARD })
             assertContains(runs.barriers[2].records, Native(set, Direction.FORWARD, must,
                 Conclusion(must.fact, exclusion, false)))
             if (wrapper != null) assertContains(runs.barriers[2].records, Native(wrapper, Direction.FORWARD, must,
@@ -400,7 +394,7 @@ class AnyTaintIterationTest {
         }
     }
     @Test
-    fun `factory persists its NORMAL exact source while the E-free DEMAND cover refines from source seeds`(): Unit {
+    fun `F76 factory keeps grouped TAINT as demand then recomputes native E and full marks from source seeds`(): Unit {
         DriverFixtures().use { f ->
             val root = f.program.method("F76 factory root",
                 listOf(listOf(1), listOf(2), listOf(3), listOf(4), listOf(5), listOf(6), listOf(7), listOf(8), emptyList()), 8).key()
@@ -408,7 +402,7 @@ class AnyTaintIterationTest {
             val name = f.program.field("name")
             val email = f.program.field("email")
             val k = f.program.field("k")
-            val path = listOf(f.program.field("a"), f.program.field("b"), f.program.field("c"))
+            val path = listOf(f.program.field("a"), f.program.field("b"))
             val t = MarkSlot.Concrete(f.program.mark("F76 T"))
             val u = MarkSlot.Concrete(f.program.mark("F76 U"))
             val sourceT = PathEdge(ZERO_FACT, PathFact(result, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty)
@@ -449,7 +443,7 @@ class AnyTaintIterationTest {
                 SinkRule(excluded, 0, listOf(f.program.pattern(outBlocked, path, mark = t)), emptyList()))
             val runs = SequenceRun(f, listOf(root, factory), listOf(AccessPathBase.Zero, value, argument, result,
                 returned, readT, readU, blocked, outU, outBlocked))
-            val (report, frontiers) = runs.analyze(root, listOf(1, 2, 3), mapOf(
+            val (report, frontiers) = runs.analyze(root, listOf(1, 1, 2), mapOf(
                 "F76 admitted email T" to HistoricalState.CONFIRMED,
                 "F76 exact k U" to HistoricalState.CONFIRMED),
                 "F69/F71 native factory prior to F76 views; argued, no Lean program theorem")
@@ -458,18 +452,20 @@ class AnyTaintIterationTest {
                 Conclusion(PathFact(result, emptyList(), Tail.ANY_TAINT, t), exclusion, false))
             val nativeU = Native(factory, Direction.FORWARD, zero(f),
                 Conclusion(PathFact(result, listOf(k), Tail.EXACT, u), ExclusionSet.Empty, false))
-            assertEquals(setOf(nativeT.conclusion.copy(exclusion = ExclusionSet.Empty, demand = true), nativeU.conclusion),
+            assertEquals(setOf(
+                nativeT.conclusion.copy(fact = nativeT.conclusion.fact.copy(mark = group(f, t)),
+                    exclusion = ExclusionSet.Empty, demand = true),
+                nativeU.conclusion.copy(fact = nativeU.conclusion.fact.copy(mark = group(f, u)), demand = true)),
                 conclusions(runs.barriers[0].observation.rawSummaries, factory, result))
-            assertFalse(nativeT in runs.barriers[0].records, "The provisional DEMAND T cover is not a native record")
-            assertContains(runs.barriers[0].records, nativeU, "The exact NORMAL U source is eligible in F1")
-            assertFalse(nativeT in runs.barriers[1].records)
-            assertContains(runs.barriers[1].records, nativeU)
+            assertTrue(runs.barriers[0].records.none { it.conclusion.fact.mark == group(f, t) ||
+                it.conclusion.fact.mark == group(f, u) }, "Group TAINT stays out of native records")
+            assertTrue(nativeT !in runs.barriers[1].records && nativeU !in runs.barriers[1].records)
             assertContains(runs.barriers[2].records, nativeT)
             assertContains(runs.barriers[2].records, nativeU)
             assertTrue(runs.barriers[0].counts.getValue(factory) > 0)
             assertNull(runs.barriers[2].counts[factory])
             assertContains(runs.barriers[0].demand.getValue(factory), DemandPattern(
-                f.program.pattern(result, tail = Tail.ANY, mark = t), zero(f)))
+                f.program.pattern(result, tail = Tail.ANY, mark = group(f, t)), zero(f)))
             assertContains(initialRows(runs.barriers[1], factory), f.program.pattern(result, listOf(k), Tail.EXACT, u))
             assertEquals(setOf(zero(f)), initialRows(runs.barriers[2], factory))
             assertEquals(setOf(ObservedSourceHit(factory, factory.statement, sourceT),
@@ -478,20 +474,20 @@ class AnyTaintIterationTest {
                 Seed.Source(factory, factory.statement, sourceU)), runs.barriers[1].seeds)
             assertEquals(setOf(nativeT.conclusion, nativeU.conclusion),
                 conclusions(runs.barriers[2].observation.rawSummaries, factory, result))
-            assertEquals(setOf(Conclusion(PathFact(result, path.take(1), Tail.ANY, t), ExclusionSet.Empty, true)),
+            assertEquals(setOf(Conclusion(PathFact(result, path.take(1), Tail.ANY, group(f, t)), ExclusionSet.Empty, true)),
                 conclusions(runs.barriers[0].observation.rawSummaries, root, result))
-            assertEquals(setOf(Conclusion(PathFact(outU, path.take(1), Tail.ANY, u), ExclusionSet.Empty, true),
-                Conclusion(PathFact(outU, path.take(1), Tail.ANY, t), ExclusionSet.Empty, true)),
+            assertEquals(setOf(Conclusion(PathFact(outU, path.take(1), Tail.ANY, group(f, u)), ExclusionSet.Empty, true),
+                Conclusion(PathFact(outU, path.take(1), Tail.ANY, group(f, t)), ExclusionSet.Empty, true)),
                 conclusions(runs.barriers[0].observation.rawSummaries, root, outU))
             assertEquals(setOf(Conclusion(PathFact(result, path, Tail.ANY_TAINT, t), ExclusionSet.Empty, false)),
                 conclusions(runs.barriers[2].observation.rawSummaries, root, result))
             assertEquals(setOf(Conclusion(PathFact(outU, path, Tail.EXACT, u), ExclusionSet.Empty, false)),
                 conclusions(runs.barriers[2].observation.rawSummaries, root, outU))
-            assertEquals(setOf(Conclusion(PathFact(outBlocked, path.take(1), Tail.ANY, t), ExclusionSet.Empty, true)),
+            assertEquals(setOf(Conclusion(PathFact(outBlocked, path.take(1), Tail.ANY, group(f, t)), ExclusionSet.Empty, true)),
                 conclusions(runs.barriers[0].observation.rawSummaries, root, outBlocked))
             assertTrue(runs.barriers.drop(1).all { conclusions(it.observation.rawSummaries, root, outBlocked).isEmpty() })
             assertTrue(runs.barriers.all { it.observation.requests.isEmpty() })
-            assertTrue(frontiers[1].recordCrossings > 0L, "B2 can reuse the eligible exact F1 U record")
+            assertEquals(0L, frontiers[1].recordCrossings, "B2 cannot execute an F1 source record")
             assertTrue(frontiers[2].recordCrossings > 0L)
             assertEquals(setOf(finding(f, admittedT, root, 8), finding(f, admittedU, root, 8)), report.entries.map { it.key }.toSet())
             assertTrue(report.entries.all { it.state == ReportState.DEMAND && it.run == 3 })
@@ -512,16 +508,16 @@ class AnyTaintIterationTest {
             val rule = f.rule("source versus pass sinkAny")
             sink(f, root, 2, SinkRule(rule, 0, listOf(f.program.pattern(result, tail = Tail.ANY, mark = t)), emptyList()))
             val runs = SequenceRun(f, listOf(root), listOf(AccessPathBase.Zero, value, result))
-            val (report, frontiers) = runs.analyze(root, listOf(1, 2, 3))
+            val (report, frontiers) = runs.analyze(root, listOf(1, 1, 2))
             val expected = Conclusion(ruleEdge.to, ExclusionSet.Empty, !isSource)
-            assertEquals(setOf(expected), conclusions(runs.barriers[0].observation.rawSummaries, root, result))
+            val grouped = expected.copy(fact = expected.fact.copy(mark = group(f, t)), demand = true)
+            assertEquals(setOf(grouped), conclusions(runs.barriers[0].observation.rawSummaries, root, result))
             assertTrue(runs.barriers.all { it.observation.requests.isEmpty() })
             if (isSource) {
                 assertEquals(3, runs.barriers.size)
                 assertEquals(setOf(expected), conclusions(runs.barriers[2].observation.rawSummaries, root, result))
-                assertTrue(runs.barriers[0].observation.selectedDemand.any { it.conclusion == expected })
+                assertTrue(runs.barriers[0].observation.selectedDemand.any { it.conclusion == grouped })
                 assertTrue(runs.barriers[2].observation.selectedDemand.isEmpty())
-                assertContains(runs.barriers[0].records, Native(root, Direction.FORWARD, zero(f), expected))
                 assertEquals(setOf(Seed.Source(root, root.statement, src)), runs.barriers[1].seeds)
                 assertEquals(ReportState.DEMAND, report.entries.single().state)
                 assertEquals(EndReason.NO_DEMAND_EDGE, report.end.reason)
@@ -543,7 +539,7 @@ class AnyTaintIterationTest {
     }
 
     @Test
-    fun `AP5 F75 root EXACT requests the original premise and recovers its concrete descendant through a backward record`(): Unit {
+    fun `AP5 root EXACT requests the group then recovers its concrete descendant from the full source seed`(): Unit {
         DriverFixtures().use { f ->
             val root = f.program.method("AP5 root", listOf(listOf(1), listOf(2), emptyList()), 2).key()
             val callee = f.program.method("AP5 root EXACT callee",
@@ -574,22 +570,26 @@ class AnyTaintIterationTest {
             val exact = f.program.pattern(result, listOf(outer, n), mark = t)
             sink(f, root, 2, SinkRule(rule, 0, listOf(exact), emptyList()))
             val runs = SequenceRun(f, listOf(root, callee), listOf(AccessPathBase.Zero, value, argument, result, p))
-            val (report, frontiers) = runs.analyze(root, listOf(1, 2, 3))
+            val (report, frontiers) = runs.analyze(root, listOf(1, 1, 2))
             val initialFlow = f.program.pattern(argument, tail = Tail.STAR, mark = MarkSlot.STAR)
-            assertEquals(setOf(ObservedRequest(callee, initialFlow, RequestKind.Mark(taint))),
+            val grouped = group(f, t)
+            assertEquals(setOf(ObservedRequest(callee, initialFlow, RequestKind.Mark(grouped.mark))),
                 runs.barriers[0].observation.requests)
-            assertContains(initialRows(runs.barriers[0], callee), f.program.pattern(argument, mark = t))
-            val excluded = MarkSlot.Star(MarkSet(intArrayOf(taint.id)))
+            assertContains(initialRows(runs.barriers[0], callee), f.program.pattern(argument, mark = grouped))
+            val excluded = MarkSlot.Star(MarkSet(intArrayOf(grouped.mark.id)))
             assertContains(conclusions(runs.barriers[0].observation.rawSummaries, callee, result),
                 Conclusion(PathFact(result, listOf(outer), Tail.ANY, excluded), ExclusionSet.Empty, true))
             assertContains(conclusions(runs.barriers[0].observation.rawSummaries, callee, result),
-                Conclusion(PathFact(result, listOf(outer), Tail.ANY, t), ExclusionSet.Empty, true))
+                Conclusion(PathFact(result, listOf(outer), Tail.ANY, grouped), ExclusionSet.Empty, true))
             assertContains(runs.barriers[0].demand.getValue(callee), DemandPattern(
                 f.program.pattern(result, listOf(outer), Tail.ANY, MarkSlot.STAR), initialFlow))
             assertContains(runs.barriers[0].demand.getValue(callee), DemandPattern(
-                f.program.pattern(result, listOf(outer), Tail.ANY, t), f.program.pattern(argument, mark = t)))
-            assertContains(runs.barriers[1].records, Native(callee, Direction.BACKWARD, exact,
-                Conclusion(PathFact(argument, emptyList(), Tail.EXACT, t), ExclusionSet.Empty, false)))
+                f.program.pattern(result, listOf(outer), Tail.ANY, grouped), f.program.pattern(argument, mark = grouped)))
+            assertTrue(runs.barriers[1].records.none { it.method == callee && it.direction == Direction.BACKWARD },
+                "The limit-one backward query for a two-field sink stays DEMAND")
+            assertTrue(runs.barriers[1].observation.rawSummaries.any { it.method == callee &&
+                it.conclusion.fact.base == argument && it.conclusion.fact.mark == t && it.conclusion.demand },
+                "The coarse backward relation still reaches the actual source argument")
             assertEquals(setOf(Seed.Source(root, root.statement, src)), runs.barriers[1].seeds)
             assertEquals(setOf(Conclusion(exact.fact, ExclusionSet.Empty, false)),
                 conclusions(runs.barriers[2].observation.rawSummaries, root, result))

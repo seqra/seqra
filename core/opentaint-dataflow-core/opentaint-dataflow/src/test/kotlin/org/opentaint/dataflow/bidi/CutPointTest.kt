@@ -22,18 +22,19 @@ class CutPointTest {
         f.shared.use {
             val field = f.field("f")
             val g = f.field("g")
+            val h = f.field("h")
             val mt = MarkSlot.Concrete(f.mark("T"))
             val me = MicroEdge.of(PathEdge(PathFact(x, emptyList(), Tail.EXACT, mt),
-                PathFact(y, listOf(field, g), Tail.EXACT, mt), ExclusionSet.Empty))
+                PathFact(y, listOf(field, g, h), Tail.EXACT, mt), ExclusionSet.Empty))
             f.statement(1, StatementSummary(setOf(x), listOf(me), emptyList(), emptyMap()))
-            val core = f.core(index = 3, L = 1)
+            val core = f.core(index = 3)
             val initial = f.manager.initial(f.pattern(x, mark = mt))
             core.addInitial(initial)
             f.drain(core, quantum = 1)
             val before = f.cuts.filter { it.first == Cut.STATEMENT }.map { it.second }
-            assertEquals(setOf(Conclusion(PathFact(y, listOf(field, g), Tail.EXACT, mt), ExclusionSet.Empty, false)),
+            assertEquals(setOf(Conclusion(PathFact(y, listOf(field, g, h), Tail.EXACT, mt), ExclusionSet.Empty, false)),
                 methodLeaves(f.ops, before))
-            assertEquals(setOf(Conclusion(PathFact(y, listOf(field), Tail.ANY, mt), ExclusionSet.Empty, true)),
+            assertEquals(setOf(Conclusion(PathFact(y, listOf(field, g), Tail.ANY, mt), ExclusionSet.Empty, true)),
                 methodLeaves(f.ops, core.edges.edgesAt(f.inst(2), initial).map { it.second }.toList()))
             assertTrue(f.processed.all { it.premise === initial })
             assertTrue(f.requests.isEmpty())
@@ -49,13 +50,13 @@ class CutPointTest {
             val edges = listOf(listOf(field), listOf(field, g)).map { path -> MicroEdge.of(PathEdge(
                 PathFact(x, emptyList(), Tail.EXACT, mt), PathFact(y, path, Tail.EXACT, mt), ExclusionSet.Empty)) }
             f.statement(1, StatementSummary(setOf(x), edges, emptyList(), emptyMap(), mapOf(y to rejecting(f, g))))
-            val core = f.core(index = 3, L = 1)
+            val core = f.core(index = 3)
             val premise = f.manager.initial(f.pattern(x, mark = mt))
             core.addInitial(premise)
             f.drain(core, quantum = 1)
             val expected = Conclusion(PathFact(y, listOf(field), Tail.EXACT, mt), ExclusionSet.Empty, false)
             assertEquals(setOf(expected), methodLeaves(f.ops, f.cuts.filter { it.first == Cut.STATEMENT }.map { it.second }))
-            assertEquals(setOf(premise to expected), methodEntries(f.ops, core.summaries.all().withoutPrecomputedStaticDefault()))
+            assertEquals(setOf(premise to expected), methodEntries(f.ops, core.summaries.all()))
             assertEquals(0L, core.demandLayerEdges)
             assertTrue(f.requests.isEmpty())
         }
@@ -78,7 +79,7 @@ class CutPointTest {
             assertTrue(core.edges.edgesAt(f.inst(2), premise).none())
             assertTrue(f.cuts.none { it.first == Cut.STATEMENT })
             assertEquals(setOf(premise to Conclusion(PathFact(x, listOf(field), Tail.EXACT, mt), ExclusionSet.Empty, false)),
-                methodEntries(f.ops, core.summaries.all().withoutPrecomputedStaticDefault()))
+                methodEntries(f.ops, core.summaries.all()))
             assertEquals(1L, core.edgeDeltas, "Only the accepted end summary is stored")
         }
     }
@@ -86,16 +87,16 @@ class CutPointTest {
     @Test fun `method cut points preserve premise and marks and demote overflow without requests`(): Unit {
         val f = MethodAnalysisFixtures()
         f.shared.use {
-            val core = f.core(index = 3, L = 1)
+            val core = f.core(index = 3)
             val field = f.field("f")
             val g = f.field("g")
             val h = f.field("h")
             val t = f.mark("T")
             val u = f.mark("U")
             val cases = listOf(
-                f.fact(y, listOf(field, g), tail = Tail.ANY_TAINT, mark = MarkSlot.Concrete(t),
+                f.fact(y, listOf(field, g, h), tail = Tail.ANY_TAINT, mark = MarkSlot.Concrete(t),
                     exclusion = ExclusionSet.of(h)) to f.manager.initial(f.pattern(x, mark = MarkSlot.Concrete(t))),
-                f.fact(y, listOf(field, g), tail = Tail.STAR, mark = MarkSlot.Star(MarkSet(intArrayOf(u.id))),
+                f.fact(y, listOf(field, g, h), tail = Tail.STAR, mark = MarkSlot.Star(MarkSet(intArrayOf(u.id))),
                     exclusion = ExclusionSet.of(h)) to f.manager.initial(f.pattern(x, tail = Tail.STAR, mark = MarkSlot.STAR)),
             )
             for (point in listOf(Cut.STATEMENT, Cut.ENTRY_RULES, Cut.EXIT_RULES, Cut.SEED)) for ((input, premise) in cases) {
@@ -105,7 +106,7 @@ class CutPointTest {
                 assertEquals(point, f.cuts.last().first)
                 assertTrue(output.all { it.first === premise })
                 val mark = if (input is FlowTree) MarkSlot.Star(MarkSet(intArrayOf(u.id))) else MarkSlot.Concrete(t)
-                assertEquals(setOf(Conclusion(PathFact(y, listOf(field), Tail.ANY, mark), ExclusionSet.Empty, true)),
+                assertEquals(setOf(Conclusion(PathFact(y, listOf(field, g), Tail.ANY, mark), ExclusionSet.Empty, true)),
                     methodLeaves(f.ops, output.map { it.second }))
             }
             assertTrue(f.requests.isEmpty())
@@ -128,7 +129,7 @@ class CutPointTest {
             // run, whose initial grammar permits the explicit x.g premise.
             val sourceSeeds = SeedIndex.of(listOf(Seed.Source(f.key, f.inst(0), short.forward),
                 Seed.Source(f.key, f.inst(0), deep.forward)))
-            val forward = f.core(index = 3, L = 1, seeds = sourceSeeds)
+            val forward = f.core(index = 3, seeds = sourceSeeds)
             forward.addRootZero()
             forward.addInitial(initialX)
             f.drain(forward, quantum = 1)
@@ -140,12 +141,12 @@ class CutPointTest {
             ), methodLeaves(f.ops, entryCuts))
             assertEquals(setOf(f.manager.zero to Conclusion(ZERO_FACT, ExclusionSet.Empty, false),
                 f.manager.zero to Conclusion(PathFact(y, listOf(field), Tail.EXACT, mt), ExclusionSet.Empty, false)),
-                methodEntries(f.ops, forward.summaries.all().withoutPrecomputedStaticDefault()))
+                methodEntries(f.ops, forward.summaries.all()))
 
             f.cuts.clear()
             f.processed.clear()
             f.published.clear()
-            val backward = f.core(index = 2, L = 3)
+            val backward = f.core(index = 4, L = 3)
             val initialY = f.manager.initial(f.pattern(y, listOf(field, g), mark = mt))
             backward.addInitial(initialY)
             backward.addInitial(initialX)
@@ -155,7 +156,7 @@ class CutPointTest {
                 initialY to Conclusion(PathFact(y, listOf(field, g), Tail.EXACT, mt), ExclusionSet.Empty, false),
                 initialX to Conclusion(PathFact(x, listOf(g), Tail.EXACT, mt), ExclusionSet.Empty, false),
             )
-            assertEquals(backExpected, methodEntries(f.ops, backward.summaries.all().withoutPrecomputedStaticDefault()))
+            assertEquals(backExpected, methodEntries(f.ops, backward.summaries.all()))
             assertEquals(setOf(Triple(f.key, f.inst(0), deep.forward)), assertNotNull(backward.sourceHits).entries().toSet())
             assertTrue(f.cuts.any { it.first == Cut.ENTRY_RULES && it.second === Reach.NORMAL })
             assertTrue(f.requests.isEmpty())
@@ -187,7 +188,7 @@ class CutPointTest {
             assertEquals(expected, methodLeaves(f.ops, core.edges.edgesAt(f.inst(2), f.manager.zero).map { it.second }.toList()))
             f.drain(core, quantum = 1)
             assertEquals(setOf(f.manager.zero), core.initials.all().toSet())
-            assertEquals(expected.map { f.manager.zero to it }.toSet(), methodEntries(f.ops, core.summaries.all().withoutPrecomputedStaticDefault()))
+            assertEquals(expected.map { f.manager.zero to it }.toSet(), methodEntries(f.ops, core.summaries.all()))
             assertEquals(2L, core.demandLayerEdges)
             assertTrue(f.requests.isEmpty())
         }
@@ -203,20 +204,21 @@ class CutPointTest {
                 listOf(MicroEdge.of(ZERO_KEEP), source), emptyList(), emptyMap()), StatementSummary.EMPTY, emptyList()),
                 false, emptySet()))
             val core = f.core(L = 1)
+            val grouped = f.groupMark((mt as MarkSlot.Concrete).mark)
             core.addRootZero()
             f.drain(core, quantum = 1)
             val generated = f.cuts.filter { it.first == Cut.EXIT_RULES && it.second.base == y }.map { it.second }
-            assertEquals(setOf(Conclusion(PathFact(y, listOf(field, g), Tail.EXACT, mt), ExclusionSet.Empty, false)),
+            assertEquals(setOf(Conclusion(PathFact(y, listOf(field, g), Tail.EXACT, grouped), ExclusionSet.Empty, true)),
                 methodLeaves(f.ops, generated))
             val expected = setOf<Pair<PremiseKey, Conclusion>>(
                 f.manager.zero to Conclusion(ZERO_FACT, ExclusionSet.Empty, false),
-                f.manager.zero to Conclusion(PathFact(y, listOf(field), Tail.ANY, mt), ExclusionSet.Empty, true),
+                f.manager.zero to Conclusion(PathFact(y, listOf(field), Tail.ANY, grouped), ExclusionSet.Empty, true),
             )
-            assertEquals(expected, methodEntries(f.ops, core.summaries.all().withoutPrecomputedStaticDefault()))
-            assertEquals(expected, methodEntries(f.ops, f.publications.flatten().withoutPrecomputedStaticDefault().asSequence().map { it.premise to it.conclusion }))
-            assertEquals(expected, methodEntries(f.ops, core.summaries.demandEdges().withoutPrecomputedStaticDefault()),
+            assertEquals(expected, methodEntries(f.ops, core.summaries.all()))
+            assertEquals(expected, methodEntries(f.ops, f.publications.flatten().asSequence().map { it.premise to it.conclusion }))
+            assertEquals(expected, methodEntries(f.ops, core.summaries.demandEdges()),
                 "Run-1 also retains normal rows as guidance")
-            assertEquals(2L, core.demandLayerEdges, "The boundary result and universal static default are DEMAND summaries")
+            assertEquals(1L, core.demandLayerEdges, "The boundary result adds a summary delta without a successor edge")
             assertTrue(f.cuts.none { it.first == Cut.STATEMENT })
             assertTrue(f.requests.isEmpty())
         }

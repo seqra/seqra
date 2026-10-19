@@ -18,18 +18,19 @@ sealed interface Mark {
         val modeModifier: String?,
         val idx: Int,
         val classifier: String? = null,
+        private val onCreated: (GeneratedMark) -> Unit = {},
     ) {
         private val classifierPrefix = classifier?.let { "${classifier}_" }.orEmpty()
         private val ruleClassifier = "${classifierPrefix}$idx"
 
         fun metaVarState(metaVar: MetavarAtom, state: Int): GeneratedMark =
-            GeneratedMark(ruleId, ruleClassifier, metaVarStr(metaVar), "$state", modeModifier)
+            GeneratedMark(ruleId, ruleClassifier, metaVarStr(metaVar), "$state", modeModifier).also(onCreated)
 
         fun artificialState(state: String): GeneratedMark =
-            GeneratedMark(ruleId, ruleClassifier, StateName, state, modeModifier)
+            GeneratedMark(ruleId, ruleClassifier, StateName, state, modeModifier).also(onCreated)
 
         fun createTaintMark(label: String): GeneratedMark =
-            GeneratedMark(ruleId, ruleClassifier, TaintName, label, modeModifier)
+            GeneratedMark(ruleId, ruleClassifier, TaintName, label, modeModifier).also(onCreated)
     }
 
     data class GeneratedMark(

@@ -7,6 +7,13 @@ import org.opentaint.dataflow.bidi.ap.ExclusionSet
 import org.opentaint.dataflow.bidi.driver.Seed
 import org.opentaint.dataflow.bidi.driver.SeedIndex
 import org.opentaint.dataflow.bidi.engine.*
+import org.opentaint.dataflow.bidi.engine.historical.Run1Slot as HistoricalRun1Slot
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticProfiles
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticProfile
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticLocalProfile
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticFootprint
+import org.opentaint.dataflow.bidi.engine.historical.StaticMarkInterest
+import org.opentaint.dataflow.bidi.engine.historical.StaticMarkRole
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.store.*
 import org.opentaint.dataflow.graph.CompactGraph
@@ -63,7 +70,7 @@ class ProgramMethod internal constructor(val method: CommonMethod, successors: L
 class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), threads: Int = 1) : AutoCloseable {
     private data class ProgramUnit(val name: String) : UnitType
     val refManager = RefManager()
-    val ap = ApManager(cancellation, refManager)
+    val ap = ApManager(cancellation, refManager).also { it.marks.finishFixtureOwnershipCensus() }
     val manager: ApManager get() = ap
     val ops = ApOps(ap)
     val records = PersistentRecordStore(ap)
@@ -80,12 +87,13 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
     val callInputs: List<CallInput> = Collections.unmodifiableList(calls)
     private val formCache = ConcurrentHashMap<MethodKey, MethodForms>()
     private val graphCache = ConcurrentHashMap<Pair<MethodKey, Direction>, MethodInstGraph>()
+    private val operationOwner = FormOwner()
     private val callExpressions = ConcurrentHashMap<CommonInst, CommonCallExpr>()
     private val runInputs = IdentityHashMap<RunConfig, ProgramRunInputs>()
     private val rawFacts = IdentityHashMap<Facts, List<Conclusion>>()
     private val recordInputs = IdentityHashMap<Record, List<Conclusion>>()
     private var staticCatalog: Run1StaticProfiles? = null
-    private val declaredStaticFields = LinkedHashSet<Run1Slot.StaticField>()
+    private val declaredStaticFields = LinkedHashSet<HistoricalRun1Slot.StaticField>()
     private val declaredStaticClasses = LinkedHashSet<Int>()
 
     /** Add only canonical input domain; actual forms still determine owned semantic components. */
@@ -94,7 +102,7 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
         for (path in paths) {
             require(path.size in 1..2 && path[0].isClass())
             declaredStaticClasses += path[0]
-            if (path.size == 2) declaredStaticFields += Run1Slot.StaticField(path[0], path[1])
+            if (path.size == 2) declaredStaticFields += HistoricalRun1Slot.StaticField(path[0], path[1])
         }
     }
     /** Immutable construction vocabulary; independent scalar oracles do not read production plans. */
@@ -140,6 +148,29 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
         statements.removeAll { it.key == key && it.index == index }
         statements += StatementInput(key, index, summary)
     }
+    /** Explicit code operations. A static destination on a preservation/alias edge is
+     * not enough to declare a logical store. These helpers retain the full form. */
+    fun staticRead(key: MethodKey, index: Int, transfer: PathEdge,
+                   summary: StatementSummary = StatementSummary(setOf(transfer.from.base),
+                       listOf(MicroEdge.of(transfer)), emptyList(), emptyMap())) {
+        require(transfer.from.base == STATIC)
+        val id = OperationId(FormKey(operationOwner, key.method, key, inst(key, index)))
+        statement(key, index, summary.withStaticOperations(listOf(StaticOperation.Read(id, transfer))))
+    }
+    fun staticWrite(key: MethodKey, index: Int, target: Pattern, transfer: PathEdge?,
+                    summary: StatementSummary) {
+        require(target.fact.base == STATIC)
+        require(transfer == null || transfer.to.base == STATIC)
+        val action = summary.edges.firstOrNull { it.edge == transfer }?.actionId
+        val id = OperationId(FormKey(operationOwner, key.method, key, inst(key, index)), action = action)
+        statement(key, index, summary.withStaticOperations(listOf(StaticOperation.Write(id, target, transfer, action))))
+    }
+    fun staticCheck(key: MethodKey, index: Int, position: Pattern, summary: StatementSummary) {
+        require(position.fact.base == STATIC)
+        val id = OperationId(FormKey(operationOwner, key.method, key, inst(key, index)))
+        statement(key, index, summary.withStaticOperations(listOf(StaticOperation.MarkInput(id, position))))
+    }
+
     fun entry(key: MethodKey, rules: RuleStatement) {
         mutable(key)
         entries.removeAll { it.key == key }
@@ -252,7 +283,7 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
     }
     private val sharedOwner = lazy {
         SharedObjects(ap, ops, interpreter, language, contexts, records, vulnerabilities, unitResolver,
-            refManager, cancellation, threads, run1StaticProfiles = staticProfiles())
+            refManager, cancellation, threads)
     }
     val shared: SharedObjects get() = sharedOwner.value
     fun freshShared(sameUnit: Boolean = false, freshVulnerabilities: Boolean = true, threads: Int = 1,
@@ -260,8 +291,7 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
         SharedObjects(ap, ops, interpreter, language, contexts, records,
             if (freshVulnerabilities) ConcurrentVulnerabilityStore(ap) else vulnerabilities,
             if (sameUnit) UnitResolver<CommonMethod> { if (methodData.any { m -> m.method === it }) ProgramUnit("all") else UnknownUnit }
-            else unitResolver, refManager, cancellation, threads,
-            run1StaticProfiles = if (useStaticCatalog) staticProfiles() else null)
+            else unitResolver, refManager, cancellation, threads)
 
     /** Collect only explicit forward forms. The scalar oracle does not use this collector. */
     fun staticProfiles(): Run1StaticProfiles {
@@ -279,7 +309,7 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
             .also { staticCatalog = it }
     }
 
-    fun config(index: Int = 1, L: Int = 1, roots: List<MethodKey>,
+    fun config(index: Int = 1, L: Int = maxOf(1, index - 1), roots: List<MethodKey>,
                demand: List<Pair<MethodKey, DemandPattern>> = emptyList(),
                records: List<Pair<MethodKey, Record>> = emptyList(), seeds: List<Seed> = emptyList()): RunConfig {
         val rawDemand = ownedList(demand.map { (method, d) -> method to DemandPattern(ownPattern(d.entry), d.exit?.let(::ownPattern)) })

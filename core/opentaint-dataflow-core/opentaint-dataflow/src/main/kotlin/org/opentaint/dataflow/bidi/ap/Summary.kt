@@ -33,13 +33,13 @@ internal fun satisfyingPart(m: ApManager, a: Facts, j: Pattern, mode: ApMode, re
             else summaryPart(m, a.root, FlowAlgebra, flowTails(a), j, below, inside)
                 ?.let { m.flowTree(a.base, a.layer, a.exclusion, a.markExclusion, it, a.tail) }
         is TaintTree -> summaryPart(m, a.root, m.taintAlg, taintTails(m, a), j, below, inside)
-            ?.let { markSubPart(m, it, j) }
-            ?.let { m.taintTree(a.base, a.layer, it, a.exclusion, a.anyTail) }
+            ?.let { markSubPart(m, it, j, mode) }
+            ?.let { m.taintTree(a.base, if (mode.markMode == MarkMode.GROUP) Layer.DEMAND else a.layer, it, a.exclusion, a.anyTail) }
     }
 }
 
-private fun markSubPart(m: ApManager, n: TaintNode, j: Pattern): TaintNode? {
-    val gate = MarkGate(m, j.fact.mark, MarkSlot.STAR)
+private fun markSubPart(m: ApManager, n: TaintNode, j: Pattern, mode: ApMode): TaintNode? {
+    val gate = MarkGate(m, j.fact.mark, MarkSlot.STAR, mode)
     return m.taintAlg.mapLeaves(n, m.cancellation) { p ->
         m.taintLeaves(gate.taintMarks(p.exact) ?: MarkSet.EMPTY, gate.taintMarks(p.any) ?: MarkSet.EMPTY)
     }

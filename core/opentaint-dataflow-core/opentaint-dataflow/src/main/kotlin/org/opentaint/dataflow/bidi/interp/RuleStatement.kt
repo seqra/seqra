@@ -54,7 +54,7 @@ class RuleStatement(val summary: StatementSummary, val endFacts: StatementSummar
     /** Reverse the two action modes separately; untouched forward GEN targets need A5 pass-over identities. */
     fun reversed(): RuleStatement {
         val s = summary.reversed()
-        val revEnd = StatementSummary(emptySet(), endFacts.edges.map { MicroEdge(revOrFail(it.edge), it.forward) },
+        val revEnd = StatementSummary(emptySet(), endFacts.edges.map { MicroEdge(revOrFail(it.edge), it.forward, it.conjunctive, it.actionId) },
             emptyList(), emptyMap())
         return RuleStatement(s.withIdentities(passOverBases(endFacts.targets, s.touched)), revEnd, sinks)
     }

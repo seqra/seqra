@@ -20,20 +20,20 @@ class EngineAlgebraTest {
         f.shared.use {
             val core = f.core()
             val field = f.field("f")
-            val mt = MarkSlot.Concrete(f.mark("T"))
+            val mt = f.groupMark(f.mark("T"))
             val me = MicroEdge.of(PathEdge(PathFact(x, emptyList(), Tail.STAR, MarkSlot.STAR),
                 PathFact(y, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty))
             val summary = StatementSummary(setOf(x), listOf(me), emptyList(), emptyMap())
-            val input = f.fact(x, listOf(field), mark = mt)
-            val premise = f.manager.initial(f.pattern(x, listOf(field), mark = mt))
-            val expected = Conclusion(PathFact(y, listOf(field), Tail.EXACT, mt), ExclusionSet.Empty, false)
+            val input = f.fact(x, listOf(field), mark = mt, layer = Layer.DEMAND)
+            val premise = f.manager.initial(f.pattern(x, tail = Tail.STAR, mark = mt))
+            val expected = Conclusion(PathFact(y, listOf(field), Tail.EXACT, mt), ExclusionSet.Empty, true)
             for (mode in MethodFormMode.entries) {
                 val output = applyMethodForm(core, mode, summary, premise, input, Place(f.inst(1), true, true))
                 assertEquals(setOf(expected), methodLeaves(f.ops, output.map { it.second }))
                 assertTrue(output.all { it.first === premise })
             }
-            val untouched = f.fact(z, listOf(field), mark = mt)
-            val otherPremise = f.manager.initial(f.pattern(z, listOf(field), mark = mt))
+            val untouched = f.fact(z, listOf(field), mark = mt, layer = Layer.DEMAND)
+            val otherPremise = f.manager.initial(f.pattern(z, tail = Tail.STAR, mark = mt))
             for (mode in MethodFormMode.entries) {
                 val output = applyMethodForm(core, mode, summary, otherPremise, untouched, Place(f.inst(1), true, true))
                 if (mode == MethodFormMode.STATEMENT) {
@@ -99,31 +99,29 @@ class EngineAlgebraTest {
         }
     }
 
-    @Test fun `run1 field transfer keeps its full payload and DEMAND layer in every form mode`(): Unit {
+    @Test fun `run1 static parent statement waits for catalog refinement without a wide demand result`(): Unit {
         val f = MethodAnalysisFixtures()
-        val cls = f.manager.accessors.index(ClassStaticAccessor("Box"))
-        val field = f.field("f")
-        val path = listOf(cls, field)
-        f.declareStaticDomain(path)
         f.shared.use {
             val core = f.core()
-            val premise = f.manager.initial(f.pattern(STATIC, path, Tail.STAR, MarkSlot.STAR))
-            val excluded = MarkSlot.Star(f.manager.markSetOf(f.mark("unrelated")))
-            val edge = MicroEdge.of(PathEdge(PathFact(STATIC, path, Tail.STAR, MarkSlot.STAR),
+            val cls = f.manager.accessors.index(ClassStaticAccessor("Box"))
+            val field = f.field("f")
+            val path = listOf(cls, field)
+            val premise = f.manager.initial(f.pattern(AccessPathBase.ClassStatic, tail = Tail.STAR, mark = MarkSlot.STAR))
+            val input = f.fact(AccessPathBase.ClassStatic, tail = Tail.STAR, mark = MarkSlot.STAR)
+            val edge = MicroEdge.of(PathEdge(PathFact(AccessPathBase.ClassStatic, path, Tail.STAR, MarkSlot.STAR),
                 PathFact(y, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty))
-            val summary = StatementSummary(setOf(STATIC), listOf(edge), emptyList(), emptyMap())
-            for (layer in Layer.entries) for (mark in listOf(MarkSlot.STAR, excluded)) {
-                val input = f.fact(STATIC, path, Tail.STAR, mark, layer = layer)
-                val expected = setOf(Conclusion(PathFact(y, emptyList(), Tail.STAR, mark), ExclusionSet.Empty, true))
-                for (mode in MethodFormMode.entries) {
-                    val result = applyMethodForm(core, mode, summary, premise, input,
-                        Place(f.inst(1), statementEdge = true, sources = false))
-                    assertEquals(expected, methodLeaves(f.ops, result.map { it.second }))
-                    assertTrue(result.all { it.first === premise }, "The exact field origin survives the base change")
-                    assertEquals(layer, input.layer, "The caller's immutable input is not modified")
-                }
+            val summary = StatementSummary(setOf(AccessPathBase.ClassStatic), listOf(edge), emptyList(), emptyMap())
+            assertTrue(applyMethodForm(core, MethodFormMode.STATEMENT, summary, premise, input,
+                Place(f.inst(1), true, true)).isEmpty())
+            assertTrue(f.requests.isEmpty(), "Catalog refinement has no runtime position request")
+            f.requests.clear()
+            for (mode in listOf(MethodFormMode.STAGE, MethodFormMode.GEN)) {
+                val result = applyMethodForm(core, mode, summary, premise, input, Place(f.inst(1), false, false))
+                assertEquals(setOf(Conclusion(PathFact(y, emptyList(), Tail.ANY, MarkSlot.STAR), ExclusionSet.Empty, true)),
+                    methodLeaves(f.ops, result.map { it.second }))
+                assertTrue(result.all { it.first === premise })
             }
-            assertTrue(f.requests.isEmpty(), "No field/position requests or mark checks are invented")
+            assertTrue(f.requests.isEmpty())
         }
     }
 

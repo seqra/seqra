@@ -248,7 +248,13 @@ class RulePredicateStore(private val manager: ApManager, private val statistics:
         check(ai.premise == bi.premise && ai.layer == bi.layer && ai.facts?.groupKey == bi.facts?.groupKey)
         val af = ai.facts ?: return a
         val (merged, delta) = manager.mergeAddDelta(af, checkNotNull(bi.facts))
-        return if (delta == null) a else VersionedInput(ai.copy(facts = merged), maxOf(a.version, b.version) + 1)
+        val support = when {
+            ai.grounding == null -> bi.grounding
+            bi.grounding == null -> ai.grounding
+            else -> ai.grounding.or(bi.grounding)
+        }
+        return if (delta == null && support == ai.grounding) a else
+            VersionedInput(ai.copy(facts = merged, grounding = support), maxOf(a.version, b.version) + 1)
     }
 
     /** Only complete root supports flatten their canonical leaf and OR-choice descriptors. */

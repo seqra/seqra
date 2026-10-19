@@ -38,7 +38,7 @@ internal class EdgeApplication(private val m: ApManager, private val ce: Compile
                                private val edgeDemand: Boolean, private val mode: ApMode,
                                private val out: ApOut, private val unchangedStaticInitial: InitialAp? = null) {
     val results = Results(m, ce.toBase)
-    private val gate = MarkGate(m, ce.fromMark, ce.toMark)
+    private val gate = MarkGate(m, ce.fromMark, ce.toMark, mode)
     private val admitsRest = { a: AccessorIdx ->
         val premiseAdmits = when (ce.fromTail) {
             Tail.EXACT -> false
@@ -67,14 +67,14 @@ internal class EdgeApplication(private val m: ApManager, private val ce: Compile
         // The engine's collector applies the normal-origin and static-root guards.
         if (mode.run1) (ce.toMark as? MarkSlot.Star)?.excluded?.data?.forEach { id ->
             m.cancellation.checkpoint()
-            out.markRequest(TaintMark(id))
+            out.markRequest(m.marks.runtimeAtom(TaintMark(id), mode.markMode))
             if ((ce.fromMark as? MarkSlot.Concrete)?.mark?.id == id) requested = true
         }
         val mx = gate.flowMarks(c.markExclusion)
         check(mx == null || (ce.toTail != Tail.EXACT && ce.toTail != Tail.ANY_TAINT))
         val normal = c.tail == Tail.STAR
         val layer = c.layer or edgeDemand
-        val unchanged = if (mode.run1) unchangedStaticFlowPath(c, unchangedStaticInitial) else null
+        val unchanged = if (mode.run1 && mode.markMode == MarkMode.FULL) unchangedStaticFlowPath(c, unchangedStaticInitial) else null
         val u = c.root.walk(ce.fromPathData) { d, n ->
             m.cancellation.checkpoint()
             if (n.leaf.isEmpty || (normal && !c.exclusion.admits(ce.fromPathData[d]))) return@walk
@@ -107,7 +107,7 @@ internal class EdgeApplication(private val m: ApManager, private val ce: Compile
         }
     }
 
-    private inline fun flowHit(mx: MarkSet?, c: FlowTree, changed: () -> Boolean, add: (MarkSet) -> Unit) {
+    private inline fun flowHit(mx: MarkExclusions?, c: FlowTree, changed: () -> Boolean, add: (MarkExclusions) -> Unit) {
         if (mx != null) { add(mx); return }
         val mark = gate.flowRequest(c.markExclusion) ?: return
         if (mode.run1 && !requested && changed()) { out.markRequest(mark); requested = true }

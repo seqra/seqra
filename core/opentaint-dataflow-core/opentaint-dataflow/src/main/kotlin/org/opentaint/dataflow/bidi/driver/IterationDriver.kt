@@ -86,7 +86,7 @@ class IterationDriver internal constructor(
             Next.End(RunStatus.OOM)
         } finally {
             logger.info { "BIDI_BARRIER_END run=${config.index} barrierTime=${barrierStart.elapsedNow()} iterationTime=${start.elapsedNow()}" }
-            if (config.run1) shared.releaseRun1StaticProfiles()
+            if (config.run1) shared.releaseRun1CatalogCoverage()
         }
         if (shared.cancellation.isActive()) return next
         logger.error { "Run ${config.index}: the barrier memory guard fired; the analysis ends with the report so far" }

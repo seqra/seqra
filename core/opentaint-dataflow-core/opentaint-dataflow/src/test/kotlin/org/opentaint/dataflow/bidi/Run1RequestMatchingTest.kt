@@ -1,5 +1,23 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.engine.historical.forEachDirectClassInitial
+
+import org.opentaint.dataflow.bidi.engine.historical.Run1Slot
+import org.opentaint.dataflow.bidi.engine.historical.RequestStorage
+import org.opentaint.dataflow.bidi.engine.historical.RequestedRow
+import org.opentaint.dataflow.bidi.engine.historical.RequestRowView
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticProfiles
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticLocalProfile
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticFootprint
+import org.opentaint.dataflow.bidi.engine.historical.StaticMarkInterest
+import org.opentaint.dataflow.bidi.engine.historical.StaticMarkRole
+import org.opentaint.dataflow.bidi.engine.historical.normalRun1Slot
+import org.opentaint.dataflow.bidi.engine.historical.slotMatches
+import org.opentaint.dataflow.bidi.engine.historical.forEachConcreteAnswer
+import org.opentaint.dataflow.bidi.engine.historical.validateRun1Initial
+import org.opentaint.dataflow.bidi.engine.historical.validateRun1Input
+import org.opentaint.dataflow.bidi.engine.historical.validateRun1Supplier
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
@@ -10,7 +28,7 @@ import org.opentaint.dataflow.bidi.store.*
 import kotlin.test.*
 
 class Run1RequestMatchingTest {
-    @Test fun `all actual static marks produce exact and STAR alternatives without requests or invented marks`() {
+    @Test fun `actual requested marks produce all exact and STAR alternatives never ANY`() {
         val f = StoreFixtures(); val m = f.manager
         val cls = m.accessors.index(ClassStaticAccessor("Box")); val field = f.field("f")
         val t = f.mark("T"); val u = f.mark("U"); val absent = f.mark("absent")
@@ -20,10 +38,8 @@ class Run1RequestMatchingTest {
         val input = m.taintTree(STATIC,Layer.NORMAL,
             m.taintAlg.prepend(m,m.path(slot.pathData),m.taintAlg.leafNode(leaves)))
         val answers = linkedSetOf<InitialAp>()
-        val profile=Run1StaticProfiles.build(m,emptyMap(),mapOf(f.commonMethod to Run1StaticLocalProfile.EMPTY),
-            declaredFieldUniverse=setOf(slot))[f.commonMethod]
-        forEachActualStaticInitial(m,input,profile) { answers += it }
-        assertTrue(answers.none { it.mark == MarkSlot.Concrete(absent) })
+        forEachConcreteAnswer(m,input,listOf(RequestedRow(slot,RequestRowView(
+            RequestMarkSet.fromIds(intArrayOf(t.id,u.id,absent.id)),RequestMarkSet.EMPTY)))) { answers += it }
         assertEquals(setOf(Tail.EXACT to t,Tail.EXACT to u,Tail.STAR to t), answers.map {
             it.tail to (it.mark as MarkSlot.Concrete).mark }.toSet())
         assertTrue(answers.all { it.path == m.path(slot.pathData) && it.exclusion == ExclusionSet.Empty })
@@ -53,8 +69,7 @@ class Run1RequestMatchingTest {
             StaticMarkRole.INPUT_GATE,RequestMarkSet.of(t))
         val profile = Run1StaticProfiles.build(m,emptyMap(),mapOf(f.commonMethod to
             Run1StaticLocalProfile(marks=listOf(need))))[f.commonMethod]
-        assertTrue(profile.footprint.ownsPoint(cls))
-        assertTrue(profile.classPointMarks(cls).isEmpty, "Class metadata retains coordinates, not inherited marks")
+        assertTrue(t in profile.classPointMarks(cls)); assertFalse(u in profile.classPointMarks(cls))
         val supplied = m.markSetOf(t) + u
         for (path in listOf(emptyList(),listOf(cls))) {
             val tree = m.taintAlg.prepend(m,m.path(path),

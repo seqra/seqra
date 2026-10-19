@@ -16,7 +16,7 @@ import kotlin.test.*
 class RecordReplayTest {
     private val x = AccessPathBase.Argument(0)
     private val returned = AccessPathBase.Return
-    private fun core(f: MethodAnalysisFixtures, index: Int = 3): RunMethodAnalyzer = f.core(index = index, L = 4,
+    private fun core(f: MethodAnalysisFixtures, index: Int = 5): RunMethodAnalyzer = f.core(index = index,
         localFactory = MethodLocalServicesFactory(::RunMethodLocalServices),
         callFactory = MethodCallServicesFactory(::RunMethodCallServices))
     private fun summary(vararg edges: PathEdge): StatementSummary =
@@ -285,7 +285,7 @@ class RecordReplayTest {
             f.call(1, plan(f))
             for (callerLayer in Layer.entries) for (addedLayer in Layer.entries) {
                 val callerKey = f.store.key("$callerLayer-$addedLayer")
-                val actor = f.core(index = 3, L = 4, key = callerKey,
+                val actor = f.core(index = 5, L = 4, key = callerKey,
                     localFactory = MethodLocalServicesFactory(::RunMethodLocalServices), callFactory = MethodCallServicesFactory(::RunMethodCallServices))
                 val sub = Subscription(f.store.key("callee"), CallerRef(callerKey, callerPremise, callerLayer, f.inst(1)),
                     addedLayer, f.fact(layer = addedLayer))

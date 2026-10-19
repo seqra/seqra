@@ -41,7 +41,7 @@ internal fun emitInitials(ops: ApOps, d: DemandPattern, added: Facts): List<Init
     val result = LinkedHashSet<InitialAp>()
     for (a in ops.leaves(added)) {
         m.cancellation.checkpoint()
-        val j = emit(d.entry, a) ?: continue
+        val j = emit(d.entry, a, m.marks) ?: continue
         result += m.initial(j)
     }
     return result.toList()
@@ -55,7 +55,7 @@ internal fun restrictRaw(ops: ApOps, j: InitialAp, g: Facts, d: DemandPattern): 
     val result = LinkedHashSet<Conclusion>()
     for (a in ops.leaves(g)) {
         m.cancellation.checkpoint()
-        restrict(initial, Conclusion(a.fact, a.exclusion, g.layer == Layer.DEMAND), d)?.let { result += it }
+        restrict(initial, Conclusion(a.fact, a.exclusion, g.layer == Layer.DEMAND), d, m.marks)?.let { result += it }
     }
     return result.toList()
 }

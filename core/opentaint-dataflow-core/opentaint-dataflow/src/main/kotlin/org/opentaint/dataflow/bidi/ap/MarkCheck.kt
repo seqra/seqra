@@ -13,13 +13,13 @@ internal fun markCheckFacts(m: ApManager, c: Facts, p: Pattern, mode: ApMode,
     check(unchangedStaticInitial == null || unchangedStaticInitial.manager === m) {
         "The ordinary static gate must use this AP manager"
     }
-    val t = (p.fact.mark as MarkSlot.Concrete).mark
+    val t = m.marks.runtimeAtom((p.fact.mark as MarkSlot.Concrete).mark, mode.markMode)
     if (c.base != p.fact.base) return MarkCheck.None
-    val gate = MarkGate(m, p.fact.mark, p.fact.mark)
+    val gate = MarkGate(m, p.fact.mark, p.fact.mark, mode)
     return when (c) {
         is Reach -> if (t == TaintMark.ZERO) MarkCheck.Holds(c) else MarkCheck.None
         is FlowTree -> {
-            val unchanged = if (mode.run1) unchangedStaticFlowPath(c, unchangedStaticInitial) else null
+            val unchanged = if (mode.run1 && mode.markMode == MarkMode.FULL) unchangedStaticFlowPath(c, unchangedStaticInitial) else null
             if (!flowRequests(m, c, p, unchanged)) return MarkCheck.None
             val request = gate.flowRequest(c.markExclusion) ?: return MarkCheck.None
             if (mode.run1) MarkCheck.Request(request) else MarkCheck.None
@@ -30,7 +30,7 @@ internal fun markCheckFacts(m: ApManager, c: Facts, p: Pattern, mode: ApMode,
                 m.taintLeaves(gate.taintMarks(leaf.exact) ?: MarkSet.EMPTY,
                     gate.taintMarks(leaf.any) ?: MarkSet.EMPTY)
             } ?: return MarkCheck.None
-            MarkCheck.Holds(m.taintTree(c.base, c.layer, withT, c.exclusion, c.anyTail))
+            MarkCheck.Holds(m.taintTree(c.base, if (mode.markMode == MarkMode.GROUP) Layer.DEMAND else c.layer, withT, c.exclusion, c.anyTail))
         }
     }
 }

@@ -179,7 +179,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
     }
 
     @Test
-    fun `entry sinks are unconditional and their zero GEN marks are not entry marks`(): Unit {
+    fun `entry sinks are unconditional and ignored end marks are not entry marks`(): Unit {
         val m = method("copy")
         val accepted = entrySink(m, listOf(AssignMark(RuleMark("U"), field(Argument(0)))))
         val p = BoundaryRules().apply {
@@ -192,14 +192,14 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
         assertTrue(sink.unconditional)
         assertEquals(listOf(ZERO_PATTERN), sink.patterns)
         assertTrue(sink.seedPatterns().isEmpty())
-        assertEquals(listOf(edge(ZERO_FACT, fact(arg0, listOf(f), mark = u))), s.endFacts.edges.map { it.edge })
-        assertSame(sink.endFacts.single().edge, s.endFacts.edges.single().edge)
+        assertTrue(s.endFacts.edges.isEmpty())
+        assertTrue(sink.endFacts.isEmpty())
         assertTrue(s.endFacts.touched.isEmpty())
         assertTrue(s.endFacts.typeFilters.isEmpty())
         assertEquals(setOf(t), JIRBoundaryForms.entryMarks(s))
         for (layer in Layer.entries) {
             val zero = conclusion(ZERO_FACT, demand = layer == Layer.DEMAND)
-            assertEquals(listOf(conclusion(fact(arg0, listOf(f), mark = u), layer == Layer.DEMAND)),
+            assertEquals(emptyList(),
                 FormsReference(ops).apply(FormsReference.Mode.GEN, s.endFacts, setOf(ZERO_PATTERN), zero,
                     Place(key(m).statement, false, false)))
         }
@@ -330,7 +330,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
             treeRequests.forEach { assertSame(treePremise, it.first) }
         }
 
-        val run1 = ApMode(run1 = true, Direction.FORWARD, fieldLimit = 1)
+        val run1 = ApMode(run1 = true, Direction.FORWARD, fieldLimit = 1, markMode = MarkMode.FULL)
         val restricted = ApMode(run1 = false, Direction.FORWARD, fieldLimit = 1)
         val backward = ApMode(run1 = false, Direction.BACKWARD, fieldLimit = 1)
         for ((node, resultBase) in listOf(normalExit(m) to ret, exceptionalExit(m) to exc)) {
@@ -368,7 +368,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
     }
 
     @Test
-    fun `unconditional sources and sinks occur at both exits with zero keeps and must GEN targets`(): Unit {
+    fun `unconditional sources and sinks occur at both exits with zero keeps and no sink end targets`(): Unit {
         val m = method("copy")
         val sink = exitSink(m, listOf(AssignMark(RuleMark("U"), any(field(Result)))))
         val p = BoundaryRules().apply {
@@ -384,12 +384,12 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
             assertSame(sink, rules.sinks.single().rule)
             assertEquals(listOf(ZERO_PATTERN), rules.sinks.single().patterns)
             assertTrue(rules.sinks.single().seedPatterns().isEmpty())
-            assertEquals(listOf(edge(ZERO_FACT, fact(resultBase, listOf(f), Tail.ANY_TAINT, u))), rules.endFacts.edges.map { it.edge })
+            assertTrue(rules.endFacts.edges.isEmpty())
             assertTrue(rules.endFacts.touched.isEmpty())
             for (demand in listOf(false, true)) {
                 val zero = conclusion(ZERO_FACT, demand)
                 val target = fact(resultBase, listOf(f), Tail.ANY_TAINT, u)
-                assertEquals(listOf(conclusion(target, demand)), FormsReference(ops).apply(FormsReference.Mode.GEN,
+                assertEquals(emptyList(), FormsReference(ops).apply(FormsReference.Mode.GEN,
                     rules.endFacts, setOf(ZERO_PATTERN), zero, Place(node, false, false)))
             }
         }
@@ -433,7 +433,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
         }
         val i = interp(provider)
         val caller = setOf(Pattern(fact(arg1), empty), Pattern(fact(AccessPathBase.Argument(2), mark = u), empty))
-        val static = conclusion(fact(STATIC, listOf(cls, staticField)), demand = true)
+        val static = conclusion(fact(STATIC, listOf(cls, staticField)))
         val state = conclusion(fact(arg1, listOf(g)))
         val input = listOf(setOf(ZERO_PATTERN) to conclusion(ZERO_FACT), setOf(ZERO_PATTERN) to static, caller to state)
         for ((node, normal) in listOf(normalExit(m) to true, exceptionalExit(m) to false)) {
@@ -467,7 +467,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
         }
         val i = interp(provider)
         val caller = setOf(Pattern(fact(arg1), empty), Pattern(fact(AccessPathBase.Argument(2), mark = u), empty))
-        val static = conclusion(fact(STATIC, listOf(cls, staticField), mark = u), demand = true)
+        val static = conclusion(fact(STATIC, listOf(cls, staticField), mark = u))
         val state = conclusion(fact(arg1))
         for ((node, target, normal) in listOf(Triple(normalExit(m), ret, true), Triple(exceptionalExit(m), exc, false))) {
             val rules = end(i, m, node)
@@ -486,26 +486,22 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
             val callerStatic = executeBoundary(i, m, node, listOf(caller to static), normal)
             assertEquals(if (normal) setOf(caller to static) else emptySet(), callerStatic.summaries)
             assertTrue(callerStatic.witnesses.isEmpty())
-            // Once A arrives, both supported proofs use their original literal premises. END uses zero.
+            // Both supported proofs retain their original literals. Ignored end actions add no output.
             for (staticPremise in listOf(setOf(ZERO_PATTERN), caller)) {
                 val observed = executeBoundary(i, m, node, listOf(staticPremise to static, caller to state), normal)
-                val end = conclusion(fact(target, mark = w))
-                val dependentEnd = end.copy(demand = true)
                 val expected = buildSet {
                     add(caller to state)
-                    add(setOf(ZERO_PATTERN) to end)
-                    add(setOf(ZERO_PATTERN) to dependentEnd)
                     if (staticPremise == caller) add(caller to static)
                 }
                 assertEquals(if (normal) expected else emptySet(), observed.summaries)
-                assertEquals(setOf(static, state, end, dependentEnd), observed.beforeDrop)
+                assertEquals(setOf(static, state), observed.beforeDrop)
                 assertEquals(2, observed.witnesses.size, "The A and A/AND/B proofs retain distinct support shapes")
                 val supports = observed.witnesses.map { witness ->
                     assertEquals(key(m), witness.methodKey)
-                    assertEquals(1, witness.run)
-                    assertEquals(listOf(fact(target, mark = w)), witness.endFacts)
+                    assertEquals(3, witness.run)
+                    assertTrue(witness.endFacts.isEmpty())
                     witness.edges.map { edge ->
-                        assertEquals(if (edge.facts.base == STATIC) Layer.DEMAND else Layer.NORMAL, edge.layer)
+                        assertEquals(Layer.NORMAL, edge.layer)
                         edge.premise.members.map { it.toPattern() }.toSet() to
                             FormsReference(ops).conclusions(edge.facts).single()
                     }.toSet()
@@ -535,7 +531,18 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
         })
         SharedObjects(manager, ops, i, languageManager, contexts, records, vulnerabilities,
             UnitResolver<CommonMethod> { UnknownUnit }, RefManager(), manager.cancellation, threads = 1).use { shared ->
-            val config = RunConfig(1, 3, null, records, SeedIndex.EMPTY, listOf(method))
+            val demand = DemandStore.Builder(manager).apply {
+                // This direct FULL boundary helper bypasses query admission.
+                // Retain each explicitly supplied binding's own result base.
+                for ((premise, conclusion) in input) for (pattern in premise) {
+                    val entry = if (pattern.fact.base == AccessPathBase.Zero) pattern
+                        else pattern.copy(fact = pattern.fact.copy(tail = Tail.ANY), exclusion = ExclusionSet.Empty)
+                    val exit = if (conclusion.fact.base == AccessPathBase.Zero) ZERO_PATTERN
+                        else Pattern(PathFact(conclusion.fact.base, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty)
+                    add(method, DemandPattern(entry, exit))
+                }
+            }.build()
+            val config = RunConfig(3, 2, demand, records, SeedIndex.EMPTY, listOf(method))
             val beforeDrop = linkedSetOf<Conclusion>()
             val requests = arrayListOf<Pair<InitialAp, RequestKind>>()
             val published = arrayListOf<Publication>()
@@ -594,7 +601,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
             assertEquals(summaries, published.flatMap { publication -> decoder.conclusions(publication.conclusion).map {
                 publication.premise.members.map { it.toPattern() }.toSet() to it
             } }.toSet())
-            val result = BoundarySnapshot(beforeDrop, summaries, vulnerabilities.witnessesOf(1).map { it.second }.toList(), requests)
+            val result = BoundarySnapshot(beforeDrop, summaries, vulnerabilities.witnessesOf(3).map { it.second }.toList(), requests)
             core.freeze()
             return result
         }
@@ -696,7 +703,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
     }
 
     @Test
-    fun `whole invalid boundary rules are omitted before any partial action is produced`(): Unit {
+    fun `invalid active source rules are omitted while invalid ignored sink end actions keep the sink`(): Unit {
         val m = method("copy")
         val bad = field(any(Argument(0)))
         val p = BoundaryRules().apply {
@@ -707,13 +714,15 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
         }
         val i = interp(p)
         val entry = start(i, m)
-        assertTrue(entry.sinks.isEmpty() && entry.endFacts.edges.isEmpty())
+        assertEquals(1, entry.sinks.size, "Ignored invalid end actions cannot reject a valid sink")
+        assertTrue(entry.endFacts.edges.isEmpty())
         assertEquals(setOf(ZERO_KEEP, keepEdge(self)), entry.summary.edges.map { it.edge }.toSet())
         for (node in listOf(normalExit(m), exceptionalExit(m))) {
             val x = end(i, m, node, entry)
             assertEquals(listOf(ZERO_KEEP), x.rules.summary.edges.map { it.edge })
-            assertTrue(x.rules.summary.conjunctions.isEmpty() && x.rules.sinks.isEmpty() && x.rules.endFacts.edges.isEmpty())
-            assertFalse(x.globalStateDrop)
+            assertTrue(x.rules.summary.conjunctions.isEmpty() && x.rules.endFacts.edges.isEmpty())
+            assertEquals(1, x.rules.sinks.size)
+            assertEquals(node === normalExit(m), x.globalStateDrop)
         }
         assertFailsWith<IllegalStateException> { end(i, m, key(m).statement, entry) }
     }

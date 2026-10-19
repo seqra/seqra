@@ -23,7 +23,7 @@ class RunSchedulingTest {
     @Test fun `actual method yields on the zero work phase change with its publications pending before the nonzero phase`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val actor = f.core()
-            val initial = f.manager.initial(f.pattern())
+            val initial = f.manager.initial(f.run1Pattern())
             actor.addRootZero()
             actor.addInitial(initial)
             assertTrue(actor.hasZeroWork)
@@ -33,19 +33,19 @@ class RunSchedulingTest {
             assertEquals(listOf(0, 1, 2), f.processed.map { it.node.location.index })
             assertTrue(f.processed.all { it.premise.isZero && it.facts == Reach.NORMAL })
             assertEquals(setOf(f.manager.zero to Conclusion(ZERO_FACT, ExclusionSet.Empty, false)),
-                methodEntries(f.ops, actor.summaries.all().withoutPrecomputedStaticDefault()))
+                methodEntries(f.ops, actor.summaries.all()))
             assertTrue(f.publications.isEmpty(), "The counted partial Work still owns its pending zero publication")
             assertFailsWith<IllegalStateException> { actor.freeze() }
 
             assertTrue(actor.work(1000))
             val expected = setOf(
                 f.manager.zero to Conclusion(ZERO_FACT, ExclusionSet.Empty, false),
-                initial to Conclusion(initial.toPattern().fact, ExclusionSet.Empty, false))
-            assertEquals(expected, methodEntries(f.ops, actor.summaries.all().withoutPrecomputedStaticDefault()))
+                initial to Conclusion(initial.toPattern().fact, ExclusionSet.Empty, true))
+            assertEquals(expected, methodEntries(f.ops, actor.summaries.all()))
             assertEquals(6L, actor.steps)
             assertEquals(listOf(0, 1, 2), f.processed.filter { it.premise === initial }.map { it.node.location.index })
             assertEquals(1, f.publications.size)
-            assertEquals(expected, methodEntries(f.ops, f.publications.flatten().withoutPrecomputedStaticDefault().asSequence().map { it.premise to it.conclusion }))
+            assertEquals(expected, methodEntries(f.ops, f.publications.flatten().asSequence().map { it.premise to it.conclusion }))
             assertTrue(actor.work(1))
         }
     }
@@ -146,13 +146,13 @@ class RunSchedulingTest {
             val returned = AtomicInteger()
             val localFrozen = AtomicInteger()
             val processed = CopyOnWriteArrayList<EdgeDelta>()
-            val follow = f.manager.initial(f.pattern(AccessPathBase.Argument(1), mark = MarkSlot.Concrete(f.mark("follow"))))
-            val extra = f.fact(AccessPathBase.Return, mark = MarkSlot.Concrete(f.mark("extra")))
+            val follow = f.manager.initial(f.run1Pattern(AccessPathBase.Argument(1), full = f.mark("follow")))
+            val extra = f.run1Fact(AccessPathBase.Return, full = f.mark("extra"))
             val expected = setOf(
                 f.manager.zero to Conclusion(ZERO_FACT, ExclusionSet.Empty, false),
-                follow to Conclusion(follow.toPattern().fact, ExclusionSet.Empty, false),
+                follow to Conclusion(follow.toPattern().fact, ExclusionSet.Empty, true),
                 f.manager.zero to Conclusion(PathFact(AccessPathBase.Return, emptyList(), Tail.EXACT,
-                    MarkSlot.Concrete(f.mark("extra"))), ExclusionSet.Empty, false))
+                    f.groupMark(f.mark("extra"))), ExclusionSet.Empty, true))
             lateinit var run: RunManager<RunMethodAnalyzer>
             val steps = object : ProtocolSteps {
                 override fun replay(step: () -> Unit): Unit = step()
@@ -169,7 +169,7 @@ class RunSchedulingTest {
                     } else {
                         assertEquals(2, count)
                         assertEquals(listOf(0, 1, 2), processed.filter { it.premise === follow }.map { it.node.location.index })
-                        assertEquals(expected, methodEntries(f.ops, checkNotNull(actorRef.get()).summaries.all().withoutPrecomputedStaticDefault()))
+                        assertEquals(expected, methodEntries(f.ops, checkNotNull(actorRef.get()).summaries.all()))
                     }
                     step()
                     returned.incrementAndGet()
@@ -186,7 +186,7 @@ class RunSchedulingTest {
                         object : MethodLocalServices by delegate {
                             override fun freeze() {
                                 assertEquals(2, returned.get(), "Freeze follows both completed publication callbacks")
-                                assertEquals(expected, methodEntries(f.ops, actor.summaries.all().withoutPrecomputedStaticDefault()))
+                                assertEquals(expected, methodEntries(f.ops, actor.summaries.all()))
                                 delegate.freeze()
                                 localFrozen.incrementAndGet()
                             }
@@ -207,7 +207,6 @@ class RunSchedulingTest {
                                 return delegate.createActor(key).also { actorRef.set(it) }
                             }
                             override fun handle(event: RunEvent): Unit = delegate.handle(event)
-                            override fun drainRequests(caller: MethodKey) = (delegate as SubscriptionHandler).drainRequests(caller)
                             override fun subscribe(sub: Subscription): Unit = (delegate as SubscriptionHandler).subscribe(sub)
                             override fun freeze(): Unit = (delegate as SubscriptionHandler).freeze()
                         }
@@ -233,7 +232,7 @@ class RunSchedulingTest {
                     assertEquals(RunStatus.COMPLETE, result.status)
                     val actor = result.analyzers.single()
                     assertSame(actorRef.get(), actor)
-                    assertEquals(expected, methodEntries(f.ops, actor.summaries.all().withoutPrecomputedStaticDefault()))
+                    assertEquals(expected, methodEntries(f.ops, actor.summaries.all()))
                     assertEquals(6L, actor.steps)
                     assertEquals(2, notifications.get())
                     assertEquals(2, returned.get())

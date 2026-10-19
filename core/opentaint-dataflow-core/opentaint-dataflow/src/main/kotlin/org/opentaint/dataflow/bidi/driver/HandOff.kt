@@ -22,7 +22,7 @@ class HandOff(val demand: DemandStore, val seeds: SeedIndex, demandEdges: Map<Me
             shared.cancellation.checkpoint()
             val counts = LinkedHashMap<MethodKey, Int>()
             val (demand, seeds) = if (config.direction == Direction.FORWARD)
-                toBackward(result, report, shared, counts) else toForward(result, shared, counts)
+                toBackward(result, report, shared, counts, config.run1) else toForward(result, shared, counts)
             return HandOff(demand, seeds, counts)
         }
 
@@ -41,8 +41,9 @@ class HandOff(val demand: DemandStore, val seeds: SeedIndex, demandEdges: Map<Me
         }
 
         private fun toBackward(result: RunResult<RunMethodAnalyzer>, report: ReportBuilder, shared: SharedObjects,
-                               counts: MutableMap<MethodKey, Int>): Pair<DemandStore, SeedIndex> {
+                               counts: MutableMap<MethodKey, Int>, groupedStatics: Boolean): Pair<DemandStore, SeedIndex> {
             val demand = DemandStore.Builder(shared.ap)
+            if (groupedStatics) demand.includeStaticGroups()
             forEachDemandPiece(result, shared) { method, premise, piece ->
                 val entry = normalizeDemandMark(located(piece).let { p ->
                     if (p.fact.tail == Tail.STAR) p.copy(fact = p.fact.copy(tail = Tail.ANY), exclusion = ExclusionSet.Empty) else p
@@ -116,9 +117,9 @@ class HandOff(val demand: DemandStore, val seeds: SeedIndex, demandEdges: Map<Me
             val seeds = ArrayList<Seed>()
             for (actor in result.analyzers) {
                 shared.cancellation.checkpoint()
-                for ((method, statement, edge) in checkNotNull(actor.sourceHits).entries()) {
+                for ((method, statement, edge, action) in checkNotNull(actor.sourceHits).occurrences()) {
                     shared.cancellation.checkpoint()
-                    seeds += Seed.Source(method, statement, edge)
+                    seeds += Seed.Source(method, statement, edge, action)
                 }
             }
             return demand.build() to SeedIndex.of(seeds)

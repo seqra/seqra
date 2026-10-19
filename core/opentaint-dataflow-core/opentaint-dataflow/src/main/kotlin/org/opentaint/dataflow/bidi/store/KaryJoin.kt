@@ -17,6 +17,19 @@ class KaryJoin<T : Any>(val arity: Int, private val cancellation: Cancellation? 
         val wasEmpty = values.isEmpty()
         if (!values.add(value)) return emptyList()
         if (wasEmpty) missing--
+        return products(slot, value)
+    }
+
+    /** Refresh metadata on one accepted relation without retaining its old version. */
+    fun replace(slot: Int, previous: T, value: T): List<List<T>> {
+        cancellation?.checkpoint()
+        require(slot in 0 until arity)
+        check(slots[slot].remove(previous)) { "Only a standing member can be refreshed" }
+        check(slots[slot].add(value)) { "A replacement keeps one semantic member" }
+        return products(slot, value)
+    }
+
+    private fun products(slot: Int, value: T): List<List<T>> {
         if (missing != 0) return emptyList()
 
         val choices = Array<List<T>>(arity) { index ->

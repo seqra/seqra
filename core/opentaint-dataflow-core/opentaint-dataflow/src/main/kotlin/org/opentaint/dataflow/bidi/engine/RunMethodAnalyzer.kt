@@ -36,25 +36,36 @@ class RunMethodAnalyzer(
     private val currentQueries = if (config.restricted) StrongQueries(ops, mode) else null
     private var temporary = RequestStorage()
     private var temporarySinceNanos = 0L
-    internal val staticFlow = if (config.run1) Run1StaticFlow(this) else null
-    internal val concreteStaticFlow = if (config.run1) Run1ConcreteStaticFlow(this) else null
-    internal fun staticEntryFacts(): FlowTree? = staticFlow?.entryFacts()
-    internal fun concreteStaticEntryFacts(): TaintTree? = concreteStaticFlow?.entryFacts()
+    internal var staticBatch = StaticBatch(); private set
+    private val pointResumes = if (config.run1) Run1PointResume(this) else null
+    private val grounding = if (config.run1) Run1Grounding(this) else null
+    private var finalGroundingTrueRows = 0L
+    private var finalGroundingGuardedRows = 0L
+    private var groundingReleased = false
+    private data class PointWork(val premise: PremiseKey, val facts: Facts, val site: ResumeSite, val state: CallResumeState?,
+                                 val support: GroundingSupport)
+    private data class RuleItem(val premise: PremiseKey, val facts: Facts, val support: GroundingSupport)
+    internal var currentGroundingSupport: GroundingSupport = GroundingSupport.TRUE; private set
+    internal fun <T> withGroundingSupport(support: GroundingSupport, body: () -> T): T {
+        if (!config.run1) return body()
+        val previous = currentGroundingSupport
+        currentGroundingSupport = support
+        try { return body() } finally { currentGroundingSupport = previous }
+    }
+    private val resumeQueue = java.util.ArrayDeque<PointWork>()
+    private val operationOwner = FormOwner()
     internal var abstraction: Run1Abstraction? = if (config.run1) Run1Abstraction(
-        ops, context.shared.run1StaticProfiles?.get(key.method),
+        ops,
         answer = ::addInitial,
         borrowRequests = { input -> runnerPort.summaryStorage(key).borrowMatchingRequests(input) },
         collectRequests = ::collectRequests,
         statistics = context.shared.requestBatchStatistics,
         policyStatistics = context.shared.abstractionStatistics,
         owner = key,
-        staticEntries = ::addStaticEntries,
     ) else null
         private set
     internal fun releaseAbstraction() {
         abstraction?.release(); abstraction = null
-        staticFlow?.clear()
-        concreteStaticFlow?.clear()
         if (!temporary.isEmpty) {
             context.shared.abstractionStatistics?.temporaryChanged(-temporary.dynamicRows.toLong(), -temporary.dynamicMembers)
             temporary = RequestStorage()
@@ -62,7 +73,7 @@ class RunMethodAnalyzer(
         temporarySinceNanos = 0L
     }
     internal fun unchangedStaticInitial(premise: PremiseKey): InitialAp? =
-        null // Static interests now originate here; no inherited B justifies suppression.
+        null // The selected design has no inherited static request suppression.
 
     private var publicationSink: PublicationSink? = publisher
     private var local: MethodLocalServices? = localFactory.create(this)
@@ -72,6 +83,9 @@ class RunMethodAnalyzer(
     internal val applier = FormApplier(EngineAlgebra(this))
     private val worklist = DeltaWorklist()
     private var pending = ArrayList<Publication>()
+    // Only premises with conditional metadata need support-only publications.
+    // The publication index owns their current semantic cofactors, not this set.
+    private val guardedSummaryPremises = HashSet<PremiseKey>()
 
     override var steps: Long = 0; private set
     override val hasZeroWork: Boolean get() = worklist.hasZeroWork
@@ -87,64 +101,10 @@ class RunMethodAnalyzer(
     private fun initialize() {
         if (initialized) return
         initialized = true
-        if (!config.run1) return
-        val identity = PathFact(STATIC, emptyList(), Tail.STAR, MarkSlot.STAR)
-        val premise = ap.initial(Pattern(identity, ExclusionSet.Empty))
-        summaryDelta(premise, ap.factsOf(identity, ExclusionSet.Empty, Layer.DEMAND))
+        // Static reads and effects start only at their reached operation.
     }
 
     fun addRootZero(): Unit = addInitial(ap.zero)
-
-    internal fun addStaticEntries(entries: FlowTree) {
-        retainInputPresence(true)
-        nonZeroInitial = true
-        checkNotNull(staticFlow).add(entries)
-    }
-
-    internal fun addConcreteStaticEntries(entries: TaintTree) {
-        retainInputPresence(true)
-        nonZeroInitial = true
-        val lane = checkNotNull(concreteStaticFlow)
-        // TAINT supplies geometry as well as actual T; bypassing LinkIn must
-        // preserve the abstraction's independent abstract dependency lane.
-        addStaticEntries(lane.entries.abstractEntries(entries))
-        lane.add(entries)
-    }
-
-    /** Presence is distinct from a legal initial; it also installs the default. */
-    internal fun retainInputPresence(demand: Boolean) {
-        initialize()
-        if (demand && !sawDemandInput) { sawDemandInput = true; demandLayerEdges++ }
-    }
-
-    internal fun addPreparedInitials(prepared: Run1PreparedInitials) {
-        check(config.run1)
-        retainInputPresence(prepared.demandPresence)
-        context.shared.abstractionStatistics?.arrival()
-        prepared.staticEntries?.let(::addStaticEntries)
-        for (initial in prepared.initials) addInitial(initial)
-    }
-
-    /** The packed entry relation certifies actual same-field entry ancestry. */
-    internal fun hasSuppliedStaticEntries(entries: FlowTree): Boolean {
-        val supplied = staticFlow?.entryFacts() ?: return false
-        return ops.without(entries, supplied) == null
-    }
-
-    internal fun startStaticScalar(initial: InitialAp, node: CommonInst) {
-        val fresh = initials.add(initial)
-        context.shared.abstractionStatistics?.initial(fresh)
-        startAt(initial, node, normalizeFlow(initial, ops.startFact(initial)))
-    }
-
-    internal fun processStaticScalar(item: EdgeDelta) = runStatement(item)
-    internal fun finishStaticScalar(initial: InitialAp, node: CommonInst, facts: FlowTree) =
-        endAt(initial, node, facts, summary = context.isEnd(node))
-    internal fun finishConcreteStaticScalar(initial: InitialAp, node: CommonInst, facts: TaintTree) =
-        endAt(initial, node, facts, summary = context.isEnd(node))
-    internal fun processStaticCall(node: CommonInst, entries: FlowTree) = callServices.processStatic(node, entries)
-    internal fun resumeStaticCall(part: StaticSubscription, entries: FlowTree) = callServices.resumeStatic(part, entries)
-    internal fun processConcreteStaticCall(node: CommonInst, entries: TaintTree) = callServices.processConcreteStatic(node, entries)
 
     fun addZeroEntry() {
         check(!forward) { "Only a backward callee has a direct zero entry" }
@@ -153,11 +113,12 @@ class RunMethodAnalyzer(
 
     fun addLink(ref: CallerRef, linkLayer: Layer, added: Facts) {
         ap.cancellation.checkpoint()
-        retainInputPresence(added.layer == Layer.DEMAND)
+        initialize()
         check(added.base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot enter an added link" }
         check(linkLayer == added.layer) { "The link layer must be the added fact's layer" }
         context.shared.abstractionStatistics?.arrival()
         // This is input presence for NO_DEMAND_EDGE, not a distinct retained-group count.
+        if (added.layer == Layer.DEMAND && !sawDemandInput) { sawDemandInput = true; demandLayerEdges++ }
         if (config.run1) checkNotNull(abstraction).emit(ref, added) else {
             val guides = sequence {
                 val found = LinkedHashSet<DemandPattern>()
@@ -231,58 +192,158 @@ class RunMethodAnalyzer(
         initialize()
         if (config.run1) {
             validateRun1Initial(initial, limit)
-            check(initial.base != STATIC || context.shared.staticFootprint(key.method) != null) {
-                "A run-1 static initial needs its frozen prescan footprint"
-            }
+            check(initial.base != STATIC) { "Run-1 static descriptors resume at an operation, not method entry" }
         }
         check(forward || initial.tail != Tail.ANY_TAINT) { "A backward run has no must premise" }
-        if (concreteStaticFlow?.entries?.accepts(initial) == true) {
-            nonZeroInitial = true
-            concreteStaticFlow.add(initial)
-            return
-        }
         val fresh = initials.add(initial)
         context.shared.abstractionStatistics?.initial(fresh)
         if (!fresh) return
         if (!initial.isZero) nonZeroInitial = true
-        val start = normalizeFlow(initial, ops.startFact(initial))
+        val start = forceRun1Layer(initial, ops.startFact(initial, mode))
         for (node in forms.startNodes(key, zero = initial.isZero)) {
             ap.cancellation.checkpoint()
             startAt(initial, node, start)
         }
     }
 
-    internal fun collect(premise: PremiseKey, input: Facts, sink: ResultSink): ApOut = object : ApOut {
-        override fun result(f: Facts) {
-            val normalized = normalizeFlow(premise, f, input)
-            if (config.run1) ops.run1Cover(normalized) { sink(premise, it) } else sink(premise, normalized)
+    internal fun collect(premise: PremiseKey, input: Facts, sink: ResultSink): ApOut {
+        val support = currentGroundingSupport
+        return object : ApOut {
+            override fun result(f: Facts) = withGroundingSupport(support) {
+                val runtime = forceRun1Layer(premise, f)
+                if (config.run1) ops.run1Cover(runtime) { sink(premise, it) } else sink(premise, runtime)
+            }
+            override fun markRequest(mark: TaintMark): Unit = raiseMark(premise, input, mark)
         }
-        override fun markRequest(mark: TaintMark): Unit = raiseMark(premise, input, mark)
     }
-
-    internal fun normalizeFlow(premise: PremiseKey, facts: Facts, input: Facts? = null): Facts =
-        if (config.run1) normalizeRun1StaticFlow(premise, facts, input) else facts
 
     internal fun raiseMark(premise: PremiseKey, input: Facts, mark: TaintMark) {
         check(config.run1) { "Requests exist only in run 1" }
         check(input is FlowTree && premise is InitialAp) { "A request needs a FLOW input premise" }
+        check(premise.base != STATIC) { "A static-origin interest needs an exact operation input" }
         addMarkRequest(premise, mark)
     }
 
+    internal fun operation(node: CommonInst, ordinal: Int = 0): OperationId =
+        OperationId(FormKey(operationOwner, key.method, key, node), ordinal)
+
+    internal fun <T> withGroundingSite(site: ResumeSite, block: () -> T): T =
+        if (grounding == null) block() else grounding.at(site, block)
+    internal fun forceRun1Layer(premise: PremiseKey, value: Facts): Facts {
+        if (!config.run1) return value
+        val runtime = ops.runtimeFact(value, mode)
+        return if (runtime is TaintTree || Run1StaticService.hasStaticMember(premise)) runtime.withLayer(Layer.DEMAND) else runtime
+    }
+
+    internal fun collect(at: OperationInput, sink: ResultSink): ApOut {
+        val support = at.support ?: currentGroundingSupport
+        return object : ApOut {
+            override fun result(f: Facts) = withGroundingSupport(support) {
+                val value = forceRun1Layer(at.premise, f)
+                if (config.run1) ops.run1Cover(value) { sink(at.premise, it) } else sink(at.premise, value)
+            }
+            override fun markRequest(mark: TaintMark) = needGroups(at, mark)
+        }
+    }
+
+    internal fun needGroups(at: OperationInput, mark: TaintMark) {
+        if (!config.run1) return
+        val original = at.premise as? InitialAp ?: return
+        if (at.facts !is FlowTree || original.mark !is MarkSlot.Star) return
+        val atom = ap.marks.runtimeAtom(mark, mode.markMode)
+        if (original.base == STATIC) checkNotNull(pointResumes).request(at, GroupSet.of(ap.marks.groupOf(atom)))
+        else addMarkRequest(original, atom)
+    }
+
+    internal fun reachedOperations(summary: StatementSummary, at: OperationInput) {
+        if (config.run1) checkNotNull(pointResumes).reached(summary, at)
+    }
+
+    internal fun emitOperationResult(at: OperationInput, operation: StaticOperation.Write?, value: Facts, sink: ResultSink) {
+        val runtime = forceRun1Layer(at.premise, value)
+        if (config.run1 && runtime.base == STATIC) {
+            if (operation != null) {
+                val support = at.support ?: currentGroundingSupport
+                checkNotNull(pointResumes).writer(operation.id, at.premise, runtime, support)
+                withGroundingSupport(support) { summaryDelta(at.premise, runtime.withLayer(Layer.DEMAND)) }
+            }
+            return
+        }
+        sink(at.premise, runtime)
+    }
+
+    fun onStaticEffect(effect: StaticOwnerEffect) {
+        check(config.run1 && effect.owner == key)
+        checkNotNull(pointResumes).onEffect(effect)
+    }
+
+    internal fun staticFacts(slice: RegionGroups): Facts = checkNotNull(runnerPort.staticService).facts(slice.region, slice.groups)
+    internal fun staticSlices(facts: Facts): List<RegionGroups> = checkNotNull(runnerPort.staticService).slices(facts)
+    internal fun groundingPermits(premise: PremiseKey, facts: Facts, inputs: List<RegionGroups>,
+                                 selected: GroundingSupport? = null): Boolean =
+        grounding?.permits(premise, facts, inputs, selected) ?: true
+    internal fun fixedGrounding(at: OperationInput): GroundingSupport =
+        grounding?.fixed(at) ?: GroundingSupport.TRUE
+    internal fun observeGrounding(at: OperationInput) { grounding?.observe(at) }
+    internal fun guardGrounding(at: OperationInput, accepted: Facts, literal: Pattern,
+                               proof: ProofKey? = null, leaf: Int = -1): GroundingSupport =
+        grounding?.requirement(at, accepted, literal, proof, leaf) ?: GroundingSupport.TRUE
+    internal fun needsCallGrounding(support: GroundingSupport, ref: CallerRef, facts: Facts): Boolean =
+        grounding?.needsCallRelation(support, ref, facts.base) == true
+    val groundingTrueRows: Long get() = if (groundingReleased) finalGroundingTrueRows else edgeStore?.groundingTrueRows ?: 0
+    val groundingGuardedRows: Long get() = if (groundingReleased) finalGroundingGuardedRows else edgeStore?.groundingGuardedRows ?: 0
+    internal fun groundingCallRevision(ref: CallerRef): Long = grounding?.callRevision(ref) ?: 0L
+    internal fun rebindGrounding(support: GroundingSupport, arguments: List<GroundingArgument>): GroundingSupport =
+        grounding?.rebind(support, arguments) ?: GroundingSupport.TRUE
+    internal fun supportRevision(premise: PremiseKey, facts: Facts): Long = 0L // The N2 owner versions actual cofactor-support changes.
+    internal fun staticCallInterest(part: Subscription, pub: Publication, member: Int) =
+        checkNotNull(pointResumes).callInterest(part, pub, member)
+    internal fun staticCallSupply(part: Subscription, pub: Publication, member: Int, supply: RegionGroups) =
+        callServices.staticSupply(part, pub, member, supply)
+
+    /** Grounding executes ordinary AP transfer on this owner, after the service lock was released. */
+    internal fun composeGrounded(premise: PremiseKey, value: Facts, inputs: List<RegionGroups>, emit: (Facts) -> Unit) {
+        val out = object : ApOut {
+            override fun result(f: Facts) { if (f is TaintTree) emit(forceRun1Layer(premise, f)) }
+            override fun markRequest(mark: TaintMark) = Unit // support probing is not rule execution
+        }
+        when (premise) {
+            is InitialAp -> if (premise.isZero) { if (value is TaintTree) emit(value.withLayer(Layer.DEMAND)) }
+                else if (inputs.size == 1) {
+                    val actual = staticFacts(inputs.single())
+                    val matched = ops.satisfying(actual, premise, mode) ?: return
+                    ops.applySummary(matched, premise, value, mode, out)
+                }
+            is PremiseSet -> if (inputs.size == premise.size && value is TaintTree) {
+                val parts = inputs.mapIndexed { i, slice -> staticFacts(slice) to premise.member(i) }
+                ops.applyCombination(parts, value, mode, out)
+            }
+        }
+    }
+
+    internal fun installPoint(premise: PremiseKey, value: Facts, site: ResumeSite, state: CallResumeState? = null,
+                              support: GroundingSupport = GroundingSupport.TRUE) {
+        check(config.run1)
+        premise.forEachMember { validateRun1Initial(it, limit) }
+        val runtime = forceRun1Layer(premise, value)
+        checkKinds(premise, runtime)
+        nonZeroInitial = nonZeroInitial || !premise.isZero
+        resumeQueue.addLast(PointWork(premise, runtime, site, state, support))
+        requestWork()
+    }
+
     internal fun cut(point: Cut, premise: PremiseKey, facts: Facts, sink: ResultSink) {
-        val normalized = normalizeFlow(premise, facts)
-        runnerPort.onCut?.invoke(point, normalized)
-        val out = collect(premise, normalized, sink)
-        if (config.run1) ops.run1Cover(normalized) { ops.limit(it, limit, out) }
-        else ops.limit(normalized, limit, out)
+        runnerPort.onCut?.invoke(point, facts)
+        val out = collect(premise, facts, sink)
+        if (config.run1) ops.run1Cover(facts) { ops.limit(it, limit, out) }
+        else ops.limit(facts, limit, out)
     }
 
     private val hasPendingAbstractionWork: Boolean get() =
-        !temporary.isEmpty
+        !temporary.isEmpty || !staticBatch.isEmpty || resumeQueue.isNotEmpty()
 
     private fun commitRequests() {
-        if (!config.run1) return
-        if (temporary.isEmpty) return
+        if (!config.run1 || temporary.isEmpty) return
         if (temporarySinceNanos != 0L)
             context.shared.requestBatchStatistics?.serviceDelay(System.nanoTime() - temporarySinceNanos)
         runnerPort.summaryStorage(key).commit(temporary)
@@ -298,6 +359,18 @@ class RunMethodAnalyzer(
         var processed = 0
         while (true) {
             ap.cancellation.checkpoint()
+            while (resumeQueue.isNotEmpty()) {
+                if (processed >= quantum) return false
+                processed++
+                val resume = resumeQueue.removeFirst()
+                withGroundingSupport(resume.support) { withGroundingSite(resume.site) { when (val site = resume.site) {
+                    is ResumeSite.StatementInput -> runStatement(EdgeDelta(resume.premise, site.operation.form.statement, resume.facts))
+                    is ResumeSite.BoundaryInput -> if (site.atStart) startAt(resume.premise, site.operation.form.statement, resume.facts)
+                        else endAt(resume.premise, site.operation.form.statement, resume.facts, summary = true)
+                    is ResumeSite.ReadOutput -> installPoint(resume.premise, resume.facts, site.input, resume.state)
+                    is ResumeSite.CallStageInput, is ResumeSite.CleanerInput -> callServices.resumePoint(resume.premise, resume.facts, site, resume.state)
+                } } }
+            }
             while (!worklist.isEmpty) {
                 // Keep the zero phase separate. A quantum yield retains P without publishing it;
                 // only the method fact-queue-empty boundary commits request memberships.
@@ -309,30 +382,19 @@ class RunMethodAnalyzer(
                 process(worklist.removeNext())
                 worklist.afterProcess()
             }
-            while (staticFlow?.isEmpty == false) {
-                if (zeroAtStart || processed >= quantum) return false
-                processed++
-                steps++
-                staticFlow.work()
-                if (!worklist.isEmpty) break
-            }
-            while (concreteStaticFlow?.isEmpty == false) {
-                if (zeroAtStart || processed >= quantum) return false
-                processed++
-                steps++
-                concreteStaticFlow.work()
-                if (!worklist.isEmpty || staticFlow?.isEmpty == false) break
-            }
-            if (!worklist.isEmpty) continue
-            if (staticFlow?.isEmpty == false) continue
             flushPublications()
             ap.cancellation.checkpoint()
             if (!worklist.isEmpty || pending.isNotEmpty()) continue
             commitRequests()
+            if (config.run1 && !staticBatch.isEmpty) {
+                val committed = staticBatch
+                val effects = checkNotNull(runnerPort.staticService) { "Run-1 needs its static service" }.commit(committed)
+                staticBatch = StaticBatch()
+                for (effect in effects) check(runnerPort.sendStatic(effect)) { "Static effect delivery was rejected" }
+            }
             ap.cancellation.checkpoint()
             // Retain the counted Work reservation through P commit/replacement and sends.
-            if (worklist.isEmpty && pending.isEmpty() && !hasPendingAbstractionWork &&
-                staticFlow?.isEmpty != false && concreteStaticFlow?.isEmpty != false) return true
+            if (worklist.isEmpty && pending.isEmpty() && !hasPendingAbstractionWork) return true
         }
     }
 
@@ -340,13 +402,15 @@ class RunMethodAnalyzer(
         ap.cancellation.checkpoint()
         steps++
         runnerPort.onProcess?.invoke(key, item)
-        if (context.callAt(item.node) != null) callServices.process(item) else runStatement(item)
+        withGroundingSupport(item.grounding) { withGroundingSite(ResumeSite.StatementInput(operation(item.node))) {
+            if (context.callAt(item.node) != null) callServices.process(item) else runStatement(item)
+        } }
     }
 
     private fun runStatement(item: EdgeDelta) {
         forms.withStatement(key, item.node) { summary ->
             applier.statement(summary, item.premise, item.facts,
-                Place(item.node, config.run1, sources = true),
+                Place(item.node, config.run1, sources = true, site = ResumeSite.StatementInput(operation(item.node))),
                 sink = { premise, result ->
                     cut(Cut.STATEMENT, premise, result) { pr, facts -> emitAfter(pr, item.node, facts) }
                 }, untouched = { _, _ -> emitUnchanged(item) })
@@ -354,29 +418,31 @@ class RunMethodAnalyzer(
     }
 
     internal fun emitAfter(premise: PremiseKey, node: CommonInst, value: Facts) {
-        val normalized = normalizeFlow(premise, value)
-        if (config.run1) ops.run1Cover(normalized) { emitCovered(premise, node, it) }
-        else emitCovered(premise, node, normalized)
+        if (config.run1 && value.base == STATIC) return // writes were retained at their logical operation output
+        if (config.run1) ops.run1Cover(forceRun1Layer(premise, value)) { emitCovered(premise, node, it) }
+        else emitCovered(premise, node, value)
     }
 
     private fun emitCovered(premise: PremiseKey, node: CommonInst, facts: Facts) {
-        if (staticFlow?.capture(premise, node, facts) == true) return
-        if (concreteStaticFlow?.capture(premise, node, facts) == true) return
         exitRulesAt(premise, node, facts)
         context.forEachSuccessor(node) { successor ->
             ap.cancellation.checkpoint()
-            edges.add(successor, premise, facts)?.let { push(EdgeDelta(premise, successor, it)) }
+            if (config.run1) edges.addSupported(successor, premise, facts, currentGroundingSupport) { part, support ->
+                push(EdgeDelta(premise, successor, part, support))
+            } else edges.add(successor, premise, facts)?.let { push(EdgeDelta(premise, successor, it)) }
         }
     }
 
     internal fun emitUnchanged(item: EdgeDelta) {
-        val normalized = normalizeFlow(item.premise, item.facts)
-        if (staticFlow?.capture(item.premise, item.node, normalized) == true) return
-        if (concreteStaticFlow?.capture(item.premise, item.node, normalized) == true) return
-        exitRulesAt(item.premise, item.node, normalized)
+        if (config.run1 && item.facts.base == STATIC) return
+        exitRulesAt(item.premise, item.node, item.facts)
         context.forEachSuccessor(item.node) { successor ->
             ap.cancellation.checkpoint()
-            if (worklist.addUnchanged(EdgeDelta(item.premise, successor, normalized))) requestWork()
+            if (config.run1) edges.forwardUnchanged(successor, item.premise, item.facts, currentGroundingSupport) { part, support ->
+                if (support == GroundingSupport.TRUE && worklist.addUnchanged(EdgeDelta(item.premise, successor, part, support)))
+                    requestWork()
+                else if (support != GroundingSupport.TRUE) push(EdgeDelta(item.premise, successor, part, support))
+            } else if (worklist.addUnchanged(EdgeDelta(item.premise, successor, item.facts))) requestWork()
         }
     }
 
@@ -397,14 +463,8 @@ class RunMethodAnalyzer(
         check((facts is FlowTree) == premise.isFlow) { "K6: the conclusion kind follows its premise" }
         check(premise !is PremiseSet || facts is TaintTree) { "A multi-premise edge must be TAINT" }
         if (config.run1) when (facts) {
-            is FlowTree -> {
-                check(facts.exclusion == ExclusionSet.Empty) { "Run-1 FLOW has Empty field E" }
-                check(normalizeRun1StaticFlow(premise, facts) === facts) { "Run-1 static FLOW is DEMAND before admission" }
-            }
-            is TaintTree -> {
-                check(facts.exclusion == ExclusionSet.Empty) { "Run-1 TAINT has Empty field E" }
-                check(normalizeRun1StaticFlow(premise, facts) === facts) { "Run-1 static TAINT is DEMAND before admission" }
-            }
+            is FlowTree -> check(facts.exclusion == ExclusionSet.Empty) { "Run-1 FLOW has Empty field E" }
+            is TaintTree -> check(facts.exclusion == ExclusionSet.Empty) { "Run-1 TAINT has Empty field E" }
             is Reach -> Unit
         }
     }
@@ -416,10 +476,14 @@ class RunMethodAnalyzer(
         private val node: CommonInst,
         private val point: Cut,
     ) {
-        val items = ArrayList<Pair<PremiseKey, Facts>>()
-        private val seen = HashSet<Pair<PremiseKey, Facts>>()
+        private val items = LinkedHashMap<Pair<PremiseKey, Facts>, RuleItem>()
         private val add: ResultSink = { premise, facts ->
-            cut(point, premise, facts) { pr, result -> if (seen.add(pr to result)) items += pr to result }
+            cut(point, premise, facts) { pr, result ->
+                val key = pr to result
+                val previous = items[key]
+                val support = previous?.support?.or(currentGroundingSupport) ?: currentGroundingSupport
+                if (previous?.support != support) items[key] = RuleItem(pr, result, support)
+            }
         }
         private val reversedEnds: List<Pair<SinkRule, List<MicroEdge>>> =
             if (forward) emptyList() else rules.sinks.mapNotNull { sink ->
@@ -435,50 +499,56 @@ class RunMethodAnalyzer(
             }
 
         fun input(premise: PremiseKey, facts: Facts) {
-            applier.statement(rules.summary, premise, facts, Place(node, config.run1, sources = true), sink = add)
+            applier.statement(rules.summary, premise, facts, Place(node, config.run1, sources = true,
+                site = ResumeSite.BoundaryInput(operation(node), point == Cut.ENTRY_RULES)), sink = add)
         }
 
         fun drain(after: (PremiseKey, Facts, Triggers) -> Unit = { _, _, _ -> }) {
-            var index = 0
-            while (index < items.size) {
+            for (item in items.values) withGroundingSupport(item.support) {
                 ap.cancellation.checkpoint()
-                val (premise, facts) = items[index++]
-                val triggers = localServices.checkSinks(premise, node, facts, rules.sinks)
-                for ((sink, layer) in triggers.fired) {
-                    ap.cancellation.checkpoint()
-                    applier.gen(sink.endFacts, ap.zero, Reach.of(layer), add)
-                }
-                for ((sink, edges) in reversedEnds) {
-                    ap.cancellation.checkpoint()
-                    var applied = false
-                    applier.gen(edges, premise, facts) { pr, result -> applied = true; add(pr, result) }
-                    if (applied) localServices.fireTriggerSeeds(node, sink) { seed -> input(ap.zero, seed) }
-                }
+                val premise = item.premise; val facts = item.facts
+                val triggers = localServices.checkSinksAt(premise, node, facts, rules.sinks,
+                    OperationInput(ResumeSite.BoundaryInput(operation(node), point == Cut.ENTRY_RULES), premise, facts))
                 after(premise, facts, triggers)
             }
+        }
+
+        fun forEachResult(visit: (PremiseKey, Facts) -> Unit) {
+            for (item in items.values) withGroundingSupport(item.support) { visit(item.premise, item.facts) }
         }
     }
 
     private fun startAt(premise: PremiseKey, node: CommonInst, start: Facts) {
+        val site = ResumeSite.BoundaryInput(operation(node), true)
+        val support = currentGroundingSupport
+        withGroundingSupport(support) { withGroundingSite(site) {
         forms.withStartRules(key, node) { rules ->
             val work = RuleWorklist(rules, node,
                 if (forward) Cut.ENTRY_RULES else Cut.EXIT_RULES)
             work.input(premise, start)
             if (!forward && premise.isZero) localServices.fireSinkSeeds(node) { seed -> work.input(ap.zero, seed) }
             work.drain()
-            for ((pr, facts) in work.items) {
+            work.forEachResult { pr, facts ->
                 ap.cancellation.checkpoint()
-                edges.add(node, pr, facts)?.let { push(EdgeDelta(pr, node, it)) }
+                if (config.run1 && facts.base == STATIC) return@forEachResult
+                if (config.run1) edges.addSupported(node, pr, facts, currentGroundingSupport) { part, support ->
+                    push(EdgeDelta(pr, node, part, support))
+                } else edges.add(node, pr, facts)?.let { push(EdgeDelta(pr, node, it)) }
             }
         }
+        } }
     }
 
     private fun endAt(premise: PremiseKey, node: CommonInst, facts: Facts, summary: Boolean) {
+        val site = ResumeSite.BoundaryInput(operation(node), false)
+        val support = currentGroundingSupport
+        withGroundingSupport(support) { withGroundingSite(site) {
         forms.withEndRules(key, node) { exit ->
             val work = RuleWorklist(exit.rules, node, if (forward) Cut.EXIT_RULES else Cut.ENTRY_RULES)
             work.input(premise, facts)
             work.drain { pr, value, triggers ->
                 if (!summary) return@drain
+                if (config.run1 && value.base == STATIC) return@drain
                 var result: Facts? = value
                 if (exit.globalStateDrop && pr.isZero && value.base == AccessPathBase.ClassStatic)
                     for (part in triggers.parts) {
@@ -490,22 +560,27 @@ class RunMethodAnalyzer(
                 result?.let { summaryDelta(pr, it) }
             }
         }
+        } }
     }
 
     internal fun summaryDelta(premise: PremiseKey, value: Facts) {
-        val normalized = normalizeFlow(premise, value)
-        if (config.run1) ops.run1Cover(normalized) { retainSummary(premise, it) }
-        else retainSummary(premise, normalized)
+        if (config.run1) ops.run1Cover(forceRun1Layer(premise, value)) { retainSummary(premise, it) }
+        else retainSummary(premise, value)
     }
 
     private fun retainSummary(premise: PremiseKey, facts: Facts) {
         checkKinds(premise, facts)
         if (!context.shared.interpreter.isSummaryBase(facts.base)) return
-        val retained = if (config.run1) compactRun1StaticIdentity(ops, premise, facts) ?: return else facts
-        val delta = summaries.add(premise, retained) ?: return
+        val delta = summaries.add(premise, facts)
+        val support = currentGroundingSupport
+        if (config.run1 && support != GroundingSupport.TRUE) guardedSummaryPremises += premise
+        if (delta == null) {
+            if (config.run1 && premise in guardedSummaryPremises) queuePublications(premise, facts)
+            return
+        }
         edgeDeltas++
         if (delta.layer == Layer.DEMAND) demandLayerEdges++
-        queuePublications(premise, delta)
+        queuePublications(premise, if (config.run1) facts else delta)
     }
 
     private fun queuePublications(premise: PremiseKey, facts: Facts) {
@@ -513,7 +588,7 @@ class RunMethodAnalyzer(
         val publications = published(premise, facts)
         for (piece in publications) {
             ap.cancellation.checkpoint()
-            pending += Publication(premise, piece)
+            pending += Publication(premise, piece, currentGroundingSupport)
             if (selected) summaries.addDemand(premise, piece)
         }
         if (publications.isNotEmpty()) requestWork()
@@ -544,20 +619,30 @@ class RunMethodAnalyzer(
 
     override fun applySummary(part: Subscription, pub: Publication, member: Int): Unit =
         callServices.applySummary(part, pub, member)
+    override fun applyStaticSummary(part: Subscription, pub: Publication, member: Int): Unit =
+        callServices.applyStaticSummary(part, pub, member)
+    override fun registerStaticInput(row: N2InputRef, added: Facts) {
+        if (!config.run1 || added is Reach) return
+        staticBatch.inputs += StaticInputRegistration(row, emptyList())
+        requestWork()
+    }
+    override fun requestStaticGroups(part: Subscription, marks: RequestMarkSelection) {
+        check(config.run1 && part.ref.premise.isFlow && part.added is FlowTree)
+        val at = OperationInput(ResumeSite.CallStageInput(operation(part.ref.call, part.ref.stageOrdinal)),
+            part.ref.premise, part.added, CallResumeState(part.ref.callerLayer))
+        val cursor = marks.cursor()
+        while (!cursor.isComplete) {
+            ap.cancellation.checkpoint()
+            cursor.step(256) { needGroups(at, it) }
+        }
+    }
     override fun applyRecord(part: Subscription, record: Record): Unit = callServices.applyRecord(part, record)
     override fun applyRecordView(part: Subscription, view: RecordLeafView): Unit = callServices.applyRecordView(part, view)
-    override fun applyStaticDefault(part: StaticSubscription, entries: FlowTree) = resumeStaticCall(part, entries)
-    override fun applyStaticSummary(part: StaticSubscription, input: Subscription, pub: Publication) =
-        callServices.applyStaticSummary(part, input, pub)
-    override fun applyConcreteStaticDefault(part: ConcreteStaticSubscription, entries: TaintTree) =
-        callServices.resumeConcreteStatic(part, entries)
-    override fun applyConcreteStaticSummary(part: ConcreteStaticSubscription, input: Subscription, pub: Publication, member: Int) =
-        callServices.applyConcreteStaticSummary(part, input, pub, member)
     internal fun countRecordCrossing() { recordCrossings++ }
     internal fun countTriggerSeed() { triggerSeeds++ }
 
     override fun freeze() {
-        check(worklist.isEmpty && pending.isEmpty() && !hasPendingAbstractionWork && staticFlow?.isEmpty != false) {
+        check(worklist.isEmpty && pending.isEmpty() && !hasPendingAbstractionWork) {
             "A method cannot freeze with unfinished work"
         }
         var failure: Throwable? = null
@@ -573,6 +658,13 @@ class RunMethodAnalyzer(
             release { releaseAbstraction() }
             release { localServices.freeze() }
             release { callServices.freeze() }
+            release { pointResumes?.clear() }
+            release {
+                finalGroundingTrueRows = edgeStore?.groundingTrueRows ?: 0
+                finalGroundingGuardedRows = edgeStore?.groundingGuardedRows ?: 0
+                groundingReleased = true
+                grounding?.clear()
+            }
         } finally {
             local = null
             calls = null
@@ -581,12 +673,11 @@ class RunMethodAnalyzer(
             runContext = null
             worklist.clear()
             pending = ArrayList()
+            guardedSummaryPremises.clear()
             edgeStore = null
             initialStore = null
             currentQueries?.clear()
             temporary = RequestStorage()
-            staticFlow?.clear()
-            concreteStaticFlow?.clear()
         }
         failure?.let { throw it }
     }

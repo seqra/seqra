@@ -14,7 +14,7 @@ internal class SelectedScalarPlan(private val program: FiniteProgramFixtures) {
         var writes: Boolean = false,
     ) {
         fun merge(other: Needs): Boolean {
-            var change = classes.addAll(other.classes)
+            var change = fields.addAll(other.fields) or classes.addAll(other.classes)
             if (other.allPoints && !allPoints) { allPoints = true; change = true }
             if (other.writes && !writes) { writes = true; change = true }
             for ((path, marks) in other.marked)
@@ -138,9 +138,9 @@ internal class SelectedScalarPlan(private val program: FiniteProgramFixtures) {
     fun wide(method: MethodKey, field: List<Int>): Set<TaintMark> = needs(method).marked.entries
         .filter { (scope, _) -> scope.size < 2 && field.startsWith(scope) }.flatMapTo(linkedSetOf()) { it.value }
     fun base(method: MethodKey): Map<Pattern, Set<TaintMark>> = needs(method).let { n ->
-        universe.associate { path -> slot(STATIC, path) to n.marked.entries
+        val slots = n.fields + n.marked.keys.filter { it.size == 2 }
+        slots.associate { path -> slot(STATIC, path) to n.marked.entries
             .filter { (scope, _) -> path.startsWith(scope) }.flatMapTo(linkedSetOf()) { it.value } }
-            .filterValues { it.isNotEmpty() }
     }
     fun suppliedFields(input: Pattern): Set<List<Int>> = universe.filterTo(linkedSetOf()) { path ->
         geometry(slot(STATIC, path), input)

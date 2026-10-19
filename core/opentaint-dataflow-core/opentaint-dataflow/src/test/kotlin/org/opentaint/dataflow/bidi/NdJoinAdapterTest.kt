@@ -8,9 +8,11 @@ import org.opentaint.dataflow.bidi.fixtures.QueuedProtocolSteps
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.ConjunctionStore
+import org.opentaint.dataflow.bidi.store.DemandStore
 import org.opentaint.dataflow.bidi.store.NdBinding
 import kotlin.test.*
 
+/** FULL-mark E6 adapter laws; run-1 guarded bindings have separate pipeline controls. */
 class NdJoinAdapterTest {
     private val firstBase = AccessPathBase.Argument(0)
     private val secondBase = AccessPathBase.Argument(1)
@@ -22,9 +24,16 @@ class NdJoinAdapterTest {
             StatementSummary.identities(setOf(result))),
     ), emptyList(), CallPoint.BEFORE, CallPoint.AFTER)
 
-    private fun core(f: MethodAnalysisFixtures, index: Int = 1, limit: Int = 3,
+    private fun core(f: MethodAnalysisFixtures, index: Int = 3, limit: Int = maxOf(1, index - 1),
                      key: MethodKey = f.key): RunMethodAnalyzer =
         f.core(index = index, L = limit, key = key,
+            demand = DemandStore.Builder(f.manager).apply {
+                // This FULL adapter fixture has no caller query admission. Its
+                // explicit guides retain every result of the tested bindings.
+                for (argument in 0..3) add(key, DemandPattern(
+                    f.pattern(AccessPathBase.Argument(argument), tail = Tail.ANY, mark = MarkSlot.STAR),
+                    f.pattern(AccessPathBase.Return, tail = Tail.STAR, mark = MarkSlot.STAR)))
+            }.build(),
             localFactory = MethodLocalServicesFactory(::RunMethodLocalServices),
             callFactory = MethodCallServicesFactory(::RunMethodCallServices))
 
@@ -52,7 +61,7 @@ class NdJoinAdapterTest {
             assertEquals(2, join.memberCount)
             assertEquals(1, join.combinationCount)
             val cuts = f.cuts.count { it.first == Cut.CALL }
-            // Both roots match in run-1, but neither root contributes to combination transfer.
+            // The later descendant input cannot change an already completed exact-member binding.
             actor.applySummary(first.copy(added = f.fact(firstBase, listOf(f.field("later")), mark = t)),
                 publication, premise.members.indexOf(j1))
             f.drain(actor)
@@ -159,10 +168,6 @@ class NdJoinAdapterTest {
                     return actor
                 }
                 override fun post(event: RunEvent.Delivery): Boolean { deliveries += event; return true }
-                override fun send(event: RunEvent): Boolean {
-                    assertIs<RunEvent.PreparedInitialsIn>(event)
-                    return true // This control supplies summaries directly, without a callee body.
-                }
             })
             val publication = Publication(premise, f.fact(result, mark = v))
             val first = part(f, callee, j1, f.fact(firstBase, mark = t))
@@ -223,7 +228,7 @@ class NdJoinAdapterTest {
                 for (a in 0..1) for (b in 0..1) {
                     val demand = a == 1 || b == 1
                     add(f.manager.union(callerFirst[a], callerSecond[b]) to Conclusion(
-                        target, ExclusionSet.Empty, true))
+                        target, e, demand))
                 }
             }
             assertEquals(expected, methodEntries(f.ops, actor.summaries.all()))
@@ -303,7 +308,7 @@ class NdJoinAdapterTest {
             val premise = assertIs<PremiseSet>(f.manager.union(j1, j2))
             val callee = f.store.key(context = "callee")
             f.call(1, plan(callee))
-            val actor = core(f, limit = 1)
+            val actor = core(f)
             val t = MarkSlot.Concrete(f.mark("T"))
             val path = listOf(f.field("f"), f.field("g"), f.field("h"))
             val e = ExclusionSet.of(intArrayOf(f.field("blocked")))
@@ -313,15 +318,15 @@ class NdJoinAdapterTest {
             actor.applySummary(first, publication, premise.members.indexOf(j1))
             actor.applySummary(second, publication, premise.members.indexOf(j2))
             f.drain(actor)
-            assertEquals(setOf(Conclusion(PathFact(result, path, Tail.ANY_TAINT, t), ExclusionSet.Empty, true)),
+            assertEquals(setOf(Conclusion(PathFact(result, path, Tail.ANY_TAINT, t), e, false)),
                 methodLeaves(f.ops, f.cuts.filter { it.first == Cut.CALL }.map { it.second }))
-            assertEquals(setOf(premise to Conclusion(PathFact(result, path.take(1), Tail.ANY, t), ExclusionSet.Empty, true)),
+            assertEquals(setOf(premise to Conclusion(PathFact(result, path.take(2), Tail.ANY, t), ExclusionSet.Empty, true)),
                 methodEntries(f.ops, actor.summaries.all()))
             val next = Publication(premise, f.fact(result, mark = t))
             actor.applySummary(first, next, premise.members.indexOf(j1))
             f.drain(actor)
             assertEquals(setOf(
-                premise to Conclusion(PathFact(result, path.take(1), Tail.ANY, t), ExclusionSet.Empty, true),
+                premise to Conclusion(PathFact(result, path.take(2), Tail.ANY, t), ExclusionSet.Empty, true),
                 premise to Conclusion(PathFact(result, emptyList(), Tail.EXACT, t), ExclusionSet.Empty, false)),
                 methodEntries(f.ops, actor.summaries.all()))
             assertEquals(2, f.cuts.count { it.first == Cut.CALL })

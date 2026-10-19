@@ -12,6 +12,8 @@ import org.opentaint.dataflow.bidi.interp.CallCleaners
 import org.opentaint.dataflow.bidi.interp.ActionId
 import org.opentaint.dataflow.bidi.interp.ActionRole
 import org.opentaint.dataflow.bidi.interp.FormKey
+import org.opentaint.dataflow.bidi.interp.OperationId
+import org.opentaint.dataflow.bidi.interp.StaticOperation
 import org.opentaint.dataflow.bidi.interp.FormOwner
 import org.opentaint.dataflow.bidi.interp.RuleKind
 import org.opentaint.dataflow.bidi.interp.RuleOccurrenceId
@@ -78,8 +80,6 @@ internal class JIRCallPlanBuilder(
     private val formOwner: FormOwner = FormOwner(),
     potentialUnknownAliases: Boolean = false,
     private val requireCatalogTarget: (org.opentaint.ir.api.common.CommonMethod, org.opentaint.ir.api.common.CommonMethod) -> Unit = { _, _ -> },
-    private val metadataSourceLiteral: ((PathFact) -> Unit)? = null,
-    private val metadataSinkLiteral: ((PathFact) -> Unit)? = null,
 ) {
     private val lambdas: Map<Int, Set<JIRMethod>> = Collections.unmodifiableMap(lambdas.mapValues { (_, methods) ->
         Collections.unmodifiableSet(LinkedHashSet(methods))
@@ -109,7 +109,7 @@ internal class JIRCallPlanBuilder(
                 add(Edges(BOUND, REWRITTEN, END_FACTS, MicroEdgeBuilder().apply {
                     sink.endFacts.forEach { edge(it.edge) }
                 }.buildStage(), Guard.SinkTriggered(sink)))
-            add(Edges(BOUND, REWRITTEN, SOURCES, sources()))
+            add(Edges(BOUND, REWRITTEN, SOURCES, sources(sinks)))
             add(Actions(BOUND, ADDED, cleanSteps()))
             if (callees.isNotEmpty()) add(Callees(ADDED, RETURNED, callees))
             if (unresolved) {
@@ -122,7 +122,18 @@ internal class JIRCallPlanBuilder(
             add(Edges(REWRITTEN, AFTER, BIND_BACK, back))
             aliases(back)?.let { add(Edges(REWRITTEN, AFTER, ALIASES, it, Guard.MemoryEffect)) }
         }
-        return CallPlan(touched(), stages, sinks, entry = BEFORE, exit = AFTER, passReads = passReads)
+        val staged = stages.mapIndexed { ordinal, stage ->
+            if (stage !is Edges) stage else stage.copy(summary = stage.summary.withStaticOperations(
+                stage.summary.staticOperations.map { operation ->
+                    val id = operation.id.copy(stageOrdinal = ordinal)
+                    when (operation) {
+                        is StaticOperation.Read -> operation.copy(id = id)
+                        is StaticOperation.Write -> operation.copy(id = id)
+                        is StaticOperation.MarkInput -> operation.copy(id = id)
+                    }
+                }))
+        }
+        return CallPlan(touched(), staged, sinks, entry = BEFORE, exit = AFTER, passReads = passReads)
     }
 
     private fun sinks(): List<org.opentaint.dataflow.bidi.interp.SinkRule> {
@@ -130,23 +141,9 @@ internal class JIRCallPlanBuilder(
         return forms.rules.sinkRulesForMethod(callee, s, fact = null).withIndex()
             .flatMap { (ordinal, rule) ->
                 if (!forms.valid(rule)) emptyList() else forms.sinks(rule,
-                    forms.rewriteSourceOrSink(rule, rewriter, potentialMarkLiteral = metadataSinkLiteral),
+                    forms.rewriteSourceOrSink(rule, rewriter),
                     occurrence(RuleKind.CALL_SINK, ordinal), mayBeArray)
             }
-    }
-
-    /** Potential effective needs only: no resolution, subscription, alias construction or rule activation.
-     * Pass effects conservatively cover unresolved/mixed branches; false rules still contribute nothing.
-     */
-    fun visitStaticMetadata(summary: (StatementSummary) -> Unit,
-                            sink: (org.opentaint.dataflow.bidi.interp.SinkRule) -> Unit,
-                            clean: (CleanStep) -> Unit,
-                            passSummary: (StatementSummary) -> Unit = summary) {
-        sinks().forEach(sink)
-        summary(sources())
-        cleanSteps().forEach(clean)
-        rewriterSteps().forEach(clean)
-        passSummary(passRules())
     }
 
     private fun touched(): Set<AccessPathBase> = buildSet {
@@ -195,13 +192,13 @@ internal class JIRCallPlanBuilder(
         }
     }.buildStage()
 
-    private fun sources(): StatementSummary = MicroEdgeBuilder().apply {
+    private fun sources(sinks: List<org.opentaint.dataflow.bidi.interp.SinkRule> = emptyList()): StatementSummary = MicroEdgeBuilder().apply {
         keepZero()
+        forms.sinkInputs(sinks).forEach(::staticOperation)
         for ((ordinal, rule) in forms.rules.sourceRulesForMethod(callee, s, fact = null).withIndex()) {
             if (!forms.valid(rule)) continue
             forms.source(this, rule, occurrence(RuleKind.CALL_SOURCE, ordinal),
-                forms.rewriteSourceOrSink(rule, rewriter,
-                    potentialMarkLiteral = metadataSourceLiteral.takeIf { rule.actionsAfter.isNotEmpty() }))
+                forms.rewriteSourceOrSink(rule, rewriter))
         }
     }.buildStage()
 
@@ -288,12 +285,15 @@ internal class JIRCallPlanBuilder(
                 .map { Triple(it.rule, it.condition, false) }
         val read = LinkedHashSet<AccessPathBase>()
         val written = LinkedHashSet<AccessPathBase>()
-        for ((rule, cond, ofRuleSet) in rules) {
+        for ((ruleOrdinal, item) in rules.withIndex()) {
+            val (rule, cond, ofRuleSet) = item
             if (cond.isFalse) continue
             if (!cond.isTrue)
                 forms.errors.applied(rule, "pass rule with a mark literal (interpreter.md §4.2, D24): applied without it")
-            for (a in rule.actionsAfter) {
-                val (from, to) = forms.pass(this, rule, a) ?: continue
+            for ((actionOrdinal, a) in rule.actionsAfter.withIndex()) {
+                val actionId = ActionId(occurrence(RuleKind.PASS_THROUGH, ruleOrdinal),
+                    ActionRole.PASS_THROUGH, actionOrdinal)
+                val (from, to) = forms.pass(this, rule, a, OperationId(formKey, action = actionId)) ?: continue
                 read += from
                 written += to
                 if (ofRuleSet) passReads += from

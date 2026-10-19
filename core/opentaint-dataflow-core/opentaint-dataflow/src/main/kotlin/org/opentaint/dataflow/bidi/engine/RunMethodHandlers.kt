@@ -24,22 +24,14 @@ class RunMethodHandlers(
             override val config get() = active().config
             override val ops get() = active().ops
             override val steps get() = active().steps
-            override val staticNeedRouter get() = active().staticNeedRouter
-            override val staticRequests get() = active().staticRequests
-            override val pendingNeedReplay get() = active().pendingNeedReplay
             override val statistics get() = active().shared.n2Statistics
             override val abstractionStatistics get() = active().shared.abstractionStatistics
             override val requestBatchStatistics get() = active().shared.requestBatchStatistics
+            override val staticService get() = active().staticService
             override fun summaryStorage(key: MethodKey): SummaryStorage = active().summaryStorage(key)
-            override fun staticFootprint(method: org.opentaint.ir.api.common.CommonMethod): Run1StaticFootprint? =
-                active().shared.staticFootprint(method)
-            override fun staticProfile(method: org.opentaint.ir.api.common.CommonMethod): Run1StaticProfile? =
-                active().shared.run1StaticProfiles?.get(method)
             override fun applier(key: MethodKey): SummaryApplier = active().analyzer(key)
             override fun post(event: RunEvent.Delivery): Boolean = active().post(event)
             override fun post(event: RunEvent.ChangedRequests): Boolean = active().post(event)
-            override fun post(event: RunEvent.StaticNeed): Boolean = active().post(event)
-            override fun post(event: RunEvent.CallsiteRequests): Boolean = active().post(event)
             override fun send(event: RunEvent): Boolean = active().send(event)
 
         })
@@ -56,10 +48,8 @@ class RunMethodHandlers(
             when (event) {
                 is RunEvent.Start -> port.analyzer(event.root).addRootZero()
                 is RunEvent.LinkIn -> port.analyzer(event.callee).addLink(event.ref, event.linkLayer, event.added)
-                is RunEvent.PreparedInitialsIn -> port.analyzer(event.callee).addPreparedInitials(event.prepared)
                 is RunEvent.ZeroIn -> port.analyzer(event.callee).addZeroEntry()
-                is RunEvent.StaticEntriesIn -> port.analyzer(event.callee).addStaticEntries(event.entries)
-                is RunEvent.ConcreteStaticEntriesIn -> port.analyzer(event.callee).addConcreteStaticEntries(event.entries)
+                is RunEvent.StaticOwner -> port.analyzer(event.effect.owner).onStaticEffect(event.effect)
                 is RunEvent.MarkRequestsIn -> port.analyzer(event.method).addMarkRequests(event.rows)
                 is RunEvent.InitialAnswersIn -> for (initial in event.answers) {
                     port.shared.cancellation.checkpoint()
@@ -67,9 +57,6 @@ class RunMethodHandlers(
                 }
                 is RunEvent.Delivery -> checkNotNull(subscriptions).onDelivery(event.callee, event.publications)
                 is RunEvent.ChangedRequests -> checkNotNull(subscriptions).onRequests(event.callee, event.rows)
-                is RunEvent.StaticNeed -> checkNotNull(subscriptions).onStaticNeed(event.visit)
-                is RunEvent.CallsiteRequests -> checkNotNull(subscriptions).onCallsiteRequests(event.key, event.rows)
-                is RunEvent.RequestDrain -> checkNotNull(subscriptions).drainRequests(event.caller)
                 is RunEvent.Work -> error("Work is handled by its owning unit runner")
             }
         }
@@ -79,20 +66,11 @@ class RunMethodHandlers(
             checkNotNull(subscriptions).subscribe(sub)
         }
 
-        override fun drainRequests(caller: MethodKey) {
-            active()
-            checkNotNull(subscriptions).drainRequests(caller)
-        }
+        override fun borrowN2(row: N2InputRef): org.opentaint.dataflow.bidi.ap.Facts? =
+            checkNotNull(subscriptions).borrowN2(row)
 
-        override fun subscribeStatic(sub: StaticSubscription) {
-            active()
-            checkNotNull(subscriptions).subscribeStatic(sub)
-        }
-
-        override fun subscribeConcreteStatic(sub: ConcreteStaticSubscription) {
-            active()
-            checkNotNull(subscriptions).subscribeConcreteStatic(sub)
-        }
+        override fun borrowN2Cofactors(row: N2InputRef): List<Subscription> =
+            checkNotNull(subscriptions).borrowN2Cofactors(row)
 
         override fun freeze() {
             subscriptions?.freeze()

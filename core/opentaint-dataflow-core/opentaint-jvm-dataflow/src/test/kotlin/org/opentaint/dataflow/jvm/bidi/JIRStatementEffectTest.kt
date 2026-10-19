@@ -16,6 +16,7 @@ import org.opentaint.jvm.graph.JMethodExitNormalInst
 import kotlin.test.*
 
 /** Interpreter §2 effects use actual JIR values, with expected facts independent of the lowering. */
+/** Full-mark primitive/lowering laws. Group execution is checked by actual engine suites. */
 class JIRStatementEffectTest : BasicTestUtils() {
     private val fixture by lazy { JIRFormsTestFixtures(cp) }
     private val m get() = fixture.manager
@@ -418,7 +419,7 @@ class JIRStatementEffectTest : BasicTestUtils() {
                                    require(it is RequestKind.Mark) { "Specify the runtime effects of a scalar Position row" }
                                }) {
         val summary = forms.build(inst)
-        val mode = ApMode(run1, Direction.FORWARD, cut ?: Int.MAX_VALUE)
+        val mode = ApMode(run1, Direction.FORWARD, cut ?: Int.MAX_VALUE, MarkMode.FULL)
         val at = Place(inst, statementEdge = true, sources = true)
         val rawRequests = ArrayList<RequestKind>()
         val oracle = FormsReference(ops, ReferenceAlgebra(mode, request = { _, r -> rawRequests += r }, manager = m))

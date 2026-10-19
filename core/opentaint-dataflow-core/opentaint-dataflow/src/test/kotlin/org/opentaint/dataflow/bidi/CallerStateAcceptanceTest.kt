@@ -18,7 +18,7 @@ import kotlin.time.Duration.Companion.seconds
 /** Analyzer inventory 18/interpreter 23: caller-owned state is not callee-owned G2 state. */
 class CallerStateAcceptanceTest {
     @Test
-    fun `caller state triggers release and remains visible after its G2 exit in run one and a restricted run`(): Unit {
+    fun `caller state triggers release and remains visible after its G2 exit in a FULL run`(): Unit {
         DriverFixtures().use { f ->
             val root = f.program.method("caller state root", listOf(listOf(1), listOf(2), listOf(3), listOf(4), emptyList()), 4).key()
             val acquire = f.program.method("acquire state", listOf(listOf(1), emptyList()), 1).key()
@@ -63,8 +63,10 @@ class CallerStateAcceptanceTest {
                 builder.add(release, DemandPattern(state, state))
                 builder.add(after, DemandPattern(state, state))
             }.build()
-            for (index in listOf(1, 3)) {
-                val config = RunConfig(index, if (index == 1) 1 else 3,
+            // Run-1 has no class-root initials or static call-chain relays.
+            // GroupedStaticPipelineTest covers its operation-local pool path.
+            for (index in listOf(3)) {
+                val config = RunConfig(index, 2,
                     if (index == 1) null else demand, f.records.view(),
                     if (index == 1) SeedIndex.EMPTY else SeedIndex.of(listOf(
                         Seed.Source(acquire, f.program.inst(acquire, 0), source),
@@ -76,8 +78,7 @@ class CallerStateAcceptanceTest {
                 assertTrue(f.records.byEntry(release, state).none(), "No previous-run record may mask state loss at release")
                 val actors = result.analyzers.associateBy { it.key }
                 val initial = f.manager.initial(state)
-                val stateLayer = if (index == 1) Layer.DEMAND else Layer.NORMAL
-                val expected = Conclusion(state.fact, ExclusionSet.Empty, index == 1)
+                val expected = Conclusion(state.fact, ExclusionSet.Empty, false)
                 for (callee in listOf(release, after)) {
                     val actor = actors.getValue(callee)
                     assertTrue(actor.summaries.all().any { (premise, facts) ->
@@ -85,12 +86,9 @@ class CallerStateAcceptanceTest {
                             Conclusion(it.fact, it.exclusion, facts.layer == Layer.DEMAND) == expected
                         }
                     }, "Caller-owned state must remain in $callee's nonzero raw summary in run $index")
-                    val link = f.links(index, actor.key).asSequence().single {
-                        it.addedFact == state && it.caller.caller == root &&
-                            it.linkLayer == stateLayer && it.caller.callerLayer == stateLayer
-                    }
-                    assertEquals(stateLayer, link.linkLayer)
-                    assertEquals(stateLayer, link.caller.callerLayer)
+                    val link = f.links(index, actor.key).asSequence().single { it.addedFact == state && it.caller.caller == root }
+                    assertEquals(Layer.NORMAL, link.linkLayer)
+                    assertEquals(Layer.NORMAL, link.caller.callerLayer)
                     assertTrue(link.caller.premise.isZero)
                     assertEquals(f.program.inst(root, if (callee == release) 2 else 3), link.caller.call)
                     assertTrue(actor.summaries.all().any { (premise, facts) ->
@@ -105,12 +103,11 @@ class CallerStateAcceptanceTest {
                     assertTrue(rows.any { witness ->
                         witness.methodKey == expectedCallee && witness.edges.size == 2 &&
                             witness.edges.map { it.premise } == listOf(initial, f.manager.zero) &&
-                            witness.edges.map { it.layer } == listOf(stateLayer, Layer.NORMAL) &&
-                            witness.edges.map { it.facts.layer } == listOf(stateLayer, Layer.NORMAL) &&
+                            witness.edges.all { it.layer == Layer.NORMAL && it.facts.layer == Layer.NORMAL } &&
                             witness.edges.map { f.ops.leaves(it.facts).map { leaf -> leaf.fact }.toSet() } ==
                                 listOf(setOf(state.fact), setOf(returned.fact)) &&
                             witness.supportPremise(f.manager) == initial
-                    }, "Both sinks must receive caller state with its exact selected layer in run $index")
+                    }, "Both sinks must receive the normal state in run $index")
                 }
                 val report = ReportBuilder().also { it.add(config, result) }
                 assertTrue(report.hasDemandVulnerability())

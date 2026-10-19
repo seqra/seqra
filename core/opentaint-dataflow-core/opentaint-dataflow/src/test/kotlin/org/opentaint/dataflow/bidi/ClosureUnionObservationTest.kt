@@ -42,10 +42,11 @@ class ClosureUnionObservationTest {
             val ea = ExclusionSet.of(a)
             val eb = ExclusionSet.of(b)
             val input = PathFact(x, emptyList(), Tail.ANY_TAINT, mark)
-            val result = input.copy(base = y)
+            val groupedInput = GroupedScalarMarks(f.ap.marks).fact(input)
+            val result = groupedInput.copy(base = y)
             val universe = BoundedDenotation(listOf(AccessPathBase.Zero, x, y, returned,
                 AccessPathBase.Argument(7)), listOf(a, b, f.field("fresh accessor")),
-                listOf(mark.mark, f.mark("fresh mark"), TaintMark.ZERO), 2)
+                (listOf(mark.mark, f.mark("fresh mark"), TaintMark.ZERO) + f.ap.marks.groupAtoms()).distinct(), 2)
             fun locations(fact: PathFact, exclusion: ExclusionSet): Set<TestLocation> =
                 universe.marked(Pattern(fact, exclusion))
             assertEquals(locations(input, ExclusionSet.Empty), locations(input, ea) + locations(input, eb),
@@ -82,9 +83,9 @@ class ClosureUnionObservationTest {
                     assertEquals(Layer.DEMAND, link.callerLayer)
                     assertSame(callerMethod.inst(1), link.call)
                     assertEquals(Layer.DEMAND, link.linkLayer)
-                    assertEquals(input, link.added.fact)
+                    assertEquals(groupedInput, link.added.fact)
                 }
-                assertEquals(locations(input, ExclusionSet.Empty), links.flatMap {
+                assertEquals(locations(groupedInput, ExclusionSet.Empty), links.flatMap {
                     locations(it.added.fact, it.added.exclusion)
                 }.toSet(), "Added facts preserve the complete independent must union")
                 assertTrue(observation.requests.isEmpty() && observation.sourceHits.isEmpty())

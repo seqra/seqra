@@ -30,7 +30,7 @@ class RecordDemotionTest {
         if (aliases != null) stages += CallStage.Edges(REWRITTEN, AFTER, ALIASES, aliases, Guard.MemoryEffect)
         return CallPlan(setOf(x, returned), stages, emptyList(), BEFORE, AFTER)
     }
-    private fun core(f: MethodAnalysisFixtures, fieldLimit: Int = 4): RunMethodAnalyzer = f.core(index = 3, L = fieldLimit,
+    private fun core(f: MethodAnalysisFixtures, fieldLimit: Int = 4): RunMethodAnalyzer = f.core(index = fieldLimit + 1, L = fieldLimit,
         localFactory = MethodLocalServicesFactory(::RunMethodLocalServices),
         callFactory = MethodCallServicesFactory(::RunMethodCallServices))
     private fun leaves(f: MethodAnalysisFixtures, values: List<Facts>): Set<Conclusion> =
@@ -225,12 +225,13 @@ class RecordDemotionTest {
         for (kind in listOf("must", "exact")) for (addedDemand in listOf(false, true)) MethodAnalysisFixtures().use { f ->
             val a = f.field("a")
             val b = f.field("b")
+            val c = f.field("c")
             val t = MarkSlot.Concrete(f.mark("T"))
             val u = MarkSlot.Concrete(f.mark("U"))
             val j = f.manager.initial(f.pattern(tail = Tail.ANY_TAINT, mark = t))
             val g = when (kind) {
-                "exact" -> f.fact(base = returned, path = listOf(a, b), mark = u)
-                else -> f.fact(base = returned, path = listOf(a, b), tail = Tail.ANY_TAINT, mark = u, exclusion = ExclusionSet.of(b))
+                "exact" -> f.fact(base = returned, path = listOf(a, b, c), mark = u)
+                else -> f.fact(base = returned, path = listOf(a, b, c), tail = Tail.ANY_TAINT, mark = u, exclusion = ExclusionSet.of(b))
             }
             val record = Record(f.store.key("callee"), Direction.FORWARD, j, g)
             val added = f.fact(path = listOf(a), tail = if (addedDemand) Tail.ANY else Tail.ANY_TAINT, mark = t,
@@ -238,8 +239,8 @@ class RecordDemotionTest {
             val sub = part(f, record, added)
             val callPlan = plan(f, bindBack = summary(starEdge(returned, emptyList(), x, emptyList()), ZERO_KEEP))
             f.call(1, callPlan)
-            val actor = core(f, fieldLimit = 1)
-            val wanted = setOf(Conclusion(PathFact(x, listOf(a), Tail.ANY, u), ExclusionSet.Empty, true))
+            val actor = core(f, fieldLimit = 2)
+            val wanted = setOf(Conclusion(PathFact(x, listOf(a, b), Tail.ANY, u), ExclusionSet.Empty, true))
             assertEquals(wanted, expected(f, actor, callPlan, record, sub))
             actor.applyRecord(sub, record)
             assertEquals(wanted, actual(f, actor))
@@ -247,7 +248,7 @@ class RecordDemotionTest {
             assertTrue(beforeCallCut.all { it.demand })
             assertEquals(if (kind == "must") setOf(ExclusionSet.of(b)) else setOf(ExclusionSet.Empty),
                 beforeCallCut.map { it.exclusion }.toSet())
-            assertEquals(setOf(listOf(a, b)), beforeCallCut.map { it.fact.path }.toSet())
+            assertEquals(setOf(listOf(a, b, c)), beforeCallCut.map { it.fact.path }.toSet())
             assertEquals(1L, actor.recordCrossings)
         }
     }

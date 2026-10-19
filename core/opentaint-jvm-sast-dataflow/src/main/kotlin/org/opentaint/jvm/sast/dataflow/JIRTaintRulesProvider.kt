@@ -5,6 +5,8 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
 import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSink
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.jvm.ap.ifds.taint.BidirectionalRulesProviderFactory
+import org.opentaint.dataflow.jvm.ap.ifds.taint.forBidirectionalCore
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
@@ -12,8 +14,11 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
 
 class JIRTaintRulesProvider(
-    private val taintConfiguration: TaintConfiguration
-) : TaintRulesProvider {
+    private val taintConfiguration: TaintConfiguration,
+    private val ignoreSinkEndFacts: Boolean = false,
+) : TaintRulesProvider, BidirectionalRulesProviderFactory {
+    override fun bidirectionalRulesView(): TaintRulesProvider =
+        if (ignoreSinkEndFacts) this else JIRTaintRulesProvider(taintConfiguration, ignoreSinkEndFacts = true)
     override fun entryPointRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) = getRules(method) {
         taintConfiguration.entryPointForMethod(it, allRelevant)
     }
@@ -32,7 +37,7 @@ class JIRTaintRulesProvider(
     }
 
     override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) = getRules(method) {
-        taintConfiguration.sinkForMethod(it, allRelevant)
+        taintConfiguration.sinkForMethod(it, allRelevant, ignoreSinkEndFacts)
     }
 
     override fun passTroughRulesForMethod(
@@ -55,11 +60,11 @@ class JIRTaintRulesProvider(
         initialFacts: Set<InitialFactAp>?,
         allRelevant: Boolean
     ): Iterable<TaintMethodExitSink> = getRules(method) {
-        taintConfiguration.methodExitSinkForMethod(it, allRelevant)
+        taintConfiguration.methodExitSinkForMethod(it, allRelevant, ignoreSinkEndFacts)
     }
 
     override fun sinkRulesForMethodEntry(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) = getRules(method) {
-        taintConfiguration.methodEntrySinkForMethod(it, allRelevant)
+        taintConfiguration.methodEntrySinkForMethod(it, allRelevant, ignoreSinkEndFacts)
     }
 
     override fun sourceRulesForStaticField(field: JIRField, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) =

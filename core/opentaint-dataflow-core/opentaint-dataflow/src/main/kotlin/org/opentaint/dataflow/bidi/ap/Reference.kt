@@ -38,12 +38,12 @@ fun tailAdmits(tail: Tail, exclusion: ExclusionSet, r: List<AccessorIdx>): Boole
 }
 fun Pattern.tailAdmits(r: List<AccessorIdx>) = tailAdmits(fact.tail, exclusion, r)
 
-fun markSub(i: MarkSlot, c: MarkSlot): Boolean = when (i) {
+fun markSub(i: MarkSlot, c: MarkSlot, catalog: MarkTable? = null): Boolean = when (i) {
     is MarkSlot.Star -> when (c) {
         is MarkSlot.Star -> i.excluded.isSubsetOf(c.excluded)   // *∖X ⊇ *∖Y if and only if X ⊆ Y; * ⊇ every abstract mark
         is MarkSlot.Concrete -> c.mark !in i.excluded
     }
-    is MarkSlot.Concrete -> c is MarkSlot.Concrete && c.mark == i.mark
+    is MarkSlot.Concrete -> c is MarkSlot.Concrete && (catalog?.coversAtom(i.mark, c.mark) ?: (c.mark == i.mark))
 }
 
 private fun tailSub(i: Pattern, c: Pattern): Boolean = when (i.fact.tail) {
@@ -56,8 +56,8 @@ private fun tailSub(i: Pattern, c: Pattern): Boolean = when (i.fact.tail) {
     }
 }
 
-fun covers(i: Pattern, c: Pattern): Boolean {
-    if (i.fact.base != c.fact.base || !markSub(i.fact.mark, c.fact.mark)) return false
+fun covers(i: Pattern, c: Pattern, catalog: MarkTable? = null): Boolean {
+    if (i.fact.base != c.fact.base || !markSub(i.fact.mark, c.fact.mark, catalog)) return false
     val p = i.fact.path
     val q = c.fact.path
     if (!q.startsWith(p)) return false
@@ -75,11 +75,11 @@ fun overlap(a: Pattern, b: Pattern): Boolean {
     }
 }
 
-fun applicable(j: Pattern, a: Pattern): Boolean =
-    covers(j, a) && (!j.fact.tail.isAny || a.fact.tail.isAny)
+fun applicable(j: Pattern, a: Pattern, catalog: MarkTable? = null): Boolean =
+    covers(j, a, catalog) && (!j.fact.tail.isAny || a.fact.tail.isAny)
 
-fun inside(j: Pattern, a: Pattern): Boolean =
-    covers(a.copy(fact = a.fact.copy(mark = MarkSlot.Star(MarkSet.EMPTY))), j) && markSub(j.fact.mark, a.fact.mark)
+fun inside(j: Pattern, a: Pattern, catalog: MarkTable? = null): Boolean =
+    covers(a.copy(fact = a.fact.copy(mark = MarkSlot.Star(MarkSet.EMPTY))), j, catalog) && markSub(j.fact.mark, a.fact.mark, catalog)
 
 /** Transient native-record read. Never emitted, started, interned as an InitialAp, or persisted. */
 data class RecordLeafView(val premise: Pattern, val result: Conclusion)
@@ -144,10 +144,10 @@ fun meet(a: Pattern, d: Pattern): Pair<Tail, ExclusionSet> {
     }
 }
 
-fun emit(d: Pattern, a: Pattern): Pattern? {
+fun emit(d: Pattern, a: Pattern, catalog: MarkTable? = null): Pattern? {
     if (d.fact.mark == MarkSlot.STAR)
         return if (overlap(d, a)) flowForm(d) else null
-    return commonPart(d, a)
+    return commonPart(d, a, catalog)
 }
 
 fun flowForm(d: Pattern): Pattern {
@@ -156,11 +156,11 @@ fun flowForm(d: Pattern): Pattern {
     else Pattern(d.fact.copy(mark = star), d.exclusion)                // `STAR/E` keeps E
 }
 
-fun commonPart(d: Pattern, a: Pattern): Pattern? {
+fun commonPart(d: Pattern, a: Pattern, catalog: MarkTable? = null): Pattern? {
     if (d.fact.base != a.fact.base) return null
     // a T demand needs the mark T: an abstract `a` gives nothing ("the added fact can't satisfy the demand", F72);
     // `*` admits every mark (Lean: markMatchB; with no `*∖X` pattern it is markSub)
-    if (!markSub(d.fact.mark, a.fact.mark)) return null
+    if (!markSub(d.fact.mark, a.fact.mark, catalog)) return null
     val p = d.fact.path
     val q = a.fact.path
     return when {
@@ -194,10 +194,10 @@ fun insideLoc(j: Pattern, d: Pattern): Boolean {
     return covers(d.copy(fact = d.fact.copy(mark = star)), j.copy(fact = j.fact.copy(mark = star)))
 }
 
-fun insideDemand(j: Pattern, d: Pattern): Boolean = insideLoc(j, d) && markSub(d.fact.mark, j.fact.mark)
+fun insideDemand(j: Pattern, d: Pattern, catalog: MarkTable? = null): Boolean = insideLoc(j, d) && markSub(d.fact.mark, j.fact.mark, catalog)
 
-fun marksMeet(dp: MarkSlot, c: MarkSlot): Boolean = when {
-    dp is MarkSlot.Concrete && c is MarkSlot.Concrete -> dp.mark == c.mark
+fun marksMeet(dp: MarkSlot, c: MarkSlot, catalog: MarkTable? = null): Boolean = when {
+    dp is MarkSlot.Concrete && c is MarkSlot.Concrete -> (catalog?.let { it.coversAtom(dp.mark, c.mark) || it.coversAtom(c.mark, dp.mark) } ?: (dp.mark == c.mark))
     dp is MarkSlot.Concrete -> dp.mark !in (c as MarkSlot.Star).excluded      // an abstract conclusion stays as it is
     c is MarkSlot.Concrete -> c.mark !in (dp as MarkSlot.Star).excluded
     else -> true
@@ -210,11 +210,11 @@ fun meetConclusion(sc: Conclusion, dp: Pattern): Conclusion = when {
     else -> sc                                                    // `[any] ∩ STAR/E2` (the exception), `∩ [any]`
 }
 
-fun restrict(sp: Pattern, sc: Conclusion, d: DemandPattern): Conclusion? {
+fun restrict(sp: Pattern, sc: Conclusion, d: DemandPattern, catalog: MarkTable? = null): Conclusion? {
     val dp = d.exit ?: return null                           // the demand does not reach the exit
-    if (!insideDemand(sp, d.entry)) return null              // the premise lies inside D-c: locations (reads Ej, §3.4)
+    if (!insideDemand(sp, d.entry, catalog)) return null              // the premise lies inside D-c: locations (reads Ej, §3.4)
                                                              // and marks
-    if (!marksMeet(dp.fact.mark, sc.fact.mark)) return null  // the mark of the conclusion meets the mark of D-p
+    if (!marksMeet(dp.fact.mark, sc.fact.mark, catalog)) return null  // the mark of the conclusion meets the mark of D-p
     if (sc.fact.base != dp.fact.base) return null
     val p = dp.fact.path
     val q = sc.fact.path
@@ -298,7 +298,7 @@ fun rootOrClass(q: List<AccessorIdx>): Boolean = q.isEmpty() || (q.size == 1 && 
 fun concat(c: Conclusion, edge: PathEdge, edgeDemand: Boolean = false,
            staticIdentity: Boolean = false, restricted: Boolean = false, run1: Boolean = false): EdgeOutcome {
     val from = edge.from
-    check(from.mark !is MarkSlot.Star || from.mark.excluded == MarkSet.EMPTY)          // S7
+    check(from.mark !is MarkSlot.Star || from.mark.excluded.isEmpty)          // S7
     check(edge.to.mark !is MarkSlot.Concrete || from.mark is MarkSlot.Concrete)          // S7
     check(from.tail != Tail.EXACT || from.mark is MarkSlot.Concrete)                    // S8
     check(from.tail != Tail.EXACT || edge.to.tail != Tail.STAR)                         // S8

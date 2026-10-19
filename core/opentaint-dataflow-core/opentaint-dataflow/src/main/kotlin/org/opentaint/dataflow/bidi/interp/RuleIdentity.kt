@@ -15,7 +15,7 @@ data class FormKey(
     val statement: CommonInst,
 )
 
-enum class RuleKind { CALL_SOURCE, CALL_SINK, ENTRY_SOURCE, ENTRY_SINK, EXIT_SOURCE, EXIT_SINK, CLEANER, REWRITER }
+enum class RuleKind { CALL_SOURCE, CALL_SINK, ENTRY_SOURCE, ENTRY_SINK, EXIT_SOURCE, EXIT_SINK, CLEANER, REWRITER, PASS_THROUGH, FIELD_SOURCE }
 
 /** The ordinal belongs to a frozen provider candidate order, before validation or filtering. */
 data class RuleOccurrenceId(val form: FormKey, val kind: RuleKind, val ordinal: Int) {
@@ -23,7 +23,7 @@ data class RuleOccurrenceId(val form: FormKey, val kind: RuleKind, val ordinal: 
 }
 
 /** The same configured action can have different expansions at different application stages. */
-enum class ActionRole { SOURCE, END_FACT, BOUND_CLEANER, RETURN_REWRITER, GENERATED_CLEANER }
+enum class ActionRole { SOURCE, END_FACT, BOUND_CLEANER, RETURN_REWRITER, GENERATED_CLEANER, MARK_INPUT, PASS_THROUGH }
 
 data class ActionId(
     val occurrence: RuleOccurrenceId,

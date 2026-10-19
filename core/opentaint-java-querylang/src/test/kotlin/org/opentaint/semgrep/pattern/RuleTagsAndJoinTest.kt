@@ -138,6 +138,19 @@ class RuleTagsAndJoinTest {
     """.trimIndent()
 
     @Test
+    fun `all generated join operand marks retain the outer rule owner`() {
+        val (result, trace) = load(sinkLib, servletSource, untrustedJoin)
+        assertTrue(trace.errorMessages().isEmpty(), trace.errorMessages().toString())
+        val joined = result.rulesWithMeta.single().first
+        assertTrue(joined.markOwners.isNotEmpty())
+        assertEquals(setOf(joined.ruleId), joined.markOwners.values.toSet())
+        assertTrue(joined.markOwners.keys.any { Mark.parseMark(it).ruleId != joined.ruleId },
+            "The join has marks from child conversion contexts")
+        // Ownership does not rewrite the full generated name or decode it to infer the owner.
+        joined.markOwners.keys.forEach { assertEquals(it, Mark.parseMark(it).taintMarkStr()) }
+    }
+
+    @Test
     fun `tag ref expanding to no rules is a hard error`() {
         val (_, trace) = load(sinkLib, untrustedJoin)
         assertTrue(trace.errorMessages().any { it.contains("declares that tag") }, trace.errorMessages().toString())

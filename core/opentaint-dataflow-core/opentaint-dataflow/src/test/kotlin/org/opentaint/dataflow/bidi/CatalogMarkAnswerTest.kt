@@ -1,5 +1,14 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.engine.historical.Run1Slot
+import org.opentaint.dataflow.bidi.engine.historical.RequestStorage
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticProfiles
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticLocalProfile
+import org.opentaint.dataflow.bidi.engine.historical.StaticMarkInterest
+import org.opentaint.dataflow.bidi.engine.historical.StaticMarkRole
+import org.opentaint.dataflow.bidi.engine.historical.forEachConcreteAnswer
+import org.opentaint.dataflow.bidi.engine.historical.toRequestMarkSet
+
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
@@ -9,7 +18,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Local condition metadata is not concrete evidence or an admission gate. */
+/** Roles and deep condition paths remain in forms, but not in admitted requests. */
 class CatalogMarkAnswerTest {
     private val f = StoreFixtures()
     private val ap = f.manager
@@ -21,7 +30,7 @@ class CatalogMarkAnswerTest {
     private val slot = Run1Slot.StaticField(c, g)
 
     @Test
-    fun `all rule roles and deep query paths retain legal geometry without a precomputed mark row`() {
+    fun `all rule roles and deep query paths collapse to one precomputed field row`() {
         val method = f.key("callee").method
         val interests = StaticMarkRole.entries.flatMap { role -> listOf(t, u).map { mark ->
             StaticMarkInterest(Pattern(PathFact(STATIC, listOf(c, g, h), Tail.EXACT,
@@ -30,26 +39,26 @@ class CatalogMarkAnswerTest {
         val profiles = Run1StaticProfiles.build(ap, mapOf(method to emptyList()),
             mapOf(method to Run1StaticLocalProfile(marks = interests)))
         val profile = profiles[method]
-        assertEquals(0L, profile.precomputedRequests.logicalRows)
-        assertTrue(profile.precomputedRequests.borrow(slot).isEmpty)
+        assertEquals(1L, profile.precomputedRequests.logicalRows)
+        assertEquals(RequestMarkSet.fromIds(intArrayOf(t.id, u.id)), profile.precomputedRequests.borrow(slot).toRequestMarkSet {})
         assertTrue(profile.markInterests.isEmpty(), "Prescan query/role scratch must not remain in the runtime plan")
         val input = ap.factsOf(PathFact(STATIC, listOf(c, g), Tail.EXACT, MarkSlot.Concrete(t)),
             ExclusionSet.Empty, Layer.NORMAL)
+        val rows = RequestStorage(profile.precomputedRequests).borrowMatchingRows(input, {})
         val answers = linkedSetOf<InitialAp>()
-        forEachActualStaticInitial(ap, input as TaintTree, profile) { answers += it }
+        forEachConcreteAnswer(ap, input, rows) { answers += it }
         assertEquals(setOf(ap.initial(STATIC, ap.path(listOf(c, g)), Tail.EXACT, ExclusionSet.Empty,
             MarkSlot.Concrete(t))), answers)
     }
 
     @Test
-    fun `field must and broad actual suppliers emit a chain independent of interest exclusions`() {
-        val profile = Run1StaticProfiles.build(ap, emptyMap(), mapOf(f.commonMethod to Run1StaticLocalProfile.EMPTY),
-            declaredFieldUniverse = setOf(slot))[f.commonMethod]
+    fun `field must and broad suppliers answer with a chain independent of field exclusion`() {
+        val storage = RequestStorage(mapOf<Run1Slot, RequestMarkSet>(slot to RequestMarkSet.of(t)))
         for (path in listOf(emptyList(), listOf(c), listOf(c, g))) {
             val input = ap.factsOf(PathFact(STATIC, path, Tail.ANY_TAINT, MarkSlot.Concrete(t)),
                 ExclusionSet.of(g), Layer.NORMAL)
             val answers = linkedSetOf<InitialAp>()
-            forEachActualStaticInitial(ap, input as TaintTree, profile) { answers += it }
+            forEachConcreteAnswer(ap, input, storage.borrowMatchingRows(input, {})) { answers += it }
             assertEquals(setOf(slot.initial(ap).let { ap.initial(it.base, it.path, Tail.STAR,
                 ExclusionSet.Empty, MarkSlot.Concrete(t)) }), answers)
             assertEquals(Layer.DEMAND, f.ops.startFact(answers.single()).layer)
@@ -57,18 +66,14 @@ class CatalogMarkAnswerTest {
     }
 
     @Test
-    fun `exact class and sibling actual suppliers cannot fabricate another field initial`() {
-        val sibling = Run1Slot.StaticField(c, h)
-        val profile = Run1StaticProfiles.build(ap, emptyMap(), mapOf(f.commonMethod to Run1StaticLocalProfile.EMPTY),
-            declaredFieldUniverse = setOf(slot, sibling))[f.commonMethod]
+    fun `exact class and other field suppliers cannot answer the requested field slot`() {
+        val storage = RequestStorage(mapOf<Run1Slot, RequestMarkSet>(slot to RequestMarkSet.of(t)))
         for (path in listOf(listOf(c), listOf(c, h))) {
             val input = ap.factsOf(PathFact(STATIC, path, Tail.EXACT, MarkSlot.Concrete(t)),
                 ExclusionSet.Empty, Layer.NORMAL)
             val answers = linkedSetOf<InitialAp>()
-            forEachActualStaticInitial(ap, input as TaintTree, profile) { answers += it }
-            assertTrue(answers.none { it.pathData.contentEquals(slot.pathData) })
-            assertEquals(setOf(ap.initial(STATIC, ap.path(path), Tail.EXACT, ExclusionSet.Empty,
-                MarkSlot.Concrete(t))), answers)
+            forEachConcreteAnswer(ap, input, storage.borrowMatchingRows(input, {})) { answers += it }
+            assertTrue(answers.isEmpty())
         }
     }
 }

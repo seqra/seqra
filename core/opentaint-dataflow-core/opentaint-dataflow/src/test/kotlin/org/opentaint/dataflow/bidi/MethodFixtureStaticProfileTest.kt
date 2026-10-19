@@ -1,8 +1,14 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.engine.historical.toRequestMarkSet
+
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
+import org.opentaint.dataflow.bidi.engine.historical.*
+import org.opentaint.dataflow.bidi.engine.historical.Run1Slot
+import org.opentaint.dataflow.bidi.engine.historical.RequestStorage
+import org.opentaint.dataflow.bidi.engine.historical.SummaryStorage
 import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
 import org.opentaint.dataflow.bidi.interp.MicroEdge
 import org.opentaint.dataflow.bidi.interp.MicroEdgeBuilder
@@ -10,6 +16,7 @@ import org.opentaint.dataflow.bidi.interp.StatementSummary
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import kotlin.test.*
 
+/** Historical metadata laws; the selected runtime has no static footprint or frozen B. */
 class MethodFixtureStaticProfileTest {
     @Test fun `lowered value-free write sets the effect bit without requesting a field read`(): Unit {
         MethodAnalysisFixtures().use { f ->
@@ -20,9 +27,9 @@ class MethodFixtureStaticProfileTest {
             f.statement(1, MicroEdgeBuilder().apply {
                 write(STATIC, field.pathData.toList(), weak = false, values = emptyList(), aliasPaths = emptyList())
             }.build())
-            val footprint = assertNotNull(f.shared.staticFootprint(f.key.method))
+            val footprint = assertNotNull(f.historicalStaticProfiles()[f.key.method].footprint)
             assertFalse(footprint.owns(field.cls, field.field))
-            assertTrue(assertNotNull(f.shared.run1StaticProfiles)[f.key.method].staticMayWrite)
+            assertTrue(f.historicalStaticProfiles()[f.key.method].staticMayWrite)
             assertFalse(footprint.owns(sibling.cls, sibling.field))
             assertFalse(footprint.ownsPoint(cls))
             assertFalse(footprint.allStatic)
@@ -41,27 +48,19 @@ class MethodFixtureStaticProfileTest {
                 PathFact(STATIC, to.pathData.toList(), Tail.STAR, MarkSlot.Star(f.manager.markSetOf(t))),
                 ExclusionSet.Empty)
             f.statement(0, StatementSummary(setOf(STATIC), listOf(MicroEdge.of(edge)), emptyList(), emptyMap()))
-            val actor = f.core(localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
-            val profile = assertNotNull(f.shared.run1StaticProfiles)[f.key.method]
-            assertContains(assertNotNull(f.shared.run1StaticProfiles).localReads(f.key.method), from)
-            assertFalse(profile.footprint.owns(from.cls, from.field))
+            f.core()
+            val profile = f.historicalStaticProfiles()[f.key.method]
+            assertTrue(profile.footprint.owns(from.cls, from.field))
             assertFalse(profile.footprint.owns(to.cls, to.field))
             assertTrue(profile.staticMayWrite)
             assertFalse(profile.footprint.owns(untouched.cls, untouched.field))
             assertTrue(untouched in profile.footprint.fieldUniverse)
-            assertTrue(profile.precomputedRequests.isEmpty, "Prescan does not precompute static mark requests")
-            val origin = from.initial(f.manager)
-            val supplier = org.opentaint.dataflow.bidi.store.CallerRef(f.store.key("supplier"), origin,
-                Layer.DEMAND, f.inst(1))
-            f.admit(actor, supplier, Layer.DEMAND,
-                f.fact(STATIC, from.pathData.toList(), Tail.STAR, MarkSlot.STAR, layer = Layer.DEMAND))
-            f.drain(actor)
-            assertEquals(RequestMarkSet.of(t), f.requestRow(actor, from).toRequestMarkSet {},
-                "The reached generic exclusion creator records its actual original source need")
-            val footprint = f.shared.staticFootprint(f.key.method)
-            f.shared.releaseRun1StaticProfiles()
-            assertNull(f.shared.run1StaticProfiles)
-            assertSame(footprint, f.shared.staticFootprint(f.key.method), "The diagnostic/legal vocabulary can outlive the request plans")
+            assertEquals(RequestMarkSet.of(t), profile.precomputedRequests.borrow(from).toRequestMarkSet {},
+                "A generic excluded target requests its actual original static origin")
+            val footprint = f.historicalStaticProfiles()[f.key.method].footprint
+            f.shared.releaseRun1CatalogCoverage()
+            assertEquals(footprint.fieldUniverse, f.historicalStaticProfiles()[f.key.method].footprint.fieldUniverse,
+                "Rebuilding the historical oracle does not mutate its declared construction domain")
         }
     }
 
@@ -71,16 +70,14 @@ class MethodFixtureStaticProfileTest {
             val slot = Run1Slot.StaticField(cls, f.field("f"))
             f.declareStaticDomain(slot.pathData.toList())
             val actor = f.core(localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
-            val profile = assertNotNull(f.shared.run1StaticProfiles)[f.key.method]
+            val profile = f.historicalStaticProfiles()[f.key.method]
             assertTrue(profile.precomputedRequests.isEmpty)
             assertTrue(profile.footprint.fieldSlots.isEmpty())
             assertEquals(setOf(slot), profile.footprint.fieldUniverse)
             val ref = org.opentaint.dataflow.bidi.store.CallerRef(f.store.key("supplier"), f.manager.zero,
                 Layer.NORMAL, f.inst(1))
             f.admit(actor, ref, Layer.NORMAL, f.fact(STATIC, slot.pathData.toList()))
-            assertNotNull(actor.staticEntryFacts(), "The actual supplied field has a symbolic entry independent of local reads")
-            assertNotNull(actor.concreteStaticEntryFacts(), "The actual supplied mark also starts without a request")
-            assertTrue(actor.initials.all().isEmpty(), "No scalar field reader is started in an identity-only method")
+            assertTrue(actor.initials.all().isEmpty(), "A legal coordinate alone is not a field-read request")
             assertFailsWith<IllegalStateException> { f.declareStaticDomain(slot.pathData.toList()) }
         }
     }

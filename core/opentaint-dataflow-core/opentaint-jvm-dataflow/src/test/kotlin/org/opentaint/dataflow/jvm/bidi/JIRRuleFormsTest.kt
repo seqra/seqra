@@ -360,14 +360,28 @@ class JIRRuleFormsTest : BasicTestUtils() {
     }
 
     @Test
-    fun `end facts share source exact and must targets in GEN mode`(): Unit {
-        val actions = listOf(AssignMark(RuleMark("T"), Result), AssignMark(RuleMark("U"), any(field(Argument(0)))))
-        val rule = v.sink(actions)
-        val ends = forms.endFacts(rule)
-        assertEquals(listOf(PathEdge(ZERO_FACT, fact(AccessPathBase.Return), empty),
-            PathEdge(ZERO_FACT, fact(arg0, listOf(f), Tail.ANY_TAINT, u), empty)), ends.map { it.edge })
-        assertTrue(ends.all { it.isSource && !it.may && it.forward === it.edge })
-        assertTrue(forms.endFacts(v.sink()).isEmpty())
+    fun `new core ignores end actions before rule position validation`(): Unit {
+        val invalid = field(any(Argument(0)))
+        val rule = v.sink(listOf(AssignMark(RuleMark("T"), invalid)))
+        assertTrue(forms.valid(rule))
+        assertTrue(forms.endFacts(rule).isEmpty())
+        assertTrue(sinks(rule, RuleConditionRewriter.trueExpr).single().endFacts.isEmpty())
+        assertTrue(rule.trackFactsReachAnalysisEnd.isNotEmpty(), "The shared full rule is unchanged")
+    }
+
+    @Test
+    fun `equal source action tuples retain separate stable occurrences through reversal`(): Unit {
+        val action = AssignMark(RuleMark("T"), Result)
+        val rule = v.source(listOf(action, action))
+        val id = occurrence(rule)
+        val builder = MicroEdgeBuilder()
+        forms.source(builder, rule, id, RuleConditionRewriter.trueExpr)
+        val full = builder.build()
+        assertEquals(2, full.edges.size)
+        assertEquals(full.edges[0].edge, full.edges[1].edge)
+        assertEquals(listOf(ActionId(id, ActionRole.SOURCE, 0), ActionId(id, ActionRole.SOURCE, 1)),
+            full.edges.map { it.actionId })
+        assertEquals(full.edges.mapNotNull { it.actionId }, full.reversed().edges.mapNotNull { it.actionId })
     }
 
     @Test
@@ -379,7 +393,7 @@ class JIRRuleFormsTest : BasicTestUtils() {
         assertEquals(listOf(ZERO_PATTERN), sink.patterns)
         assertTrue(sink.unconditional)
         assertTrue(sink.seedPatterns().isEmpty())
-        assertEquals(listOf(PathEdge(ZERO_FACT, fact(AccessPathBase.Return, tail = Tail.ANY_TAINT, mark = u), empty)), sink.endFacts.map { it.edge })
+        assertTrue(sink.endFacts.isEmpty())
         assertTrue(sinks(rule, RuleConditionRewriter.falseExpr).isEmpty())
         assertEquals(listOf(ZERO_PATTERN), sinks(rule, condition(literal(arg0, negated = true))).single().patterns)
     }

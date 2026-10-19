@@ -66,7 +66,6 @@ class RunMethodHandlersTest {
             }).create(port)
             handler = object : RunnerHandler<RunMethodAnalyzer>, SubscriptionHandler {
                 override fun createActor(key: MethodKey) = actualHandler.createActor(key)
-                override fun drainRequests(caller: MethodKey) = (actualHandler as SubscriptionHandler).drainRequests(caller)
                 override fun subscribe(sub: Subscription) = (actualHandler as SubscriptionHandler).subscribe(sub)
                 override fun freeze() = (actualHandler as SubscriptionHandler).freeze()
                 override fun handle(event: RunEvent) {
@@ -124,7 +123,7 @@ class RunMethodHandlersTest {
             assertTrue(h.port.summaryStorage(f.a).borrowRequest(slot).isEmpty,
                 "Handler dispatch collects P; it does not commit a request early")
             h.drain()
-            assertEquals(RequestMarkSet.of(kind.mark), h.port.summaryStorage(f.a).borrowRequest(slot).dynamic)
+            assertEquals(RequestMarkSet.of(kind.mark), h.port.summaryStorage(f.a).borrowRequest(slot).marks)
             assertEquals(1, h.localCreated)
             assertEquals(1, h.callsCreated)
         }
@@ -145,18 +144,17 @@ class RunMethodHandlersTest {
     @Test fun `delivery applies on the subscribed caller actor even when the callee belongs to another unit`(): Unit {
         val f = EngineShellFixtures()
         Harness(f).use { h ->
-            val input = f.fact()
-            val initial = f.manager.initial(f.pattern())
+            val full = f.manager.marks.mark("T")
+            val group = MarkSlot.Concrete(f.manager.marks.group(f.manager.marks.groupOf(full)))
+            val input = f.fact(mark = group, layer = Layer.DEMAND)
+            val initial = f.manager.initial(f.pattern(mark = group))
             val ref = CallerRef(f.a, initial, Layer.DEMAND, f.inst(f.methodA, 2))
-            val sub = Subscription(f.b, ref, Layer.NORMAL, input)
+            val sub = Subscription(f.b, ref, Layer.DEMAND, input)
             h.port.subscribe(sub)
-            val pub = Publication(initial, f.fact(base = org.opentaint.dataflow.ap.ifds.AccessPathBase.Return))
+            val pub = Publication(initial, f.fact(base = org.opentaint.dataflow.ap.ifds.AccessPathBase.Return, mark = group, layer = Layer.DEMAND))
             h.port.summaryStorage(f.b).publish(listOf(pub))
             assertTrue(h.applications.isEmpty(), "Publishing only posts to the caller runner")
-            val prepared = h.events.filterIsInstance<RunEvent.PreparedInitialsIn>().single()
-            assertEquals(f.b, prepared.callee)
-            assertEquals(listOf(h.port.ops.policy(input)), prepared.prepared.initials)
-            val delivery = h.events.filterIsInstance<RunEvent.Delivery>().single()
+            val delivery = assertIs<RunEvent.Delivery>(h.events.single())
             assertEquals(f.b, delivery.callee)
             h.handler.handle(delivery)
             val applied = h.applications.single()
@@ -225,7 +223,6 @@ class RunMethodHandlersTest {
                     val delegate = delegateFactory.create(port)
                     object : RunnerHandler<RunMethodAnalyzer>, SubscriptionHandler {
                         override fun createActor(key: MethodKey) = delegate.createActor(key)
-                        override fun drainRequests(caller: MethodKey) = (delegate as SubscriptionHandler).drainRequests(caller)
                         override fun subscribe(sub: Subscription) = (delegate as SubscriptionHandler).subscribe(sub)
                         override fun freeze() { (delegate as SubscriptionHandler).freeze(); frozen.incrementAndGet() }
                         override fun handle(event: RunEvent) {

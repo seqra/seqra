@@ -121,21 +121,21 @@ class GeneratedCurrentProgramTest {
                 caller to DemandPattern(ZERO_PATTERN, f.pattern(ret, tail = Tail.ANY, mark = t)))
             val seeds = if (index == 2) listOf<Seed>(Seed.Sink(sink.rule, caller, root.inst(2), sink.patterns.single()))
                 else listOf<Seed>(Seed.Source(caller, root.inst(0), source))
-            val config = f.config(index, L = if (index == 1) 1 else 1 + (seed % 3).toInt(), roots = listOf(caller),
+            val config = f.config(index, L = maxOf(1, index - 1), roots = listOf(caller),
                 demand = if (index == 1) emptyList() else demand, seeds = seeds)
             val actual = compare(f, config, seed, fields, listOf(t.mark, u))
             assertTrue(actual.processed.isNotEmpty())
             if (index != 1) assertTrue(actual.requests.isEmpty(), "Restricted runs never request marks or positions")
             if (index == 1 && path.size <= config.fieldLimit) assertContains(actual.links,
-                ObservedLink(callee, caller, setOf(ZERO_PATTERN), Layer.NORMAL, root.inst(1), Layer.NORMAL,
-                    f.pattern(x, path, mark = t)), "seed=$seed index=$index full source path=$path")
+                ObservedLink(callee, caller, setOf(ZERO_PATTERN), Layer.DEMAND, root.inst(1), Layer.DEMAND,
+                    GroupedScalarMarks(f.ap.marks).pattern(f.pattern(x, path, mark = t))), "seed=$seed index=$index full source path=$path")
             if (index == 3 && !abstract && path.size <= config.fieldLimit) assertContains(actual.rawSummaries,
                 ObservedEdge(callee, setOf(f.pattern(x, path, mark = t)),
                     Conclusion(PathFact(ret, suffix, Tail.EXACT, t), ExclusionSet.Empty, false)),
                 "seed=$seed index=$index full concrete read prefix=$prefix suffix=$suffix")
             if (index == 1 && prefix.isEmpty() && path.size <= config.fieldLimit && (cleaner.base == y || cleaner.mark == u))
                 assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(ZERO_PATTERN),
-                    Conclusion(PathFact(ret, suffix, Tail.EXACT, t), ExclusionSet.Empty, false)),
+                    GroupedScalarMarks(f.ap.marks).conclusion(Conclusion(PathFact(ret, suffix, Tail.EXACT, t), ExclusionSet.Empty, false))),
                     "seed=$seed index=$index untouched concrete cleaner full return path=$suffix")
         }
     }
@@ -153,23 +153,26 @@ class GeneratedCurrentProgramTest {
             val caller = root.key()
             val callee = reader.key("static context")
             val source = PathEdge(ZERO_FACT, PathFact(AccessPathBase.ClassStatic, path, Tail.EXACT, t), ExclusionSet.Empty)
-            f.entry(caller, RuleStatement(summary(ZERO_KEEP, source), StatementSummary.EMPTY, emptyList()))
+            f.entry(caller, RuleStatement(directStaticWrite(f, caller, 0, source, summary(ZERO_KEEP, source)), StatementSummary.EMPTY, emptyList()))
             f.call(caller, 0, call(callee, setOf(AccessPathBase.ClassStatic)))
-            f.statement(callee, 0, summary(PathEdge(PathFact(AccessPathBase.ClassStatic, path, Tail.EXACT, t),
-                PathFact(ret, emptyList(), Tail.EXACT, u), ExclusionSet.Empty)))
+            val read = PathEdge(PathFact(STATIC, path, Tail.EXACT, t), PathFact(ret, emptyList(), Tail.EXACT, u), ExclusionSet.Empty)
+            f.statement(callee, 0, directStaticRead(f, callee, 0, read, summary(read)))
             val abstract = seed % 3 == 0L
             val d = DemandPattern(f.pattern(AccessPathBase.ClassStatic, path,
                 if (abstract) Tail.ANY else Tail.EXACT, if (abstract) MarkSlot.STAR else t),
                 f.pattern(ret, tail = if (abstract) Tail.ANY else Tail.EXACT, mark = u))
-            val config = f.config(index, L = if (index == 1) 1 else path.size, roots = listOf(caller),
+            val config = f.config(index, L = maxOf(1, index - 1), roots = listOf(caller),
                 demand = if (index == 1) emptyList() else listOf(callee to d),
                 seeds = listOf(Seed.Source(caller, root.inst(0), source)))
-            // Run 1 uses actual static-T admission and early sticky D; later runs
-            // keep ordinary strong current queries. Initial STAR is not an ANY key.
-            val actual = compare(f, config, seed + 100L, listOf(cls) + fields, listOf(t.mark, u.mark),
-                catalogRefinement = index == 1)
-            if ((index == 1 && path.size == 2) || (index != 1 && !abstract)) assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(ZERO_PATTERN),
-                Conclusion(PathFact(ret, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, index == 1)),
+            // Direct F1 effects have their own operation-point contract. Later Full runs still
+            // compare the entire ordinary scalar closure with actual query admission.
+            val actual = if (index == 1) ProductionSchedule(f, config, policy = SchedulePolicy.SEEDED,
+                seed = seed + 100L, quantum = 1, duplicateDeliveries = true).run().also {
+                assertDirectStaticProtocol(it, f.ap.marks)
+            } else compare(f, config, seed + 100L, listOf(cls) + fields, listOf(t.mark, u.mark))
+            if ((index == 1 && path.size == 2) || (index != 1 && !abstract)) assertContains(actual.rawSummaries, ObservedEdge(caller, if (index == 1) setOf(GroupedScalarMarks(f.ap.marks).pattern(f.pattern(STATIC, path.take(2), if (path.size > 2) Tail.STAR else Tail.EXACT, t))) else setOf(ZERO_PATTERN),
+                if (index == 1) GroupedScalarMarks(f.ap.marks).conclusion(Conclusion(PathFact(ret, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false))
+                else Conclusion(PathFact(ret, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false)),
                 "seed=$seed index=$index full static path=$path")
             if (index == 3 && abstract) {
                 assertTrue(actual.requests.isEmpty())
@@ -201,7 +204,7 @@ class GeneratedCurrentProgramTest {
             val target = PathFact(ret, out, if (seed % 2 == 0L) Tail.EXACT else Tail.ANY_TAINT, t)
             f.statement(callee, 0, StatementSummary(setOf(x, y), emptyList(),
                 listOf(ConjunctiveEdge(literals, target)), emptyMap()))
-            val config = f.config(index, L = if (index == 1) 1 else 3, roots = listOf(caller),
+            val config = f.config(index, L = maxOf(1, index - 1), roots = listOf(caller),
                 demand = if (index == 1) emptyList() else listOf(
                     callee to DemandPattern(literals[0], f.pattern(ret, out, Tail.ANY, t)),
                     callee to DemandPattern(literals[1], f.pattern(ret, out, Tail.ANY, t))),
@@ -210,9 +213,10 @@ class GeneratedCurrentProgramTest {
             assertTrue(actual.selectedDemand.any { it.method == callee && it.premise.size == 2 })
             // At run1's nonstatic root policy, a below-root mark answer has a STAR initial and an ANY starting fact in DEMAND
             // layer. A root exact answer is NORMAL. Restricted exact demand entries copy exact facts.
-            val targetDemand = index == 1 && (px.isNotEmpty() || py.isNotEmpty())
+            val targetDemand = index == 1
             val expectedTail = target.tail
-            val expectedResult = limit(Conclusion(target.copy(tail = expectedTail), ExclusionSet.Empty, targetDemand), config.fieldLimit)
+            val uncut = Conclusion(target.copy(tail = expectedTail), ExclusionSet.Empty, targetDemand)
+            val expectedResult = limit(if (index == 1) GroupedScalarMarks(f.ap.marks).conclusion(uncut) else uncut, config.fieldLimit)
             assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(ZERO_PATTERN), expectedResult),
                 "seed=$seed index=$index px=$px py=$py out=$out target=$target expectedDemand=$targetDemand")
             assertFalse(actual.rawSummaries.any { it.method == callee && it.premise.size == 1 && it.conclusion.fact.base == ret })

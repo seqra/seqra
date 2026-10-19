@@ -59,4 +59,30 @@ class BidiSignedRuleResolverTest : BasicTestUtils() {
             }
         }
     }
+    @Test fun `new core resolves all sink roles with no end actions and leaves legacy unchanged`(): Unit {
+        val method = findMethod("test.samples.bidi.BidiAcceptanceSample", "mayPass")
+        val function = SerializedFunctionNameMatcher.Simple(
+            SerializedSimpleNameMatcher.Simple("test.samples.bidi"),
+            SerializedSimpleNameMatcher.Simple("BidiAcceptanceSample"),
+            SerializedSimpleNameMatcher.Simple("mayPass"))
+        val ends = listOf(SerializedTaintAssignAction("END_ONLY",
+            pos = PositionBaseWithModifiers.BaseOnly(PositionBase.Result)))
+        val rules = listOf<SerializedRule>(
+            SerializedRule.Sink(function, trackFactsReachAnalysisEnd = ends, id = "call"),
+            SerializedRule.MethodEntrySink(function, trackFactsReachAnalysisEnd = ends, id = "entry"),
+            SerializedRule.MethodExitSink(function, trackFactsReachAnalysisEnd = ends, id = "exit"),
+        )
+        fun resolve(ignore: Boolean): List<TaintConfigurationSink> {
+            val resolver = MethodTaintConfigurationResolver(PatternManager(), TaintMarkManager(), cp,
+                cp.objectClass.typename, method, ignoreSinkEndFacts = ignore)
+            return with(resolver) { rules.flatMap { it.resolveRule() }.filterIsInstance<TaintConfigurationSink>() }
+        }
+        val legacy = resolve(false)
+        val selected = resolve(true)
+        assertEquals(3, selected.size)
+        assertTrue(selected.all { it.trackFactsReachAnalysisEnd.isEmpty() })
+        assertTrue(legacy.all { it.trackFactsReachAnalysisEnd.isNotEmpty() })
+        assertTrue(rules.all { (it as SinkRule).trackFactsReachAnalysisEnd == ends }, "The serialized configuration stays full")
+    }
+
 }

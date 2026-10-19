@@ -24,7 +24,7 @@ class SourceRuleOccurrence(
     /** This short-lived transfer view is built only when its leaf and action are used. */
     fun transfer(leaf: Pattern, action: SourceAction, multi: Boolean = false): MicroEdge {
         val forward = PathEdge(leaf.fact, action.target, ExclusionSet.Empty)
-        return if (backward) MicroEdge(revOrFail(forward), forward, conjunctive = multi)
-        else MicroEdge.of(forward)
+        return if (backward) MicroEdge(revOrFail(forward), forward, conjunctive = multi, actionId = action.id)
+        else MicroEdge(forward, forward, conjunctive = multi, actionId = action.id)
     }
 }

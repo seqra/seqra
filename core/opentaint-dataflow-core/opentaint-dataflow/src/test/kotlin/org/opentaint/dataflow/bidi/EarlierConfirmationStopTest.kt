@@ -19,7 +19,7 @@ class EarlierConfirmationStopTest {
             var firstWitness: SinkWitness? = null
             var injected: SinkWitness? = null
             val policy = object : IterationPolicy {
-                override fun fieldLimit(runIndex: Int): Int = runIndex
+                override fun fieldLimit(runIndex: Int): Int = maxOf(1, runIndex - 1)
                 override fun continueAfter(run: RunConfig, result: RunResult<RunMethodAnalyzer>, frontiers: List<Frontier>): Boolean {
                     callbacks += run.index
                     assertTrue(run.index in listOf(1, 3), "STOP_RULE must precede a run-5 policy callback")

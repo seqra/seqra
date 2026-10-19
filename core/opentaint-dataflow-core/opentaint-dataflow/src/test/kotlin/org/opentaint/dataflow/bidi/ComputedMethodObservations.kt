@@ -2,7 +2,7 @@ package org.opentaint.dataflow.bidi
 
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.Publication
-import org.opentaint.dataflow.bidi.engine.isSpecialStaticRoot
+import org.opentaint.dataflow.bidi.engine.historical.isSpecialStaticRoot
 
 /** Local rule/work tests observe computed rows. The separate ordinary-default
  * driver controls check the precomputed identity, both layers and notifications.

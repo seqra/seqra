@@ -58,9 +58,3 @@ class AccessorTable {
 fun AccessorIdx.isCounted(): Boolean = isFieldAccessor() || this == ELEMENT_ACCESSOR_IDX
 fun AccessorIdx.isClass(): Boolean = isStaticAccessor()
 internal fun AccessorIdx.isPathAccessor(): Boolean = this >= 0 && (isCounted() || isClass())
-
-class MarkTable {
-    private val names = AccessorTable.Storage<String>().also { check(it.index("<zero>") == 0) }
-    fun mark(name: String): TaintMark = TaintMark(names.index(name))
-    fun name(mark: TaintMark): String = names.value(mark.id)
-}

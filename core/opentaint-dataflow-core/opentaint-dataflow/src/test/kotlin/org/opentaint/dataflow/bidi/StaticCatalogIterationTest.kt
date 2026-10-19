@@ -13,7 +13,7 @@ import org.opentaint.dataflow.bidi.interp.StageKind.*
 import kotlin.test.*
 import kotlin.time.Duration.Companion.seconds
 
-/** Real joined F1/B2/F3 engines versus the unchanged scalar positive-NNF iteration oracle. */
+/** Direct Group F1 operations plus independent ordinary Full B2/F3 closure checks. */
 class StaticCatalogIterationTest {
     private val returned = AccessPathBase.Return
     private val result = AccessPathBase.Argument(1)
@@ -45,20 +45,23 @@ class StaticCatalogIterationTest {
         ), emptyList(), BEFORE, AFTER)
         for ((index, root) in roots.withIndex()) {
             val selected = if (crossed) listOf(sources[index]) else sources
-            p.entry(root, RuleStatement(f.summary(*(listOf(ZERO_KEEP) + selected).toTypedArray()),
-                StatementSummary.EMPTY, emptyList()))
+            val summary = f.summary(*(listOf(ZERO_KEEP) + selected).toTypedArray())
+            val writes = selected.mapIndexed { ordinal, edge -> StaticOperation.Write(
+                OperationId(FormKey(FormOwner(), root.method, root, p.inst(root, 0)), ordinal),
+                Pattern(edge.to, ExclusionSet.Empty), edge) }
+            p.entry(root, RuleStatement(summary.withStaticOperations(writes), StatementSummary.EMPTY, emptyList()))
             p.call(root, 1, call)
         }
         val node = p.inst(callee, 1)
         val form = FormKey(FormOwner(), callee.method, callee, node)
         val sourceId = RuleOccurrenceId(form, RuleKind.EXIT_SOURCE, 0)
-        val sourceBuilder = RulePredicate.Builder(p.cancellation)
+        val sourceBuilder = RulePredicate.Builder(p.cancellation, p.ap.marks)
         val one = sourceBuilder.leaf(first); val two = sourceBuilder.leaf(second)
         val sourceCondition = sourceBuilder.build(sourceBuilder.and(listOf(one, sourceBuilder.or(listOf(two, two)))))
         val output = p.pattern(returned, listOf(a, b), mark = v).fact
         val source = SourceRuleOccurrence(sourceId, sourceCondition,
             listOf(SourceAction(ActionId(sourceId, ActionRole.SOURCE, 0), output)))
-        val sinkBuilder = RulePredicate.Builder(p.cancellation)
+        val sinkBuilder = RulePredicate.Builder(p.cancellation, p.ap.marks)
         val value = sinkBuilder.leaf(Pattern(output, ExclusionSet.Empty))
         val state = sinkBuilder.leaf(second)
         val condition = sinkBuilder.build(sinkBuilder.or(listOf(value, sinkBuilder.and(listOf(value, state)))))
@@ -67,7 +70,9 @@ class StaticCatalogIterationTest {
         val sink = SinkRule(f.rule("catalog NNF sink"), 0, condition.leaves, listOf(endEdge),
             RuleOccurrenceId(form, RuleKind.EXIT_SINK, 0), condition)
         val body = StatementSummary(setOf(returned), listOf(MicroEdge.of(ZERO_KEEP)), emptyList(), emptyMap(),
-            sources = listOf(source))
+            sources = listOf(source), staticOperations = listOf(
+                StaticOperation.MarkInput(OperationId(form, 0), first),
+                StaticOperation.MarkInput(OperationId(form, 1), second)))
         p.exit(callee, 1, ExitRules(RuleStatement(body,
             StatementSummary(emptySet(), listOf(endEdge), emptyList(), emptyMap()), listOf(sink)), true, emptySet()))
         return Program(roots, callee, sink, listOf(cls, sf, sg, a, b), listOf(t.mark, u.mark, v.mark, end.mark),
@@ -100,81 +105,93 @@ class StaticCatalogIterationTest {
         })
     }.mapValues { (_, records) -> records.flatMap { universe.pairs(it.premise, it.conclusion) }.toSet() }
 
+    /** Plain copies of phase inputs, without a production driver, demand index or record selector in the oracle. */
+    private fun phaseInputs(f: DriverFixtures, p: Program, config: RunConfig,
+                            universe: BoundedDenotation): ProgramRunInputs {
+        val owners = p.roots + p.callee
+        val demands = owners.flatMap { owner -> universe.positions.flatMap { position ->
+            config.demand?.covering(owner, position.base, f.manager.path(position.path)).orEmpty().map { owner to it }
+        } }.distinct()
+        val records = owners.flatMap { owner -> universe.positions.flatMap { position ->
+            config.records.byEntry(owner, f.program.pattern(position.base, position.path, Tail.STAR, MarkSlot.STAR)).toList()
+        } }.distinct().flatMap { record -> f.ops.leaves(record.conclusion).map {
+            RawRecord(record.method, record.direction, record.premise.toPattern(), Conclusion(it.fact, it.exclusion, false))
+        }.toList() }
+        val seeds = owners.flatMap { owner -> f.program.programMethod(owner).successors.indices.flatMap { index ->
+            config.seeds.at(owner, f.program.inst(owner, index))
+        } }
+        return ProgramRunInputs(p.roots, demands, records, seeds)
+    }
+
     @Test
-    fun `catalog NNF END iteration preserves scalar records handoffs and complete support at limits one two three`(): Unit {
+    fun `direct static NNF candidates retain full refinement source seeds records and complete guard bindings`(): Unit {
         for (crossed in listOf(false, true)) for (sameUnit in listOf(false, true)) DriverFixtures().use { f ->
             val p = program(f, crossed)
-            val limits = listOf(1, 2, 3)
-            val reference = RawPredicateIteration(f.program, p.roots, limits).run()
-            val universe = BoundedDenotation(listOf(AccessPathBase.Zero, STATIC, returned, result, AccessPathBase.Argument(17)),
-                p.fields + f.program.field("fresh"), p.marks + f.program.mark("fresh") + TaintMark.ZERO, 2)
-            // First check the full forward closure before actual engines freeze their working stores.
-            val forward = f.program.config(L = 1, roots = p.roots)
-            val scalar = NaiveClosure(f.program, forward, semantics = NaiveClosure.Semantics.SELECTED).run()
+            val limits = listOf(1, 1, 2)
+            val forward = f.program.config(roots = p.roots)
+            var first: RunObservation? = null
             for (policy in listOf(SchedulePolicy.REPLAY_FIRST, SchedulePolicy.NOTIFY_FIRST)) {
-                val scheduler = ProductionSchedule(f.program, forward, sameUnit, policy, quantum = 1,
-                    duplicateDeliveries = true, useStaticCatalog = true)
-                val actual = scheduler.run()
-                try { scalar.assertCatalogRefinement(actual, universe, p.roots) }
-                catch (error: AssertionError) { throw AssertionError("NNF catalog F1 crossed=$crossed sameUnit=$sameUnit " +
-                    "program=${f.program.describe()} trace=${scheduler.trace}", error) }
+                val actual = ProductionSchedule(f.program, forward, sameUnit, policy, quantum = 1,
+                    duplicateDeliveries = true).run()
+                assertDirectStaticProtocol(actual, f.manager.marks)
+                assertEquals(setOf(p.sink.rule), actual.witnesses.map { it.rule }.toSet())
+                assertEquals(setOf(1, 2), actual.witnesses.map { it.edges.size }.toSet())
+                assertEquals(2, actual.witnesses.map { it.proof }.toSet().size)
+                assertTrue(actual.witnesses.all { it.methodKey == p.callee && it.statement == f.program.inst(p.callee, 1) &&
+                    it.edges.all { edge -> edge.layer == Layer.DEMAND } })
+                assertTrue(actual.rawSummaries.none { it.conclusion.fact.mark == MarkSlot.Concrete(p.marks.last()) ||
+                    it.conclusion.fact.mark == GroupedScalarMarks(f.manager.marks).slot(MarkSlot.Concrete(p.marks.last())) },
+                    "Ignored END actions never create either Group or Full data")
+                val out = GroupedScalarMarks(f.manager.marks).conclusion(Conclusion(p.output, ExclusionSet.Empty, true))
+                assertTrue(actual.rawSummaries.any { it.method == p.callee && it.premise.size == 2 &&
+                    it.premise.all { member -> member.fact.base == STATIC } &&
+                    it.conclusion == limit(out, 1) }, "The complete static guard remains an ND summary")
+                first = first ?: actual
             }
+            val fresh = f.program.mark("fresh")
+            val universe = BoundedDenotation(listOf(AccessPathBase.Zero, STATIC, returned, result, AccessPathBase.Argument(17)),
+                p.fields + f.program.field("fresh"), (p.marks + fresh + f.manager.marks.groupAtoms() + TaintMark.ZERO).distinct(), 3)
             f.program.freshShared(sameUnit, freshVulnerabilities = true).use { owner ->
                 val configs = ArrayList<RunConfig>()
-                val driver = IterationDriver(FixedLimits(limits), owner, 20.seconds,
+                val report = IterationDriver(FixedLimits(limits), owner, 20.seconds,
                     invokeRun = { config, shared, timeout -> configs += config; f.run(config, shared, timeout) },
-                    guardBarrier = { _, body -> body() })
-                val report = driver.analyze(p.roots)
+                    guardBarrier = { _, body -> body() }).analyze(p.roots)
                 assertEquals(RunStatus.COMPLETE, report.end.status)
                 assertEquals(listOf(1, 2, 3), f.results.map { it.runIndex })
-                assertEquals(3, report.end.run)
-                val states = report.entries.associate { HistoricalFinding(it.key.rule, it.key.statement) to
-                    if (it.state == ReportState.CONFIRMED) HistoricalState.CONFIRMED else HistoricalState.DEMAND }
-                assertEquals(reference.findings, states)
-                assertEquals(setOf(HistoricalState.DEMAND), states.values.toSet())
-                for ((expected, result) in reference.runs.zip(f.results)) {
-                    assertEquals(RunStatus.COMPLETE, result.status)
-                    val actual = retained(result, f.ops)
-                    // Only F1 replaces static registration. Restricted B2/F3 transfer and every
-                    // static summary retain the full scalar method/premise/mark/layer comparison.
-                    val expectedView = if (result.runIndex == 1) catalogObservables(expected.observation, p.roots)
-                        else expected.observation
-                    val actualView = if (result.runIndex == 1) catalogObservables(actual, p.roots) else actual
-                    RunObservation(rawSummaries = expectedView.rawSummaries, selectedDemand = expectedView.selectedDemand,
-                        sourceHits = expectedView.sourceHits, witnesses = expectedView.witnesses).assertEquivalent(
-                        RunObservation(rawSummaries = actualView.rawSummaries, selectedDemand = actualView.selectedDemand,
-                            sourceHits = actualView.sourceHits, witnesses = actualView.witnesses), universe)
-                    if (result.direction == Direction.BACKWARD) assertEquals(p.sources, actual.sourceHits.map { it.forward }.toSet())
-                }
-                // Compare every full method/exit demand from the real handoff by its required-location union.
-                fun demandCells(rows: List<Pair<MethodKey, DemandPattern>>) = rows.filter { it.second.entry.fact.base != AccessPathBase.Zero }
-                    .groupBy { it.first to it.second.exit }.mapValues { (_, values) ->
-                        values.flatMap { universe.marked(it.second.entry) }.toSet()
-                    }
+                assertEquals(setOf(p.sink.rule), report.entries.map { it.key.rule }.toSet())
+                assertEquals(setOf(ReportState.DEMAND), report.entries.map { it.state }.toSet(),
+                    "A complete Full binding is checked below; the minimal driver supplies no confirmation certificate")
+                assertTrue(f.results.last().witnessesByKey().values.flatten().none { it.confirmed })
+                assertEquals(1, configs[1].seeds.size)
+                val physical = assertIs<Seed.PredicateSink>(configs[1].seeds.at(p.callee, f.program.inst(p.callee, 1)).single())
+                assertEquals(p.sink.occurrenceId, physical.occurrence)
+                val expectedRecords = checkNotNull(first).rawSummaries.filter {
+                    !it.conclusion.demand && it.premise.size == 1
+                }.mapTo(ArrayList()) { RawRecord(it.method, Direction.FORWARD, it.premise.single(), it.conclusion) }
                 for (index in 1 until configs.size) {
-                    val expected = reference.runs[index - 1].handOff.demand
-                    val actual = (p.roots + p.callee).flatMap { method -> universe.positions.flatMap { position ->
-                        configs[index].demand!!.covering(method, position.base, f.manager.path(position.path)).map { method to it }
-                    } }.distinct()
-                    assertEquals(demandCells(expected), demandCells(actual), "Handoff into run ${index + 1}")
+                    val config = configs[index]
+                    val input = phaseInputs(f, p, config, universe)
+                    val scalar = RawCurrentClosure(f.program, config, input).run()
+                    val actual = retained(f.results[index], f.ops)
+                    RunObservation(rawSummaries = scalar.rawSummaries, selectedDemand = scalar.selectedDemand,
+                        sourceHits = scalar.sourceHits, witnesses = scalar.witnesses).assertEquivalent(actual, universe)
+                    for (row in scalar.rawSummaries) if (!row.conclusion.demand && row.premise.size == 1 &&
+                        !(config.direction == Direction.BACKWARD && row.premise.single().fact.base == AccessPathBase.Zero))
+                        expectedRecords += RawRecord(row.method, config.direction, row.premise.single(), row.conclusion)
                 }
-                assertEquals(1, configs[1].seeds.size, "Keep one physical compressed condition seed")
-                assertIs<Seed.PredicateSink>(configs[1].seeds.at(p.callee, f.program.inst(p.callee, 1)).single())
-                val sourceSeeds = p.roots.flatMap { root -> configs[2].seeds.at(root, f.program.inst(root, 0)) }
-                    .filterIsInstance<Seed.Source>()
-                assertEquals(p.sources, sourceSeeds.map { it.edge }.toSet())
-                assertEquals(reference.runs[1].observation.sourceHits.map {
-                    Seed.Source(it.method, it.statement, it.forward)
-                }.toSet(), sourceSeeds.toSet(), "Preserve full source method context, statement and original edge")
-                val records = (p.roots + p.callee).flatMap { method -> universe.positions.flatMap { position ->
-                    f.records.byEntry(method, f.program.pattern(position.base, position.path, Tail.STAR, MarkSlot.STAR)).toList()
-                } }.distinct().flatMap { record -> f.ops.leaves(record.conclusion).map {
-                    RawRecord(record.method, record.direction, record.premise.toPattern(), Conclusion(it.fact, it.exclusion, false))
-                }.toList() }
-                assertEquals(nativeRelations(reference.runs.last().handOff.records, universe), nativeRelations(records, universe))
-                assertTrue(report.entries.flatMap { it.witnesses }.all { witness -> witness.edges.all { edge ->
-                    edge.premise.members.all { member -> member.isZero || member.base == STATIC }
-                } })
+                val backward = f.results[1].analyzers.flatMap { it.sourceHits!!.occurrences().toList() }
+                for (source in p.sources) assertTrue(backward.any { it.forward == source && it.method in p.roots })
+                val occurrence = f.program.forms(p.callee).exitRules(Direction.FORWARD, f.program.inst(p.callee, 1))
+                    .rules.summary.sources.single()
+                assertTrue(backward.filter { it.method == p.callee }.all { hit ->
+                    hit.action == occurrence.actions.single().id && hit.forward.to == p.output
+                }, "The later source seeds retain the full action and occurrence identity")
+                val forwarded = (p.roots + p.callee).flatMap { key -> f.program.programMethod(key).successors.indices.flatMap { node ->
+                    configs[2].seeds.at(key, f.program.inst(key, node)).filterIsInstance<Seed.Source>()
+                } }
+                assertEquals(backward.map { Seed.Source(it.method, it.statement, it.forward, it.action) }.toSet(), forwarded.toSet())
+                val records = phaseInputs(f, p, RunConfig(3, 2, configs[2].demand, f.records, configs[2].seeds, p.roots), universe).records
+                assertEquals(nativeRelations(expectedRecords, universe), nativeRelations(records, universe))
             }
         }
     }

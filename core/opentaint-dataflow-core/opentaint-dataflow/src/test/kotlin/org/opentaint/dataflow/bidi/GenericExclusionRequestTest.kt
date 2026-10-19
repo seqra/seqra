@@ -32,7 +32,7 @@ class GenericExclusionRequestTest {
             val input = ap.factsOf(PathFact(base, listOf(g), Tail.STAR, MarkSlot.Star(mx)),
                 ExclusionSet.of(f), Layer.NORMAL)
             val out = CollectingOut()
-            ops.applyEdge(input, origin, edge, false, ApMode(true, Direction.FORWARD, 1), out)
+            ops.applyEdge(input, origin, edge, false, ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.FULL), out)
             assertEquals(setOf(t, u), out.markRequests.toSet())
             assertTrue(out.results.isEmpty()) // The side effect does not make the edge applicable.
         }
@@ -46,11 +46,11 @@ class GenericExclusionRequestTest {
         val out = object : ApOut {
             override fun markRequest(mark: TaintMark) { order += "request:${mark.id}" }
             override fun result(f: Facts) {
-                assertEquals(excluded, (f as FlowTree).markExclusion)
+                assertEquals(MarkExclusions.fromMarks(excluded, ap.marks), (f as FlowTree).markExclusion)
                 order += "result"
             }
         }
-        ops.applyEdge(input, origin, edge, false, ApMode(true, Direction.FORWARD, 1), out)
+        ops.applyEdge(input, origin, edge, false, ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.FULL), out)
         assertEquals(listOf("request:${t.id}", "request:${u.id}", "result"), order)
     }
 
@@ -62,7 +62,7 @@ class GenericExclusionRequestTest {
         val concreteOrigin = ap.initial(base, null, Tail.EXACT, ExclusionSet.Empty, MarkSlot.Concrete(t))
         for ((input, premise, mode) in listOf(
             Triple(flow, origin, ApMode(false, Direction.FORWARD, 1)),
-            Triple(concrete, concreteOrigin, ApMode(true, Direction.FORWARD, 1)),
+            Triple(concrete, concreteOrigin, ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.FULL)),
         )) {
             val out = CollectingOut()
             ops.applyEdge(input, premise, edge, false, mode, out)
@@ -77,8 +77,8 @@ class GenericExclusionRequestTest {
         val summary = ap.factsOf(PathFact(other, emptyList(), Tail.STAR, MarkSlot.Star(excluded)),
             ExclusionSet.Empty, Layer.NORMAL)
         val out = CollectingOut()
-        ops.applySummary(supplied, origin, summary, ApMode(true, Direction.FORWARD, 1), out)
+        ops.applySummary(supplied, origin, summary, ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.FULL), out)
         assertEquals(setOf(t, u), out.markRequests.toSet())
-        assertEquals(excluded, (out.results.single() as FlowTree).markExclusion)
+        assertEquals(MarkExclusions.fromMarks(excluded, ap.marks), (out.results.single() as FlowTree).markExclusion)
     }
 }

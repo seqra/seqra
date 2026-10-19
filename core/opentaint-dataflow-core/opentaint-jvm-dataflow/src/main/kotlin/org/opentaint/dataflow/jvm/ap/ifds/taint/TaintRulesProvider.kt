@@ -22,6 +22,9 @@ import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
  * forms use these original ordinals as logical identities; a new rule/body generation needs new form owners.
  */
 interface TaintRulesProvider : CommonTaintRulesProvider {
+    /** Full generated identity -> outer rule ID, captured by the rule generator. */
+    val markOwners: Map<String, String> get() = emptyMap()
+
     fun entryPointRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintEntryPointSource>
     fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintMethodSource>
     fun exitSourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintMethodExitSource>
@@ -34,3 +37,13 @@ interface TaintRulesProvider : CommonTaintRulesProvider {
 
     fun selectRules(ruleIds: Set<String>)
 }
+
+/** Explicit capability: delegation must not silently replace a provider's overridden roles. */
+interface BidirectionalRulesProviderFactory {
+    fun bidirectionalRulesView(): TaintRulesProvider
+}
+
+/** Unknown/custom providers keep all of their roles. Known configuration owners
+ * select an isolated pre-resolution view without changing the legacy provider. */
+fun TaintRulesProvider.forBidirectionalCore(): TaintRulesProvider =
+    (this as? BidirectionalRulesProviderFactory)?.bidirectionalRulesView() ?: this

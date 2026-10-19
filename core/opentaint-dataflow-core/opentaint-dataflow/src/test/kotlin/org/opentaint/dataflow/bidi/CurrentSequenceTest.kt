@@ -96,7 +96,7 @@ class CurrentSequenceTest {
             p.call(root, 1, resolved(f, wrap, listOf(x to argument), r))
             val finding = sink(f, "WRAP sink", p.pattern(r, listOf(field, a, b, c), mark = mark))
             exit(f, root, 2, finding)
-            val driver = f.driver(FixedLimits(listOf(1, 2, 3, 4, 5)))
+            val driver = f.driver(FixedLimits(listOf(1, 1, 2, 3, 4)))
             val report = driver.analyze(listOf(root))
             assertEquals(listOf(1, 2, 3, 4, 5), f.configs.map { it.index })
             assertEquals(AnalysisEnd(RunStatus.COMPLETE, 5, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
@@ -106,8 +106,8 @@ class CurrentSequenceTest {
             val to = Conclusion(PathFact(returned, listOf(field), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty, false)
             assertContains(raw(f, f.results[0], wrap), setOf(from) to to)
             assertEquals(raw(f, f.results[0], wrap), selected(f, f.results[0], wrap),
-                "F1 NORMAL summaries remain candidate guidance while ordinary R1 persistence also applies")
-            val scalar = DirectCurrentIteration(p, listOf(root), listOf(1, 2, 3, 4, 5)).run()
+                "F1 normal summaries remain candidate guidance while ordinary R1 persistence also applies")
+            val scalar = DirectCurrentIteration(p, listOf(root), listOf(1, 1, 2, 3, 4)).run()
             assertEquals(f.results.map { it.runIndex }, scalar.runs.map { it.index })
             val bases = listOf(AccessPathBase.Zero, STATIC, argument, returned, x, r, z)
             val universe = BoundedDenotation(bases, listOf(a, b, c, field, p.field("fresh")),
@@ -168,14 +168,14 @@ class CurrentSequenceTest {
                 CallStage.Actions(RETURNED, REWRITTEN, emptyList()),
                 CallStage.Edges(REWRITTEN, AFTER, BIND_BACK, keep),
             ), listOf(finding), BEFORE, AFTER))
-            val driver = f.driver(FixedLimits(listOf(1, 2, 3)))
+            val driver = f.driver(FixedLimits(listOf(1, 1, 2)))
             val report = driver.analyze(listOf(root))
             assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
             val sinkSeeds = f.configs[1].seeds.at(worker, p.inst(worker, 1))
             assertTrue(sinkSeeds.any { it is Seed.Sink && it.rule === finding.rule &&
                 it.requirement == p.pattern(argument, mark = t) }, "F1 prepares the exact nonreturning-worker sink seed")
             assertTrue(f.results[0].witnessesByKey().values.flatten().any { it.methodKey == worker &&
-                it.edges.any { edge -> edge.layer == Layer.NORMAL } }, "The original source really reaches the local sink")
+                it.edges.any { edge -> edge.layer == Layer.DEMAND } }, "The group-valued source reaches the local sink")
             assertTrue(f.processed.any { it.run == 2 && it.method == worker && it.delta.node == p.inst(worker, 1) },
                 "Backward ZERO discovers the sink through exceptional-only S11 wiring; " +
                     "B2workerNodes=${f.processed.filter { it.run == 2 && it.method == worker }.map { it.delta.node.location.index }} " +
@@ -187,16 +187,14 @@ class CurrentSequenceTest {
             assertEquals(ReportState.DEMAND, report.entries.single().state)
             assertEquals(3, report.entries.single().run)
             val actor = f.results.first().analyzers.single { it.key == worker }
-            assertTrue(actor.summaries.all().all { (premise, facts) ->
-                premise is InitialAp && premise.base == STATIC && premise.path == null && facts.base == STATIC
-            }, "Only the F1 stored default exists; no actual normal-return result is fabricated")
+            assertTrue(actor.summaries.all().none(), "A nonreturning method has no fabricated normal-return summary")
             assertTrue(f.results.last().analyzers.single { it.key == worker }.summaries.all().none())
             assertTrue(f.links(1, actor.key).asSequence().any { it.caller.caller == root && it.linkLayer == Layer.NORMAL })
             assertTrue(f.processed.any { it.method == worker && it.delta.node == p.inst(worker, 2) })
             assertTrue(f.processed.none { it.run % 2 == 1 && it.method == worker &&
                 it.delta.node in listOf(p.inst(worker, 3), p.inst(worker, 4)) },
                 "Discovery wiring never adds a forward normal or exceptional return")
-            val scalar = DirectCurrentIteration(p, listOf(root), listOf(1, 2, 3)).run()
+            val scalar = DirectCurrentIteration(p, listOf(root), listOf(1, 1, 2)).run()
             assertEquals(mapOf(HistoricalFinding(finding.rule, p.inst(worker, 1)) to HistoricalState.DEMAND), scalar.findings)
             assertContains(scalar.runs[1].observation.sourceHits, ObservedSourceHit(root, root.statement, source))
             assertTrue(scalar.runs.last().observation.rawSummaries.none { it.method == worker },
@@ -211,7 +209,7 @@ class CurrentSequenceTest {
             val confirmed = f.confirmed()
             val demand = f.persistentDemand()
             val visited = ArrayList<Int>()
-            val driver = f.driver(FixedLimits(listOf(1, 2, 3)), invokeRun = { config, owner, timeout ->
+            val driver = f.driver(FixedLimits(listOf(1, 1, 2)), invokeRun = { config, owner, timeout ->
                 visited += config.index
                 if (config.index < 3) f.run(config, owner, timeout)
                 else f.manager(config, owner).let { manager ->
@@ -231,7 +229,7 @@ class CurrentSequenceTest {
     }
 
     @Test
-    fun `END retains both candidates and recovers the trigger seed inside M`(): Unit {
+    fun `empty end actions keep the original sink and refine its source without a reversed end trigger`(): Unit {
         DriverFixtures().use { f ->
             val p = f.program
             val root = p.method("END root", straight(3), 2).key()
@@ -241,11 +239,10 @@ class CurrentSequenceTest {
             sources(f, root, source)
             p.call(root, 1, resolved(f, m, listOf(x to argument), r))
             val y = AccessPathBase.LocalVar(2); val w = AccessPathBase.LocalVar(3)
-            val end = MicroEdge.of(PathEdge(ZERO_FACT, PathFact(returned, emptyList(), Tail.EXACT, u), ExclusionSet.Empty))
-            val early = sink(f, "END confirmed trigger", p.pattern(argument, mark = t), listOf(end))
+            // The finite engine receives effective forms, after the provider clears end actions.
+            val early = sink(f, "END original sink", p.pattern(argument, mark = t))
             p.call(m, 1, CallPlan(setOf(argument, y), listOf(
                 CallStage.Edges(BEFORE, BOUND, BIND_IN, f.summary(keepEdge(argument), ZERO_KEEP)),
-                CallStage.Edges(BOUND, RETURNED, END_FACTS, f.summary(end.forward), Guard.SinkTriggered(early)),
                 CallStage.Actions(BOUND, ADDED, emptyList()),
                 CallStage.Edges(ADDED, RETURNED, UNRESOLVED, f.summary(keepEdge(argument), ZERO_KEEP)),
                 CallStage.Actions(RETURNED, REWRITTEN, emptyList()),
@@ -263,32 +260,29 @@ class CurrentSequenceTest {
             p.statement(m, 3, MicroEdgeBuilder().apply { move(returned, w) }.build())
             val later = sink(f, "END later demand", p.pattern(r, tail = Tail.ANY, mark = u))
             exit(f, root, 2, later)
-            val driver = f.driver(FixedLimits(listOf(1, 2, 3)))
+            val driver = f.driver(FixedLimits(listOf(1, 1, 2)))
             val report = driver.analyze(listOf(root))
             val earlyKey = VulnerabilityKey(early.rule, m.method, p.inst(m, 1))
             val laterKey = VulnerabilityKey(later.rule, root.method, p.inst(root, 2))
             assertEquals(listOf(1, 2, 3), f.configs.map { it.index })
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.POLICY), report.end)
-            assertEquals(mapOf(earlyKey to ReportState.DEMAND, laterKey to ReportState.DEMAND),
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(mapOf(earlyKey to ReportState.DEMAND),
                 report.entries.associate { it.key to it.state })
             assertEquals(3, report.entries.single { it.key == earlyKey }.run)
-            assertEquals(3, report.entries.single { it.key == laterKey }.run)
             assertEquals(listOf(Seed.Sink(early.rule, m, p.inst(m, 1), early.patterns.single())),
                 f.configs[1].seeds.at(m, p.inst(m, 1)))
-            assertEquals(listOf(Seed.Sink(later.rule, root, p.inst(root, 2), later.patterns.single())),
-                f.configs[1].seeds.at(root, p.inst(root, 2)))
+            assertTrue(f.configs[1].seeds.at(root, p.inst(root, 2)).isEmpty())
             val backward = f.results[1].analyzers.single { it.key == m }
-            assertEquals(1L, backward.triggerSeeds)
+            assertEquals(0L, backward.triggerSeeds)
             assertEquals(listOf(Triple(root, root.statement, source)),
                 f.results[1].analyzers.flatMap { it.sourceHits!!.entries().toList() })
             assertTrue(f.configs[2].seeds.allowsSource(root, root.statement, source))
             assertContains(f.configs[2].demand!!.near(m, argument, null), DemandPattern(p.pattern(argument, mark = t), null))
-            val endOutput = Conclusion(PathFact(returned, emptyList(), Tail.ANY, u), ExclusionSet.Empty, true)
-            assertContains(selected(f, f.results[2], m), setOf(ZERO_PATTERN) to endOutput)
+            assertTrue(selected(f, f.results[2], m).none { it.second.fact.mark == u })
             assertTrue(f.results[2].witnessesByKey().getValue(earlyKey).all { !it.confirmed })
-            assertTrue(f.results[2].witnessesByKey().getValue(laterKey).all { !it.confirmed })
+            assertFalse(laterKey in f.results[2].witnessesByKey())
             assertTrue(f.results[1].witnessesByKey().isEmpty())
-            assertEquals(listOf(2, 1, 2), driver.frontiers.map { it.seeds })
+            assertEquals(listOf(1, 1, 1), driver.frontiers.map { it.seeds })
             assertEquals(listOf(0, 0, 0), driver.frontiers.map { it.confirmedVulnerabilities })
         }
     }
@@ -328,7 +322,7 @@ class CurrentSequenceTest {
             val badSink = sink(f, "CONJ missing second input", p.pattern(bad, mark = t))
             exit(f, root, 6, goodSink, badSink)
             val control = if (normalReversal) normalConjunctionReversal(f, m) else null
-            val driver = f.driver(FixedLimits(listOf(1, 2, 3)), invokeRun = { config, owner, timeout ->
+            val driver = f.driver(FixedLimits(listOf(1, 1, 2)), invokeRun = { config, owner, timeout ->
                 f.run(config, control ?: owner, timeout)
             })
             val report = try { driver.analyze(listOf(root)) } finally { control?.close() }
@@ -341,7 +335,11 @@ class CurrentSequenceTest {
                 normalReversal && result.runIndex == 3 || result.witnessesByKey().keys.none { it.rule === badSink.rule }
             })
             val required = setOf(p.pattern(argument, mark = t1), p.pattern(arg1, mark = t2))
-            assertContains(raw(f, f.results[0], m), required to Conclusion(nd.target, ExclusionSet.Empty, false))
+            fun grouped(pattern: Pattern): Pattern = pattern.copy(fact = pattern.fact.copy(mark =
+                MarkSlot.Concrete(p.manager.marks.group(p.manager.marks.groupOf((pattern.fact.mark as MarkSlot.Concrete).mark)))))
+            val groupedRequired = required.map(::grouped).toSet()
+            val groupedTarget = grouped(Pattern(nd.target, ExclusionSet.Empty)).fact
+            assertContains(raw(f, f.results[0], m), groupedRequired to Conclusion(groupedTarget, ExclusionSet.Empty, true))
             val backward = selected(f, f.results[1], m)
             val literalRows = if (normalReversal) raw(f, f.results[1], m) else backward
             assertTrue(literalRows.any { it.second.fact == required.first().fact && it.second.demand == !normalReversal })
@@ -351,8 +349,9 @@ class CurrentSequenceTest {
             val concreteReturn = p.pattern(returned, mark = t)
             assertEquals(normalReversal, f.records.byEntry(m, concreteReturn).any { it.direction == Direction.BACKWARD },
                 "Split literal branches cannot become independent normal records")
-            assertEquals(!normalReversal, f.configs[2].demand!!.near(m, argument, null).any { it.entry == required.first() })
-            assertEquals(!normalReversal, f.configs[2].demand!!.near(m, arg1, null).any { it.entry == required.last() })
+            assertTrue(f.configs[2].demand!!.near(m, argument, null).any { it.entry == required.first() },
+                "Run-2 limit-one DEMAND branches remain additive when a native NORMAL record also exists")
+            assertTrue(f.configs[2].demand!!.near(m, arg1, null).any { it.entry == required.last() })
             assertTrue(f.configs[2].seeds.allowsSource(root, root.statement, sa))
             assertTrue(f.configs[2].seeds.allowsSource(root, root.statement, sb))
             assertTrue(f.results[2].witnessesByKey().values.flatten().all { !it.confirmed })

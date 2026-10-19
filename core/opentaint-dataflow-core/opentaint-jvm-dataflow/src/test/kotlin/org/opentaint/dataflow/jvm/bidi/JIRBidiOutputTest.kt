@@ -32,7 +32,7 @@ class JIRBidiOutputTest : BidiJIRTestUtils() {
         override fun resolve(method: JIRMethod) = SingletonUnit
         override fun locationIsUnknown(loc: RegisteredLocation): Boolean = false
     }, NoTaintRules, JIRAnalysisManager.Params(
-        aliasAnalysisParams = JIRLocalAliasAnalysis.Params(useAliasAnalysis = false)), FixedLimits(listOf(1, 2, 3)), RefManager())
+        aliasAnalysisParams = JIRLocalAliasAnalysis.Params(useAliasAnalysis = false)), FixedLimits(listOf(1, 1, 2)), RefManager())
 
     private fun rule(id: String): RuleId = object : CommonTaintConfigurationSink {
         override val id: String = id

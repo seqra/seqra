@@ -54,8 +54,8 @@ class DirectCurrentIteration(private val program: FiniteProgramFixtures, private
                 // A later witness of the same key can confirm it; remove the earlier demand row.
                 confirmed.keys.forEach(currentDemand::remove)
             }
-            // Ordinary NORMAL persistence also applies in F1. The unchanged F1
-            // handoff may simultaneously use these rows as typed guidance.
+            // Eligible normal singleton facts use the same ordinary writer in every run.
+            // Group/static-history D facts are excluded by their layer.
             for (edge in observation.rawSummaries) if (!edge.conclusion.demand && edge.premise.size == 1 &&
                 !(config.direction == Direction.BACKWARD && isZero(edge.premise))) {
                 records += RawRecord(edge.method, config.direction, edge.premise.single(), edge.conclusion)

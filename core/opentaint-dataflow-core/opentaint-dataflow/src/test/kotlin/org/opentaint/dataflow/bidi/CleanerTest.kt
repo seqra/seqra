@@ -33,7 +33,7 @@ class CleanerTest {
     private val mt = MarkSlot.Concrete(t)
     private val mu = MarkSlot.Concrete(u)
     private val star = MarkSlot.STAR
-    private val run1 = ApMode(true, Direction.FORWARD, Int.MAX_VALUE)
+    private val run1 = ApMode(true, Direction.FORWARD, Int.MAX_VALUE, markMode = MarkMode.FULL)
     private val forward = ApMode(false, Direction.FORWARD, Int.MAX_VALUE)
     private val backward = ApMode(false, Direction.BACKWARD, Int.MAX_VALUE)
     private val modes = listOf(run1, forward, backward)
@@ -141,7 +141,7 @@ class CleanerTest {
                 assertSame(original.root, result.root)
                 assertEquals(if (mode.run1 && original.exclusion != ExclusionSet.Empty) Layer.DEMAND else original.layer, result.layer)
                 assertEquals(if (mode.run1) ExclusionSet.Empty else original.exclusion, result.exclusion)
-                assertEquals(marks(t.id, u.id), result.markExclusion)
+                assertEquals(MarkExclusions.fromMarks(marks(t.id, u.id), manager.marks), result.markExclusion)
                 if (t in original.markExclusion) assertSame(original.markExclusion, result.markExclusion)
                 assertEquals(if (mode.run1) listOf(t) else emptyList(), out.markRequests)
             }
@@ -258,7 +258,7 @@ class CleanerTest {
             assertSame(root, result.root)
             assertEquals(if (mode.run1 && facts.exclusion != ExclusionSet.Empty) Layer.DEMAND else facts.layer, result.layer)
             assertEquals(if (mode.run1) ExclusionSet.Empty else facts.exclusion, result.exclusion)
-            assertEquals(marks(t.id, u.id), result.markExclusion)
+            assertEquals(MarkExclusions.fromMarks(marks(t.id, u.id), manager.marks), result.markExclusion)
             assertEquals(if (mode.run1) listOf(t) else emptyList(), out.markRequests)
         }
     }

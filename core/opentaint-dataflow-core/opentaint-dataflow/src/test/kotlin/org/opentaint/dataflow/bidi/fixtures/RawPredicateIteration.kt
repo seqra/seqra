@@ -14,7 +14,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 
 /** Independent finite NNF iteration with raw barriers and unverified candidate reports.
  *  It uses RawCurrentClosure and no production driver, demand/record index, Support or HandOff.
- *  Inputs admit positive bound source/sink conditions and END; aliases and ordered field actions
+ *  Inputs admit positive bound source/sink conditions; END actions are ignored; aliases and ordered field actions
  *  remain outside this explicit test domain. This is a current oracle, not an F71 instance. */
 class RawPredicateIteration(private val program: FiniteProgramFixtures, private val roots: List<MethodKey>,
                                   private val limits: List<Int>) {
@@ -65,8 +65,7 @@ class RawPredicateIteration(private val program: FiniteProgramFixtures, private 
                 // A later witness of the same key can confirm it; remove the earlier demand row.
                 confirmed.keys.forEach(currentDemand::remove)
             }
-            // Ordinary NORMAL persistence also applies in F1. The unchanged F1
-            // handoff may simultaneously use these rows as typed guidance.
+            // Every phase persists eligible ordinary normal singleton facts; grouped F1 taint is D.
             for (edge in observation.rawSummaries) if (!edge.conclusion.demand && edge.premise.size == 1 &&
                 !(config.direction == Direction.BACKWARD && isZero(edge.premise))) {
                 records += RawRecord(edge.method, config.direction, edge.premise.single(), edge.conclusion)

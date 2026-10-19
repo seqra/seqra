@@ -31,7 +31,7 @@ class HistoricalFixedResidualTest {
     }
 
     @Test
-    fun `pre F72 AP equations plus specified END trigger rules retain early confirmation and later demand`(): Unit = DriverFixtures().use { f ->
+    fun `historical END rules remain reference-only while selected analysis ignores end facts`(): Unit = DriverFixtures().use { f ->
         val p = f.program
         val root = p.method("historical END root", straight(3), 2).key()
         val m = p.method("historical END M", straight(5), 4).key()
@@ -64,15 +64,16 @@ class HistoricalFixedResidualTest {
         p.exit(root, 2, ExitRules(RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY, listOf(later)), false, emptySet()))
         val expected = mapOf(HistoricalFinding(early.rule, p.inst(m, 1)) to HistoricalState.CONFIRMED,
             HistoricalFinding(later.rule, p.inst(root, 2)) to HistoricalState.DEMAND)
-        val limits = listOf(1, 2, 3)
+        val limits = listOf(1, 1, 2)
         val old = HistoricalConcreteIteration(p, listOf(root), limits, allowEndFacts = true).run()
         val direct = DirectCurrentIteration(p, listOf(root), limits, allowEndFacts = true).run()
         val report = f.driver(FixedLimits(limits)).analyze(listOf(root))
         val label = "F71 AP equations plus F67/F68 END interpreter rules; proof-history.md:1599 excludes END from Lean"
         assertEquals(expected, old.findings, label)
-        assertEquals(expected.mapValues { HistoricalState.DEMAND }, direct.findings, label)
-        assertEquals(expected.mapValues { HistoricalState.DEMAND }, states(report), label)
-        assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.POLICY), report.end)
+        val selected = mapOf(HistoricalFinding(early.rule, p.inst(m, 1)) to HistoricalState.DEMAND)
+        assertEquals(selected, direct.findings, "Selected policy ignores every END action")
+        assertEquals(selected, states(report), "The original sink still has its real source")
+        assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
         assertEquals(listOf(1, 2, 3), old.runs.map { it.index }, label)
         assertEquals(setOf(Seed.Sink(later.rule, root, p.inst(root, 2), later.patterns.single())), old.runs[0].handOff.seeds.toSet(),
             "An already confirmed END trigger is absent from the ordinary demand seeds")
@@ -111,7 +112,7 @@ class HistoricalFixedResidualTest {
         val root = p.method("historical factory root", straight(9), 8).key()
         val factory = p.method("historical factory", straight(4), 3).key()
         val name = p.field("name"); val email = p.field("email"); val k = p.field("k")
-        val path = listOf(p.field("a"), p.field("b"), p.field("c"))
+        val path = listOf(p.field("a"), p.field("b"))
         val t = MarkSlot.Concrete(p.mark("factory T")); val u = MarkSlot.Concrete(p.mark("factory U"))
         val sourceT = PathEdge(ZERO_FACT, PathFact(ret, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty)
         val sourceU = PathEdge(ZERO_FACT, PathFact(x, emptyList(), Tail.EXACT, u), ExclusionSet.Empty)
@@ -138,7 +139,7 @@ class HistoricalFixedResidualTest {
         val excluded = SinkRule(f.rule("historical factory excluded name"), 0, listOf(p.pattern(outBlocked, path, mark = t)), emptyList())
         p.exit(root, 8, ExitRules(RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY,
             listOf(admittedT, admittedU, excluded)), false, emptySet()))
-        val limits = listOf(1, 2, 3)
+        val limits = listOf(1, 1, 2)
         val old = HistoricalConcreteIteration(p, listOf(root), limits, allowMustSources = true).run()
         val direct = DirectCurrentIteration(p, listOf(root), limits, allowMustSources = true).run()
         val report = f.driver(FixedLimits(limits)).analyze(listOf(root))
@@ -153,11 +154,11 @@ class HistoricalFixedResidualTest {
             "A non-reversible must/E record forces old backward callee analysis")
         assertContains(old.runs[1].observation.sourceHits, ObservedSourceHit(factory, factory.statement, sourceT))
         assertContains(old.runs[1].handOff.seeds, Seed.Source(factory, factory.statement, sourceT))
-        val normalSingletons = direct.runs[0].observation.rawSummaries.filter {
+        val eligible = direct.runs[0].observation.rawSummaries.filter {
             !it.conclusion.demand && it.premise.size == 1
-        }.map { RawRecord(it.method, Direction.FORWARD, it.premise.single(), it.conclusion) }.toSet()
-        assertEquals(normalSingletons, direct.runs[0].handOff.records.toSet(),
-            "Selected F1 uses the ordinary NORMAL singleton writer; DEMAND covers remain ineligible")
+        }.map { RawRecord(it.method, org.opentaint.dataflow.bidi.ap.Direction.FORWARD,
+            it.premise.single(), it.conclusion) }.toSet()
+        assertEquals(eligible, direct.runs[0].handOff.records.toSet(), "Retain eligible NORMAL singleton summaries")
         assertTrue(direct.runs[1].observation.initials.any { it.method == factory && it.initial.fact.base != AccessPathBase.Zero })
         val hits = setOf(ObservedSourceHit(factory, factory.statement, sourceT),
             ObservedSourceHit(factory, factory.statement, sourceU))
@@ -175,7 +176,8 @@ class HistoricalFixedResidualTest {
                 "Exact selected incoming seeds at run ${offset + 1}")
         }
         assertTrue(direct.runs[0].observation.rawSummaries.any { it.method == factory && it.conclusion ==
-            Conclusion(PathFact(ret, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, true) })
+            Conclusion(PathFact(ret, emptyList(), Tail.ANY_TAINT,
+                MarkSlot.Concrete(f.manager.marks.group(f.manager.marks.groupOf(t.mark)))), ExclusionSet.Empty, true) })
         assertTrue(direct.runs[2].observation.rawSummaries.any { it.method == factory && it.conclusion ==
             Conclusion(PathFact(ret, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.of(intArrayOf(name, k)), false) })
         assertTrue(old.runs[0].observation.rawSummaries.any { it.method == factory && it.conclusion ==

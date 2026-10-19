@@ -78,7 +78,7 @@ private class FlowClean(private val m: ApManager, private val c: FlowTree, priva
     private val tail = c.tail
 
     fun run() {
-        val selected = cl.mark
+        val selected = cl.mark?.let { m.marks.runtimeAtom(it, mode.markMode) }
         if (selected != null) {
             if (mode.run1 && c.base == STATIC) { selectedStatic(selected); return }
             results.flow(c.layer, c.exclusion, m.intern(c.markExclusion + selected), c.root, c.tail)
@@ -137,8 +137,11 @@ private class TaintClean(private val m: ApManager, private val c: TaintTree, pri
     private val results = Results(m, c.base)
     private val anyTail = c.anyTail
 
-    private fun gone(marks: MarkSet): MarkSet =
-        if (cl.mark == null || marks.isEmpty) marks else marks.intersect(m.markSetOf(cl.mark))
+    private fun gone(marks: MarkSet): MarkSet = when {
+        cl.mark == null || marks.isEmpty -> marks
+        mode.markMode == MarkMode.GROUP -> MarkSet.EMPTY // selected full mark cannot kill wildcard group
+        else -> marks.intersect(m.markSetOf(cl.mark))
+    }
 
     fun run() {
         m.taintAlg.cleanSpine(c.root, cl.pathArray, cl.reach, 0, m.cancellation, ::row) { kids ->

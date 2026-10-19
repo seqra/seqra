@@ -29,7 +29,7 @@ class SummarySelectorTest {
     private val u = m.marks.mark("U")
     private val empty = ExclusionSet.Empty
     private val forward = ApMode(false, Direction.FORWARD, 4)
-    private val modes = listOf(ApMode(true, Direction.FORWARD, 4), forward, ApMode(false, Direction.BACKWARD, 4))
+    private val modes = listOf(ApMode(true, Direction.FORWARD, 4, markMode = MarkMode.FULL), forward, ApMode(false, Direction.BACKWARD, 4))
     private fun ex(vararg ids: Int) = ExclusionSet.of(ids)
     private fun marks(vararg ids: Int) = MarkSet(ids)
     private fun p(path: List<Int>, tail: Tail, mark: MarkSlot = MarkSlot.STAR,

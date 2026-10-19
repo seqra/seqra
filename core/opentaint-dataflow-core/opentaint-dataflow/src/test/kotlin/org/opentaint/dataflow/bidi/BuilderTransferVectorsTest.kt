@@ -295,7 +295,7 @@ class BuilderTransferVectorsTest {
 
     private fun reference(run1: Boolean = false, fieldLimit: Int = Int.MAX_VALUE,
                           requests: MutableList<RequestKind> = ArrayList()) =
-        FormsReference(fixture.ops, ReferenceAlgebra(ApMode(run1, Direction.FORWARD, fieldLimit),
+        FormsReference(fixture.ops, ReferenceAlgebra(ApMode(run1, Direction.FORWARD, fieldLimit, markMode = MarkMode.FULL),
             request = { _, r -> requests += r }, manager = m))
 
     private fun applyAll(summary: StatementSummary, inputs: List<Conclusion>): Set<Conclusion> =
@@ -314,7 +314,7 @@ class BuilderTransferVectorsTest {
         assertEquals(expected, oracle.apply(FormsReference.Mode.STATEMENT, summary, inputPremise, input, at).toSet(),
             "raw input=$input")
         assertEquals(requests, rawRequests, "raw requests for $input")
-        val mode = ApMode(run1, Direction.FORWARD, fieldLimit)
+        val mode = ApMode(run1, Direction.FORWARD, fieldLimit, markMode = MarkMode.FULL)
         val treeRequests = ArrayList<RequestKind>()
         val output = ArrayList<Facts>()
         val adapter = FormApplier(object : FactAlgebra<Set<Pattern>, Facts> {

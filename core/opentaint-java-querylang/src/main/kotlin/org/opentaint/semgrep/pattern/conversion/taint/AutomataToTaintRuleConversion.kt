@@ -92,7 +92,7 @@ private fun <Item, Cond, Assign, Clean> RuleConversionCtx.convertMatchingRuleToT
 ): TaintRuleFromSemgrep<Item> {
     val ruleGroups = rule.rules.mapIndexedNotNull { idx, r ->
         val rules = safeConvertToTaintRules {
-            convertAutomataToTaintRules(strategy, r.metaVarInfo, r.rule, RuleUniqueMarkPrefix(ruleId, modeModifier, idx))
+            convertAutomataToTaintRules(strategy, r.metaVarInfo, r.rule, markPrefix(idx))
         }
 
         rules
@@ -102,7 +102,7 @@ private fun <Item, Cond, Assign, Clean> RuleConversionCtx.convertMatchingRuleToT
         error("Failed to generate any taintRuleGroup")
     }
 
-    return TaintRuleFromSemgrep(ruleId, TaintRuleFromSemgrep.Structure.Matching(ruleGroups))
+    return TaintRuleFromSemgrep(ruleId, TaintRuleFromSemgrep.Structure.Matching(ruleGroups), markOwners())
 }
 
 private fun <Item, Cond, Assign, Clean> RuleConversionCtx.convertAutomataToTaintRules(

@@ -17,7 +17,7 @@ internal class JIRRulePredicates(private val manager: ApManager,
                                  private val statistics: FormCacheStatistics? = null,
                                  private val literal: (TaintMarkAwareConditionExpr.Literal) -> PathFact) {
     fun compile(condition: ExprOrConstant, mayBeArray: (Int) -> Boolean = { false }): RulePredicate {
-        val builder = RulePredicate.Builder(manager.cancellation)
+        val builder = RulePredicate.Builder(manager.cancellation, manager.marks)
         fun built(root: Int): RulePredicate = builder.build(root).also {
             statistics?.compiledPredicate(it.nodeCount, it.leaves.size)
         }

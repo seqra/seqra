@@ -60,11 +60,11 @@ class JIRBidiRealEntryTest : BidiJIRTestUtils() {
             assertEquals(copiedIds, f.manager.prescanRuleIds())
             var runtimeShared: org.opentaint.dataflow.bidi.engine.SharedObjects? = null
             var actualDriver: IterationDriver? = null
-            val entry = JIRBidiAnalysis(cp, graph, f.units, rules, f.params, FixedLimits(listOf(1, 2, 3)), f.refManager,
+            val entry = JIRBidiAnalysis(cp, graph, f.units, rules, f.params, FixedLimits(listOf(1, 1, 2)), f.refManager,
                 driverFactory = { policy, shared, remaining ->
                     runtimeShared = shared
-                    assertTrue(assertNotNull(shared.run1StaticProfiles).contains(root),
-                        "The remapped catalog must remain available to the actual engine after prescan release")
+                    assertTrue(shared.ap.marks.isOwnershipCensusComplete,
+                        "The ownership census must complete before the actual engine starts")
                     IterationDriver(policy, shared, remaining).also { actualDriver = it }
                 })
             entry.gather(f.manager, listOf(MethodWithContext(root, EmptyMethodContext)), f.engine.prescanResolvedGraph())
@@ -77,8 +77,8 @@ class JIRBidiRealEntryTest : BidiJIRTestUtils() {
             assertFailsWith<IllegalStateException> { f.engine.apManager }
 
             val report = entry.run(10.seconds)
-            assertNull(assertNotNull(runtimeShared).run1StaticProfiles,
-                "The actual joined run and analysis close must release the catalog, while the report remains usable")
+            assertTrue(assertNotNull(runtimeShared).ap.marks.isOwnershipCensusComplete,
+                "The full catalog remains valid after the engine closes")
             assertEquals(listOf(copiedIds), selected)
             assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
             val frontiers = assertNotNull(actualDriver).frontiers

@@ -23,6 +23,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import kotlin.test.*
 
 /** Explicit facts test rule lowering; raw and tree walks share only the produced forms. */
+/** Full-mark primitive/lowering laws. Group execution is checked by actual engine suites. */
 class JIRLoweredCleanerEffectTest : BasicTestUtils() {
     private val fixture by lazy { JIRRuleTestFixtures(cp) }
     private val forms by lazy { fixture.forms() }
@@ -265,7 +266,7 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
         check(action, listOf(c(stat, p(cls, g))), setOf(c(stat, p(cls, g))))
     }
 
-    @Test fun `run one static kill drops the overwritten field and preserves siblings without position requests`(): Unit {
+    @Test fun `FULL static kill primitive drops the overwritten field and preserves siblings without position requests`(): Unit {
         val cls = m.accessors.index(ClassStaticAccessor(CLS))
         val field = idx("sField")
         val stat = AccessPathBase.ClassStatic
@@ -314,7 +315,7 @@ class JIRLoweredCleanerEffectTest : BasicTestUtils() {
             PathFact(x, emptyList(), Tail.EXACT, inputs.first().fact.mark), ExclusionSet.Empty))
         val key = m.premiseOf(callerPremise.map(m::initial))
         require(key.isFlow == flowInput) { "The caller premise determines FLOW or TAINT (K6)" }
-        val mode = ApMode(run1, direction, fieldLimit)
+        val mode = ApMode(run1, direction, fieldLimit, MarkMode.FULL)
         val requests = ArrayList<Pair<Set<Pattern>, TaintMark>>()
         val positions = ArrayList<PathNode>()
         val temporaryInputs = ArrayList<Conclusion>()

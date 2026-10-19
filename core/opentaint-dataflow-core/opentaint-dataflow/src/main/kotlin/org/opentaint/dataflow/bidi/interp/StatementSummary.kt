@@ -15,6 +15,7 @@ class StatementSummary(
     typeFilters: Map<AccessPathBase, TypeFilter>,
     resultFilters: Map<AccessPathBase, TypeFilter> = emptyMap(),
     sources: List<SourceRuleOccurrence> = emptyList(),
+    staticOperations: List<StaticOperation> = emptyList(),
 ) {
     val touched: Set<AccessPathBase> = ownedSet(touched)
     val edges: List<MicroEdge> = ownedList(edges)
@@ -22,6 +23,10 @@ class StatementSummary(
     val typeFilters: Map<AccessPathBase, TypeFilter> = ownedMap(typeFilters)
     val resultFilters: Map<AccessPathBase, TypeFilter> = ownedMap(resultFilters)
     val sources: List<SourceRuleOccurrence> = ownedList(sources)
+    val staticOperations: List<StaticOperation> = ownedList(staticOperations)
+
+    fun withStaticOperations(operations: List<StaticOperation>): StatementSummary =
+        StatementSummary(touched, edges, conjunctions, typeFilters, resultFilters, sources, operations)
 
     private val byBase: Map<AccessPathBase, List<MicroEdge>> = ownedOrdinalGroups(this.edges) { it.edge.from.base }
 
@@ -35,6 +40,7 @@ class StatementSummary(
         counts.include(typeFilters)
         counts.include(resultFilters)
         counts.include(sources)
+        counts.include(staticOperations)
         counts.include(targets)
         counts.summaryBaseDirectoryEntries += byBase.size.toLong()
         ownedDirectoryStorage(byBase, counts)
@@ -53,7 +59,7 @@ class StatementSummary(
     /** Conjunctive sources reverse into independent demand branches. Forward filters do not reverse. */
     fun reversed(): StatementSummary {
         val rev = ArrayList<MicroEdge>()
-        for (e in edges) rev += MicroEdge(revOrFail(e.edge), e.forward)
+        for (e in edges) rev += MicroEdge(revOrFail(e.edge), e.forward, e.conjunctive, e.actionId)
         for (c in conjunctions) for (lit in c.literals) {
             val forward = PathEdge(lit.fact, c.target, ExclusionSet.Empty)
             rev += MicroEdge(revOrFail(forward), forward, conjunctive = true)
@@ -68,7 +74,7 @@ class StatementSummary(
         val combined = ownedList(edges.size + added.size) { index ->
             if (index < edges.size) edges[index] else identityEdge(added[index - edges.size])
         }
-        return StatementSummary(touched + added, combined, conjunctions, typeFilters, resultFilters, sources)
+        return StatementSummary(touched + added, combined, conjunctions, typeFilters, resultFilters, sources, staticOperations)
     }
 
     companion object {

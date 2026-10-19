@@ -64,11 +64,11 @@ class TaintConfiguration(private val cp: JIRClasspath) {
     fun entryPointForMethod(method: JIRMethod, allRelevant: Boolean): List<TaintEntryPointSource> = entryPointConfig.configForMethod(method, allRelevant)
     fun sourceForMethod(method: JIRMethod, allRelevant: Boolean): List<TaintMethodSource> = sourceConfig.configForMethod(method, allRelevant)
     fun exitSourceForMethod(method: JIRMethod, allRelevant: Boolean): List<TaintMethodExitSource> = exitSourceConfig.configForMethod(method, allRelevant)
-    fun sinkForMethod(method: JIRMethod, allRelevant: Boolean): List<TaintMethodSink> = sinkConfig.configForMethod(method, allRelevant)
+    fun sinkForMethod(method: JIRMethod, allRelevant: Boolean, ignoreEndFacts: Boolean = false): List<TaintMethodSink> = sinkConfig.configForMethod(method, allRelevant, ignoreEndFacts)
     fun passThroughForMethod(method: JIRMethod, allRelevant: Boolean): List<TaintPassThrough> = passThroughConfig.configForMethod(method, allRelevant)
     fun cleanerForMethod(method: JIRMethod, allRelevant: Boolean): List<TaintCleaner> = cleanerConfig.configForMethod(method, allRelevant)
-    fun methodExitSinkForMethod(method: JIRMethod, allRelevant: Boolean): List<TaintMethodExitSink> = methodExitSinkConfig.configForMethod(method, allRelevant)
-    fun methodEntrySinkForMethod(method: JIRMethod, allRelevant: Boolean): List<TaintMethodEntrySink> = methodEntrySinkConfig.configForMethod(method, allRelevant)
+    fun methodExitSinkForMethod(method: JIRMethod, allRelevant: Boolean, ignoreEndFacts: Boolean = false): List<TaintMethodExitSink> = methodExitSinkConfig.configForMethod(method, allRelevant, ignoreEndFacts)
+    fun methodEntrySinkForMethod(method: JIRMethod, allRelevant: Boolean, ignoreEndFacts: Boolean = false): List<TaintMethodEntrySink> = methodEntrySinkConfig.configForMethod(method, allRelevant, ignoreEndFacts)
 
     fun sourceForStaticField(field: JIRField): List<TaintStaticFieldSource> {
         check(field.isStatic)
@@ -135,12 +135,25 @@ class TaintConfiguration(private val cp: JIRClasspath) {
 
         private val methodItems = hashMapOf<JIRMethod, List<T>>()
         private val methodAllRelevantItems = hashMapOf<JIRMethod, List<T>>()
+        private val methodWithoutEndFactsItems = hashMapOf<JIRMethod, List<T>>()
+        private val methodWithoutEndFactsAllRelevantItems = hashMapOf<JIRMethod, List<T>>()
 
-        fun configForMethod(method: JIRMethod, allRelevant: Boolean): List<T> = if (!allRelevant) {
+        fun configForMethod(method: JIRMethod, allRelevant: Boolean, ignoreEndFacts: Boolean = false): List<T> = if (ignoreEndFacts) {
+            getWithoutEndFacts(method, allRelevant)
+        } else if (!allRelevant) {
             getConfigForMethod(method)
         } else {
             getAllRelevantConfigForMethod(method)
         }
+
+        @Synchronized
+        private fun getWithoutEndFacts(method: JIRMethod, allRelevant: Boolean): List<T> =
+            (if (allRelevant) methodWithoutEndFactsAllRelevantItems else methodWithoutEndFactsItems).getOrPut(method) {
+                resolveItems(method, ignoreEndFacts = true) {
+                    @Suppress("UNCHECKED_CAST")
+                    (if (allRelevant) it.resolveRelevantRule() else it.resolveRule()) as List<T>
+                }.adjustEmptyList()
+            }
 
         @Synchronized
         private fun getConfigForMethod(method: JIRMethod): List<T> = methodItems.getOrPut(method) {
@@ -162,14 +175,15 @@ class TaintConfiguration(private val cp: JIRClasspath) {
             it.resolveRelevantRule() as List<T>
         }
 
-        private inline fun resolveItems(method: JIRMethod, resolveItem: MethodTaintConfigurationResolver.(S) -> List<T>): List<T> {
+        private inline fun resolveItems(method: JIRMethod, ignoreEndFacts: Boolean = false,
+                                       resolveItem: MethodTaintConfigurationResolver.(S) -> List<T>): List<T> {
             val rules = mutableListOf<S>()
             storage().findRules(rules, method)
 
             rules.removeAll { !it.function.matchFunctionName(method) }
             if (rules.isEmpty()) return emptyList()
 
-            val resolver = MethodTaintConfigurationResolver(patternManager, taintMarkManager, cp, objectTypeName, method)
+            val resolver = MethodTaintConfigurationResolver(patternManager, taintMarkManager, cp, objectTypeName, method, ignoreEndFacts)
             rules.removeAll {
                 with(resolver) {
                     it.signature?.matchFunctionSignature() == false

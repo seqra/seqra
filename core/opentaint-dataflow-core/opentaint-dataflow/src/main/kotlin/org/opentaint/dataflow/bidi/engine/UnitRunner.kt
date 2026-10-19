@@ -28,7 +28,6 @@ class UnitRunner<A : RunActor> internal constructor(
     private val actors = LinkedHashMap<MethodKey, A>()
     private val queued = Collections.newSetFromMap(IdentityHashMap<A, Boolean>())
     private val closed = AtomicBoolean()
-    override val pendingNeedReplay: PendingNeedReplay? = null
     private val handler = factory.create(this)
 
     override val config get() = run.config
@@ -36,8 +35,7 @@ class UnitRunner<A : RunActor> internal constructor(
     override val forms get() = run.forms
     override val ops get() = shared.ops
     override val steps get() = run.steps
-    override val staticNeedRouter get() = run.staticNeedRouter
-    override val staticRequests get() = run.staticRequests
+    override val staticService get() = run.staticService
 
     internal fun postEvent(event: RunEvent): Boolean = run.accept {
         !closed.get() && channel.trySend(event).isSuccess
@@ -45,11 +43,19 @@ class UnitRunner<A : RunActor> internal constructor(
 
     override fun post(event: RunEvent.Delivery): Boolean = postEvent(event)
     override fun post(event: RunEvent.ChangedRequests): Boolean = postEvent(event)
-    override fun post(event: RunEvent.StaticNeed): Boolean = postEvent(event)
-    override fun post(event: RunEvent.CallsiteRequests): Boolean = postEvent(event)
     override fun send(event: RunEvent): Boolean = run.route(event)
 
     override fun summaryStorage(key: MethodKey): SummaryStorage = run.summaryStorage(key)
+
+    override fun borrowN2(row: N2InputRef): Facts? {
+        check(shared.unitResolver.resolve(row.owner.method) == unit) { "N2 rows must be read by their owner" }
+        return (handler as? SubscriptionHandler)?.borrowN2(row)
+    }
+
+    override fun borrowN2Cofactors(row: N2InputRef): List<Subscription> {
+        check(shared.unitResolver.resolve(row.owner.method) == unit) { "N2 rows must be read by their owner" }
+        return (handler as? SubscriptionHandler)?.borrowN2Cofactors(row).orEmpty()
+    }
 
     override fun subscribe(sub: Subscription) {
         check(!run.ended && !closed.get()) { "The runner is closed" }
@@ -65,18 +71,6 @@ class UnitRunner<A : RunActor> internal constructor(
         val event = RunEvent.LinkIn(callee, ref, linkLayer, added)
         if (shared.unitResolver.resolve(callee.method) == unit) handler.handle(event)
         else send(event)
-    }
-
-    override fun subscribeStatic(sub: StaticSubscription) {
-        check(!run.ended && !closed.get())
-        shared.cancellation.checkpoint()
-        checkNotNull(handler as? SubscriptionHandler).subscribeStatic(sub)
-    }
-
-    override fun subscribeConcreteStatic(sub: ConcreteStaticSubscription) {
-        check(!run.ended && !closed.get())
-        shared.cancellation.checkpoint()
-        checkNotNull(handler as? SubscriptionHandler).subscribeConcreteStatic(sub)
     }
 
     override fun analyzer(key: MethodKey): A {
@@ -115,17 +109,12 @@ class UnitRunner<A : RunActor> internal constructor(
                     val complete = if (event is RunEvent.Work) {
                         check(actors[event.analyzer.key] === event.analyzer) { "Work belongs to another runner" }
                         event.analyzer.work(quantum)
-                    } else if (event is RunEvent.RequestDrain && actors[event.caller]?.let { it in queued } == true) {
-                        // Its existing Work reservation owns P until this method
-                        // empties. An idle owner still drains at message priority.
-                        true
                     } else {
                         handler.handle(event)
                         true
                     }
                     if (complete) {
                         if (event is RunEvent.Work) {
-                            (handler as? SubscriptionHandler)?.drainRequests(event.analyzer.key)
                             check(queued.remove(event.analyzer)) { "Work was not queued" }
                         }
                         run.afterHandler()
@@ -160,7 +149,6 @@ class UnitRunner<A : RunActor> internal constructor(
         try {
             (handler as? SubscriptionHandler)?.freeze()
         } finally {
-            pendingNeedReplay?.clear()
             queue.clear()
             queued.clear()
             for (actor in actors.values) (actor as? RunMethodAnalyzer)?.releaseAbstraction()

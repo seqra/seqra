@@ -1,17 +1,15 @@
 package org.opentaint.dataflow.bidi.engine
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.interp.ownedMap
-import org.opentaint.dataflow.bidi.store.ImmutableRequestMarks
 import org.opentaint.dataflow.bidi.store.forEachMark
 import org.opentaint.dataflow.bidi.store.RequestMarkCursor
 import org.opentaint.dataflow.bidi.store.RequestMarkSelection
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import org.opentaint.dataflow.bidi.store.RequestMarkSetBuilder
 
-/** Base coordinates name ordinary requests; static coordinates name source-once needs. */
+/** Only non-static abstract origins use ordinary mark requests. Statics use the direct service. */
 sealed interface Run1Slot {
     val base: AccessPathBase
     val pathData: IntArray
@@ -23,12 +21,6 @@ sealed interface Run1Slot {
         override val pathData: IntArray get() = IntArray(0)
     }
 
-    data class StaticField(val cls: Int, val field: Int) : Run1Slot {
-        init { require(cls.isClass() && field.isFieldAccessor()) }
-        override val base: AccessPathBase get() = STATIC
-        override val pathData: IntArray get() = intArrayOf(cls, this.field)
-    }
-
     fun initial(ap: ApManager): InitialAp = ap.initial(base, ap.path(pathData.toList()), Tail.STAR,
         ExclusionSet.Empty, MarkSlot.STAR)
 
@@ -37,42 +29,22 @@ sealed interface Run1Slot {
             if (initial.tail != Tail.STAR || initial.mark != MarkSlot.STAR ||
                 initial.exclusion != ExclusionSet.Empty) return null
             val path = initial.pathData
-            return if (initial.base == STATIC) {
-                if (path.size == 2 && path[0].isClass() && path[1].isFieldAccessor()) StaticField(path[0], path[1]) else null
-            } else if (path.isEmpty() && !initial.isZero && initial.base !is AccessPathBase.CleanerTemporary)
-                Base(initial.base) else null
+            return if (initial.base != STATIC && path.isEmpty() && !initial.isZero &&
+                initial.base !is AccessPathBase.CleanerTemporary) Base(initial.base) else null
         }
     }
 }
 
 typealias RequestRows = Map<Run1Slot, RequestMarkSet>
 
-/** Borrowed immutable segments, never a materialized copy of cumulative B union D. */
-data class RequestRowView(val precomputed: ImmutableRequestMarks, val dynamic: RequestMarkSet) : RequestMarkSelection {
-    val isEmpty: Boolean get() = precomputed.isEmpty && dynamic.isEmpty
-    override fun containsId(id: Int): Boolean = precomputed.containsId(id) || dynamic.containsId(id)
-    operator fun contains(mark: TaintMark): Boolean = containsId(mark.id)
-    fun forEachMark(visit: (TaintMark) -> Unit) { precomputed.forEachMark(visit = visit); dynamic.forEachMark(visit) }
-    /** Explicit, cancellable cardinality query; never used by a hot-path row getter. */
-    fun countMarks(checkpoint: () -> Unit): Int {
-        var size = 0
-        val values = cursor()
-        while (!values.isComplete) {
-            checkpoint()
-            values.step(256) { size = Math.addExact(size, 1) }
-        }
-        return size
-    }
-    override fun cursor(): RequestMarkCursor = object : RequestMarkCursor {
-        private val first = precomputed.cursor()
-        private val second = dynamic.cursor()
-        override val isComplete: Boolean get() = first.isComplete && second.isComplete
-        override fun step(budget: Int, visit: (TaintMark) -> Unit): Int {
-            require(budget > 0)
-            val used = if (first.isComplete) 0 else first.step(budget, visit)
-            return used + if (used < budget) second.step(budget - used, visit) else 0
-        }
-    }
+/** Borrowed merged mark set. No frozen or precomputed static segment is retained. */
+data class RequestRowView(val marks: RequestMarkSet) : RequestMarkSelection {
+    val isEmpty: Boolean get() = marks.isEmpty
+    override fun containsId(id: Int): Boolean = marks.containsId(id)
+    operator fun contains(mark: TaintMark): Boolean = mark in marks
+    fun forEachMark(visit: (TaintMark) -> Unit) = marks.forEachMark(visit)
+    fun countMarks(checkpoint: () -> Unit): Int { checkpoint(); return marks.size }
+    override fun cursor(): RequestMarkCursor = marks.cursor()
 }
 
 data class RequestedRow(val slot: Run1Slot, val marks: RequestRowView)
@@ -119,19 +91,15 @@ internal fun unionRequestMarks(a: RequestMarkSet, b: RequestMarkSet, checkpoint:
     }.takeSnapshot()
 }
 
-/** Plain merged interests. Method requests and callsite P/A use this same storage. */
-class RequestStorage(private val sharedBase: FrozenRequestBase = EmptyFrozenRequestBase) {
-    constructor(sharedBase: RequestRows) : this(MapFrozenRequestBase(sharedBase))
+/** One owner keeps merged non-static rows. Temporary and committed stores use the same type. */
+class RequestStorage {
     private val additions = LinkedHashMap<Run1Slot, RequestMarkSet>()
     private var addedMembers = 0L
-    val isEmpty: Boolean get() = sharedBase.isEmpty && additions.isEmpty()
+    val isEmpty: Boolean get() = additions.isEmpty()
     val dynamicRows: Int get() = additions.size
     val dynamicMembers: Long get() = addedMembers
-    val precomputedRows: Long get() = sharedBase.logicalRows
-    val precomputedMembers: Long get() = sharedBase.logicalMembers
 
-    fun borrow(slot: Run1Slot): RequestRowView = RequestRowView(
-        sharedBase.borrow(slot), additions[slot] ?: RequestMarkSet.EMPTY)
+    fun borrow(slot: Run1Slot): RequestRowView = RequestRowView(additions[slot] ?: RequestMarkSet.EMPTY)
 
     fun addAll(slot: Run1Slot, offered: RequestMarkSelection, checkpoint: () -> Unit = {}): RequestMarkSet {
         return addAll(slot, offered, null, checkpoint)
@@ -163,19 +131,7 @@ class RequestStorage(private val sharedBase: FrozenRequestBase = EmptyFrozenRequ
 
     /** Only the synchronous owner flusher may iterate this borrowed map. */
     fun pendingRows(): RequestRows {
-        check(sharedBase.isEmpty) { "Only empty-base temporary storage can be committed" }
         return java.util.Collections.unmodifiableMap(additions)
-    }
-
-    /** Synchronous owner transaction. The fresh map is detached before callbacks. */
-    fun commit(temporary: RequestStorage, checkpoint: () -> Unit = {}): RequestRows {
-        val fresh = LinkedHashMap<Run1Slot, RequestMarkSet>()
-        for ((slot, marks) in temporary.pendingRows()) {
-            checkpoint()
-            val delta = addAll(slot, marks, checkpoint)
-            if (!delta.isEmpty) fresh[slot] = delta
-        }
-        return freezeRequestRows(fresh)
     }
 
     /** Hold SummaryStorage's lock until the complete descriptor list is built. No actor callbacks. */
@@ -195,50 +151,11 @@ class RequestStorage(private val sharedBase: FrozenRequestBase = EmptyFrozenRequ
             val row = borrow(slot)
             if (!row.isEmpty) add(RequestedRow(slot, row))
         }
-        val direct = directRun1RequestSlot(input)
-        if (direct != null) {
-            if (counts != null) counts.directLookups++
-            addSlot(direct)
-            return@buildList
-        }
-        if (counts != null) counts.broadScans++
-        val visited = HashSet<Run1Slot>()
-        fun consider(slot: Run1Slot) {
-            checkpoint()
-            if (!visited.add(slot)) return
-            if (counts != null) counts.scannedKeys++
-            if (slotMatches(slot, input)) addSlot(slot)
-        }
-        // Only keys already represented by this request table are examined.
-        // This is not a legal-field/domain projection or a mark expansion.
-        sharedBase.forEachStaticRow(checkpoint) { consider(it) }
-        for (slot in additions.keys) {
-            if (counts != null) counts.dynamicKeysExamined++
-            consider(slot)
-        }
+        if (input.base == STATIC) return@buildList
+        if (counts != null) counts.directLookups++
+        addSlot(Run1Slot.Base(input.base))
     }
 
-}
-
-
-/** One key only if every supplied component lies under that same field/base.
- * Broad root/class and packed mixed fields must scan the existing request keys. */
-internal fun directRun1RequestSlot(input: Facts): Run1Slot? {
-    if (input is Reach) return null
-    val root: TrieNode<*> = when (input) {
-        is FlowTree -> input.root
-        is TaintTree -> input.root
-        is Reach -> return null
-    }
-    if (root.isEmpty) return null
-    if (input.base != STATIC) return Run1Slot.Base(input.base)
-    if (!root.leaf.isEmpty || root.accessorData?.size != 1) return null
-    val cls = root.accessorData!![0]
-    val clsNode = root.childData!![0]
-    if (!clsNode.leaf.isEmpty || clsNode.accessorData?.size != 1) return null
-    val field = clsNode.accessorData!![0]
-    if (!cls.isClass() || !field.isFieldAccessor()) return null
-    return Run1Slot.StaticField(cls, field)
 }
 
 /** Per-call numeric aggregation; no atomic operation for individual candidate rows. */
@@ -256,18 +173,6 @@ internal class RequestAdmissionCounts {
     var authoritativeDuplicates = 0L
     var temporaryDuplicates = 0L
     var freshTemporaryMembers = 0L
-}
-
-internal fun TrieNode<*>.hasRequestBroadLeaf(): Boolean = when (val value = leaf) {
-    is FlowLeaf -> !value.isEmpty
-    is TaintLeaves -> !value.any.isEmpty
-    else -> error("Unexpected request supplier leaf")
-}
-
-internal inline fun TrieNode<*>.requestChildren(checkpoint: () -> Unit, visit: (Int, TrieNode<*>) -> Unit) {
-    val keys = accessorData ?: return
-    val nodes = childData!!
-    for (offset in keys.indices) { checkpoint(); visit(keys[offset], nodes[offset]) }
 }
 
 internal fun freezeRequestRows(rows: Map<Run1Slot, RequestMarkSet>): RequestRows = ownedMap(rows)

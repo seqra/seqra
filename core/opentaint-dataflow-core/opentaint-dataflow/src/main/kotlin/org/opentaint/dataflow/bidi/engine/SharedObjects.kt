@@ -36,7 +36,6 @@ class SharedObjects(
     val cancellationTimeout: Duration = 30.seconds,
     val diagnostics: Boolean = false,
     val formStatistics: FormCacheStatistics? = null,
-    run1StaticProfiles: Run1StaticProfiles? = null,
     releaseRun1CatalogCoverage: (() -> Unit)? = null,
     val abstractionStatistics: Run1AbstractionStatistics? =
         if (java.lang.Boolean.getBoolean("org.opentaint.bidi.optimizationStatistics")) Run1AbstractionStatistics() else null,
@@ -48,22 +47,15 @@ class SharedObjects(
     @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
     val dispatcher: ExecutorCoroutineDispatcher = newFixedThreadPoolContext(threads, "bidi-worker")
 
-    var run1StaticProfiles: Run1StaticProfiles? = run1StaticProfiles
-        private set
-
-    private val staticFootprints = run1StaticProfiles?.footprints().orEmpty()
-    fun staticFootprint(method: org.opentaint.ir.api.common.CommonMethod): Run1StaticFootprint? = staticFootprints[method]
-
-    /** Call only after run-1 workers have joined. Later runs keep their existing demand policy. */
-    private var releaseRun1Coverage: (() -> Unit)? = releaseRun1CatalogCoverage
-    fun releaseRun1StaticProfiles() {
-        run1StaticProfiles = null
-        val release = releaseRun1Coverage
-        releaseRun1Coverage = null
+    /** Call only after run-1 workers have joined. No static request catalog exists. */
+    private var releaseCoverage: (() -> Unit)? = releaseRun1CatalogCoverage
+    fun releaseRun1CatalogCoverage() {
+        val release = releaseCoverage
+        releaseCoverage = null
         release?.invoke()
     }
 
     val unresolvedObserver: UnresolvedCallObserver? get() = interpreter as? UnresolvedCallObserver
 
-    override fun close() { releaseRun1StaticProfiles(); dispatcher.close() }
+    override fun close() { releaseRun1CatalogCoverage(); dispatcher.close() }
 }

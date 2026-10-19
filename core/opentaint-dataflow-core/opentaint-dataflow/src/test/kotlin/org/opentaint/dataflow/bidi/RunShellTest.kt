@@ -32,6 +32,7 @@ class RunShellTest {
             val factory = ShellHandlers({ port, event ->
                 seen += event
                 when (event) {
+                    is RunEvent.StaticOwner -> error("This control-only fixture does not send static effects")
                     is RunEvent.Start -> {
                         port.analyzer(event.root)
                         assertTrue(port.post(RunEvent.ChangedRequests(f.b, question)))
@@ -169,6 +170,7 @@ class RunShellTest {
             val factory = ShellHandlers({ port, event ->
                 events += event
                 when (event) {
+                    is RunEvent.StaticOwner -> error("This control-only fixture does not send static effects")
                     is RunEvent.Start -> {
                         val actor = port.analyzer(event.root)
                         actor.add(if (event.root == f.a) 2 else 1)
@@ -190,9 +192,7 @@ class RunShellTest {
                     }
                     is RunEvent.ZeroIn -> { port.analyzer(event.callee).add(1); port.enqueue(port.analyzer(event.callee)) }
                     is RunEvent.MarkRequestsIn -> { port.analyzer(event.method).add(1); port.enqueue(port.analyzer(event.method)) }
-                    is RunEvent.InitialAnswersIn, is RunEvent.ChangedRequests, is RunEvent.StaticEntriesIn,
-                    is RunEvent.ConcreteStaticEntriesIn, is RunEvent.StaticNeed, is RunEvent.CallsiteRequests,
-                    is RunEvent.PreparedInitialsIn, is RunEvent.RequestDrain -> error("This scalar shell control sends no question batch")
+                    is RunEvent.InitialAnswersIn, is RunEvent.ChangedRequests -> error("This scalar shell control sends no question batch")
                     is RunEvent.Delivery -> {
                         assertEquals(f.b, event.callee)
                         assertSame(publication.conclusion, event.publications.single().conclusion)

@@ -2,7 +2,6 @@ package org.opentaint.semgrep.pattern.conversion.taint
 
 import org.opentaint.semgrep.pattern.GeneratedTaintMark
 import org.opentaint.semgrep.pattern.Mark
-import org.opentaint.semgrep.pattern.Mark.RuleUniqueMarkPrefix
 import org.opentaint.semgrep.pattern.NoRequirement
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.RuleWithMetaVars
@@ -72,7 +71,7 @@ fun <Item, Cond, Assign, Clean> RuleConversionCtx.convertTaintRuleToTaintRules(
         propagators = taintRules.pass.map { it.rule },
         sanitizers = taintRules.clean.map { it.rule },
     )
-    return TaintRuleFromSemgrep(ruleId, structure)
+    return TaintRuleFromSemgrep(ruleId, structure, markOwners())
 }
 
 data class ProcessedTaintSourceRule<R>(
@@ -155,7 +154,7 @@ private fun <Item, Cond, Assign, Clean> RuleConversionCtx.generateEdgeCtx(
 
         r.flatMap {
             TaintRuleGenerationCtx(
-                prefix = RuleUniqueMarkPrefix(ruleId, modeModifier, i, "source"),
+                prefix = markPrefix(i, "source"),
                 automataEdges = sourceAutomata,
                 compositionStrategy = r.compositionStrategy(strategy),
                 strategy
@@ -166,7 +165,7 @@ private fun <Item, Cond, Assign, Clean> RuleConversionCtx.generateEdgeCtx(
     val sink = rule.sink.flatMapIndexed { i, r ->
         r.flatMap {
             TaintRuleGenerationCtx(
-                prefix = RuleUniqueMarkPrefix(ruleId, modeModifier, i, "sink"),
+                prefix = markPrefix(i, "sink"),
                 automataEdges = r.rule,
                 compositionStrategy = r.compositionStrategy(strategy),
                 strategy
@@ -184,7 +183,7 @@ private fun <Item, Cond, Assign, Clean> RuleConversionCtx.generateEdgeCtx(
         r.flatMap {
             r.propagates.entries.mapIndexed { p, (markName, markCondition) ->
                 TaintRuleGenerationCtx(
-                    prefix = RuleUniqueMarkPrefix(ruleId, modeModifier, i, "pass_$p"),
+                    prefix = markPrefix(i, "pass_$p"),
                     automataEdges = passAutomata,
                     compositionStrategy = r.compositionStrategy(markName, markCondition, strategy),
                     strategy
@@ -202,7 +201,7 @@ private fun <Item, Cond, Assign, Clean> RuleConversionCtx.generateEdgeCtx(
 
         r.flatMap {
             TaintRuleGenerationCtx(
-                prefix = RuleUniqueMarkPrefix(ruleId, modeModifier, i, "clean"),
+                prefix = markPrefix(i, "clean"),
                 automataEdges = cleanAutomata,
                 compositionStrategy = r.compositionStrategy(strategy),
                 strategy
@@ -219,7 +218,7 @@ fun RuleConversionCtx.taintMark(label: SemgrepTaintLabel): Mark.GeneratedMark {
         labelSuffix = "_$labelSuffix"
     }
 
-    return RuleUniqueMarkPrefix(ruleId, modeModifier, idx = 0).createTaintMark(labelSuffix)
+    return markPrefix(idx = 0).createTaintMark(labelSuffix)
 }
 
 fun RuleConversionCtx.prepareTaintRules(

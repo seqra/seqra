@@ -6,6 +6,7 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.MarkSlot
 import org.opentaint.dataflow.bidi.ap.Pattern
 import org.opentaint.dataflow.bidi.ap.TaintMark
+import org.opentaint.dataflow.bidi.ap.MarkTable
 import org.opentaint.dataflow.util.Cancellation
 
 /** An owned positive NNF DAG. Node numbers are deterministic postorder ordinals. */
@@ -22,6 +23,7 @@ class RulePredicate private constructor(
     private val unary: BooleanArray,
     private val multi: BooleanArray,
     cancellation: Cancellation,
+    private val catalog: MarkTable? = null,
 ) {
     enum class Kind { FALSE, TRUE, LEAF, AND, OR }
 
@@ -77,8 +79,27 @@ class RulePredicate private constructor(
         }
     }
 
+    /** Full leaf ordinals stay distinct. The group index is built only after
+     * the ownership census, and owns no projected copy of the NNF. */
+    private val byGroup: Map<AccessPathBase, Map<Int, IntArray>> by lazy {
+        val grouped = LinkedHashMap<AccessPathBase, MutableMap<Int, IntArrayList>>()
+        val marks = checkNotNull(catalog)
+        for ((ordinal, leaf) in leaves.withIndex()) {
+            val atom = (leaf.fact.mark as MarkSlot.Concrete).mark
+            if (atom == TaintMark.ZERO) continue
+            val groupAtom = marks.group(marks.groupOf(atom)).id
+            grouped.getOrPut(leaf.fact.base) { linkedMapOf() }
+                .getOrPut(groupAtom) { IntArrayList() }.add(ordinal)
+        }
+        grouped.mapValues { (_, groups) -> groups.mapValues { (_, ordinals) -> ordinals.toIntArray() } }
+    }
+
     /** FLOW has no mark and must visit every read on its base to produce requests. */
     fun matchingLeaves(base: AccessPathBase, mark: TaintMark?, visit: (Int, Pattern) -> Unit) {
+        if (mark != null && catalog?.isGroup(mark) == true) {
+            for (ordinal in byGroup[base]?.get(mark.id) ?: return) visit(ordinal, leaves[ordinal])
+            return
+        }
         val index = byBase[base] ?: return
         if (mark == null) {
             for (ordinal in index.all) visit(ordinal, leaves[ordinal])
@@ -93,7 +114,7 @@ class RulePredicate private constructor(
     }
 
     /** Compiler scratch is discarded after build. No branch or action product is built. */
-    class Builder(private val cancellation: Cancellation) {
+    class Builder(private val cancellation: Cancellation, private val catalog: MarkTable? = null) {
         private data class Node(val kind: Kind, val children: List<Int>, val leaf: Pattern? = null)
         private val nodes = ArrayList<Node>()
         private val canonical = HashMap<Node, Int>()
@@ -201,7 +222,7 @@ class RulePredicate private constructor(
             for (leaf in multi) multiFlags[leaf] = true
             return RulePredicate(remap[root], tags, offsets, children.toIntArray(), leafAt,
                 ownedList(leaves), leafNodes.toIntArray(), parentOffsets, parents,
-                unaryFlags, multiFlags, cancellation)
+                unaryFlags, multiFlags, cancellation, catalog)
         }
     }
 }

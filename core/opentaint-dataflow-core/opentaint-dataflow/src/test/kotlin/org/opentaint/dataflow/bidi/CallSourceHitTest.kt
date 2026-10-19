@@ -28,7 +28,7 @@ class CallSourceHitTest {
         return CallPlan(setOf(AccessPathBase.Zero, argument, result), stages, listOfNotNull(sink), CallPoint.BEFORE, CallPoint.AFTER)
     }
 
-    private fun core(f: MethodAnalysisFixtures): RunMethodAnalyzer = f.core(index = 2, L = 3,
+    private fun core(f: MethodAnalysisFixtures): RunMethodAnalyzer = f.core(index = 4, L = 3,
         localFactory = MethodLocalServicesFactory(::RunMethodLocalServices),
         callFactory = MethodCallServicesFactory(::RunMethodCallServices))
 
@@ -130,7 +130,7 @@ class CallSourceHitTest {
         }
     }
 
-    @Test fun `a reversed call end fact fires its retained trigger once but is never a source hit`(): Unit {
+    @Test fun `an ignored call end fact creates neither a trigger nor a source hit`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val t = MarkSlot.Concrete(f.mark("end"))
             val u = MarkSlot.Concrete(f.mark("sink"))
@@ -145,21 +145,15 @@ class CallSourceHitTest {
             val exact = f.manager.initial(f.pattern(result, mark = t))
             actor.addInitial(exact)
             f.drain(actor)
-            assertEquals(1L, actor.triggerSeeds)
+            assertEquals(0L, actor.triggerSeeds)
             assertTrue(actor.sourceHits!!.entries().none())
-            assertEquals(setOf(exact to Conclusion(target, ExclusionSet.Empty, false),
-                exact to Conclusion(ZERO_FACT, ExclusionSet.Empty, false),
-                f.manager.zero to Conclusion(requirement.fact, ExclusionSet.Empty, false)), methodEntries(f.ops, actor.summaries.all()))
+            assertTrue(actor.summaries.all().none(), "The callee has supplied no return summary")
             val any = f.manager.initial(f.pattern(result, tail = Tail.ANY, mark = t))
             actor.addInitial(any)
             f.drain(actor, quantum = 1)
-            assertEquals(1L, actor.triggerSeeds)
-            assertEquals(1, f.cuts.count { it.first == Cut.SEED })
-            assertEquals(setOf(exact to Conclusion(target, ExclusionSet.Empty, false),
-                exact to Conclusion(ZERO_FACT, ExclusionSet.Empty, false),
-                any to Conclusion(target.copy(tail = Tail.ANY), ExclusionSet.Empty, true),
-                any to Conclusion(ZERO_FACT, ExclusionSet.Empty, true),
-                f.manager.zero to Conclusion(requirement.fact, ExclusionSet.Empty, false)), methodEntries(f.ops, actor.summaries.all()))
+            assertEquals(0L, actor.triggerSeeds)
+            assertEquals(0, f.cuts.count { it.first == Cut.SEED })
+            assertTrue(actor.summaries.all().none(), "Ignored end actions cannot supply a missing call return")
             assertTrue(actor.sourceHits!!.entries().none())
             assertTrue(f.vulnerabilities.witnessesOf(2).none())
         }

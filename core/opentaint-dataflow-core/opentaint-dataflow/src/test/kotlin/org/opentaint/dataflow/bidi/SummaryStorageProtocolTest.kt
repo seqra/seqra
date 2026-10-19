@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 import kotlin.test.*
 
+/** Pure FULL-mark transport laws. Group projection is checked by the engine suites. */
 class SummaryStorageProtocolTest {
     /** A finite protocol counterexample: one applicable subscription/publication pair. */
     private class Schedule {
@@ -116,7 +117,7 @@ class SummaryStorageProtocolTest {
     @Test fun `actual replay and delivery retain the full applicable pair in every arrival and queued step order`(): Unit {
         for (publicationFirst in listOf(false, true)) for (replayFirst in listOf(false, true)) {
             val queued = QueuedProtocolSteps()
-            PipelineFixtures(protocol = queued).use { f ->
+            PipelineFixtures(index = 3, protocol = queued).use { f ->
                 val t = MarkSlot.Concrete(f.store.mark("T"))
                 val u = MarkSlot.Concrete(f.store.mark("U"))
                 val initial = f.ap.initial(f.store.pattern(mark = t))
@@ -144,7 +145,7 @@ class SummaryStorageProtocolTest {
 
     @Test fun `P1 registers the actual manager before its deferred replay read`(): Unit {
         val queued = QueuedProtocolSteps()
-        PipelineFixtures(protocol = queued).use { f ->
+        PipelineFixtures(index = 3, protocol = queued).use { f ->
             val initial = f.ap.initial(f.store.pattern())
             val pub = Publication(initial, f.store.fact(AccessPathBase.Return))
             val sub = f.subscription()
@@ -174,7 +175,7 @@ class SummaryStorageProtocolTest {
                 step()
             }
         }
-        PipelineFixtures(protocol = steps).use { f ->
+        PipelineFixtures(index = 3, protocol = steps).use { f ->
             fixture = f
             subscription = f.subscription()
             val initial = f.ap.initial(f.store.pattern())
@@ -188,7 +189,7 @@ class SummaryStorageProtocolTest {
     }
 
     @Test fun `P3 concurrent replay reads observe a whole inserted batch and the completed publication`(): Unit {
-        PipelineFixtures().use { f ->
+        PipelineFixtures(index = 3).use { f ->
             val t = MarkSlot.Concrete(f.store.mark("T"))
             val initial = f.ap.initial(f.store.pattern(mark = t))
             val sub = f.subscription(f.store.fact(mark = t))
@@ -236,7 +237,7 @@ class SummaryStorageProtocolTest {
 
     @Test fun `publication input lists notification deltas and replay snapshots own immutable contents`(): Unit {
         val queued = QueuedProtocolSteps()
-        PipelineFixtures(protocol = queued).use { f ->
+        PipelineFixtures(index = 3, protocol = queued).use { f ->
             val initial = f.ap.initial(f.store.pattern())
             val sub = f.subscription()
             val first = Publication(initial, f.store.fact(AccessPathBase.Return, listOf(f.store.field("first"))))
@@ -267,7 +268,7 @@ class SummaryStorageProtocolTest {
     }
 
     @Test fun `P5 keeps earlier subscriptions and complete publications available to later links and deltas`(): Unit {
-        PipelineFixtures().use { f ->
+        PipelineFixtures(index = 3).use { f ->
             val initial = f.ap.initial(f.store.pattern())
             val first = Publication(initial, f.store.fact(AccessPathBase.Return, listOf(f.store.field("first"))))
             val second = Publication(initial, f.store.fact(AccessPathBase.Return, listOf(f.store.field("second"))))
@@ -291,7 +292,7 @@ class SummaryStorageProtocolTest {
 
     @Test fun `P6 delayed delivery reads subscriptions added after notification was sent`(): Unit {
         val queued = QueuedProtocolSteps()
-        PipelineFixtures(protocol = queued).use { f ->
+        PipelineFixtures(index = 3, protocol = queued).use { f ->
             val a = f.subscription(call = 1)
             val b = f.subscription(call = 2)
             val initial = f.ap.initial(f.store.pattern())
@@ -313,7 +314,7 @@ class SummaryStorageProtocolTest {
 
     @Test fun `deferred replay keeps each fresh delta while delivery uses one cumulative group`(): Unit {
         val queued = QueuedProtocolSteps()
-        PipelineFixtures(protocol = queued).use { f ->
+        PipelineFixtures(index = 3, protocol = queued).use { f ->
             val a = f.store.field("a")
             val b = f.store.field("b")
             val first = f.subscription(f.store.fact(path = listOf(a)))
@@ -337,7 +338,7 @@ class SummaryStorageProtocolTest {
 
     @Test fun `delivery captures all candidate values before its first callback changes subscriptions`(): Unit {
         val queued = QueuedProtocolSteps()
-        PipelineFixtures(protocol = queued).use { f ->
+        PipelineFixtures(index = 3, protocol = queued).use { f ->
             val a = f.subscription(f.store.fact(path = listOf(f.store.field("a"))), call = 1)
             val b = f.subscription(f.store.fact(path = listOf(f.store.field("b"))), call = 2)
             val c = b.copy(added = f.store.fact(path = listOf(f.store.field("c"))))
@@ -371,7 +372,7 @@ class SummaryStorageProtocolTest {
     }
 
     @Test fun `zero-only directory keeps the first Reach layer for the full caller reference`(): Unit {
-        PipelineFixtures().use { f ->
+        PipelineFixtures(index = 3).use { f ->
             val directory = CalleeSubscriptions(f.ops)
             val normal = f.subscription(Reach.NORMAL, zeroOnly = true)
             val demand = normal.copy(linkLayer = Layer.DEMAND, added = Reach.DEMAND)
@@ -419,7 +420,7 @@ class SummaryStorageProtocolTest {
 
     @Test fun `one manager registers once per callee and duplicate deliveries are harmless repeated applications`(): Unit {
         val queued = QueuedProtocolSteps()
-        PipelineFixtures(protocol = queued).use { f ->
+        PipelineFixtures(index = 3, protocol = queued).use { f ->
             val a = f.subscription(call = 1)
             val b = f.subscription(call = 2)
             val initial = f.ap.initial(f.store.pattern())

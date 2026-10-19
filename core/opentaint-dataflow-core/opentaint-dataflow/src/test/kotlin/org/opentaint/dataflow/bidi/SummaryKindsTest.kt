@@ -29,7 +29,7 @@ class SummaryKindsTest {
     private val u = m.marks.mark("U")
     private val v = m.marks.mark("Fresh")
     private val empty = ExclusionSet.Empty
-    private val run1 = ApMode(true, Direction.FORWARD, 6)
+    private val run1 = ApMode(true, Direction.FORWARD, 6, markMode = MarkMode.FULL)
     private val forward = ApMode(false, Direction.FORWARD, 6)
     private val backward = ApMode(false, Direction.BACKWARD, 6)
     private fun ex(vararg ids: Int) = ExclusionSet.of(ids)
@@ -152,7 +152,7 @@ class SummaryKindsTest {
                 e = ex(f), mx = marks(v.id), layer = summaryLayer, base = y)
             val out = apply(input, p(emptyList(), Tail.STAR), summary, mode)
             assertTrue(out.results.all { it is FlowTree && it.base == y })
-            for (result in out.results) assertEquals(marks(u.id, v.id), (result as FlowTree).markExclusion)
+            for (result in out.results) assertEquals(MarkExclusions.fromMarks(marks(u.id, v.id), m.marks), (result as FlowTree).markExclusion)
         }
     }
 

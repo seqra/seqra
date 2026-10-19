@@ -44,20 +44,7 @@ data class RunObservation(
     fun assertEquivalent(other: RunObservation, universe: BoundedDenotation) {
         val expected = semantic(universe)
         val actual = other.semantic(universe)
-        if (expected != actual) {
-            val different = listOf(
-                "processed" to (expected.processed == actual.processed),
-                "initials" to (expected.initials == actual.initials),
-                "rawSummaries" to (expected.rawSummaries == actual.rawSummaries),
-                "publications" to (expected.publications == actual.publications),
-                "selectedDemand" to (expected.selectedDemand == actual.selectedDemand),
-                "links" to (expected.links == actual.links),
-                "requests" to (expected.requests == actual.requests),
-                "sourceHits" to (expected.sourceHits == actual.sourceHits),
-                "witnesses" to (expected.witnesses == actual.witnesses),
-            ).filterNot { it.second }.map { it.first }
-            throw AssertionError("Finite closure mismatch in $different\nexpected=$expected\nactual=$actual")
-        }
+        if (expected != actual) throw AssertionError("Finite closure mismatch\nexpected=$expected\nactual=$actual")
     }
 }
 
@@ -118,7 +105,7 @@ private fun normalizeEdges(edges: Set<ObservedEdge>, universe: BoundedDenotation
     for (edge in edges) {
         // T2/T2' can change E or mx while preserving the whole union. Both annotations constrain cells;
         // only kind/layer/base belong in this edge header. Raw DTOs still retain every annotation.
-        val group = edge.conclusion.observationGroup().copy(exclusion = ExclusionSet.Empty, markExclusion = MarkSet.EMPTY)
+        val group = edge.conclusion.observationGroup().copy(exclusion = ExclusionSet.Empty, markExclusion = MarkExclusions.EMPTY)
         val header = SemanticEdgeHeader(edge.method, edge.premise, edge.node, group,
             edge.conclusion.component())
         result.getOrPut(header, ::LinkedHashSet).addAll(cells(edge.premise, edge.conclusion, universe))
@@ -130,7 +117,7 @@ private fun normalizeLinks(links: Set<ObservedLink>, universe: BoundedDenotation
     for (link in links) {
         val c = Conclusion(link.added.fact, link.added.exclusion, link.linkLayer == Layer.DEMAND)
         val header = SemanticLinkHeader(link.callee, link.caller, link.premise, link.callerLayer, link.call,
-            c.observationGroup().copy(exclusion = ExclusionSet.Empty, markExclusion = MarkSet.EMPTY), c.component())
+            c.observationGroup().copy(exclusion = ExclusionSet.Empty, markExclusion = MarkExclusions.EMPTY), c.component())
         // An added link is an initial location, not the caller-to-output FLOW relation.
         val values = if (c.fact.base == AccessPathBase.Zero) setOf(ObservationCell.Zero)
             else universe.marked(link.added).mapTo(HashSet()) { ObservationCell.Location(it) }
@@ -156,7 +143,7 @@ private fun normalizeWitnesses(values: Set<ObservedWitness>, universe: BoundedDe
     val result = LinkedHashMap<SemanticWitnessHeader, SemanticWitness>()
     for (witness in values) {
         val headers = witness.edges.map { SemanticSinkHeader(it.premise, it.layer,
-            sinkGroup(it).let { group -> group.copy(exclusion = ExclusionSet.Empty, markExclusion = MarkSet.EMPTY,
+            sinkGroup(it).let { group -> group.copy(exclusion = ExclusionSet.Empty, markExclusion = MarkExclusions.EMPTY,
                 // Exact members can physically share either TAINT envelope. Typed
                 // fact components below retain EXACT/must/may independently.
                 tail = if (group.kind == FactsKind.TAINT) Tail.ANY_TAINT else group.tail) }) }

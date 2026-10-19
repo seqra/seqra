@@ -12,11 +12,12 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** Expected request decisions use stated original and checked paths, not the production gate. */
+/** Full-mark primitive/reference regression; selected GROUP behavior has separate differential controls. */
 class OrdinaryStaticRequestGateTest {
     private val cancellation = Cancellation()
     private val m = ApManager(cancellation)
     private val ops = ApOps(m)
-    private val run1 = ApMode(true, Direction.FORWARD, 1)
+    private val run1 = ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.FULL)
     private val cls = m.accessors.index(ClassStaticAccessor("C"))
     private val g = m.accessors.index(FieldAccessor("C", "g", "Box"))
     private val f = m.accessors.index(FieldAccessor("C", "f", "Box"))

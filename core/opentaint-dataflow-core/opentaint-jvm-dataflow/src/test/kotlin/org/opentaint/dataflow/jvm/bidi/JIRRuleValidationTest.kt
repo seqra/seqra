@@ -131,9 +131,6 @@ class JIRRuleValidationTest : BasicTestUtils() {
                 source(listOf(AssignMark(t, Result), AssignMark(u, bad))),
                 TaintEntryPointSource(method, mkTrue(), listOf(AssignMark(t, arg1), AssignMark(u, bad)), null),
                 TaintMethodExitSource(method, mkTrue(), listOf(AssignMark(t, Result), AssignMark(u, bad)), null),
-                sink(listOf(AssignMark(t, Result), AssignMark(u, bad))),
-                TaintMethodEntrySink(method, mkTrue(), listOf(AssignMark(t, Result), AssignMark(u, bad)), "entry", meta, null),
-                TaintMethodExitSink(method, mkTrue(), listOf(AssignMark(t, Result), AssignMark(u, bad)), "exit", meta, null),
             )
             val badActions: List<Action> = listOf(CopyAllMarks(bad, arg1), CopyAllMarks(arg1, bad),
                 CopyMark(t, bad, arg1), CopyMark(t, arg1, bad), AssignMark(t, bad), RemoveMark(t, bad), RemoveAllMarks(bad))
@@ -200,7 +197,8 @@ class JIRRuleValidationTest : BasicTestUtils() {
         assertTrue(builder.build().edges.isEmpty())
         assertTrue(builder.build().conjunctions.isEmpty())
         assertEquals(0, cleanerActions)
-        assertTrue(sinks.isEmpty())
+        assertEquals(1, sinks.size)
+        assertTrue(sinks.single().endFacts.isEmpty())
         assertTrue(conditionSinks.isEmpty())
         val validSource = source(listOf(AssignMark(t, Result)))
         assertTrue(forms.valid(validSource))
@@ -245,7 +243,7 @@ class JIRRuleValidationTest : BasicTestUtils() {
             assertFalse(forms.valid(source(listOf(AssignMark(t, cls)), literal)), "$literal")
         }
         assertTrue(forms.valid(sink(listOf(AssignMark(t, cls)), containsAny(arg0))))
-        assertFalse(forms.valid(sink(listOf(AssignMark(t, Result), AssignMark(u, any(cls))))))
+        assertTrue(forms.valid(sink(listOf(AssignMark(t, Result), AssignMark(u, any(cls))))))
         for (position in listOf(field(cls), field(field(cls)), any(field(cls)), any(field(field(cls))))) {
             assertTrue(forms.valid(source(listOf(AssignMark(t, position)))))
             assertTrue(forms.valid(sink(listOf(AssignMark(t, position)))))

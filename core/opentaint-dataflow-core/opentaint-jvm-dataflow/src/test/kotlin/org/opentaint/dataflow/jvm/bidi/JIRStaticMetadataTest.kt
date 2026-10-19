@@ -5,7 +5,7 @@ import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.bidi.ap.ApManager
 import org.opentaint.dataflow.bidi.ap.Tail
-import org.opentaint.dataflow.bidi.engine.StaticMarkRole
+import org.opentaint.dataflow.jvm.bidi.interp.StaticMarkRole
 import org.opentaint.dataflow.configuration.CommonCondition
 import org.opentaint.dataflow.configuration.mkTrue
 import org.opentaint.dataflow.configuration.jvm.*
@@ -21,6 +21,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import kotlin.test.*
 
+/** Pure laws of the historical metadata model, kept outside production artifacts. */
 class JIRStaticMetadataTest : BidiJIRTestUtils() {
     private val owner = "sample.bidi.BidiStatementSample"
     private val cls = ClassStaticAccessor(owner)
@@ -108,14 +109,13 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         assertTrue(metadata.wideClasses.isEmpty()); assertFalse(metadata.allStatic)
         val ap = ApManager(Cancellation())
         val compiled = metadata.compile(ap)
-        assertTrue(compiled.marks.single().marks.containsId(0), "Local producer metadata keeps the admitted mark ID")
-        val profile = org.opentaint.dataflow.bidi.engine.Run1StaticProfiles.build(ap, emptyMap(),
-            mapOf(caller to compiled))[caller]
         val classId = ap.accessors.index(cls)
-        assertEquals(setOf(classId), profile.classPointClasses)
-        assertTrue(profile.precomputedRequests.isEmpty, "No class request slot or field product is introduced")
-        assertTrue(metadata.abstractions.isEmpty())
-        assertTrue(profile.classPointMarks(classId).isEmpty, "Structural class consumers retain no mark payload")
+        assertEquals(setOf(classId), compiled.classPoints)
+        assertTrue(compiled.abstractions.isEmpty(), "A class point is not a static field request")
+        assertEquals(setOf(listOf(classId)), compiled.marks.map { it.pattern.fact.path }.toSet())
+        assertEquals(setOf(ap.marks.mark("<zero>")), compiled.marks.flatMap { row ->
+            buildList { row.marks.forEachMark(::add) }
+        }.toSet())
     }
 
     @Test
@@ -184,7 +184,7 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
     }
 
     @Test
-    fun `field selected cleaner keeps local producer metadata without a frozen mark row`(): Unit {
+    fun `field selected cleaner creates a scoped mark-only row and never a global field request`(): Unit {
         val v = JIRRuleTestFixtures(cp)
         val caller = method("callOnly")
         val target = checkNotNull(caller.instList.instructions.first { it.callExpr != null }.callExpr).method.method
@@ -202,22 +202,10 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         assertEquals(setOf(slot), metadata.marks.map { it.path.take(2) }.toSet())
         val ap = ApManager(Cancellation())
         val compiled = metadata.compile(ap)
-        val selected = org.opentaint.dataflow.bidi.engine.Run1Slot.StaticField(ap.accessors.index(cls), ap.accessors.index(fld))
-        val other = org.opentaint.dataflow.bidi.engine.Run1Slot.StaticField(ap.accessors.index(cls),
-            ap.accessors.index(FieldAccessor(owner, "other", "java.lang.Object")))
-        val profile = org.opentaint.dataflow.bidi.engine.Run1StaticProfiles.build(ap, emptyMap(),
-            mapOf(caller to compiled), declaredFieldUniverse = setOf(selected, other))[caller]
+        val selected = listOf(ap.accessors.index(cls), ap.accessors.index(fld))
         assertTrue(compiled.abstractions.isEmpty())
-        assertTrue(compiled.marks.any { it.pattern.fact.path.take(2) == selected.pathData.toList() &&
-            it.marks.containsId(ap.marks.mark("T").id) }, "The actual cleaner remains a local need producer")
-        assertEquals(setOf(selected, other), profile.footprint.fieldUniverse)
-        assertTrue(profile.precomputedRequests.isEmpty)
-        assertTrue(profile.precomputedRequests.borrow(selected).isEmpty)
-        assertFalse(profile.precomputedRequests.hasRow(other))
-        assertTrue(profile.wideRequests(ap.factsOf(org.opentaint.dataflow.bidi.ap.PathFact(
-            org.opentaint.dataflow.bidi.ap.STATIC, other.pathData.toList(), Tail.EXACT,
-            org.opentaint.dataflow.bidi.ap.MarkSlot.Concrete(ap.marks.mark("T"))),
-            org.opentaint.dataflow.bidi.ap.ExclusionSet.Empty, org.opentaint.dataflow.bidi.ap.Layer.NORMAL)).isEmpty())
+        assertEquals(setOf(selected), compiled.marks.map { it.pattern.fact.path }.toSet())
+        assertTrue(compiled.marks.all { row -> row.marks.containsId(ap.marks.mark("T").id) })
     }
 
     @Test
@@ -297,7 +285,7 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         }
         val expr = org.opentaint.ir.api.jvm.cfg.JIRStaticCallExpr(reference, call.args)
         val s = org.opentaint.ir.api.jvm.cfg.JIRAssignInst(original.location, original.lhv, expr)
-        val builder = org.opentaint.dataflow.jvm.bidi.interp.JIRCallPlanBuilder(v.manager, v.forms(), v.checker,
+        val builder = org.opentaint.dataflow.jvm.bidi.interp.HistoricalJIRCallPlanBuilder(v.manager, v.forms(), v.checker,
             v.typeFilters, v.key(s.location.method), s, expr, { _, _, _ -> error("Second resolution") },
             v.epResolver, emptyMap(), persistedAliases = { _, _ -> error("Alias rebuild") })
         val visited = ArrayList<org.opentaint.dataflow.bidi.interp.CleanStep>()

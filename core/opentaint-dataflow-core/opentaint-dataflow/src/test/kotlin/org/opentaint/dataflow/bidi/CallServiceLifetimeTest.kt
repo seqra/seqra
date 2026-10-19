@@ -46,26 +46,26 @@ class CallServiceLifetimeTest {
                 MethodCallServicesFactory { RunMethodCallServices(it).also { service -> calls = service } })
             f.onSubscribe = {}
             f.onLink = {}
-            val initial = f.manager.initial(f.pattern())
-            calls.process(EdgeDelta(initial, f.inst(1), f.fact()))
+            val initial = f.manager.initial(f.run1Pattern())
+            calls.process(EdgeDelta(initial, f.inst(1), f.run1Fact()))
             val suspended = f.subscriptions.single()
-            assertTrue(f.sentLinks.isEmpty())
+            assertEquals(1, f.sentLinks.size)
             assertTrue(f.cuts.isEmpty())
             assertTrue(actor.edges.edgesAt(f.inst(2), initial).none())
             assertEquals(0L, stats.snapshot().activePins)
             assertEquals(1, refs.cleanup())
             refs.enable()
 
-            actor.applySummary(suspended, Publication(f.manager.initial(f.pattern()),
-                f.fact(AccessPathBase.Return)), 0)
+            actor.applySummary(suspended, Publication(f.manager.initial(f.run1Pattern()),
+                f.run1Fact(AccessPathBase.Return)), 0)
 
             assertEquals(2, builds)
             assertEquals(0L, stats.snapshot().activePins)
-            assertEquals(setOf(initial to Conclusion(f.pattern(AccessPathBase.Return).fact,
-                ExclusionSet.Empty, false)), methodEntries(f.ops, actor.edges.edgesAt(f.inst(2), initial)))
+            assertEquals(setOf(initial to Conclusion(f.run1Pattern(AccessPathBase.Return).fact,
+                ExclusionSet.Empty, true)), methodEntries(f.ops, actor.edges.edgesAt(f.inst(2), initial)))
             assertEquals(listOf(Cut.CALL), f.cuts.map { it.first })
             assertEquals(1, f.subscriptions.size)
-            assertTrue(f.sentLinks.isEmpty())
+            assertEquals(1, f.sentLinks.size)
         }
     }
 
@@ -74,10 +74,10 @@ class CallServiceLifetimeTest {
             f.call(1, plan(f))
             val core = f.core(localFactory = MethodLocalServicesFactory(::RunMethodLocalServices),
                 callFactory = MethodCallServicesFactory(::RunMethodCallServices))
-            val initial = f.manager.initial(f.pattern())
+            val initial = f.manager.initial(f.run1Pattern())
             val part = Subscription(f.store.key("callee"), CallerRef(f.key, f.manager.zero, Layer.NORMAL, f.inst(1)),
-                Layer.NORMAL, f.fact())
-            val pub = Publication(initial, f.fact(AccessPathBase.Return))
+                Layer.DEMAND, f.run1Fact())
+            val pub = Publication(initial, f.run1Fact(AccessPathBase.Return))
             f.cancellation.cancel()
             assertFailsWith<Cancellation.Cancelled> { core.applySummary(part, pub, 0) }
             assertTrue(f.cuts.isEmpty())
@@ -88,7 +88,7 @@ class CallServiceLifetimeTest {
             assertTrue(core.summaries.all().none())
             core.applySummary(part, pub, 0)
             f.drain(core, quantum = 1)
-            assertEquals(setOf(f.manager.zero to Conclusion(f.pattern(AccessPathBase.Return).fact, ExclusionSet.Empty, false)),
+            assertEquals(setOf(f.manager.zero to Conclusion(f.run1Pattern(AccessPathBase.Return).fact, ExclusionSet.Empty, true)),
                 methodEntries(f.ops, core.summaries.all()))
             assertTrue(f.cuts.any { it.first == Cut.CALL })
             assertEquals(0L, core.recordCrossings)
@@ -102,8 +102,8 @@ class CallServiceLifetimeTest {
             val core = f.core(localFactory = MethodLocalServicesFactory(::RunMethodLocalServices),
                 callFactory = MethodCallServicesFactory { owner -> RunMethodCallServices(owner).also { service = it } })
             val part = Subscription(f.store.key("callee"), CallerRef(f.key, f.manager.zero, Layer.NORMAL, f.inst(1)),
-                Layer.NORMAL, f.fact())
-            core.applySummary(part, Publication(f.manager.initial(f.pattern()), f.fact(AccessPathBase.Return)), 0)
+                Layer.DEMAND, f.run1Fact())
+            core.applySummary(part, Publication(f.manager.initial(f.run1Pattern()), f.run1Fact(AccessPathBase.Return)), 0)
             f.drain(core)
             assertTrue(core.work(1))
             val steps = core.steps
@@ -124,15 +124,15 @@ class CallServiceLifetimeTest {
                 service.process(EdgeDelta(f.manager.zero, f.inst(1), Reach.NORMAL))
             }
             assertFailsWith<IllegalStateException> {
-                service.applySummary(part, Publication(f.manager.initial(f.pattern()), f.fact(AccessPathBase.Return)), 0)
+                service.applySummary(part, Publication(f.manager.initial(f.run1Pattern()), f.run1Fact(AccessPathBase.Return)), 0)
             }
             assertFailsWith<IllegalStateException> {
                 service.applyRecord(part, Record(part.callee, Direction.FORWARD,
-                    f.manager.initial(f.pattern()), f.fact(AccessPathBase.Return)))
+                    f.manager.initial(f.run1Pattern()), f.run1Fact(AccessPathBase.Return)))
             }
             assertFailsWith<IllegalStateException> {
-                service.applyRecordView(part, RecordLeafView(f.pattern(),
-                    Conclusion(f.pattern(AccessPathBase.Return).fact, ExclusionSet.Empty, false)))
+                service.applyRecordView(part, RecordLeafView(f.run1Pattern(),
+                    Conclusion(f.run1Pattern(AccessPathBase.Return).fact, ExclusionSet.Empty, true)))
             }
             assertEquals(steps, core.steps)
             assertTrue(f.events.isEmpty())
@@ -192,8 +192,8 @@ class CallServiceLifetimeTest {
             f.onSubscribe = {}
             f.onLink = {}
             calls.process(item)
-            assertTrue(f.sentLinks.isEmpty())
-            assertEquals(item.premise, f.subscriptions.last().ref.premise)
+            assertEquals(1, f.sentLinks.size)
+            assertEquals(item.premise, f.sentLinks.single().ref.premise)
             assertTrue(core.edges.edgesAt(f.inst(2), item.premise).none())
         }
     }

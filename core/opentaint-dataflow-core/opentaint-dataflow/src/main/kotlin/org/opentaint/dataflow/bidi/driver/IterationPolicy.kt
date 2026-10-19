@@ -16,9 +16,12 @@ interface IterationPolicy {
     fun timeout(run: RunConfig, remaining: Duration): Duration = remaining
 }
 
-/** Uses run-1 at limit 1, then increases the limit within the analysis budget. */
+/** The group run and the first exact backward run both use field limit 1. */
 object IncreasingLimits : IterationPolicy {
-    override fun fieldLimit(runIndex: Int): Int = runIndex
+    override fun fieldLimit(runIndex: Int): Int {
+        require(runIndex >= 1) { "The run index must be positive" }
+        return maxOf(1, runIndex - 1)
+    }
 
     override fun continueAfter(run: RunConfig, result: RunResult<RunMethodAnalyzer>, frontiers: List<Frontier>): Boolean = true
 }

@@ -349,7 +349,7 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
         assertTrue(calls > 20)
     }
 
-    @Test fun `nonempty source conjunction sink endfact pass and field action forms retain their cached identities`(): Unit {
+    @Test fun `source conjunction sink predicates pass and field actions retain cached identities with no sink end actions`(): Unit {
         val target = method("target", "sample.bidi.BidiCallSample")
         val rules = richRules(target)
         val i = interp(rules)
@@ -364,7 +364,7 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
         assertTrue(source.sources.isNotEmpty())
         assertTrue(source.edges.any { it.isSource && it.edge.to.tail == Tail.EXACT })
         assertTrue(source.sources.any { it.actions.any { action -> action.target.tail == Tail.ANY_TAINT } })
-        assertTrue(f.sinks.any { it.predicate!!.leaves.indices.any(it.predicate!!::isMulti) && it.endFacts.isNotEmpty() })
+        assertTrue(f.sinks.any { it.predicate!!.leaves.indices.any(it.predicate!!::isMulti) && it.endFacts.isEmpty() })
         val fields = f.stages.filterIsInstance<CallStage.Actions>().flatMap { it.steps }.filterIsInstance<CleanStep.Field>()
         assertTrue(fields.size >= 3)
         val identities = Collections.newSetFromMap(IdentityHashMap<AccessPathBase, Boolean>())

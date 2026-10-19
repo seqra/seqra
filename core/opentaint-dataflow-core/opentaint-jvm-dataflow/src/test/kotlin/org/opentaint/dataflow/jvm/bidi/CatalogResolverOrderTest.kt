@@ -145,7 +145,7 @@ class CatalogResolverOrderTest : BidiJIRTestUtils() {
                         ResolvedPrescanCall(method(site, SAMPLE), call(site), target))
                 }
                 var warmed = false
-                val bidi = JIRBidiAnalysis(cp, graph, units, rules, params, FixedLimits(listOf(1, 2, 3)), refs,
+                val bidi = JIRBidiAnalysis(cp, graph, units, rules, params, FixedLimits(listOf(1, 1, 2)), refs,
                     driverFactory = { policy, shared, remaining ->
                         // Reachable call sites are warmed deterministically; graph edges are NEVER injected.
                         for (site in order) assertEquals(expected(site), planTargets(shared, site), "fresh plan $site")

@@ -107,7 +107,7 @@ class J03ObservedDriverBridge {
             object : MethodLocalServices by actual {
                 override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
                     val kind = RequestKind.Mark(mark)
-                    // Captures both local requests and climbed requests delivered to this actor.
+                    // Captures local requests; bulk deliveries are observed at the runner port below.
                     actual.addMarkRequest(premise, mark)
                     live.requests += request(shared.ap, core.key, premise, kind)
                 }
@@ -127,6 +127,15 @@ class J03ObservedDriverBridge {
                 override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
                     shared.ops.leaves(added).forEach { live.links += link(shared.ap, callee, ref, linkLayer, it) }
                     port.link(callee, ref, linkLayer, added)
+                }
+                override fun send(event: RunEvent): Boolean {
+                    if (event is RunEvent.MarkRequestsIn) for ((slot, marks) in event.rows) {
+                        val cursor = marks.cursor()
+                        while (!cursor.isComplete) cursor.step(256) { mark ->
+                            live.requests += request(shared.ap, event.method, slot.initial(shared.ap), RequestKind.Mark(mark))
+                        }
+                    }
+                    return port.send(event)
                 }
                 override val onProcess: ((MethodKey, EdgeDelta) -> Unit) = { key, delta ->
                     live.processed.addAll(edges(shared.ops, key, delta.premise, delta.facts, delta.node))
@@ -185,11 +194,11 @@ class J03ObservedDriverBridge {
                 actor.demandLayerEdges, actor.recordCrossings, actor.triggerSeeds)
             for ((premise, facts) in actor.summaries.all()) raw += edges(ops, actor.key, premise, facts)
             for ((premise, facts) in actor.summaries.demandEdges()) selected += edges(ops, actor.key, premise, facts)
-            actor.sourceHits?.entries()?.forEach { (key, statement, forward) ->
+            actor.sourceHits?.occurrences()?.forEach { (key, statement, forward, action) ->
                 hits += JvmObservedSourceHit(key, statement,
                     path(ops.manager, Pattern(forward.from, forward.fromExclusion)),
                     path(ops.manager, Pattern(forward.to, forward.toExclusion)),
-                    exclusion(ops.manager, forward.exclusion))
+                    exclusion(ops.manager, forward.exclusion), action)
             }
         }
         return CompleteJvmRun(config.index, config.fieldLimit, config.direction, joined.result.status,
@@ -198,7 +207,13 @@ class J03ObservedDriverBridge {
             seedSnapshot(config.seeds), outgoing?.let { seedSnapshot(it.seeds) }, ownMap(counters),
             counters.values.sumOf { it.steps }, counters.values.sumOf { it.edgeDeltas },
             joined.result.demandLayerEdges, joined.result.recordCrossings, counters.values.sumOf { it.triggerSeeds },
-            ownSet(counters.filterValues { it.nonZeroInitial }.keys))
+            ownSet(counters.filterValues { it.nonZeroInitial }.keys), ownMap(buildMap {
+                for (groupAtom in ops.manager.marks.groupAtoms()) {
+                    val group = (ops.manager.marks.key(groupAtom) as MarkAtomKey.Group).id
+                    for (full in ops.manager.marks.eligibleMembers(group))
+                        put(ops.manager.marks.name(full), ops.manager.marks.name(groupAtom))
+                }
+            }))
     }
 
     private fun edges(ops: ApOps, key: MethodKey, premise: PremiseKey, facts: Facts,
@@ -295,7 +310,7 @@ class J03ObservedDriverBridge {
             // make outgoingSeeds.size disagree with the actual Frontier.seeds counter. The bridge
             // observes MethodKeys/CommonInsts directly, so the occurrence needs no rebasing.
             is Seed.PredicateSink -> Seed.PredicateSink(seed.occurrence, seed.method, seed.statement)
-            is Seed.Source -> Seed.Source(seed.method, seed.statement, seed.edge.copy(
+            is Seed.Source -> seed.copy(edge = seed.edge.copy(
                 from = seed.edge.from.copy(path = ownList(seed.edge.from.path)),
                 to = seed.edge.to.copy(path = ownList(seed.edge.to.path))))
         } })

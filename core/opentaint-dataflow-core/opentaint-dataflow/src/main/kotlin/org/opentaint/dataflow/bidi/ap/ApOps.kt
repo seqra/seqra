@@ -79,13 +79,16 @@ class ApOps(val manager: ApManager) {
         markCheckFacts(manager, c, p, mode, unchangedStaticInitial)
     fun withoutMarks(c: Facts, marks: MarkSet): Facts? = withoutMarksPart(manager, c, marks)
 
-    fun targetTree(target: PathFact, layer: Layer): Facts {
+    fun targetTree(target: PathFact, layer: Layer, mode: ApMode? = null): Facts {
         check(target.mark is MarkSlot.Concrete && target.tail != Tail.STAR) { "W7: a target must be concrete and exact or any" }
-        return manager.factsOf(target, ExclusionSet.Empty, layer)
+        val value = manager.factsOf(target, ExclusionSet.Empty, layer)
+        return if (mode == null) value else manager.runtimeFact(value, mode)
     }
 
     fun zero(layer: Layer): Reach = Reach.of(layer)
     fun startFact(i: InitialAp): Facts = initialFacts(manager, i)
+    fun startFact(i: InitialAp, mode: ApMode): Facts = manager.runtimeFact(initialFacts(manager, i), mode)
+    fun runtimeFact(f: Facts, mode: ApMode): Facts = manager.runtimeFact(f, mode)
     fun policy(added: Facts): InitialAp = policyInitial(manager, added)
     fun emit(d: DemandPattern, added: Facts): List<InitialAp> = emitInitials(this, d, added)
     fun restrictReference(j: InitialAp, g: Facts, d: DemandPattern): List<Conclusion> = restrictRaw(this, j, g, d)

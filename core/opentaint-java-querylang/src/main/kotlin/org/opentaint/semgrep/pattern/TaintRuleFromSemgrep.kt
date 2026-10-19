@@ -3,6 +3,8 @@ package org.opentaint.semgrep.pattern
 data class TaintRuleFromSemgrep<R>(
     val ruleId: String,
     val root: Structure<R>,
+    /** Creation claims captured before join branches and serialized items are flattened. */
+    val markOwners: Map<String, String> = emptyMap(),
 ) {
     val taintRules: List<TaintRuleGroup<R>> get() = root.flatten()
     val size: Int get() = taintRules.sumOf { it.size }

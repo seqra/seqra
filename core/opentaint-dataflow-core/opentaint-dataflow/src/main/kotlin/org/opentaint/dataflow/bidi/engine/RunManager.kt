@@ -60,12 +60,7 @@ class RunManager<A : RunActor>(
         if (status.compareAndSet(null, RunStatus.COMPLETE)) completion.complete(RunStatus.COMPLETE)
     }
     val forms: DirectedForms = shared.contexts.directed(config.direction)
-    // Legacy replay types remain available to protocol tests. Production run-1
-    // uses the immutable prescan graph and shared field views.
-    val staticNeedRouter: StaticNeedRouter? = null
-    val staticRequests: CallerOwnedStaticRequests? = if (config.run1)
-        CallerOwnedStaticRequests(shared.ap, shared.run1StaticProfiles?.reachability
-            ?: FixedPrescanReachability.empty()) else null
+    val staticService: Run1StaticService? = if (config.run1) Run1StaticService(shared.ap) else null
     private val memory = MemoryManager(shared.refManager, OOM_THRESHOLD) { fail(RunStatus.OOM) }
 
     /** All units in this run share one storage for the complete callee key. */
@@ -73,7 +68,7 @@ class RunManager<A : RunActor>(
         check(!ended) { "The run has ended" }
         shared.cancellation.checkpoint()
         storages.computeIfAbsent(key) { SummaryStorage(it, shared.ap, shared.ops, steps,
-            EmptyFrozenRequestBase, shared.abstractionStatistics, staticRequests) }
+            shared.abstractionStatistics) }
     }
 
     fun route(event: RunEvent): Boolean {
@@ -182,7 +177,19 @@ class RunManager<A : RunActor>(
             completion.complete(RunStatus.FAILED)
         }
         val end = checkNotNull(status.get())
+        staticService?.let { logger.info { "BIDI_STATIC_STATISTICS run=${config.index} status=$end totals=${it.statistics()}" } }
         val snapshot = synchronized(admission) { runners.values.toList() }
+        if (config.run1 && joined) {
+            var methods = 0L
+            var trueRows = 0L
+            var conditionalOrCertifiedRows = 0L
+            for (runner in snapshot) for (actor in runner.analyzers()) if (actor is RunMethodAnalyzer) {
+                methods++
+                trueRows += actor.groundingTrueRows
+                conditionalOrCertifiedRows += actor.groundingGuardedRows
+            }
+            logger.info { "BIDI_GROUNDING_STATISTICS run=${config.index} status=$end methods=$methods trueRows=$trueRows conditionalOrCertifiedRows=$conditionalOrCertifiedRows" }
+        }
         val analyzers = if (end == RunStatus.COMPLETE) snapshot.flatMap { it.analyzers() } else emptyList()
         var failure: Throwable? = null
         fun release(action: () -> Unit) {
@@ -198,12 +205,13 @@ class RunManager<A : RunActor>(
         } finally {
             if (joined) for (runner in snapshot) release { runner.release() }
             // A complete run's frozen state is still needed by the driver barrier.
-            if (joined && config.run1 && end != RunStatus.COMPLETE) shared.releaseRun1StaticProfiles()
+            if (joined && config.run1 && end != RunStatus.COMPLETE) shared.releaseRun1CatalogCoverage()
             synchronized(admission) {
                 runners.clear()
                 runnerJobs.clear()
-                if (joined) { storages.clear(); staticNeedRouter?.clear(); staticRequests?.clear() }
+                if (joined) storages.clear()
             }
+            if (joined) staticService?.clear()
         }
         failure?.let { throw it }
         return RunResult(end, analyzers, config.index, config.direction, shared.vulnerabilities)
@@ -244,9 +252,6 @@ class RunManager<A : RunActor>(
         val handled = inFlight.handled
         logger.info { "Run ${config.index}: $handled events (+${handled - last}), ${inFlight.pending} in flight" }
         logger.info { "Memory usage: ${MemoryManager.currentMemoryUsage()}/${Runtime.getRuntime().maxMemory()}" }
-        staticRequests?.let { requests ->
-            logger.info { "Run ${config.index}: caller-owned static requests ${requests.cacheStatistics()}" }
-        }
         return handled
     }
 

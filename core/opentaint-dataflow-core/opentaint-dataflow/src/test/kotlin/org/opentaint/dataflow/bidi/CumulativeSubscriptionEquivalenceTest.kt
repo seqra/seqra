@@ -11,6 +11,7 @@ import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import kotlin.test.*
 
 /** Independent accepted-leaf history versus cumulative P6 delivery. No new storage/index is an oracle. */
+/** Full-mark primitive/reference regression; selected GROUP behavior has separate differential controls. */
 class CumulativeSubscriptionEquivalenceTest {
     private val x = AccessPathBase.Argument(0)
     private val returned = AccessPathBase.Return
@@ -34,7 +35,7 @@ class CumulativeSubscriptionEquivalenceTest {
         val mt = MarkSlot.Concrete(t)
         val mu = MarkSlot.Concrete(u)
         val e = ExclusionSet.of(b)
-        val modes = listOf(ApMode(true, Direction.FORWARD, 3), ApMode(false, Direction.FORWARD, 3),
+        val modes = listOf(ApMode(true, Direction.FORWARD, 3, markMode = MarkMode.FULL), ApMode(false, Direction.FORWARD, 3),
             ApMode(false, Direction.BACKWARD, 3))
         val universe = BoundedDenotation(listOf(x, returned, AccessPathBase.Zero),
             listOf(a, b, f.field("fresh")), listOf(t, u, r, f.mark("fresh"), TaintMark.ZERO), 3)
@@ -105,7 +106,7 @@ class CumulativeSubscriptionEquivalenceTest {
                         // decoded ordinary transfer. The collector belongs to the caller,
                         // not to the callee summary premise j.
                         val expectedCreators = if (mode.run1 && expectedSelected.any { it.fact.mark is MarkSlot.Star })
-                            ((target.fact.mark as? MarkSlot.Star)?.excluded ?: MarkSet.EMPTY).ids
+                            ((target.fact.mark as? MarkSlot.Star)?.excluded ?: MarkExclusions.EMPTY).ids
                                 .map { callerPremise to TaintMark(it) }.toSet() else emptySet()
                         assertEquals(expectedCreators,creatorRequests,
                             "creator case=$case size=$size mode=$mode j=$pattern target=$target")
@@ -125,8 +126,8 @@ class CumulativeSubscriptionEquivalenceTest {
     }
 
     @Test
-    fun `actual cumulative delivery followed by ordered cleaner alias and CALL cuts equals raw history at limits one two three`(): Unit {
-        for (run in listOf(1, 3)) for (fieldLimit in listOf(1, 2, 3)) MethodAnalysisFixtures().use { f ->
+    fun `actual cumulative delivery and ordered cleaner alias cuts equal raw history at selected forward limits`(): Unit {
+        for ((run, fieldLimit) in listOf(1 to 1, 3 to 2, 5 to 4)) MethodAnalysisFixtures().use { f ->
             val a = f.field("a")
             val b = f.field("b")
             val t = f.mark("T")
@@ -172,10 +173,6 @@ class CumulativeSubscriptionEquivalenceTest {
                 override fun summaryStorage(key: MethodKey): SummaryStorage = storage
                 override fun applier(caller: MethodKey): SummaryApplier = actor
                 override fun post(event: RunEvent.Delivery): Boolean { deliveries += event; return true }
-                override fun send(event: RunEvent): Boolean {
-                    assertIs<RunEvent.PreparedInitialsIn>(event)
-                    return true // This control supplies summaries directly, without a callee body.
-                }
             })
             val accepted = listOf(raw(x, emptyList(), Tail.STAR, star, e),
                 raw(x, listOf(a), Tail.STAR, star, e), raw(x, listOf(b), Tail.STAR, star, e))
@@ -197,8 +194,9 @@ class CumulativeSubscriptionEquivalenceTest {
                 listOf(t, u, f.mark("fresh")), 4)
             val oracle = CumulativeSubscriptionReference(universe)
             val header = setOf(callerPremise.toPattern())
+            val groups = if (actor.mode.run1) GroupedScalarMarks(f.manager.marks) else null
             val expectedRequests = LinkedHashSet<Pair<Set<Pattern>, RequestKind>>()
-            if (actor.mode.run1) expectedRequests += header to RequestKind.Mark(u)
+            if (actor.mode.run1) expectedRequests += header to RequestKind.Mark(checkNotNull(groups).atom(u))
             val reference = SelectedFormsReference(f.ops, SelectedReferenceAlgebra(actor.mode,
                 request = { pr, kind -> expectedRequests += pr to kind }, allows = { _, _ -> true },
                 hit = { _, _ -> }, manager = f.manager, join = { _, _, _, _, _ -> error("No ND in this control") }))
@@ -207,7 +205,7 @@ class CumulativeSubscriptionEquivalenceTest {
                 val outcome = oracle.transfer(j.toPattern(), target, leaf, actor.mode.restricted, run1 = actor.mode.run1)
                 if (outcome !is EdgeOutcome.Fact) continue
                 val hooks = PlanHooks(clean = { cl, item ->
-                    val out = cleanRes(cl, item.c, run1 = actor.mode.run1)
+                    val out = groups?.clean(cl, item.c) ?: cleanRes(cl, item.c, run1 = actor.mode.run1)
                     if (actor.mode.run1 && out.request != null) expectedRequests += item.premise to RequestKind.Mark(out.request)
                     out.facts.map { item.copy(c = it) }
                 }, exit = { it.copy(c = limit(it.c, fieldLimit)) })
@@ -219,7 +217,7 @@ class CumulativeSubscriptionEquivalenceTest {
             assertEquals(oracle.denotation(header, expected), oracle.denotation(header, conclusions(f.ops, actual)),
                 "run=$run L=$fieldLimit")
             assertEquals(expectedRequests, f.requests.map { setOf(it.first.toPattern()) to it.second }.toSet())
-            assertEquals(if (run == 1) setOf(t,u) else emptySet(), f.requests.map { (it.second as RequestKind.Mark).mark }.toSet())
+            assertEquals(if (run == 1) setOf(checkNotNull(groups).atom(t), groups.atom(u)) else emptySet(), f.requests.map { (it.second as RequestKind.Mark).mark }.toSet())
             assertTrue(f.requests.all { it.first === callerPremise },"Summary and cleaner interests keep the actual caller origin")
             assertTrue(actual.isNotEmpty())
             manager.freeze()

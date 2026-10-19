@@ -124,11 +124,11 @@ class ScheduleFuzzerTest {
                     (expected.links + actual.links).flatMap { it.premise.map { p -> p.fact.base } + it.added.fact.base } +
                     (expected.witnesses + actual.witnesses).flatMap { it.edges.flatMap { e -> e.premise.map { p -> p.fact.base } + e.facts.map { c -> c.fact.base } } }
                 val universe = BoundedDenotation((bases + listOf(AccessPathBase.Zero, x, returned)).distinct(),
-                    listOf(f.field("fresh accessor")), listOf(t.mark, f.mark("fresh mark"), TaintMark.ZERO), 2)
+                    listOf(f.field("fresh accessor")), (listOf(t.mark, f.mark("fresh mark"), TaintMark.ZERO) + f.ap.marks.groupAtoms()).distinct(), 2)
                 try { actual.assertEquivalent(expected, universe) }
                 catch (failure: AssertionError) { throw AssertionError("policy=$policy sameUnit=$sameUnit duplicate=$duplicate program=${f.describe()} trace=${schedule.trace}", failure) }
                 assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(ZERO_PATTERN),
-                    Conclusion(PathFact(returned, emptyList(), Tail.EXACT, t), ExclusionSet.Empty, false)))
+                    GroupedScalarMarks(f.ap.marks).conclusion(Conclusion(PathFact(returned, emptyList(), Tail.EXACT, t), ExclusionSet.Empty, false))))
                 assertTrue(actual.requests.isEmpty() && actual.sourceHits.isEmpty())
                 if (config.run1) assertEquals(actual.publications, actual.selectedDemand)
                 else assertTrue(actual.selectedDemand.isEmpty())
@@ -156,10 +156,12 @@ class ScheduleFuzzerTest {
             val config = f.config(index = index, roots = listOf(caller), demand = if (index == 1) emptyList() else demand,
                 seeds = listOf(Seed.Source(caller, main.inst(0), source)))
             compareSeed(f, config, listOf(a), listOf(t.mark), seed) { actual ->
-                assertContains(actual.rawSummaries, ObservedEdge(caller, zero,
-                    Conclusion(PathFact(returned, listOf(a), Tail.EXACT, t), ExclusionSet.Empty, false)))
-                assertContains(actual.links, ObservedLink(callee, caller, zero, Layer.NORMAL, main.inst(1), Layer.NORMAL,
-                    f.pattern(x, listOf(a), Tail.EXACT, t)))
+                assertContains(actual.rawSummaries, selectedExpectedEdge(f.ap.marks, index, ObservedEdge(caller, zero,
+                    Conclusion(PathFact(returned, listOf(a), Tail.EXACT, t), ExclusionSet.Empty, false))))
+                val layer = if (index == 1) Layer.DEMAND else Layer.NORMAL
+                val expectedInput = f.pattern(x, listOf(a), Tail.EXACT, t)
+                assertContains(actual.links, ObservedLink(callee, caller, zero, layer, main.inst(1), layer,
+                    if (index == 1) GroupedScalarMarks(f.ap.marks).pattern(expectedInput) else expectedInput))
                 assertTrue(actual.requests.isEmpty() && actual.sourceHits.isEmpty())
                 if (config.run1) assertEquals(actual.publications, actual.selectedDemand)
                 else assertTrue(actual.selectedDemand.isEmpty())
@@ -168,7 +170,7 @@ class ScheduleFuzzerTest {
     }
 
     @Test
-    fun `seeded catalog schedules refine scalar static climb and preserve complete supplied references`(): Unit {
+    fun `seeded direct static schedules preserve field origins beside explicit historical discovery controls`(): Unit {
         for (seed in 0L until 32L) FiniteProgramFixtures().use { f ->
             val main = f.method("seededStaticCaller", listOf(listOf(1), listOf(2), emptyList()), 2)
             val middleMethod = f.method("seededStaticWrapper", listOf(listOf(1), listOf(2), emptyList()), 2)
@@ -184,7 +186,7 @@ class ScheduleFuzzerTest {
             val static = AccessPathBase.ClassStatic
             val source = PathEdge(ZERO_FACT, PathFact(static, path, Tail.EXACT, t), ExclusionSet.Empty)
             assertTrue(MicroEdge.of(source).isSource)
-            f.entry(caller, RuleStatement(summary(ZERO_KEEP, source), StatementSummary.EMPTY, emptyList()))
+            f.entry(caller, RuleStatement(directStaticWrite(f, caller, 0, source, summary(ZERO_KEEP, source)), StatementSummary.EMPTY, emptyList()))
             fun staticCall(target: MethodKey, result: AccessPathBase) = CallPlan(setOf(static, returned, result), listOf(
                 CallStage.Edges(BEFORE, BOUND, BIND_IN, summary(keepEdge(static), ZERO_KEEP)),
                 CallStage.Actions(BOUND, ADDED, emptyList()),
@@ -195,21 +197,25 @@ class ScheduleFuzzerTest {
             ), emptyList(), BEFORE, AFTER)
             f.call(caller, 1, staticCall(middle, y))
             f.call(middle, 1, staticCall(callee, returned))
-            f.statement(callee, 0, summary(PathEdge(PathFact(static, path, Tail.EXACT, t),
-                PathFact(returned, emptyList(), Tail.EXACT, u), ExclusionSet.Empty)))
+            val read = PathEdge(PathFact(static, path, Tail.EXACT, t),
+                PathFact(returned, emptyList(), Tail.EXACT, u), ExclusionSet.Empty)
+            f.statement(callee, 0, directStaticRead(f, callee, 0, read, summary(read)))
             val config = f.config(roots = listOf(caller))
             val scalar = NaiveClosure(f, config, semantics = NaiveClosure.Semantics.HISTORICAL).run()
-            compareSeed(f, config, path, listOf(t.mark, u.mark), seed, catalogRefinement = true) { actual ->
+            for (sameUnit in listOf(false, true)) {
+                val actual = ProductionSchedule(f, config, sameUnit, SchedulePolicy.SEEDED, seed,
+                    quantum = 1 + (seed % 2).toInt(), duplicateDeliveries = true).run()
+                assertDirectStaticProtocol(actual, f.ap.marks)
                 val policy = f.pattern(static, tail = Tail.STAR, mark = MarkSlot.STAR)
                 val positioned = f.pattern(static, path, Tail.STAR, MarkSlot.STAR)
                 for (key in listOf(middle, callee)) {
                     assertContains(scalar.requests, ObservedRequest(key, policy, RequestKind.Position(f.ap.path(path)!!)))
                     assertContains(scalar.requests, ObservedRequest(key, positioned, RequestKind.Mark(t.mark)))
-                    assertContains(actual.initials, ObservedInitial(key, f.pattern(static, path, Tail.EXACT, t)))
+                    assertTrue(actual.initials.none { it.method == key && it.initial.fact.base == STATIC })
                 }
                 assertTrue(actual.requests.none { it.kind is RequestKind.Position })
-                assertContains(actual.rawSummaries, ObservedEdge(caller, zero,
-                    Conclusion(PathFact(y, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, true)))
+                assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(GroupedScalarMarks(f.ap.marks).pattern(f.pattern(STATIC, path, mark = t))),
+                    GroupedScalarMarks(f.ap.marks).conclusion(Conclusion(PathFact(y, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false))))
                 assertTrue(actual.sourceHits.isEmpty())
             }
         }
@@ -225,7 +231,7 @@ class ScheduleFuzzerTest {
             val t = MarkSlot.Concrete(f.mark("T"))
             val u = MarkSlot.Concrete(f.mark("U"))
             val must = PathEdge(ZERO_FACT, PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty)
-            val deep = PathEdge(ZERO_FACT, PathFact(x, listOf(a, b), Tail.EXACT, u), ExclusionSet.Empty)
+            val deep = PathEdge(ZERO_FACT, PathFact(x, listOf(a, b, b), Tail.EXACT, u), ExclusionSet.Empty)
             f.entry(key, RuleStatement(summary(ZERO_KEEP, must, deep), StatementSummary.EMPTY, emptyList()))
             f.call(key, 1, CallPlan(setOf(x), listOf(
                 CallStage.Edges(BEFORE, BOUND, BIND_IN, summary(keepEdge(x), ZERO_KEEP)),
@@ -239,12 +245,12 @@ class ScheduleFuzzerTest {
                 listOf(key to DemandPattern(ZERO_PATTERN, f.pattern(x, tail = Tail.ANY, mark = u))),
                 seeds = listOf(Seed.Source(key, method.inst(0), must), Seed.Source(key, method.inst(0), deep)))
             compareSeed(f, config, listOf(a, b), listOf(t.mark, u.mark), seed) { actual ->
-                assertContains(actual.rawSummaries, ObservedEdge(key, zero,
-                    Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), if (index == 1) ExclusionSet.Empty else ExclusionSet.of(intArrayOf(a, b)), index == 1)))
-                val cut = ObservedEdge(key, zero, Conclusion(PathFact(x, listOf(a), Tail.ANY, u), ExclusionSet.Empty, true))
+                assertContains(actual.rawSummaries, selectedExpectedEdge(f.ap.marks, index, ObservedEdge(key, zero,
+                    Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), if (index == 1) ExclusionSet.Empty else ExclusionSet.of(intArrayOf(a, b)), index == 1))))
+                val cut = selectedExpectedEdge(f.ap.marks, index, ObservedEdge(key, zero, Conclusion(PathFact(x, if (index == 1) listOf(a) else listOf(a, b), Tail.ANY, u), ExclusionSet.Empty, true)))
                 assertContains(actual.rawSummaries, cut)
                 assertContains(actual.selectedDemand, cut)
-                assertEquals(index == 1, actual.selectedDemand.any { it.conclusion.fact.mark == t })
+                assertEquals(index == 1, actual.selectedDemand.any { it.conclusion.fact.mark == (if (index == 1) GroupedScalarMarks(f.ap.marks).slot(t) else t) })
                 assertTrue(actual.requests.isEmpty())
             }
         }
@@ -275,7 +281,7 @@ class ScheduleFuzzerTest {
             val v = MarkSlot.Concrete(f.mark("C"))
             val d = MarkSlot.Concrete(f.mark("delay signal"))
             val sourceA = PathEdge(ZERO_FACT, PathFact(x, emptyList(), Tail.EXACT, t), ExclusionSet.Empty)
-            val sourceB = PathEdge(ZERO_FACT, PathFact(y, if (mixed) listOf(a, b) else listOf(a), Tail.EXACT, u), ExclusionSet.Empty)
+            val sourceB = PathEdge(ZERO_FACT, PathFact(y, if (mixed) listOf(a, b, b) else listOf(a), Tail.EXACT, u), ExclusionSet.Empty)
             val sourceSignal = PathEdge(ZERO_FACT, PathFact(signal, emptyList(), Tail.EXACT, d), ExclusionSet.Empty)
             val delayedB = PathEdge(sourceSignal.to, sourceB.to, ExclusionSet.Empty)
             assertTrue(MicroEdge.of(sourceA).isSource && MicroEdge.of(sourceB).isSource && MicroEdge.of(sourceSignal).isSource)
@@ -304,7 +310,7 @@ class ScheduleFuzzerTest {
                 Seed.Source(consumer, consumerMethod.inst(0), sourceSignal))
             val config = f.config(index = 3, roots = listOf(producer, consumer), demand = demand, seeds = seeds)
             compareSeed(f, config, listOf(a, b), listOf(t.mark, u.mark, v.mark, d.mark), seed) { actual ->
-                val members = setOf(literals[0], f.pattern(y, listOf(a), if (mixed) Tail.ANY else Tail.EXACT, u))
+                val members = setOf(literals[0], f.pattern(y, if (mixed) listOf(a, b) else listOf(a), if (mixed) Tail.ANY else Tail.EXACT, u))
                 val joined = ObservedEdge(callee, members, Conclusion(target, ExclusionSet.Empty, mixed))
                 assertContains(actual.rawSummaries, joined)
                 assertContains(actual.publications, joined)
@@ -319,7 +325,7 @@ class ScheduleFuzzerTest {
                     Layer.NORMAL, literals[0]))
                 assertContains(actual.links, ObservedLink(callee, consumer, zero, if (mixed) Layer.DEMAND else Layer.NORMAL,
                     consumerMethod.inst(1), if (mixed) Layer.DEMAND else Layer.NORMAL,
-                    f.pattern(y, listOf(a), if (mixed) Tail.ANY else Tail.EXACT, u)))
+                    f.pattern(y, if (mixed) listOf(a, b) else listOf(a), if (mixed) Tail.ANY else Tail.EXACT, u)))
                 assertTrue(actual.requests.isEmpty() && actual.sourceHits.isEmpty())
             }
         }

@@ -23,6 +23,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** Input leaves are stated independently. concat supplies the expected transfer, with requests kept separate. */
+/** Full-mark primitive/reference regression; selected GROUP behavior has separate differential controls. */
 class EdgeTreeEquivalenceTest {
     private val manager = ApManager(Cancellation())
     private val ops = ApOps(manager)
@@ -41,7 +42,7 @@ class EdgeTreeEquivalenceTest {
     private val mt = MarkSlot.Concrete(t)
     private val mu = MarkSlot.Concrete(u)
     private val star = MarkSlot.STAR
-    private val run1 = ApMode(true, Direction.FORWARD, Int.MAX_VALUE)
+    private val run1 = ApMode(true, Direction.FORWARD, Int.MAX_VALUE, markMode = MarkMode.FULL)
     private val forward = ApMode(false, Direction.FORWARD, Int.MAX_VALUE)
     private val backward = ApMode(false, Direction.BACKWARD, Int.MAX_VALUE)
     private val modes = listOf(run1, forward, backward)

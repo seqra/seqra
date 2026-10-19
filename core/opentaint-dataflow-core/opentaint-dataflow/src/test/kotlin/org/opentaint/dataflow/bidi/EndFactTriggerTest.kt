@@ -10,11 +10,13 @@ import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.store.*
 import kotlin.test.*
 
+/** Ignored end actions cannot create triggers. Independent backward Sink seeds and
+ * actual cached source-hit identity checks remain active below. */
 class EndFactTriggerTest {
     private val argument = AccessPathBase.Argument(0)
     private val result = AccessPathBase.Return
 
-    @Test fun `a reversed end fact seeds its confirmed trigger without any handoff seed`(): Unit {
+    @Test fun `an ignored reversed end action cannot seed a confirmed trigger without a handoff seed`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val t = MarkSlot.Concrete(f.mark("T"))
             val u = MarkSlot.Concrete(f.mark("end"))
@@ -25,17 +27,15 @@ class EndFactTriggerTest {
             f.exitRules(2, ExitRules(localRules(listOf(sink)), false, emptySet()))
             val known = SinkWitness(sink.alternative, f.key,
                 listOf(SinkEdge(f.manager.zero, Layer.NORMAL, f.fact(argument, requirement.fact.path, mark = t))),
-                1, listOf(target)).also { it.confirmed = true }
+                1, emptyList()).also { it.confirmed = true }
             f.vulnerabilities.add(VulnerabilityKey(sink.rule, f.key.method, f.inst(2)), known)
             val core = localCore(f, index = 2)
             val initial = f.manager.initial(f.pattern(result, mark = u))
             core.addInitial(initial)
             f.drain(core, quantum = 1)
-            assertEquals(1L, core.triggerSeeds)
+            assertEquals(0L, core.triggerSeeds)
             assertNull((core.localServices as RunMethodLocalServices).conjunctions)
-            assertEquals(setOf(initial to Conclusion(target, ExclusionSet.Empty, false),
-                initial to Conclusion(ZERO_FACT, ExclusionSet.Empty, false),
-                f.manager.zero to Conclusion(requirement.fact, ExclusionSet.Empty, false)),
+            assertEquals(setOf(initial to Conclusion(target, ExclusionSet.Empty, false)),
                 methodEntries(f.ops, core.summaries.all()))
             assertTrue(f.vulnerabilities.witnessesOf(2).none())
             assertTrue(f.vulnerabilities.witnessesOf(1).single().second.confirmed)
@@ -44,7 +44,7 @@ class EndFactTriggerTest {
         }
     }
 
-    @Test fun `multiple matching requirements seed each alternative once and preserve exact and may literal layers`(): Unit {
+    @Test fun `ignored end actions add no seeds for multiple exact and may requirements`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val t = MarkSlot.Concrete(f.mark("T"))
             val u = MarkSlot.Concrete(f.mark("U"))
@@ -63,21 +63,17 @@ class EndFactTriggerTest {
             f.drain(core)
             core.addInitial(any)
             f.drain(core, quantum = 1)
-            assertEquals(4L, core.triggerSeeds, "Two positive literals for each of two alternatives")
+            assertEquals(0L, core.triggerSeeds, "End actions do not create alternative triggers")
             assertEquals(setOf(exact to Conclusion(target, ExclusionSet.Empty, false),
-                exact to Conclusion(ZERO_FACT, ExclusionSet.Empty, false),
-                any to Conclusion(target.copy(tail = Tail.ANY), ExclusionSet.Empty, true),
-                any to Conclusion(ZERO_FACT, ExclusionSet.Empty, true),
-                f.manager.zero to Conclusion(first.fact, ExclusionSet.Empty, false),
-                f.manager.zero to Conclusion(second.fact, ExclusionSet.Empty, true)),
+                any to Conclusion(target.copy(tail = Tail.ANY), ExclusionSet.Empty, true)),
                 methodEntries(f.ops, core.summaries.all()))
-            assertEquals(4, f.cuts.count { it.first == Cut.SEED })
+            assertEquals(0, f.cuts.count { it.first == Cut.SEED })
             assertTrue(f.vulnerabilities.witnessesOf(2).none())
             assertTrue(core.sourceHits!!.entries().none())
         }
     }
 
-    @Test fun `the same trigger object seeds independently at entry and exit but not again for another requirement`(): Unit {
+    @Test fun `ignored end actions create no trigger at entry or exit`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val t = MarkSlot.Concrete(f.mark("T"))
             val u = MarkSlot.Concrete(f.mark("end"))
@@ -91,17 +87,14 @@ class EndFactTriggerTest {
             val any = f.manager.initial(f.pattern(result, tail = Tail.ANY, mark = u))
             core.addInitial(exact)
             f.drain(core, quantum = 1)
-            assertEquals(2L, core.triggerSeeds)
-            assertEquals(2, f.cuts.count { it.first == Cut.SEED })
+            assertEquals(0L, core.triggerSeeds)
+            assertEquals(0, f.cuts.count { it.first == Cut.SEED })
             core.addInitial(any)
             f.drain(core, quantum = 1)
-            assertEquals(2L, core.triggerSeeds)
-            assertEquals(2, f.cuts.count { it.first == Cut.SEED })
+            assertEquals(0L, core.triggerSeeds)
+            assertEquals(0, f.cuts.count { it.first == Cut.SEED })
             assertEquals(setOf(exact to Conclusion(target, ExclusionSet.Empty, false),
-                exact to Conclusion(ZERO_FACT, ExclusionSet.Empty, false),
-                any to Conclusion(target.copy(tail = Tail.ANY), ExclusionSet.Empty, true),
-                any to Conclusion(ZERO_FACT, ExclusionSet.Empty, true),
-                f.manager.zero to Conclusion(requirement.fact, ExclusionSet.Empty, false)),
+                any to Conclusion(target.copy(tail = Tail.ANY), ExclusionSet.Empty, true)),
                 methodEntries(f.ops, core.summaries.all()))
         }
     }
@@ -150,10 +143,9 @@ class EndFactTriggerTest {
             assertTrue(hits.any { it.third === rootSource.forward })
             assertTrue(hits.any { it.third === fieldSource.forward })
             assertTrue(hits.none { it.third === end.forward })
-            assertEquals(1L, core.triggerSeeds)
+            assertEquals(0L, core.triggerSeeds)
             assertEquals(setOf(initial to Conclusion(initial.toPattern().fact, ExclusionSet.Empty, true),
-                initial to Conclusion(ZERO_FACT, ExclusionSet.Empty, true),
-                f.manager.zero to Conclusion(trigger.fact, ExclusionSet.Empty, false)),
+                initial to Conclusion(ZERO_FACT, ExclusionSet.Empty, true)),
                 methodEntries(f.ops, core.summaries.all()))
             assertTrue(f.vulnerabilities.witnessesOf(2).none())
         }
@@ -189,7 +181,7 @@ class EndFactTriggerTest {
         }
     }
 
-    @Test fun `an unconditional end trigger generates zero but adds no redundant literal seed`(): Unit {
+    @Test fun `an ignored unconditional end action generates neither zero nor literal seeds`(): Unit {
         MethodAnalysisFixtures().use { f ->
             val t = MarkSlot.Concrete(f.mark("end"))
             val target = PathFact(result, emptyList(), Tail.EXACT, t)
@@ -199,8 +191,7 @@ class EndFactTriggerTest {
             val core = localCore(f, index = 2)
             core.addInitial(initial)
             f.drain(core)
-            assertEquals(setOf(initial to Conclusion(target, ExclusionSet.Empty, false),
-                initial to Conclusion(ZERO_FACT, ExclusionSet.Empty, false)), methodEntries(f.ops, core.summaries.all()))
+            assertEquals(setOf(initial to Conclusion(target, ExclusionSet.Empty, false)), methodEntries(f.ops, core.summaries.all()))
             assertEquals(0L, core.triggerSeeds)
             assertTrue(f.cuts.none { it.first == Cut.SEED })
             assertTrue(core.sourceHits!!.entries().none())

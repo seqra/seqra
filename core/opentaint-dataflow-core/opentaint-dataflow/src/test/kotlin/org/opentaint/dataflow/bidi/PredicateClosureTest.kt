@@ -61,7 +61,7 @@ class PredicateClosureTest {
             StatementSummary.EMPTY, emptyList()))
         val form = FormKey(FormOwner(), callee.method, callee, calleeMethod.inst(1))
         val sourceId = RuleOccurrenceId(form, RuleKind.EXIT_SOURCE, 0)
-        val builder = RulePredicate.Builder(p.cancellation)
+        val builder = RulePredicate.Builder(p.cancellation, p.ap.marks)
         val px = builder.or(xMarks.map { builder.leaf(p.pattern(x, mark = MarkSlot.Concrete(it))) })
         val py = builder.leaf(p.pattern(y, tail = Tail.ANY, mark = u))
         val pz = builder.leaf(p.pattern(z, mark = v))
@@ -70,7 +70,7 @@ class PredicateClosureTest {
         val output = p.pattern(returned, mark = out).fact
         val descriptor = SourceRuleOccurrence(sourceId, condition,
             listOf(SourceAction(ActionId(sourceId, ActionRole.SOURCE, 0), output)))
-        val sinkBuilder = RulePredicate.Builder(p.cancellation)
+        val sinkBuilder = RulePredicate.Builder(p.cancellation, p.ap.marks)
         val a = sinkBuilder.leaf(Pattern(output, ExclusionSet.Empty))
         val b = sinkBuilder.leaf(p.pattern(z, mark = v))
         val predicate = sinkBuilder.build(sinkBuilder.or(listOf(a, sinkBuilder.and(listOf(a, b)))))
@@ -88,9 +88,13 @@ class PredicateClosureTest {
             xMarks + listOf(u.mark, v.mark, out.mark, end.mark), output, endFact)
     }
 
-    private fun universe(f: DriverFixtures, p: Program) = BoundedDenotation(
-        listOf(AccessPathBase.Zero, x, y, z, endBase, returned, resultBase, finalEnd, AccessPathBase.Argument(17)),
-        p.fields + f.program.field("fresh"), p.marks + f.program.mark("fresh") + TaintMark.ZERO, 2)
+    private fun universe(f: DriverFixtures, p: Program): BoundedDenotation {
+        val fresh = f.program.mark("fresh")
+        return BoundedDenotation(
+            listOf(AccessPathBase.Zero, STATIC, x, y, z, endBase, returned, resultBase, finalEnd, AccessPathBase.Argument(17)),
+            p.fields + f.program.field("fresh"),
+            (p.marks + fresh + f.manager.marks.groupAtoms() + TaintMark.ZERO).distinct(), 2)
+    }
 
     private fun compare(f: DriverFixtures, p: Program, config: RunConfig): RunObservation {
         val expected = NaiveClosure(f.program, config, semantics = NaiveClosure.Semantics.SELECTED).run()
@@ -134,7 +138,7 @@ class PredicateClosureTest {
             val raw = RawCurrentClosure(f.program, config, f.program.inputs(config)).run()
             expected.assertEquivalent(raw, universe(f, p))
             assertTrue(expected.requests.mapNotNull { (it.kind as? RequestKind.Mark)?.mark }
-                .toSet().containsAll(p.marks.take(8)))
+                .toSet().containsAll(p.marks.take(8).map { GroupedScalarMarks(f.manager.marks).atom(it) }))
             for (sameUnit in listOf(false, true)) for (quantum in listOf(1, 7)) for (seed in listOf(19L, 73L)) {
                 val scheduler = ProductionSchedule(f.program, config, sameUnit, SchedulePolicy.SEEDED,
                     seed = seed, quantum = quantum, duplicateDeliveries = true)
@@ -149,7 +153,7 @@ class PredicateClosureTest {
     }
 
     @Test
-    fun `delayed AND OR sources and NNF sink END agree through complete real forward run at the selected first limit`(): Unit {
+    fun `delayed AND OR sources and NNF sinks ignore END and agree through complete real forward run at the selected first limit`(): Unit {
         for (limit in listOf(1)) DriverFixtures().use { f ->
             val p = program(f)
             val config = f.program.config(L = limit, roots = listOf(p.root))
@@ -160,15 +164,15 @@ class PredicateClosureTest {
             // Thus the source and END stay demanded even when the original path fits L.
             val demand = true
             assertContains(expected.rawSummaries, ObservedEdge(p.root, zero,
-                Conclusion(p.output.copy(base = resultBase), ExclusionSet.Empty, demand)))
-            assertContains(expected.rawSummaries, ObservedEdge(p.root, zero,
-                Conclusion(p.end.copy(base = finalEnd), ExclusionSet.Empty, demand)))
+                GroupedScalarMarks(f.manager.marks).conclusion(Conclusion(p.output.copy(base = resultBase), ExclusionSet.Empty, demand))))
+            assertTrue(expected.rawSummaries.none { it.conclusion.fact.base == finalEnd },
+                "Ignored sink END actions never produce a result or a backward trigger")
             // AP 4.4 cuts only after more than L counted fields: length two fits L=2/3.
             val ySource = PathFact(y, if (limit == 1) p.fields.take(1) else p.fields,
                 if (limit == 1) Tail.ANY else Tail.EXACT, MarkSlot.Concrete(p.marks[1]))
             assertContains(expected.rawSummaries, ObservedEdge(p.root, zero,
-                Conclusion(ySource, ExclusionSet.Empty, demand = limit == 1)))
-            assertEquals(p.marks.take(3).toSet(), expected.requests.map { (it.kind as RequestKind.Mark).mark }.toSet())
+                GroupedScalarMarks(f.manager.marks).conclusion(Conclusion(ySource, ExclusionSet.Empty, demand = limit == 1))))
+            assertEquals(p.marks.take(3).map { GroupedScalarMarks(f.manager.marks).atom(it) }.toSet(), expected.requests.map { (it.kind as RequestKind.Mark).mark }.toSet())
             assertTrue(expected.requests.all { it.method == p.callee })
             assertTrue(expected.witnesses.isNotEmpty())
             assertEquals(setOf(1, 2), expected.witnesses.map { it.edges.size }.toSet())
@@ -214,9 +218,8 @@ class PredicateClosureTest {
                     if (value.fact.tail == Tail.EXACT) value.exclusion else ExclusionSet.Empty)
                 edge.method to DemandPattern(entry, premise)
             } }.distinct()
-            // All F1 normal publications and the stored static defaults join demand
-            // guidance. Repeated rows still exact-deduplicate after expansion.
-            assertEquals(mapOf(p.root to 7, p.callee to 12), demand.groupingBy { it.first }.eachCount())
+            // Explicit emitted rows and shared static Group permission are separate.
+            // Only explicit exact-deduplicated rows contribute to demandEdges.
             for ((method, pattern) in demand) assertContains(handoff.demand.near(method, pattern.entry.fact.base,
                 f.manager.path(pattern.entry.fact.path)), pattern)
             val bounded = universe(f, p)
@@ -239,12 +242,20 @@ class PredicateClosureTest {
                 } + handoff.demand.covering(method, STATIC, null).map { method to it }
             }.distinct()
             val earlierChild = p.root to DemandPattern(f.program.pattern(y, p.fields.take(1), Tail.ANY,
-                MarkSlot.Concrete(p.marks[1])), ZERO_PATTERN)
+                MarkSlot.Concrete(GroupedScalarMarks(f.manager.marks).atom(p.marks[1]))), ZERO_PATTERN)
             assertContains(rawDemand, earlierChild, "The independent scalar history contains the cut Y child")
-            val rawHandoff = (demand + earlierChild).toSet()
-            assertEquals(rawHandoff, observedDemand.toSet(), "Pin every full method/exit/path/tail/mark/E of this schedule")
-            assertEquals(mapOf(p.root to 8, p.callee to 12), handoff.demandEdges)
-            assertEquals(demandCells(rawDemand), demandCells(observedDemand))
+            val explicitHandoff = (demand + earlierChild).toSet()
+            val sharedStatic = listOf(p.root, p.callee).flatMap { method ->
+                f.manager.marks.groupAtoms().map { atom ->
+                    val group = MarkSlot.Concrete(atom)
+                    method to DemandPattern(Pattern(PathFact(STATIC, emptyList(), Tail.ANY, group), ExclusionSet.Empty),
+                        Pattern(PathFact(STATIC, emptyList(), Tail.STAR, group), ExclusionSet.Empty))
+                }
+            }
+            val fullHandoff = explicitHandoff + sharedStatic
+            assertEquals(fullHandoff, observedDemand.toSet(), "Pin every explicit full row plus universal static Group permission")
+            assertEquals(explicitHandoff.groupingBy { it.first }.eachCount(), handoff.demandEdges)
+            assertEquals(demandCells(rawDemand + sharedStatic), demandCells(observedDemand))
             val seed = Seed.PredicateSink(checkNotNull(p.sink.occurrenceId), p.callee, node)
             // Use the actual physical handoff. A covered child can still emit a narrower initial,
             // so F1 denotation alone does not prove this next-run closure.
@@ -254,7 +265,15 @@ class PredicateClosureTest {
             assertEquals(1, backward.seeds.size)
             val expectedBackward = compare(f, p, backward)
             assertTrue(expectedBackward.requests.isEmpty())
-            assertEquals(p.sources.map { it.second }.toSet(), expectedBackward.sourceHits.map { it.forward }.toSet())
+            val occurrence = f.program.forms(p.callee).exitRules(Direction.FORWARD, node).rules.summary.sources.single()
+            val conditionalSources = occurrence.predicate.leaves.flatMapIndexed { ordinal, literal ->
+                occurrence.actions.flatMap { action -> buildList {
+                    if (occurrence.predicate.isUnary(ordinal)) add(occurrence.transfer(literal, action, false).forward)
+                    if (occurrence.predicate.isMulti(ordinal)) add(occurrence.transfer(literal, action, true).forward)
+                } }
+            }
+            assertEquals((p.sources.map { it.second } + conditionalSources).toSet(),
+                expectedBackward.sourceHits.map { it.forward }.toSet())
             assertTrue(expectedBackward.processed.any { it.method == p.callee && it.conclusion.fact.base == z &&
                 it.conclusion.fact.mark == MarkSlot.Concrete(p.marks[2]) })
             val joined = f.run(backward)
@@ -311,7 +330,7 @@ class PredicateClosureTest {
             val mark = MarkSlot.Concrete(p.mark("T"))
             val source = PathEdge(ZERO_FACT, p.pattern(x, tail = Tail.ANY_TAINT, mark = mark).fact, ExclusionSet.Empty)
             p.entry(root, RuleStatement(f.summary(ZERO_KEEP, source), StatementSummary.EMPTY, emptyList()))
-            val builder = RulePredicate.Builder(p.cancellation)
+            val builder = RulePredicate.Builder(p.cancellation, p.ap.marks)
             val rootRead = builder.leaf(p.pattern(x, mark = mark))
             val childRead = builder.leaf(p.pattern(x, listOf(field), mark = mark))
             val predicate = builder.build(builder.or(listOf(rootRead, childRead)))
@@ -339,7 +358,7 @@ class PredicateClosureTest {
             val method = p.method("raw support", listOf(emptyList()), 0).key()
             val a = p.field("a")
             val b = p.field("b")
-            val builder = RulePredicate.Builder(p.cancellation)
+            val builder = RulePredicate.Builder(p.cancellation, p.ap.marks)
             val leaf = builder.leaf(p.pattern(x, tail = Tail.ANY))
             val other = builder.leaf(p.pattern(y))
             val predicate = builder.build(builder.and(listOf(builder.or(listOf(leaf, other)), leaf)))

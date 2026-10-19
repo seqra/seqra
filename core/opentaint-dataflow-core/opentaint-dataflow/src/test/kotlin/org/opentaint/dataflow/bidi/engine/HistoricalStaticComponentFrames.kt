@@ -1,6 +1,10 @@
 package org.opentaint.dataflow.bidi.engine
 
 import org.opentaint.dataflow.bidi.ap.*
+import org.opentaint.dataflow.bidi.engine.historical.isSpecialStaticRoot
+import org.opentaint.dataflow.bidi.engine.historical.Run1Slot
+import org.opentaint.dataflow.bidi.engine.historical.Run1StaticFootprint
+import org.opentaint.dataflow.bidi.engine.historical.requestChildren
 
 /** Historical footprint-frame codec controls. The selected engine does not
  * call these helpers; it applies ordinary stored summaries to actual inputs. */

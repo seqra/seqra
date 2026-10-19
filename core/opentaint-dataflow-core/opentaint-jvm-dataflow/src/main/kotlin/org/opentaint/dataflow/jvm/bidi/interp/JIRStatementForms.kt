@@ -5,6 +5,14 @@ import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
 import org.opentaint.dataflow.bidi.ap.ApManager
 import org.opentaint.dataflow.bidi.ap.TypeFilter
+import org.opentaint.dataflow.bidi.ap.Pattern
+import org.opentaint.dataflow.bidi.ap.ExclusionSet
+import org.opentaint.dataflow.bidi.interp.FormKey
+import org.opentaint.dataflow.bidi.interp.FormOwner
+import org.opentaint.dataflow.bidi.interp.OperationId
+import org.opentaint.dataflow.bidi.interp.StaticOperation
+import org.opentaint.dataflow.bidi.interp.starEdge
+import org.opentaint.dataflow.bidi.interp.starSide
 import org.opentaint.dataflow.bidi.interp.MicroEdgeBuilder
 import org.opentaint.dataflow.bidi.interp.StatementSummary
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.MemoryAccess
@@ -32,6 +40,7 @@ internal class JIRStatementForms(
     private val typeFilters: JIRTypeFilters,
     private val aliasPaths: (JIRInst, AccessPathBase) -> List<Pair<AccessPathBase, List<AccessorIdx>>> = { _, _ -> emptyList() },
     private val readSources: (MicroEdgeBuilder, JIRAssignInst) -> Unit = { _, _ -> },
+    private val formOwner: FormOwner = FormOwner(),
 ) {
     private fun filter(type: JIRType?): TypeFilter? = typeFilters.of(type)
 
@@ -73,13 +82,22 @@ internal class JIRStatementForms(
         when {
             from is MemoryAccess -> {
                 check(to !is MemoryAccess) { "Complex assignment: $lhv = $rhv" }
+                val transfer = starEdge(from.base, path(from), to.base, emptyList())
                 read(to.base, from.base, path(from))
+                if (from is StaticRefAccess) staticOperation(StaticOperation.Read(operation(s), transfer))
             }
-            to is MemoryAccess -> write(to.base, path(to), weak = (to as? RefAccess)?.accessor == ElementAccessor,
-                values = listOfNotNull(from?.base), aliasPaths = aliases(s, to.base))
+            to is MemoryAccess -> {
+                write(to.base, path(to), weak = (to as? RefAccess)?.accessor == ElementAccessor,
+                    values = listOfNotNull(from?.base), aliasPaths = aliases(s, to.base))
+                if (to is StaticRefAccess) staticOperation(StaticOperation.Write(operation(s),
+                    Pattern(starSide(to.base, path(to)), ExclusionSet.Empty),
+                    from?.base?.let { starEdge(it, emptyList(), to.base, path(to)) }))
+            }
             else -> move(to.base, from?.base)
         }
     }
+
+    private fun operation(s: JIRInst) = OperationId(FormKey(formOwner, s.location.method, null, s))
 
     /** A field operand uses its instance type and declaring class. Static fields add no filter on S. */
     private fun MicroEdgeBuilder.fieldFilters(base: AccessPathBase, ref: JIRFieldRef) {

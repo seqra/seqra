@@ -20,7 +20,8 @@ class RunConfigTest {
     private val f = EngineShellFixtures()
 
     @Test fun `positive run rows choose the complete forward backward and seed modes`(): Unit {
-        for (index in 1..6) for (limit in listOf(1, 2, 3)) {
+        for (index in 1..6) {
+            val limit = maxOf(1, index - 1)
             val config = f.config(index, limit)
             val direction = if (index % 2 == 1) Direction.FORWARD else Direction.BACKWARD
             assertEquals(direction, config.direction)
@@ -43,6 +44,14 @@ class RunConfigTest {
     @Test fun `every run rejects nonpositive field limits`(): Unit {
         for (index in listOf(1, 2, 3)) for (limit in listOf(Int.MIN_VALUE, -1, 0))
             assertFailsWith<IllegalArgumentException> { f.config(index, limit) }
+    }
+
+    @Test fun `positive limits must match the group and exact run schedule`(): Unit {
+        for (index in 1..6) for (limit in 1..6) {
+            if (limit != maxOf(1, index - 1)) {
+                assertFailsWith<IllegalArgumentException> { f.config(index, limit) }
+            }
+        }
     }
 
     @Test fun `only run one has no demand snapshot`(): Unit {

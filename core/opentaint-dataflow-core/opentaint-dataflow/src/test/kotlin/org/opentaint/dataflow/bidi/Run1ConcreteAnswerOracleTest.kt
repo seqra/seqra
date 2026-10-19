@@ -1,5 +1,11 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.engine.historical.Run1Slot
+import org.opentaint.dataflow.bidi.engine.historical.RequestedRow
+import org.opentaint.dataflow.bidi.engine.historical.RequestRowView
+import org.opentaint.dataflow.bidi.engine.historical.slotMatches
+import org.opentaint.dataflow.bidi.engine.historical.forEachConcreteAnswer
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
@@ -8,7 +14,7 @@ import org.opentaint.dataflow.bidi.fixtures.StoreFixtures
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
 import kotlin.test.*
 
-/** Independent scalar relations: Base answers use requests; static answers use actual marks. */
+/** F78 scalar answer relation, independent of the packed traversal being tested. */
 class Run1ConcreteAnswerOracleTest {
     private val f = StoreFixtures()
     private val ap = f.manager
@@ -20,19 +26,9 @@ class Run1ConcreteAnswerOracleTest {
     private val t = f.mark("T")
     private val u = f.mark("U")
 
-    private val staticProfile by lazy {
-        Run1StaticProfiles.build(ap,emptyMap(),mapOf(f.commonMethod to Run1StaticLocalProfile.EMPTY),
-            declaredFieldUniverse=setOf(Run1Slot.StaticField(c,a),Run1Slot.StaticField(c,z),Run1Slot.StaticField(d,a)))[f.commonMethod]
-    }
-
     private fun answers(input: Facts, slot: Run1Slot, marks: RequestMarkSet,
                         counts: RequestBatchStatistics.Counts? = null): Set<InitialAp> = buildSet {
-        if (slot is Run1Slot.StaticField) {
-            if (input is TaintTree && input.base == STATIC) forEachActualStaticInitial(ap,input,staticProfile,counts) {
-                if (it.pathData.toList() == slot.pathData.toList()) add(it)
-            }
-        } else if (input.base != STATIC)
-            forEachConcreteAnswer(ap, input, listOf(RequestedRow(slot, RequestRowView(marks, RequestMarkSet.EMPTY))), counts) { add(it) }
+        forEachConcreteAnswer(ap, input, listOf(RequestedRow(slot, RequestRowView(marks, RequestMarkSet.EMPTY))), counts) { add(it) }
     }
 
     @Test
@@ -55,8 +51,7 @@ class Run1ConcreteAnswerOracleTest {
                     if (same && tail == Tail.EXACT) Tail.EXACT else Tail.STAR,
                     ExclusionSet.Empty, MarkSlot.Concrete(t)))
                 assertEquals(expected, answers(input, slot, requested), "$slot <- $base/$path/$tail/$layer")
-                if (slot is Run1Slot.Base) assertTrue(answers(input, slot, RequestMarkSet.of(u)).isEmpty())
-                else assertEquals(expected,answers(input,slot,RequestMarkSet.of(u)),"Static answers ignore mark-request membership")
+                assertTrue(answers(input, slot, RequestMarkSet.of(u)).isEmpty())
             }
         }
     }
@@ -68,24 +63,6 @@ class Run1ConcreteAnswerOracleTest {
         val result = answers(input, Run1Slot.Base(b), RequestMarkSet.fromIds(IntArray(500) { it + 1 }), counts)
         assertEquals(1, result.size)
         assertEquals(1L, counts.memberScans)
-    }
-
-    @Test
-    fun `mixed request rows answer only the matching nonstatic base with an actual mark`() {
-        val other = Run1Slot.Base(AccessPathBase.Argument(1))
-        fun row(slot: Run1Slot, mark: TaintMark) =
-            RequestedRow(slot, RequestRowView(RequestMarkSet.of(mark), RequestMarkSet.EMPTY))
-        val rows = listOf(row(Run1Slot.StaticField(c, a), u), row(Run1Slot.Base(b), t), row(other, u))
-        val marks = ap.intern(MarkSet(intArrayOf(t.id, u.id).sortedArray()))
-        val root = ap.taintAlg.leafNode(ap.taintLeaves(marks, MarkSet.EMPTY))
-        val input = ap.taintTree(b, Layer.NORMAL, root)
-        val expected = setOf(ap.initial(b, null, Tail.EXACT, ExclusionSet.Empty, MarkSlot.Concrete(t)))
-        for (batch in listOf(rows, rows.reversed())) {
-            val actual = buildSet { forEachConcreteAnswer(ap, input, batch) { add(it) } }
-            assertEquals(expected, actual)
-        }
-        val staticOnly = buildSet { forEachConcreteAnswer(ap, input, rows.take(1)) { add(it) } }
-        assertTrue(staticOnly.isEmpty(), "Static interest cannot request a nonstatic concrete initial")
     }
 
     @Test

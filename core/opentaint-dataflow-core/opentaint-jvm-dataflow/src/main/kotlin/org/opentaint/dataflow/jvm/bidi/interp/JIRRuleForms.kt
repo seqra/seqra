@@ -21,9 +21,14 @@ import org.opentaint.dataflow.bidi.ap.TaintMark
 import org.opentaint.dataflow.bidi.interp.CleanStep
 import org.opentaint.dataflow.bidi.interp.ActionId
 import org.opentaint.dataflow.bidi.interp.ActionRole
+import org.opentaint.dataflow.bidi.interp.FormOwner
+import org.opentaint.dataflow.bidi.interp.FormKey
+import org.opentaint.dataflow.bidi.interp.RuleKind
 import org.opentaint.dataflow.bidi.interp.FormCacheStatistics
 import org.opentaint.dataflow.bidi.interp.RuleOccurrenceId
 import org.opentaint.dataflow.bidi.interp.RulePredicate
+import org.opentaint.dataflow.bidi.interp.OperationId
+import org.opentaint.dataflow.bidi.interp.StaticOperation
 import org.opentaint.dataflow.bidi.interp.SourceAction
 import org.opentaint.dataflow.bidi.interp.SourceRuleOccurrence
 import org.opentaint.dataflow.bidi.interp.TemporaryKey
@@ -88,6 +93,8 @@ internal class JIRRuleForms(
     private val resultBase: AccessPathBase = AccessPathBase.Return,
     private val statistics: FormCacheStatistics? = null,
 ) {
+    private val fallbackFormOwner = FormOwner()
+
     /** A final AnyField selects a tail; it is never part of an indexed concrete path. */
     data class RulePos(val base: AccessPathBase, val path: List<AccessorIdx>, val any: Boolean) {
         val isClass: Boolean get() = base == AccessPathBase.ClassStatic && path.size == 1
@@ -349,7 +356,7 @@ internal class JIRRuleForms(
         // An ignored action still has a raw rule position, which must be checked before rewriting.
         val actions: List<Action> = when (rule) {
             is TaintConfigurationSource -> rule.actionsAfter
-            is TaintConfigurationSink -> rule.trackFactsReachAnalysisEnd
+            is TaintConfigurationSink -> emptyList()
             is TaintPassThrough -> rule.actionsAfter
             is TaintCleaner -> rule.actionsAfter
         }
@@ -372,7 +379,7 @@ internal class JIRRuleForms(
         }
         when (rule) {
             is TaintConfigurationSource -> rule.actionsAfter.forEach { target(it, premises = true) }
-            is TaintConfigurationSink -> rule.trackFactsReachAnalysisEnd.forEach { target(it, premises = false) }
+            is TaintConfigurationSink -> Unit
             is TaintPassThrough -> for (a in rule.actionsAfter) {
                 val (from, to) = when (a) {
                     is CopyAllMarks -> a.from to a.to
@@ -435,8 +442,20 @@ internal class JIRRuleForms(
     fun source(b: MicroEdgeBuilder, rule: TaintConfigurationSource, id: RuleOccurrenceId, cond: ExprOrConstant): RulePredicate {
         val predicate = predicate(rule, cond)
         if (predicate.isFalse || rule.actionsAfter.isEmpty()) return predicate
+        markInputs(predicate, id).forEach(b::staticOperation)
+        rule.actionsAfter.forEachIndexed { ordinal, action ->
+            val target = markTarget(rule, action)
+            if (target.base == AccessPathBase.ClassStatic) {
+                val actionId = ActionId(id, ActionRole.SOURCE, ordinal)
+                b.staticOperation(StaticOperation.Write(OperationId(id.form, action = actionId),
+                    Pattern(target, ExclusionSet.Empty), action = actionId))
+            }
+        }
         if (predicate.isTrue) {
-            rule.actionsAfter.forEach { edge(b, null, markTarget(rule, it)) }
+            rule.actionsAfter.forEachIndexed { ordinal, action ->
+                b.sourceEdge(PathEdge(ZERO_FACT, markTarget(rule, action), ExclusionSet.Empty),
+                    ActionId(id, ActionRole.SOURCE, ordinal))
+            }
             return predicate
         }
         b.source(SourceRuleOccurrence(id, predicate, rule.actionsAfter.mapIndexed { ordinal, action ->
@@ -445,16 +464,33 @@ internal class JIRRuleForms(
         return predicate
     }
 
+    fun markInputs(predicate: RulePredicate, id: RuleOccurrenceId): List<StaticOperation.MarkInput> =
+        predicate.leaves.mapIndexedNotNull { ordinal, pattern ->
+            if (pattern.fact.base != AccessPathBase.ClassStatic) null else
+                StaticOperation.MarkInput(OperationId(id.form,
+                    action = ActionId(id, ActionRole.MARK_INPUT, ordinal)), pattern)
+        }
+
+    fun sinkInputs(sinks: List<SinkRule>): List<StaticOperation.MarkInput> = sinks.flatMap { sink ->
+        val id = checkNotNull(sink.occurrenceId)
+        sink.predicate?.let { markInputs(it, id) }.orEmpty()
+    }
+
     /** The provider is reduced by prescan; rule selection never depends on a propagated fact. */
-    fun readSources(b: MicroEdgeBuilder, s: JIRAssignInst) {
+    fun readSources(b: MicroEdgeBuilder, s: JIRAssignInst,
+                    form: FormKey = FormKey(fallbackFormOwner, s.location.method, null, s)) {
         val field = (s.rhv as? JIRFieldRef)?.field?.field?.takeIf { it.isStatic } ?: return
         val x = accessPathBase(s.lhv) ?: return
-        val found = rules.sourceRulesForStaticField(field, s, fact = null).filter(::valid)
-        if (found.isEmpty()) return
-        b.keepZero()
-        for (rule in found) for (a in rule.actionsAfter) {
-            val p = checkNotNull(pos(rule, a.position))
-            edge(b, null, p.copy(base = x).sourceFact(mark(a.mark)))
+        for ((ruleOrdinal, rule) in rules.sourceRulesForStaticField(field, s, fact = null).withIndex()) {
+            if (!valid(rule)) continue
+            b.keepZero()
+            for ((actionOrdinal, action) in rule.actionsAfter.withIndex()) {
+                val p = checkNotNull(pos(rule, action.position))
+                val id = ActionId(RuleOccurrenceId(form, RuleKind.FIELD_SOURCE, ruleOrdinal),
+                    ActionRole.SOURCE, actionOrdinal)
+                b.sourceEdge(PathEdge(ZERO_FACT, p.copy(base = x).sourceFact(mark(action.mark)),
+                    ExclusionSet.Empty), id)
+            }
         }
     }
 
@@ -467,10 +503,11 @@ internal class JIRRuleForms(
     }
 
     fun endFacts(rule: TaintConfigurationSink): List<MicroEdge> = MicroEdgeBuilder().apply {
-        for (a in rule.trackFactsReachAnalysisEnd) edge(this, null, markTarget(rule, a))
+        // The new core does not execute end-fact actions in any run.
     }.buildGen().edges
 
-    fun pass(b: MicroEdgeBuilder, rule: TaintConfigurationItem, action: Action): Pair<AccessPathBase, AccessPathBase>? {
+    fun pass(b: MicroEdgeBuilder, rule: TaintConfigurationItem, action: Action,
+             operation: OperationId? = null): Pair<AccessPathBase, AccessPathBase>? {
         val (fromPos, toPos) = when (action) {
             is CopyAllMarks -> action.from to action.to
             is CopyMark -> action.from to action.to
@@ -481,10 +518,19 @@ internal class JIRRuleForms(
         check(!from.isClass && !to.isClass)
         check(!from.any)
         b.edge(keepEdge(from.base))
-        when (action) {
-            is CopyAllMarks -> b.edge(PathEdge(from.star(), to.star(), ExclusionSet.Empty))
-            is CopyMark -> mark(action.mark).let { t -> edge(b, from.fact(t), to.fact(t)) }
-            else -> Unit
+        val transfer = when (action) {
+            is CopyAllMarks -> PathEdge(from.star(), to.star(), ExclusionSet.Empty)
+            is CopyMark -> mark(action.mark).let { t -> PathEdge(from.fact(t), to.fact(t), ExclusionSet.Empty) }
+            else -> error("Not a copy action")
+        }
+        b.edge(transfer)
+        if (operation != null) {
+            if (from.base == AccessPathBase.ClassStatic && transfer.from != transfer.to) {
+                if (action is CopyAllMarks) b.staticOperation(StaticOperation.Read(operation, transfer))
+                else b.staticOperation(StaticOperation.MarkInput(operation, Pattern(transfer.from, ExclusionSet.Empty)))
+            }
+            if (to.base == AccessPathBase.ClassStatic && transfer.from != transfer.to)
+                b.staticOperation(StaticOperation.Write(operation, Pattern(transfer.to, ExclusionSet.Empty), transfer))
         }
         return from.base to to.base
     }

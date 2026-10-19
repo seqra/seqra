@@ -10,6 +10,7 @@ import org.opentaint.common.sast.dataflow.TaintAnalyzerOptions
 import org.opentaint.config.JavaDefaultConfigLoader
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.ApMode
+import org.opentaint.dataflow.ap.ifds.ResolvedPrescanGraph
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisManager
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
@@ -35,6 +36,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRSafeApplicationGraph
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature.JIRLambdaMethod
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRAnalysisManager
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.jvm.ap.ifds.taint.forBidirectionalCore
 import org.opentaint.dataflow.jvm.bidi.JIRBidiAnalysis
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -123,7 +125,7 @@ abstract class AnalysisTest : BasicTestUtils() {
     open val useBidiEntry = System.getenv("OPENTAINT_TEST_BIDI") == "true"
 
     open val bidiLimits: List<Int> =
-        if (System.getenv("OPENTAINT_TEST_BIDI") == "true") (1..9).toList() else listOf(1, 2, 3)
+        if (System.getenv("OPENTAINT_TEST_BIDI") == "true") listOf(1) + (1..8).toList() else listOf(1, 1, 2)
 
     open val apMode: ApMode = ApMode.Tree
 
@@ -193,6 +195,7 @@ abstract class AnalysisTest : BasicTestUtils() {
 
         var rulesProvider: TaintRulesProvider = JIRTaintRulesProvider(taintConfig)
         rulesProvider = JIRMethodExitRuleProvider(rulesProvider)
+        if (bidi) rulesProvider = rulesProvider.forBidirectionalCore()
 
         val usages = runBlocking { cp.usagesExt() }
         val mainGraph = JApplicationGraphImpl(cp, usages)
@@ -225,12 +228,13 @@ abstract class AnalysisTest : BasicTestUtils() {
                 else bridge.createEntry(cp, ifdsGraph, units, rulesProvider, params, policy, refManager)
                 val owner = this
                 return object : BidiEntry by actual {
-                    override fun gather(manager: TaintAnalysisManager, startMethods: List<MethodWithContext>) {
+                    override fun gather(manager: TaintAnalysisManager, startMethods: List<MethodWithContext>,
+                                        graph: ResolvedPrescanGraph) {
                         owner.ifdsEngine.requirePrescanJoined()
                         assertEquals(TaintAnalysisUnitRunnerManager.Status.OK, owner.ifdsEngine.status.get(),
                             "Acceptance requires a complete real prescan before copying its selected rules")
                         assertTrue(manager === legacyManager, "The entry must gather the manager used by the real prescan")
-                        actual.gather(manager, startMethods)
+                        actual.gather(manager, startMethods, graph)
                     }
 
                     override fun run(budget: Duration): Report {

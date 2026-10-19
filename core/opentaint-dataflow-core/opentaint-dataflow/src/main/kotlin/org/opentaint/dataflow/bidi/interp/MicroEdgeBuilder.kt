@@ -14,15 +14,20 @@ import org.opentaint.dataflow.bidi.ap.TypeFilter
 class MicroEdgeBuilder {
     private val touched = LinkedHashSet<AccessPathBase>()
     private val edges = LinkedHashSet<PathEdge>()
+    private val sourceEdges = ArrayList<MicroEdge>()
     private val conjunctions = LinkedHashSet<ConjunctiveEdge>()
     private val sources = ArrayList<SourceRuleOccurrence>()
+    private val staticOperations = ArrayList<StaticOperation>()
     private val operand = LinkedHashMap<AccessPathBase, TypeFilter>()
     private val result = LinkedHashMap<AccessPathBase, TypeFilter>()
 
     fun touch(b: AccessPathBase) { touched += b }
     fun edge(e: PathEdge) { edges += e }
+    /** Source occurrences remain separate even when their transfer tuples are equal. */
+    fun sourceEdge(e: PathEdge, id: ActionId) { sourceEdges += MicroEdge(e, e, actionId = id) }
     fun conjunction(c: ConjunctiveEdge) { conjunctions += c }
     fun source(source: SourceRuleOccurrence) { sources += source }
+    fun staticOperation(operation: StaticOperation) { staticOperations += operation }
 
     fun keep(b: AccessPathBase) {
         touch(b)
@@ -79,12 +84,13 @@ class MicroEdgeBuilder {
     }
 
     /** Statement forms retain touched bases, conjunctions, and both filter maps. */
-    fun build(): StatementSummary = StatementSummary(touched, edges.map(MicroEdge::of),
-        conjunctions.toList(), operand, result, sources)
+    fun build(): StatementSummary = StatementSummary(touched, edges.map(MicroEdge::of) + sourceEdges,
+        conjunctions.toList(), operand, result, sources, staticOperations)
 
     /** Every plain or conjunctive endpoint belongs to the stage's touched set. */
     fun buildStage(): StatementSummary {
         edges.forEach { touch(it.from.base); touch(it.to.base) }
+        sourceEdges.forEach { touch(it.edge.from.base); touch(it.edge.to.base) }
         conjunctions.forEach { c ->
             c.literals.forEach { touch(it.fact.base) }
             touch(c.target.base)
@@ -97,7 +103,7 @@ class MicroEdgeBuilder {
     }
 
     /** GEN uses plain edges only; its caller retains the input. */
-    fun buildGen(): StatementSummary = StatementSummary(emptySet(), edges.map(MicroEdge::of), emptyList(), emptyMap())
+    fun buildGen(): StatementSummary = StatementSummary(emptySet(), edges.map(MicroEdge::of) + sourceEdges, emptyList(), emptyMap(), staticOperations = staticOperations)
 }
 
 /** A named field cleaner is an ordinary read, one temporary cleaner, and an ordinary strong write. */

@@ -14,7 +14,7 @@ import org.opentaint.dataflow.configuration.CommonTaintConfigurationSink
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import kotlin.test.*
 
-/** New catalog acceptance is separate from the unmodified scalar closure and transport assertions. */
+/** Direct-static actor controls. These do not claim equivalence with the removed F/B carrier oracle. */
 class StaticCatalogClosureTest {
     private val returned = AccessPathBase.Return
     private val result = AccessPathBase.Argument(1)
@@ -44,19 +44,11 @@ class StaticCatalogClosureTest {
     private fun compare(f: FiniteProgramFixtures, config: RunConfig, fields: List<Int>, marks: List<TaintMark>,
                         sameUnit: Boolean, policy: SchedulePolicy, seed: Long = 0,
                         expectedRoot: ObservedEdge? = null): RunObservation {
-        val expected = NaiveClosure(f, config, semantics = NaiveClosure.Semantics.SELECTED).run() // Independent selected scalar request/field/default semantics.
-        expectedRoot?.let { assertContains(expected.rawSummaries, it, "The scalar program must return the wrapper value") }
         val scheduler = ProductionSchedule(f, config, sameUnit, policy, seed, quantum = 1,
-            duplicateDeliveries = true, useStaticCatalog = true)
+            duplicateDeliveries = true)
         val actual = scheduler.run()
-        val universe = BoundedDenotation(listOf(AccessPathBase.Zero, STATIC, x, result, returned, AccessPathBase.Argument(7)),
-            (fields + f.field("fresh")).distinct(), (marks + f.mark("fresh") + TaintMark.ZERO).distinct(), 2)
-        try {
-            expected.assertCatalogRefinement(actual, universe, config.roots)
-        } catch (error: AssertionError) {
-            throw AssertionError("Catalog refinement failed: sameUnit=$sameUnit policy=$policy seed=$seed " +
-                "limit=${config.fieldLimit} program=${f.describe()}\nscalar=$expected\ncatalog=$actual\ntrace=${scheduler.trace}", error)
-        }
+        assertDirectStaticProtocol(actual, f.ap.marks)
+        expectedRoot?.let { assertContains(actual.rawSummaries, it, "The actual point protocol returns the wrapper value") }
         return actual
     }
 
@@ -73,7 +65,7 @@ class StaticCatalogClosureTest {
                 val field = f.field("g"); val path = listOf(cls, field)
                 val t = MarkSlot.Concrete(f.mark("T")); val u = MarkSlot.Concrete(f.mark("U"))
                 val source = PathEdge(ZERO_FACT, PathFact(STATIC, path, Tail.EXACT, t), ExclusionSet.Empty)
-                f.entry(caller, RuleStatement(summary(ZERO_KEEP, source), StatementSummary.EMPTY, emptyList()))
+                f.entry(caller, RuleStatement(directStaticWrite(f, caller, 0, source, summary(ZERO_KEEP, source)), StatementSummary.EMPTY, emptyList()))
                 val first = if (shape == "diamond") {
                     val other = f.method("diamond other wrapper", wrapperGraph, 3).key("other")
                     f.call(other, 1, call(listOf(getter)))
@@ -84,26 +76,27 @@ class StaticCatalogClosureTest {
                 f.call(middle, 1, call(if (shape == "recursive") listOf(getter, middle) else listOf(getter)))
                 // A call binds the reader Return into wrapper Arg1; the wrapper must explicitly return it.
                 f.statement(middle, 2, summary(starEdge(result, emptyList(), returned, emptyList()), ZERO_KEEP))
-                f.statement(getter, 0, summary(PathEdge(PathFact(STATIC, path, Tail.EXACT, t),
-                    PathFact(returned, emptyList(), Tail.EXACT, u), ExclusionSet.Empty)))
+                val read = PathEdge(PathFact(STATIC, path, Tail.EXACT, t),
+                    PathFact(returned, emptyList(), Tail.EXACT, u), ExclusionSet.Empty)
+                f.statement(getter, 0, directStaticRead(f, getter, 0, read, summary(read)))
                 val sink = SinkRule(rule("$shape static finding"), 0,
                     listOf(f.pattern(returned, mark = u)), emptyList())
                 f.exit(getter, 1, ExitRules(RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY,
                     listOf(sink)), false, emptySet()))
-                val expectedReturn = ObservedEdge(caller, zero,
-                    Conclusion(PathFact(result, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, true))
+                val expectedReturn = selectedExpectedEdge(f.ap.marks, 1, ObservedEdge(caller, setOf(f.pattern(STATIC, path, mark = t)),
+                    Conclusion(PathFact(result, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false)))
                 val actual = compare(f, f.config(L = limit, roots = listOf(caller)), path, listOf(t.mark, u.mark),
                     sameUnit, policy, expectedRoot = expectedReturn)
                 assertContains(actual.rawSummaries, expectedReturn)
                 assertTrue(actual.witnesses.isNotEmpty())
                 assertTrue(actual.witnesses.all { it.rule === sink.rule && it.methodKey == getter &&
-                    it.edges.all { edge -> edge.layer == Layer.DEMAND && edge.premise == setOf(f.pattern(STATIC, path, mark = t)) } })
+                    it.edges.all { edge -> edge.layer == Layer.DEMAND && edge.premise == setOf(GroupedScalarMarks(f.ap.marks).pattern(f.pattern(STATIC, path, mark = t))) } })
                 assertTrue(actual.sourceHits.isEmpty())
             }
     }
 
     @Test
-    fun `ordinary static default demotes possible mutations without emitting a static root initial`(): Unit {
+    fun `early static source remains a demanded effect across empty and mutating calls without executable root defaults`(): Unit {
         for (effect in listOf("empty", "kill other field", "clean other field", "kill supplied field", "clean supplied field"))
             for (limit in 1..1) for (sameUnit in listOf(false, true)) FiniteProgramFixtures().use { f ->
                 val caller = f.method("caller $effect", listOf(listOf(1), listOf(2), emptyList()), 2).key("caller")
@@ -112,7 +105,7 @@ class StaticCatalogClosureTest {
                 val field = f.field("g"); val other = f.field("f"); val path = listOf(cls, field)
                 val t = MarkSlot.Concrete(f.mark("T"))
                 val source = PathEdge(ZERO_FACT, PathFact(STATIC, path, Tail.EXACT, t), ExclusionSet.Empty)
-                f.entry(caller, RuleStatement(summary(ZERO_KEEP, source), StatementSummary.EMPTY, emptyList()))
+                f.entry(caller, RuleStatement(directStaticWrite(f, caller, 0, source, summary(ZERO_KEEP, source)), StatementSummary.EMPTY, emptyList()))
                 val changed = listOf(cls, if (effect.endsWith("supplied field")) field else other)
                 val steps = when {
                     effect.startsWith("kill") -> listOf(CleanStep.Kill(MicroEdgeBuilder().apply {
@@ -131,13 +124,14 @@ class StaticCatalogClosureTest {
                 ), emptyList(), BEFORE, AFTER))
                 val actual = compare(f, f.config(L = limit, roots = listOf(caller)), listOf(cls, field, other),
                     listOf(t.mark), sameUnit, SchedulePolicy.NOTIFY_FIRST)
-                val expected = ObservedEdge(caller, zero, Conclusion(source.to, ExclusionSet.Empty, true))
+                val expected = selectedExpectedEdge(f.ap.marks, 1,
+                    ObservedEdge(caller, zero, Conclusion(source.to, ExclusionSet.Empty, true)))
                 assertContains(actual.rawSummaries, expected, effect)
                 assertTrue(actual.initials.none { it.method == callee && it.initial.fact.base == STATIC &&
-                    it.initial.fact.path.isEmpty() }, "Defaults are stored summaries, never root initials")
-                val root = f.pattern(STATIC, tail = Tail.STAR, mark = MarkSlot.STAR)
-                assertContains(actual.rawSummaries, ObservedEdge(callee, setOf(root),
-                    Conclusion(root.fact, ExclusionSet.Empty, true)))
+                    it.initial.fact.path.isEmpty() }, "Universal static permission never emits a root initial")
+                assertTrue(actual.rawSummaries.none { row -> row.premise.any {
+                    it.fact.base == STATIC && it.fact.path.isEmpty()
+                } }, "Universal static permission belongs only to the later demand view")
                 assertTrue(actual.witnesses.isEmpty())
             }
     }
@@ -157,23 +151,35 @@ class StaticCatalogClosureTest {
                 val t = MarkSlot.Concrete(f.mark("T"))
                 val source = PathEdge(ZERO_FACT, PathFact(originalBase, originalPath, Tail.EXACT, t), ExclusionSet.Empty)
                 // One branch reaches the call before the other branch publishes this source.
-                f.statement(caller, 1, summary(ZERO_KEEP, source))
+                f.statement(caller, 1, if (originalBase == STATIC) directStaticWrite(f, caller, 1, source, summary(ZERO_KEEP, source)) else summary(ZERO_KEEP, source))
                 f.call(caller, 3, call(listOf(callee), input = originalBase))
-                f.statement(callee, 0, summary(starEdge(originalBase, originalPath, targetBase, targetPath)))
+                val transfer = starEdge(originalBase, originalPath, targetBase, targetPath)
+                val effect = summary(transfer, ZERO_KEEP)
+                f.statement(callee, 0, if (originalBase == STATIC) directStaticRead(f, callee, 0, transfer, effect)
+                    else directStaticWrite(f, callee, 0, transfer, effect))
                 val sink = SinkRule(rule("$origin sink"), 0, listOf(f.pattern(targetBase, targetPath, mark = t)), emptyList())
-                f.exit(callee, 2, ExitRules(RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY, listOf(sink)), false, emptySet()))
+                val checkId = OperationId(FormKey(FormOwner(), callee.method, callee, f.inst(callee, 2)))
+                val check = if (targetBase == STATIC) StatementSummary.EMPTY.withStaticOperations(listOf(
+                    StaticOperation.MarkInput(checkId, sink.patterns.single()))) else StatementSummary.EMPTY
+                f.exit(callee, 2, ExitRules(RuleStatement(check, StatementSummary.EMPTY, listOf(sink)), false, emptySet()))
                 val actual = compare(f, f.config(L = limit, roots = listOf(caller)), listOf(cls, g, field),
                     listOf(t.mark), sameUnit, SchedulePolicy.SEEDED, seed)
                 assertTrue(actual.witnesses.isNotEmpty(), origin)
-                val original = f.pattern(originalBase, originalPath, Tail.STAR, MarkSlot.STAR)
-                assertContains(actual.requests, ObservedRequest(callee, original, RequestKind.Mark(t.mark)),
-                    "The changed checked fact must request on the original $origin chain")
-                assertTrue(actual.witnesses.all { w -> w.edges.all { edge -> edge.layer == Layer.DEMAND &&
-                    edge.premise == setOf(f.pattern(originalBase, originalPath, mark = t)) } })
-                val inputLayer = if (originalBase == STATIC) Layer.DEMAND else Layer.NORMAL
-                assertTrue(actual.links.any { it.callee == callee && it.caller == caller && it.call == f.inst(caller, 3) &&
-                    it.premise == zero && it.callerLayer == inputLayer && it.linkLayer == inputLayer &&
-                    it.added == Pattern(source.to, ExclusionSet.Empty) })
+                val group = GroupedScalarMarks(f.ap.marks)
+                if (originalBase != STATIC) {
+                    val basis = f.pattern(originalBase, tail = Tail.STAR, mark = MarkSlot.STAR)
+                    assertContains(actual.rawSummaries, ObservedEdge(callee, setOf(basis),
+                        Conclusion(transfer.to, ExclusionSet.Empty, true)), "The conditional writer preserves its ordinary original")
+                }
+                assertTrue(actual.requests.none { it.premise.fact.base == STATIC })
+                assertTrue(actual.witnesses.all { w -> w.rule == sink.rule && w.methodKey == callee &&
+                    w.edges.all { edge -> edge.layer == Layer.DEMAND && edge.facts.all { value ->
+                        value.fact.mark == group.slot(t) && value.fact.base == targetBase
+                    } } })
+                if (originalBase != STATIC) assertTrue(actual.links.any { it.callee == callee && it.caller == caller &&
+                    it.call == f.inst(caller, 3) && it.added.fact.base == originalBase && it.added.fact.mark == group.slot(t) })
+                else assertTrue(actual.links.none { it.added.fact.base == STATIC })
+
             }
     }
 }

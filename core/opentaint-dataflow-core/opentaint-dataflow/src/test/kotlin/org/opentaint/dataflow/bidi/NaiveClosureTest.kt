@@ -214,11 +214,11 @@ class NaiveClosureTest {
             f.statement(callee, 0, summary(starEdge(x, emptyList(), returned, emptyList())))
             val config = f.config(roots = listOf(caller))
             val actual = check(f, config, listOf(a), listOf(t.mark), sameUnit)
-            assertContains(actual.rawSummaries, ObservedEdge(caller, zero,
-                Conclusion(PathFact(y, listOf(a), Tail.EXACT, t), ExclusionSet.Empty, false)))
-            assertContains(actual.rawSummaries, ObservedEdge(callee,
+            assertContains(actual.rawSummaries, selectedExpectedEdge(f.ap.marks, 1, ObservedEdge(caller, zero,
+                Conclusion(PathFact(y, listOf(a), Tail.EXACT, t), ExclusionSet.Empty, false))))
+            assertContains(actual.rawSummaries, selectedExpectedEdge(f.ap.marks, 1, ObservedEdge(callee,
                 setOf(f.pattern(x, tail = Tail.STAR, mark = MarkSlot.STAR)),
-                Conclusion(PathFact(returned, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty, false)))
+                Conclusion(PathFact(returned, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty, false))))
             assertContains(actual.processed, ObservedEdge(caller, zero,
                 Conclusion(ZERO_FACT, ExclusionSet.Empty, false), main.inst(3)))
             assertTrue(actual.requests.isEmpty() && actual.sourceHits.isEmpty())
@@ -295,16 +295,16 @@ class NaiveClosureTest {
                 assertEquals(1, witness.run)
                 assertFalse(witness.confirmed)
                 assertEquals(listOf(zero, zero), witness.edges.map { it.premise })
-                assertEquals(listOf(Layer.NORMAL, Layer.NORMAL), witness.edges.map { it.layer })
+                assertEquals(listOf(Layer.DEMAND, Layer.DEMAND), witness.edges.map { it.layer })
             }
-            val generated = actual.rawSummaries.filter { it.conclusion.fact.mark == c }
-            assertEquals(if (includeBoth) setOf(ObservedEdge(both, zero,
-                Conclusion(conjunction.target, ExclusionSet.Empty, false))) else emptySet(), generated.toSet())
+            val generated = actual.rawSummaries.filter { it.conclusion.fact.mark == GroupedScalarMarks(f.ap.marks).slot(c) }
+            assertEquals(if (includeBoth) setOf(selectedExpectedEdge(f.ap.marks, 1, ObservedEdge(both, zero,
+                Conclusion(conjunction.target, ExclusionSet.Empty, false)))) else emptySet(), generated.toSet())
         }
     }
 
     @Test
-    fun `scalar static climb remains the oracle while catalog closure preserves supplied caller effects`(): Unit {
+    fun `historical scalar discovery and direct static effects preserve the supplied field origin`(): Unit {
         for (policy in listOf(SchedulePolicy.REPLAY_FIRST, SchedulePolicy.NOTIFY_FIRST))
             for (sameUnit in listOf(false, true)) FiniteProgramFixtures().use { f ->
                 val main = f.method("staticCaller", listOf(listOf(1), listOf(2), emptyList()), 2)
@@ -321,7 +321,7 @@ class NaiveClosureTest {
                 val static = AccessPathBase.ClassStatic
                 val source = PathEdge(ZERO_FACT, PathFact(static, path, Tail.EXACT, t), ExclusionSet.Empty)
                 assertTrue(MicroEdge.of(source).isSource)
-                f.entry(caller, RuleStatement(summary(ZERO_KEEP, source), StatementSummary.EMPTY, emptyList()))
+                f.entry(caller, RuleStatement(directStaticWrite(f, caller, 0, source, summary(ZERO_KEEP, source)), StatementSummary.EMPTY, emptyList()))
                 fun staticCall(target: MethodKey, result: AccessPathBase): CallPlan = CallPlan(setOf(static, returned, result), listOf(
                     CallStage.Edges(BEFORE, BOUND, BIND_IN, summary(keepEdge(static), ZERO_KEEP)),
                     CallStage.Actions(BOUND, ADDED, emptyList()),
@@ -332,11 +332,13 @@ class NaiveClosureTest {
                 ), emptyList(), BEFORE, AFTER)
                 f.call(caller, 1, staticCall(middle, y))
                 f.call(middle, 1, staticCall(callee, returned))
-                f.statement(callee, 0, summary(PathEdge(PathFact(static, path, Tail.EXACT, t),
-                    PathFact(returned, emptyList(), Tail.EXACT, u), ExclusionSet.Empty)))
+                val read = PathEdge(PathFact(static, path, Tail.EXACT, t),
+                PathFact(returned, emptyList(), Tail.EXACT, u), ExclusionSet.Empty)
+            f.statement(callee, 0, directStaticRead(f, callee, 0, read, summary(read)))
                 val config = f.config(roots = listOf(caller))
                 val scalar = NaiveClosure(f, config, semantics = NaiveClosure.Semantics.HISTORICAL).run()
-                val actual = check(f, config, path, listOf(t.mark, u.mark), sameUnit, policy, catalogRefinement = true)
+                val actual = ProductionSchedule(f, config, sameUnit, policy, quantum = 1, duplicateDeliveries = true).run()
+                assertDirectStaticProtocol(actual, f.ap.marks)
                 val policyInitial = f.pattern(static, tail = Tail.STAR, mark = MarkSlot.STAR)
                 val positionInitial = f.pattern(static, path, Tail.STAR, MarkSlot.STAR)
                 val position = RequestKind.Position(f.ap.path(path)!!)
@@ -344,11 +346,11 @@ class NaiveClosureTest {
                     // Preserve the old protocol assertions on the independent scalar algorithm.
                     assertContains(scalar.requests, ObservedRequest(key, policyInitial, position))
                     assertContains(scalar.requests, ObservedRequest(key, positionInitial, RequestKind.Mark(t.mark)))
-                    assertContains(actual.initials, ObservedInitial(key, f.pattern(static, path, Tail.EXACT, t)))
+                    assertTrue(actual.initials.none { it.method == key && it.initial.fact.base == STATIC })
                 }
                 assertTrue(actual.requests.none { it.kind is RequestKind.Position })
-                assertContains(actual.rawSummaries, ObservedEdge(caller, zero,
-                    Conclusion(PathFact(y, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, true)))
+                assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(GroupedScalarMarks(f.ap.marks).pattern(f.pattern(STATIC, path, mark = t))),
+                    GroupedScalarMarks(f.ap.marks).conclusion(Conclusion(PathFact(y, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false))))
                 assertTrue(actual.sourceHits.isEmpty())
             }
     }
@@ -369,7 +371,7 @@ class NaiveClosureTest {
                 val u = MarkSlot.Concrete(f.mark("B"))
                 val v = MarkSlot.Concrete(f.mark("C"))
                 val sourceA = PathEdge(ZERO_FACT, PathFact(x, emptyList(), Tail.EXACT, t), ExclusionSet.Empty)
-                val sourceB = PathEdge(ZERO_FACT, PathFact(y, if (mixed) listOf(a, b) else listOf(a), Tail.EXACT, u), ExclusionSet.Empty)
+                val sourceB = PathEdge(ZERO_FACT, PathFact(y, if (mixed) listOf(a, b, b) else listOf(a), Tail.EXACT, u), ExclusionSet.Empty)
                 f.entry(producer, RuleStatement(summary(ZERO_KEEP, sourceA, sourceB), StatementSummary.EMPTY, emptyList()))
                 f.entry(consumer, RuleStatement(summary(ZERO_KEEP, sourceA), StatementSummary.EMPTY, emptyList()))
                 val callPlan = CallPlan(setOf(x, y, returned), listOf(
@@ -397,7 +399,7 @@ class NaiveClosureTest {
                     Seed.Source(consumer, consumerMethod.inst(0), sourceA))
                 val actual = check(f, f.config(index = 3, roots = listOf(producer, consumer), demand = demand, seeds = seeds),
                     listOf(a, b), listOf(t.mark, u.mark, v.mark), sameUnit, policy)
-                val members = setOf(literals[0], f.pattern(y, listOf(a), if (mixed) Tail.ANY else Tail.EXACT, u))
+                val members = setOf(literals[0], f.pattern(y, if (mixed) listOf(a, b) else listOf(a), if (mixed) Tail.ANY else Tail.EXACT, u))
                 val joined = ObservedEdge(callee, members, Conclusion(target, ExclusionSet.Empty, mixed))
                 assertContains(actual.rawSummaries, joined)
                 assertContains(actual.publications, joined)
@@ -433,7 +435,7 @@ class NaiveClosureTest {
             val v = MarkSlot.Concrete(f.mark("C"))
             val d = MarkSlot.Concrete(f.mark("delay signal"))
             val sourceA = PathEdge(ZERO_FACT, PathFact(x, emptyList(), Tail.EXACT, t), ExclusionSet.Empty)
-            val sourceB = PathEdge(ZERO_FACT, PathFact(y, if (mixed) listOf(a, b) else listOf(a), Tail.EXACT, u), ExclusionSet.Empty)
+            val sourceB = PathEdge(ZERO_FACT, PathFact(y, if (mixed) listOf(a, b, b) else listOf(a), Tail.EXACT, u), ExclusionSet.Empty)
             val sourceSignal = PathEdge(ZERO_FACT, PathFact(signal, emptyList(), Tail.EXACT, d), ExclusionSet.Empty)
             val delayedB = PathEdge(sourceSignal.to, sourceB.to, ExclusionSet.Empty)
             assertTrue(MicroEdge.of(sourceA).isSource && MicroEdge.of(sourceB).isSource && MicroEdge.of(sourceSignal).isSource)
@@ -468,13 +470,13 @@ class NaiveClosureTest {
                 listOf(a, b, f.field("fresh accessor")), listOf(t.mark, u.mark, v.mark, d.mark, f.mark("fresh mark"), TaintMark.ZERO), 2)
             try {
                 actual.assertEquivalent(expected, universe)
-                val members = setOf(literals[0], f.pattern(y, listOf(a), if (mixed) Tail.ANY else Tail.EXACT, u))
+                val members = setOf(literals[0], f.pattern(y, if (mixed) listOf(a, b) else listOf(a), if (mixed) Tail.ANY else Tail.EXACT, u))
                 val pub = ObservedEdge(callee, members, Conclusion(target, ExclusionSet.Empty, mixed))
                 assertContains(actual.publications, pub)
                 assertContains(actual.rawSummaries, ObservedEdge(consumer, zero, Conclusion(target, ExclusionSet.Empty, mixed)))
                 val parts = schedule.subscriptions.filter { it.callee == callee && it.caller == consumer && it.added.base in setOf(x, y) }
                 assertEquals(2, parts.size)
-                assertEquals(setOf(literals[0], f.pattern(y, listOf(a), if (mixed) Tail.ANY else Tail.EXACT, u)),
+                assertEquals(setOf(literals[0], f.pattern(y, if (mixed) listOf(a, b) else listOf(a), if (mixed) Tail.ANY else Tail.EXACT, u)),
                     parts.flatMap { f.ops.leaves(it.added).toList() }.toSet())
                 assertTrue(parts.all { it.ref.premise.isZero && it.ref.call == consumerMethod.inst(1) })
                 assertEquals(Layer.NORMAL, parts.single { it.added.base == x }.linkLayer)
@@ -509,7 +511,7 @@ class NaiveClosureTest {
             val t = MarkSlot.Concrete(f.mark("T"))
             val u = MarkSlot.Concrete(f.mark("U"))
             val mustSource = PathEdge(ZERO_FACT, PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty)
-            val deepSource = PathEdge(ZERO_FACT, PathFact(x, listOf(a, b), Tail.EXACT, u), ExclusionSet.Empty)
+            val deepSource = PathEdge(ZERO_FACT, PathFact(x, listOf(a, b, b), Tail.EXACT, u), ExclusionSet.Empty)
             f.entry(key, RuleStatement(summary(ZERO_KEEP, mustSource, deepSource), StatementSummary.EMPTY, emptyList()))
             f.call(key, 1, CallPlan(setOf(x), listOf(
                 CallStage.Edges(BEFORE, BOUND, BIND_IN, summary(keepEdge(x), ZERO_KEEP)),
@@ -522,13 +524,13 @@ class NaiveClosureTest {
             val seeds = listOf(Seed.Source(key, method.inst(0), mustSource), Seed.Source(key, method.inst(0), deepSource))
             val actual = check(f, f.config(index = index, roots = listOf(key), demand = if (index == 1) emptyList() else demand,
                 seeds = seeds), listOf(a, b), listOf(t.mark, u.mark))
-            val must = ObservedEdge(key, zero, Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t),
-                if (index == 1) ExclusionSet.Empty else ExclusionSet.of(intArrayOf(a, b)), index == 1))
-            val may = ObservedEdge(key, zero, Conclusion(PathFact(x, listOf(a), Tail.ANY, u), ExclusionSet.Empty, true))
+            val must = selectedExpectedEdge(f.ap.marks, index, ObservedEdge(key, zero, Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t),
+                if (index == 1) ExclusionSet.Empty else ExclusionSet.of(intArrayOf(a, b)), index == 1)))
+            val may = selectedExpectedEdge(f.ap.marks, index, ObservedEdge(key, zero, Conclusion(PathFact(x, if (index == 1) listOf(a) else listOf(a, b), Tail.ANY, u), ExclusionSet.Empty, true)))
             assertContains(actual.rawSummaries, must)
             assertContains(actual.rawSummaries, may)
             assertContains(actual.selectedDemand, may)
-            assertEquals(index == 1, actual.selectedDemand.any { it.conclusion.fact.mark == t })
+            assertEquals(index == 1, actual.selectedDemand.any { it.conclusion.fact.mark == (if (index == 1) GroupedScalarMarks(f.ap.marks).slot(t) else t) })
             assertTrue(actual.requests.isEmpty())
         }
     }
@@ -655,7 +657,7 @@ class NaiveClosureTest {
     }
 
     @Test
-    fun `backward zero publishes balanced reach and reversed end facts seed their sink without synthetic source hits`(): Unit {
+    fun `backward zero publishes balanced reach while ignored end facts create neither sink seeds nor source hits`(): Unit {
         FiniteProgramFixtures().use { f ->
             val method = f.method("endTrigger", listOf(listOf(1), listOf(2), emptyList()), 2)
             val key = method.key()
@@ -675,9 +677,9 @@ class NaiveClosureTest {
             assertContains(actual.rawSummaries, zeroSummary)
             assertContains(actual.publications, zeroSummary)
             assertContains(actual.selectedDemand, zeroSummary)
-            assertContains(actual.processed, ObservedEdge(key, zero,
-                Conclusion(PathFact(x, emptyList(), Tail.EXACT, t), ExclusionSet.Empty, false), method.inst(2)))
-            assertEquals(setOf(ObservedSourceHit(key, method.inst(1), source)), actual.sourceHits)
+            assertFalse(actual.processed.any { it.method == key && it.conclusion.fact.base == x },
+                "The ignored end action cannot seed the sink's positive condition")
+            assertTrue(actual.sourceHits.isEmpty(), "The unrelated source is not reached by the explicit return/U seed")
             assertTrue(actual.requests.isEmpty() && actual.witnesses.isEmpty())
         }
     }

@@ -1,6 +1,6 @@
 # Mark groups and direct statics: implementation proposal
 
-Date: 19 October 2026. Status: **proposal; no runtime implementation**.
+Date: 19 October 2026. Status: **implementation in progress; acceptance pending**.
 Use ASD-STE100 Simplified Technical English. Code names and defined technical
 terms keep their meanings. This proposal implements
 [the combined specification](../../spec/grouped-run1-statics.md). Its
@@ -782,6 +782,46 @@ Do not combine `M(srcG, clean)` with `M(clean, srcH)` to satisfy a guard
 global static pool may forget that origin only after the writer is grounded.
 Do not label every method entry or every CFG edge with a new support graph.
 
+This rule also applies when `M` passes both arguments to another method.
+Do not forward separate scalar grounding bits and then merge them under
+the nested call's immediate port. That loses the original joint condition.
+Keep the reached write as an early conditional summary. Compose it through
+the ordinary singleton or ND caller join until its complete input binding
+is grounded. This is the write-summary path from section 10. It does not
+need a call-path graph.
+
+```kotlin
+fun canSeedEntryGrounding(original: PremiseKey): Boolean =
+    original.isZero || original.members.all { it.base == STATIC }
+
+// A -> M(srcG, clean); A -> M(clean, srcH); M -> B(p, q).
+// B's write retains {p/G, q/H}. M retains {M.p/G, M.q/H}.
+// Neither actual M call in A satisfies this complete premise.
+// Do not publish U into the pool from separate B.p/G and B.q/H bits.
+```
+
+An ordinary nonstatic original keeps its residual condition on the early
+effect. Direct eligible source inputs and rooted static-only inputs can
+seed entry grounding. Before this seed is accepted, check its remaining
+source or predicate support. ZERO alone does not discharge that support.
+
+Keep guard references with their accepted AP cofactor across publication
+and caller application. Rewrite the references through the actual matched
+caller binding. Support growth must be visible even when the fact is old.
+
+```kotlin
+data class Publication(
+    val premise: PremiseKey,
+    val conclusion: Facts,
+    val grounding: GroundingSupport = GroundingSupport.TRUE,
+)
+
+// A guarded premise needs semantic leaf -> merged support metadata in its
+// existing publication row. Do not retain old Facts versions.
+// An old exact unguarded leaf and a new broad guarded leaf stay separate.
+// AND/OR references stay structural; never distribute AND over OR.
+```
+
 Source permissions seed support. An abstract FLOW value never supplies a
 group. An original-slot request can start a conditional group initial but
 cannot mark its input slice grounded. A source with a group-dependent
@@ -843,6 +883,130 @@ interest for g through Base P/R. A mark-changing writer requests its real
 input selector, not its output group as if the operation were identity.
 Register the relation when lowering the operation; full T-to-U remains
 available for run-2.
+
+### 11.1 Current owner-side support representation
+
+The implementation uses `Run1Grounding`, `GroundingRequirement` and
+`GroundingSupport` for these references. A requirement retains its original
+premise, accepted AP relation, full positive literal and available
+`ProofKey`/leaf ordinal. AND and OR stay structural. Combining twenty
+binary alternatives has 79 expression nodes in the focused control; it
+does not construct the Cartesian product of their cubes.
+
+Support belongs to the current accepted semantic leaf and layer at its
+actual operation or existing store row. It is not a method-wide fact
+property. An equal value at another statement, call stage or cleaner
+substep cannot discharge this operation's guard. Transient callbacks,
+`EdgeDelta`, `PlanFact` and point work carry support explicitly; restoring
+the callback scope prevents one operation from inheriting another's guard.
+Ordinary successor admission attaches conditional cofactors to the existing
+`MethodEdgeStore` statement/premise row. Its leaf-and-layer directory spans
+all raw headers: T2 can replace an annotation or subsume a leaf from another
+header without reporting AP growth. Only a row that encounters nontrivial
+support needs this directory; before its first guarded update, it backfills
+all already owned unconditional leaves as TRUE. The ordinary TRUE-only path
+keeps its packed AP value and allocates no cofactor census.
+
+Point, writer, call-waiter and delayed-FLOW keys use the actual site or
+operation, original premise, semantic leaf and layer. A saved relation is
+reconstructed from that current leaf; cumulative T4 `Facts` snapshots are
+not keys or support versions. Writer and call rows union current group
+memberships and OR-support at those keys. They do not retain each earlier
+root or support expression as another continuation.
+
+`Publication.grounding` and `Subscription.grounding` keep accepted semantic
+cofactors distinct from a broader T2 fact union. A qualified
+`N2InputRef(owner, callee, handle, ref)` borrows current owner-side cofactors
+with `borrowN2Cofactors`; it does not retain old input Facts versions.
+Singleton application uses that cofactor's support. ND application rematches
+all required members against their current qualified cofactors and rewrites
+support through each complete actual member binding. The current revision
+of an existing binding can refresh a completed ND combination; a revision
+is not another standing subscription. Local conjunction refresh similarly
+replaces one accepted row's metadata rather than retaining earlier support
+versions.
+
+Support growth is propagation even if AP facts deduplicate. This includes
+a previously guarded row becoming TRUE. Publication and N2 rows notify
+again, and an existing successor work row can be admitted with its improved
+support. Losing a guard reference never means TRUE. Conversely,
+a prior genuine TRUE alternative must remain TRUE when a guarded duplicate
+arrives. `RunMethodAnalyzer` remembers only which summary premises have
+conditional metadata, so an AP-deduplicated TRUE alternative still reaches
+the publication index; TRUE-only summaries retain ordinary duplicate
+suppression. The publication index owns the current support union.
+
+Unchanged TRUE traversal uses the original transient work burst without
+storing every pass-through statement. Earlier work is either still queued
+with its explicit support or has monotonically delivered its effects to
+the existing rule, N2, publication or writer rows. A later guarded traversal
+cannot retract those effects. The burst's temporary repeat key includes
+support even though semantic `EdgeDelta` equality ignores metadata. This
+preserves both pending alternatives without a permanent unchanged-fact map.
+
+For an ordinary Group/STAR initial, the normal entry conversion produces
+ANY. That entry image alone cannot validate a field-sensitive guard. At a
+positive operation or actual call input, the owner also retains the current
+FLOW relation for the same abstract original. It composes the actual rooted
+input through that saved relation before it checks the full literal. Thus
+an actual `p.h` does not satisfy a `p.f/G` guard solely because the group
+entry was `p/ANY/G`. A group arriving before this relation stays dormant;
+relation growth re-enqueues that operation. Guarded caller applications
+observe growth at their exact call stage and reborrow current N2 cofactors.
+These are sensitive-operation relations, not another CFG execution lane.
+
+The geometry-only FLOW view clears mx when checking an already accepted
+DEMAND group complement. A selected full-mark cleaner can exclude its
+whole owner group from FLOW while a possible different full member still
+survives in concrete Group/DEMAND. mx cannot then reject that survivor's
+geometry. Paths, tails, field exclusions, actual overwrites and stage
+bindings remain in the relation. This geometry view supplies no group;
+rooted group membership and the full positive literal remain separate
+checks. A mark-generating operation with no surviving FLOW needs its
+accepted input guard plus its actual reached output relation; the presence
+of some inherited guard alone is not a geometry certificate.
+
+`GroundingSupport.WithFixed(logical, fixedImageSupport)` carries this
+orthogonal certificate on the current accepted cofactor. Normal support
+evaluation uses `logical`. Only the certified alternatives can repair a
+missing FLOW geometry. A TRUE alternative without a certificate cannot
+remove the certified alternative's positive input guard. AND/OR combine
+these current references without distributing guards into cubes, and
+ordinary caller rebinding maps both components. No action/call traversal
+history is added.
+
+Certify only an actually accepted concrete target whose declared tail is
+EXACT, ANY or ANY_TAINT. This covers plain fixed-target mark operations and
+unary/ND source actions. The selected JIR `RulePos.fact` emits EXACT/ANY;
+CopyMark uses that function. AssignMark uses `sourceFact`, which emits
+EXACT/ANY_TAINT. No selected JIR CopyMark or AssignMark target is concrete
+STAR. A generic STAR-to-STAR operation still needs its surviving FLOW/AP
+relation and stays dormant if that relation is missing. An inherited guard
+alone does not qualify that operation for the certificate.
+
+This metadata has a representation cost. `groundingTrueRows` and
+`groundingGuardedRows` are O(1) counts of the TRUE and nontrivial semantic
+cofactors retained on guarded method-edge rows; the latter includes
+fixed-image metadata, not only logical conditional guards. They exclude
+the ordinary TRUE-only bulk path and are not a census of all support
+directories. Freeze copies only those two numeric totals before it releases
+the rows. They are not retained-byte measurements, and this representation
+has no measured performance or net-memory claim. Further metadata
+compaction needs measurements and the same TRUE/unseen, cofactor and
+support-growth laws. It must not silently remove these correctness
+distinctions or retain obsolete support histories.
+
+Focused controls check operation isolation, TRUE-before-guard union,
+support-only work revision, both unchanged-burst arrival orders, guarded
+summary becoming TRUE, sibling geometry, late FLOW, ordinary ZERO
+binding composition and the mx-complement case. The nested forwarding
+controls also distinguish two incompatible caller bindings from one
+complete binding. These checks are local production refinements, not a
+claim that the whole analyzer or every frontend adapter is formally proved.
+The constructive support union and revision laws describe the logical
+contract; attachment to existing mutable stores, transient owner scopes and
+the unchanged-work fast path remain production refinement obligations
+checked by these focused controls.
 
 ## 12. Ignore sink end-fact actions in every run
 
@@ -1294,9 +1458,15 @@ standing memberships from attempted callbacks. Add no per-event trace history.
 
 ## 20. Evidence checkpoint
 
-This task changes documentation only; existing proof evidence remains in
-place. No runtime source, project run, profile or memory snapshot is produced
-by this proposal.
+The runtime implementation uses the selected `a80d5c580` base. The final
+combined test pass has no failures or skipped tests: 1,577 common-core
+tests, 416 JVM dataflow tests, 15 selected JVM acceptance/resolver tests and
+31 rule tests. The JVM acceptance controls reach run-3 with limits
+`1, 1, 2`. They retain exact full-mark findings, source action identities
+and negative controls. The Lean build and constructive audit also pass.
+These checks do not establish project performance. No project run, profile
+or memory snapshot has measured this implementation yet. Project acceptance
+remains open until the fresh, committed-source measurements are complete.
 The selected base's reached/completed/accepted runs remain:
 
 ```text

@@ -89,7 +89,7 @@ class HistoricalMustProgramTest {
             val literal = if (sinkInCallee) p.pattern(arg, listOf(field), Tail.ANY, t) else p.pattern(ret, tail = Tail.ANY, mark = t)
             p.exit(sinkKey, 2, ExitRules(RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY,
                 listOf(SinkRule(rule, 0, listOf(literal), emptyList()))), false, emptySet()))
-            val old = HistoricalConcreteIteration(p, listOf(root), listOf(1, 2, 3), allowMustSources = true).run()
+            val old = HistoricalConcreteIteration(p, listOf(root), listOf(1, 1, 2), allowMustSources = true).run()
             val reference = if (sinkInCallee) "AnyTaintExCases2.C.run3_confirmed_handoff:1729" else
                 "AnyTaintExCases2.G.run3_confirmed_handoff:1618"
             assertEquals(mapOf(HistoricalFinding(rule, p.inst(sinkKey, 2)) to HistoricalState.CONFIRMED), old.findings, reference)
@@ -99,7 +99,7 @@ class HistoricalMustProgramTest {
             for (run in old.runs) assertTrue(run.handOff.demand.all { (_, demand) ->
                 demand.entry.fact.tail != Tail.ANY_TAINT && demand.exit?.fact?.tail != Tail.ANY_TAINT },
                 "Older hand-off forgets forward must flags on both entry and exit")
-            val report = f.driver(FixedLimits(listOf(1, 2, 3))).analyze(listOf(root))
+            val report = f.driver(FixedLimits(listOf(1, 1, 2))).analyze(listOf(root))
             assertEquals(mapOf(rule to ReportState.DEMAND), report.entries.associate { it.key.rule to it.state }, reference)
         }
     }

@@ -176,7 +176,7 @@ class EmissionTest {
             val start = assertIs<FlowTree>(ops.startFact(initial))
             assertEquals(Layer.NORMAL, start.layer)
             assertEquals(ExclusionSet.Empty, start.exclusion)
-            assertEquals(MarkSet.EMPTY, start.markExclusion)
+            assertEquals(MarkExclusions.EMPTY, start.markExclusion)
             assertEquals(setOf(value(p(f), Tail.STAR, star)), decoded(start))
         }
     }

@@ -7,7 +7,7 @@ import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 /** Real frozen method actors with explicitly stated raw and selected barrier inputs. */
-class HandOffFixtures(val index: Int = 1, val L: Int = 1) : AutoCloseable {
+class HandOffFixtures(val index: Int = 1, val L: Int = maxOf(1, index - 1)) : AutoCloseable {
     val finite = MethodAnalysisFixtures()
     val manager get() = finite.manager
     val ops get() = finite.ops

@@ -50,7 +50,7 @@ class NormalizedHandOffTest {
 
     @Test
     fun `forward normal multi premise must sides become may Empty E while exact and concrete marks stay distinct`(): Unit {
-        HandOffFixtures(index = 3, L = 1).use { f ->
+        HandOffFixtures(index = 3).use { f ->
             val key = f.key()
             val native = f.key("native singleton")
             val a = f.field("a")
@@ -184,7 +184,7 @@ class NormalizedHandOffTest {
 
     @Test
     fun `empty hand off construction checks cancellation before enumerating actors and remains usable after activation`(): Unit {
-        for (index in listOf(1, 2, 3)) HandOffFixtures(index = index, L = 1).use { f ->
+        for (index in listOf(1, 2, 3)) HandOffFixtures(index = index).use { f ->
             val result = f.result()
             f.cancellation.cancel()
             assertFailsWith<Cancellation.Cancelled> { HandOff.of(f.config, result, f.report, f.shared) }
@@ -198,7 +198,7 @@ class NormalizedHandOffTest {
 
     @Test
     fun `cancelled nonempty leaf member and hit walks preserve the frozen inputs for later activation`(): Unit {
-        HandOffFixtures(index = 3, L = 1).use { f ->
+        HandOffFixtures(index = 3).use { f ->
             val key = f.key()
             val t = MarkSlot.Concrete(f.mark("T"))
             val u = MarkSlot.Concrete(f.mark("U"))

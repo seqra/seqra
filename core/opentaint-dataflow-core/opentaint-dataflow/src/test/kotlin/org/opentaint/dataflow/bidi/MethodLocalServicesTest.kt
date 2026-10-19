@@ -69,9 +69,9 @@ class MethodLocalServicesTest {
         MethodAnalysisFixtures().use { f ->
             val (actor, service) = core(f)
             val policy = f.manager.initial(f.pattern(tail = Tail.STAR, mark = MarkSlot.STAR))
-            val request = f.mark("T")
-            val premise = f.manager.initial(f.pattern())
-            val input = f.fact()
+            val request = f.groupMark(f.mark("T")).mark
+            val premise = f.manager.initial(f.run1Pattern())
+            val input = f.run1Fact()
             val ref = CallerRef(f.store.key("caller"), f.manager.zero, Layer.NORMAL, f.inst(1))
             val sink = sink(listOf(f.pattern()))
             val conjunction = ConjunctiveEdge(listOf(f.pattern(argument), f.pattern(result)),
@@ -89,13 +89,13 @@ class MethodLocalServicesTest {
             assertTrue(mapFields(abstraction).all { it.isEmpty() }, "A cancelled demand did not install interest")
             assertTrue(actor.initials.all().none())
             assertTrue(f.vulnerabilities.witnessesOf(1).none())
-            val other = f.fact(result)
-            val otherPremise = f.manager.initial(f.pattern(result))
+            val other = f.run1Fact(result)
+            val otherPremise = f.manager.initial(f.run1Pattern(result))
             service.conjunction(conjunction, otherPremise, other, f.inst(1)) { _, _ ->
                 fail("The cancelled first literal cannot remain in the store")
             }
 
-            f.admit(actor, ref, Layer.NORMAL, input)
+            f.admit(actor, ref, Layer.DEMAND, input)
             f.drain(actor, quantum = 1)
             assertEquals(setOf(policy), actor.initials.all().toSet(),
                 "The later supplier must not answer an interest from the cancelled call")
@@ -107,10 +107,10 @@ class MethodLocalServicesTest {
             service.conjunction(conjunction, premise, input, f.inst(1)) { joined, facts ->
                 joins++
                 assertEquals(f.manager.union(premise, otherPremise), joined)
-                assertEquals(Layer.NORMAL, facts.layer)
+                assertEquals(Layer.DEMAND, facts.layer)
             }
             assertEquals(1, joins, "The cancelled input must not block the later complete literal join")
-            assertEquals(listOf(sink to Layer.NORMAL), service.checkSinks(premise, f.inst(1), input, listOf(sink)).fired)
+            assertEquals(listOf(sink to Layer.DEMAND), service.checkSinks(premise, f.inst(1), input, listOf(sink)).fired)
             assertEquals(1, f.vulnerabilities.witnessesOf(1).count(),
                 "A cancelled sink check must not poison the later actual witness")
         }
@@ -160,7 +160,7 @@ class MethodLocalServicesTest {
             assertFailsWith<IllegalStateException> { actor.freeze() }
             assertFailsWith<IllegalStateException> {
                 service.addMarkRequest(f.manager.initial(f.pattern(tail = Tail.STAR, mark = MarkSlot.STAR)),
-                    f.mark("T"))
+                    f.groupMark(f.mark("T")).mark)
             }
             f.drain(actor)
             assertTrue(assertIs<RequestStorage>(fieldNamed(actor, "temporary")).isEmpty)
@@ -181,15 +181,15 @@ class MethodLocalServicesTest {
             assertEquals(1L, assertIs<RequestStorage>(fieldNamed(actor, "temporary")).dynamicMembers)
             val otherPolicy = f.manager.initial(AccessPathBase.Argument(1), null, Tail.STAR,
                 ExclusionSet.Empty, MarkSlot.STAR)
-            service.addMarkRequest(otherPolicy, f.mark("T"))
+            service.addMarkRequest(otherPolicy, f.groupMark(f.mark("T")).mark)
             assertFails { actor.freeze() }
             assertSame(abstraction, actor.abstraction, "A rejected freeze keeps pending policy work")
             assertSame(service, actor.localServices)
             f.drain(actor, quantum = 1)
             assertTrue(assertIs<RequestStorage>(fieldNamed(actor, "temporary")).isEmpty)
             val firstPolicy = f.manager.initial(f.pattern(tail = Tail.STAR, mark = MarkSlot.STAR))
-            assertTrue(f.mark("T") in f.requestRow(actor, assertNotNull(Run1Slot.fromInitial(firstPolicy))))
-            assertTrue(f.mark("T") in f.requestRow(actor, assertNotNull(Run1Slot.fromInitial(otherPolicy))))
+            assertTrue(f.groupMark(f.mark("T")).mark in f.requestRow(actor, assertNotNull(Run1Slot.fromInitial(firstPolicy))))
+            assertTrue(f.groupMark(f.mark("T")).mark in f.requestRow(actor, assertNotNull(Run1Slot.fromInitial(otherPolicy))))
             actor.freeze()
             assertFails { actor.localServices }
             assertFails { actor.runnerPort }
@@ -258,12 +258,12 @@ class MethodLocalServicesTest {
 
     private fun populateState(f: MethodAnalysisFixtures, actor: RunMethodAnalyzer, service: RunMethodLocalServices) {
         val policy = f.manager.initial(f.pattern(tail = Tail.STAR, mark = MarkSlot.STAR))
-        service.addMarkRequest(policy, f.mark("T"))
-        val premise = f.manager.initial(f.pattern())
+        service.addMarkRequest(policy, f.groupMark(f.mark("T")).mark)
+        val premise = f.manager.initial(f.run1Pattern())
         val conjunction = ConjunctiveEdge(listOf(f.pattern(argument), f.pattern(result)), f.pattern(AccessPathBase.This).fact)
-        service.conjunction(conjunction, premise, f.fact(), f.inst(1)) { _, _ -> fail("Only one literal is present") }
+        service.conjunction(conjunction, premise, f.run1Fact(), f.inst(1)) { _, _ -> fail("Only one literal is present") }
         service.fireTriggerSeeds(f.inst(1), sink(listOf(f.pattern()))) { facts ->
-            assertEquals(setOf(Conclusion(f.pattern().fact, ExclusionSet.Empty, false)), methodLeaves(f.ops, listOf(facts)))
+            assertEquals(setOf(Conclusion(f.run1Pattern().fact, ExclusionSet.Empty, true)), methodLeaves(f.ops, listOf(facts)))
         }
         assertEquals(1L, actor.triggerSeeds)
     }

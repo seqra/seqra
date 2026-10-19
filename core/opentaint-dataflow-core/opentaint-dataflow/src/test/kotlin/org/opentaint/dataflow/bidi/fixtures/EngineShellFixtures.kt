@@ -53,7 +53,7 @@ class EngineShellFixtures(val cancellation: Cancellation = Cancellation()) {
     } }
 
     val refManager = RefManager()
-    val manager = ApManager(cancellation, refManager)
+    val manager = ApManager(cancellation, refManager).also { it.marks.finishFixtureOwnershipCensus() }
     val ops = ApOps(manager)
     val records = PersistentRecordStore(manager)
     val vulnerabilities = ConcurrentVulnerabilityStore(manager)
@@ -155,7 +155,7 @@ class EngineShellFixtures(val cancellation: Cancellation = Cancellation()) {
         SharedObjects(manager, ops, interpreter, language, contexts, records, vulnerabilities, unitResolver,
             refManager, cancellation, threads, cancellationTimeout, diagnostics)
 
-    fun config(index: Int = 1, L: Int = 1, roots: List<MethodKey> = listOf(a),
+    fun config(index: Int = 1, L: Int = maxOf(1, index - 1), roots: List<MethodKey> = listOf(a),
                demand: DemandStore? = if (index == 1) null else DemandStore.Builder(manager).build(),
                seeds: SeedIndex = SeedIndex.EMPTY): RunConfig =
         RunConfig(index, L, demand, records.view(), seeds, roots)

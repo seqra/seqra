@@ -48,7 +48,6 @@ class RequestBatchCycleTest {
                     val delegate = actual.create(observed)
                     object : RunnerHandler<RunMethodAnalyzer>, SubscriptionHandler {
                         override fun createActor(key: MethodKey) = delegate.createActor(key)
-                        override fun drainRequests(caller: MethodKey) = (delegate as SubscriptionHandler).drainRequests(caller)
                         override fun subscribe(sub: Subscription) = (delegate as SubscriptionHandler).subscribe(sub)
                         override fun freeze() = (delegate as SubscriptionHandler).freeze()
                         override fun handle(event: RunEvent) {
@@ -57,9 +56,7 @@ class RequestBatchCycleTest {
                                 val destination = if (event.root == f.a) f.b else f.a
                                 val ref = CallerRef(event.root, initial, Layer.NORMAL, f.inst(event.root.method, 2))
                                 (delegate as SubscriptionHandler).subscribe(Subscription(destination, ref, Layer.NORMAL, flow))
-                                f.ops.leaves(flow).forEach {
-                                    inputs += destination to Link(it, Layer.NORMAL, ref)
-                                }
+                                assertTrue(observed.send(RunEvent.LinkIn(destination, ref, Layer.NORMAL, flow)))
                                 if (event.root == f.a) assertTrue(observed.send(RunEvent.MarkRequestsIn(f.a, mapOf(slot to marks))))
                             } else {
                                 if (event is RunEvent.LinkIn) f.ops.leaves(event.added).forEach {
@@ -77,7 +74,7 @@ class RequestBatchCycleTest {
                 assertTrue(queued.get() > 0)
                 assertEquals(setOf(f.a, f.b), result.analyzers.map { it.key }.toSet())
                 for (method in listOf(f.a, f.b)) {
-                    assertEquals(marks, stores.getValue(method).borrowRequest(slot).dynamic)
+                    assertEquals(marks, stores.getValue(method).borrowRequest(slot).marks)
                     val arrived = inputs.filter { it.first == method }.map { it.second }
                     assertEquals(1, arrived.size)
                     assertEquals(initial.toPattern(), arrived.single().addedFact)
@@ -104,7 +101,6 @@ class RequestBatchCycleTest {
                 val delegate = actual.create(port)
                 object : RunnerHandler<RunMethodAnalyzer>, SubscriptionHandler {
                     override fun createActor(key: MethodKey) = delegate.createActor(key)
-                    override fun drainRequests(caller: MethodKey) = (delegate as SubscriptionHandler).drainRequests(caller)
                     override fun subscribe(sub: Subscription) = (delegate as SubscriptionHandler).subscribe(sub)
                     override fun freeze() = (delegate as SubscriptionHandler).freeze()
                     override fun handle(event: RunEvent) {

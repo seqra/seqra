@@ -12,7 +12,12 @@ import org.opentaint.dataflow.bidi.ap.TaintMark
 import java.util.Collections
 
 /** A directed edge retains its forward object for source and may classification. */
-class MicroEdge(val edge: PathEdge, val forward: PathEdge, val conjunctive: Boolean = false) {
+class MicroEdge(
+    val edge: PathEdge,
+    val forward: PathEdge,
+    val conjunctive: Boolean = false,
+    val actionId: ActionId? = null,
+) {
     init {
         check(forward.from.tail != Tail.ANY_TAINT) { "I14: a forward micro edge cannot have a must premise" }
         check(edge == forward || (edge.from.tail != Tail.ANY_TAINT && edge.to.tail != Tail.ANY_TAINT)) {

@@ -50,13 +50,16 @@ class OneRunAcceptanceTest {
         val actual = schedule.run()
         val universe = BoundedDenotation((listOf(AccessPathBase.Zero, x, y, z, returned) + extraBases).distinct(),
             (fields + f.field("fresh accessor")).distinct(),
-            (marks + f.mark("fresh mark") + TaintMark.ZERO).distinct(), 2)
+            (marks + f.mark("fresh mark") + f.ap.marks.groupAtoms() + TaintMark.ZERO).distinct(), 2)
         try { actual.assertEquivalent(expected, universe) }
         catch (failure: AssertionError) {
             throw AssertionError("index=${config.index} program=${f.describe()} trace=${schedule.trace}", failure)
         }
         return actual
     }
+
+    private fun selected(f: FiniteProgramFixtures, index: Int, value: Conclusion): Conclusion =
+        if (index == 1) GroupedScalarMarks(f.ap.marks).conclusion(value) else value
 
     private fun raw(observation: RunObservation, method: MethodKey, base: AccessPathBase): Set<Conclusion> =
         observation.rawSummaries.filter { it.method == method && it.conclusion.fact.base == base }
@@ -80,19 +83,19 @@ class OneRunAcceptanceTest {
             f.statement(key, 1, StatementSummary(setOf(other), emptyList(), emptyList(), emptyMap()))
             val reached = sink("dead local reached", f.pattern(dead, mark = t))
             f.exit(key, 2, exit(reached))
-            val actual = run(f, f.config(index = index, L = 1, roots = listOf(key), seeds = listOf(seed)),
+            val actual = run(f, f.config(index = index, L = maxOf(1, index - 1), roots = listOf(key), seeds = listOf(seed)),
                 emptyList(), listOf(t.mark), listOf(dead, other))
-            val conclusion = Conclusion(target, ExclusionSet.Empty, false)
+            val conclusion = selected(f, index, Conclusion(target, ExclusionSet.Empty, false))
             assertContains(actual.processed, ObservedEdge(key, zero, conclusion, method.inst(1)))
             assertContains(actual.processed, ObservedEdge(key, zero, conclusion, method.inst(2)))
-            assertEquals(mapOf(reached.rule.id to setOf(Layer.NORMAL)), witnesses(actual))
+            assertEquals(mapOf(reached.rule.id to setOf(if (index == 1) Layer.DEMAND else Layer.NORMAL)), witnesses(actual))
             val witness = actual.witnesses.single()
             assertSame(reached.rule, witness.rule)
             assertEquals(method.inst(2), witness.statement)
-            assertEquals(listOf(ObservedSinkEdge(zero, Layer.NORMAL, setOf(conclusion),
-                GroupKey(FactsKind.TAINT, Layer.NORMAL, dead))), witness.edges)
+            assertEquals(listOf(ObservedSinkEdge(zero, if (index == 1) Layer.DEMAND else Layer.NORMAL, setOf(conclusion),
+                GroupKey(FactsKind.TAINT, if (index == 1) Layer.DEMAND else Layer.NORMAL, dead, tail = Tail.ANY_TAINT))), witness.edges)
             assertTrue(raw(actual, key, dead).isEmpty())
-            assertTrue(actual.requests.isEmpty() && actual.selectedDemand.none { it.conclusion.fact.base !in listOf(STATIC, AccessPathBase.Zero) })
+            assertTrue(actual.requests.isEmpty() && (index == 1 || actual.selectedDemand.none { it.conclusion.fact.base !in listOf(STATIC, AccessPathBase.Zero) }))
         }
     }
 
@@ -114,10 +117,10 @@ class OneRunAcceptanceTest {
             val rootSibling = sink("k retained", f.pattern(x, listOf(k), mark = t))
             f.exit(key, 2, exit(overwritten, sibling, rootSibling))
             val demand = listOf(key to DemandPattern(ZERO_PATTERN, f.pattern(x, tail = Tail.ANY, mark = MarkSlot.STAR)))
-            val actual = run(f, f.config(index = index, L = 1, roots = listOf(key),
+            val actual = run(f, f.config(index = index, L = maxOf(1, index - 1), roots = listOf(key),
                 demand = demand, seeds = listOf(seed)), listOf(a, b, h, k), listOf(t.mark))
             if (index == 1) {
-                val cover = Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, true)
+                val cover = selected(f, index, Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, true))
                 assertContains(raw(actual, key, x), cover)
                 assertTrue(raw(actual, key, x).all { it.exclusion == ExclusionSet.Empty && it.demand })
                 assertEquals(listOf(overwritten, sibling, rootSibling).associate { it.rule.id to setOf(Layer.DEMAND) },
@@ -157,14 +160,14 @@ class OneRunAcceptanceTest {
             f.exit(key, 3, exit(excluded, admitted))
             val demand = listOf(x, y, z).map { base -> key to DemandPattern(ZERO_PATTERN,
                 f.pattern(base, tail = Tail.ANY, mark = MarkSlot.STAR)) }
-            val actual = run(f, f.config(index = index, L = 1, roots = listOf(key),
+            val actual = run(f, f.config(index = index, L = maxOf(1, index - 1), roots = listOf(key),
                 demand = demand, seeds = listOf(seed)), listOf(name, email), listOf(t.mark))
             if (index == 1) {
-                val cover = Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, true)
+                val cover = selected(f, index, Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, true))
                 assertEquals(setOf(cover), raw(actual, key, x))
                 for (base in listOf(y, z)) {
-                    assertEquals(setOf(Conclusion(PathFact(base, emptyList(), Tail.ANY_TAINT, t),
-                        ExclusionSet.Empty, true)), raw(actual, key, base))
+                    assertEquals(setOf(selected(f, index, Conclusion(PathFact(base, emptyList(), Tail.ANY_TAINT, t),
+                        ExclusionSet.Empty, true))), raw(actual, key, base))
                 }
                 assertEquals(mapOf(excluded.rule.id to setOf(Layer.DEMAND), admitted.rule.id to setOf(Layer.DEMAND)),
                     witnesses(actual))
@@ -206,20 +209,13 @@ class OneRunAcceptanceTest {
             val elsewhere = sink("at k", f.pattern(x, listOf(k), mark = t))
             f.exit(key, 2, exit(atField, belowField, elsewhere))
             val demand = listOf(key to DemandPattern(ZERO_PATTERN, f.pattern(x, tail = Tail.ANY, mark = MarkSlot.STAR)))
-            val actual = run(f, f.config(index = index, L = 1, roots = listOf(key),
+            val actual = run(f, f.config(index = index, L = maxOf(1, index - 1), roots = listOf(key),
                 demand = demand, seeds = listOf(seed)), listOf(a, b, k), listOf(t.mark))
-            if (index == 1 && reach != CleanReach.EXACT) {
-                val cover = Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, true)
-                assertContains(raw(actual, key, x), cover)
-                assertTrue(raw(actual, key, x).all { it.exclusion == ExclusionSet.Empty })
-                assertEquals(setOf(atField.rule.id, belowField.rule.id, elsewhere.rule.id), witnesses(actual).keys)
-                assertEquals(setOf(Layer.DEMAND), witnesses(actual).getValue(belowField.rule.id))
-                assertEquals(setOf(Layer.DEMAND), witnesses(actual).getValue(elsewhere.rule.id))
-                if (reach == CleanReach.BELOW) {
-                    assertContains(raw(actual, key, x), Conclusion(PathFact(x, listOf(a), Tail.EXACT, t),
-                        ExclusionSet.Empty, false))
-                    assertContains(witnesses(actual).getValue(atField.rule.id), Layer.NORMAL)
-                } else assertEquals(setOf(Layer.DEMAND), witnesses(actual).getValue(atField.rule.id))
+            if (index == 1) {
+                val cover = selected(f, index, Conclusion(PathFact(x, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, true))
+                assertEquals(setOf(cover), raw(actual, key, x))
+                assertEquals(listOf(atField, belowField, elsewhere).associate { it.rule.id to setOf(Layer.DEMAND) }, witnesses(actual))
+                assertTrue(actual.witnesses.all { it.edges.single().facts == setOf(cover) && it.edges.single().premise == zero })
                 assertTrue(actual.requests.isEmpty() && actual.links.isEmpty())
                 return@use
             }
@@ -279,12 +275,12 @@ class OneRunAcceptanceTest {
                 PathFact(returned, listOf(field), Tail.EXACT, t), ExclusionSet.Empty)))
             val initial = f.pattern(x, mark = t)
             val target = Conclusion(PathFact(returned, listOf(field), Tail.EXACT, t), ExclusionSet.Empty, false)
-            val expectedRaw = ObservedEdge(callee, setOf(initial), target)
+            val expectedRaw = ObservedEdge(callee, setOf(if (index == 1) GroupedScalarMarks(f.ap.marks).pattern(initial) else initial), selected(f, index, target))
             val demand = listOf(
                 callee to DemandPattern(initial, f.pattern(returned, listOf(field), mark = if (matchingExit) t else u)),
                 caller to DemandPattern(ZERO_PATTERN, f.pattern(y, tail = Tail.ANY, mark = MarkSlot.STAR)),
             )
-            val actual = run(f, f.config(index = index, L = 1, roots = listOf(caller),
+            val actual = run(f, f.config(index = index, L = maxOf(1, index - 1), roots = listOf(caller),
                 demand = demand, seeds = listOf(seed)), listOf(field), listOf(t.mark, u.mark))
             assertContains(actual.rawSummaries, expectedRaw)
             if (index == 1) assertContains(actual.selectedDemand, expectedRaw)
@@ -292,8 +288,8 @@ class OneRunAcceptanceTest {
             val publishes = true // actual input authorizes its response independently of the old exit guide
             assertEquals(if (publishes) setOf(expectedRaw) else emptySet(),
                 actual.publications.filter { it.method == callee && it.conclusion.fact.base == returned }.toSet())
-            assertEquals(if (publishes) setOf(Conclusion(PathFact(y, listOf(field), Tail.EXACT, t),
-                ExclusionSet.Empty, false)) else emptySet(), raw(actual, caller, y))
+            assertEquals(if (publishes) setOf(selected(f, index, Conclusion(PathFact(y, listOf(field), Tail.EXACT, t),
+                ExclusionSet.Empty, false))) else emptySet(), raw(actual, caller, y))
             if (index == 3) assertTrue(actual.requests.isEmpty())
         }
     }

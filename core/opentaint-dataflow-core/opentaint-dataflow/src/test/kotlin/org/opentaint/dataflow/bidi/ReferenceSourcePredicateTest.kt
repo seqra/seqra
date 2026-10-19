@@ -4,7 +4,11 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
+import org.opentaint.dataflow.bidi.driver.Seed
+import org.opentaint.dataflow.bidi.driver.SeedIndex
 import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
+import org.opentaint.dataflow.bidi.fixtures.GroupedScalarMarks
+import org.opentaint.dataflow.bidi.fixtures.SelectedReferenceAlgebra
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -21,7 +25,7 @@ class ReferenceSourcePredicateTest {
     private fun source(f: MethodAnalysisFixtures, leaves: List<Pattern>,
                        targets: List<PathFact> = listOf(f.pattern(ret).fact),
                        root: (RulePredicate.Builder, List<Int>) -> Int): SourceRuleOccurrence {
-        val builder = RulePredicate.Builder(f.cancellation)
+        val builder = RulePredicate.Builder(f.cancellation, f.manager.marks)
         val predicate = builder.build(root(builder, leaves.map(builder::leaf)))
         val id = RuleOccurrenceId(FormKey(owner, f.key.method, f.key, f.inst(2)), RuleKind.CALL_SOURCE, 0)
         return SourceRuleOccurrence(id, predicate, targets.mapIndexed { ordinal, target ->
@@ -35,12 +39,18 @@ class ReferenceSourcePredicateTest {
 
     /** Each harness owns one real actor and one reference algebra, as a method/run does. */
     private class Agreement(val f: MethodAnalysisFixtures, index: Int = 1,
+                            source: SourceRuleOccurrence? = null,
                             val referencePositions: List<Pair<Set<Pattern>, RequestKind>> = emptyList()) {
         val raw = ArrayList<Result>()
         val tree = ArrayList<Result>()
         val rawRequests = ArrayList<Pair<Set<Pattern>, RequestKind>>()
         val treeRequests = ArrayList<Pair<Set<Pattern>, RequestKind>>()
-        val core = f.core(index = index, localFactory = MethodLocalServicesFactory { actor ->
+        private val seeds = SeedIndex.of(source?.let { occurrence ->
+            occurrence.predicate.leaves.flatMap { literal -> occurrence.actions.map { action ->
+                Seed.Source(f.key, f.inst(2), occurrence.transfer(literal, action).forward, action.id)
+            } }
+        }.orEmpty())
+        val core = f.core(index = index, seeds = seeds, localFactory = MethodLocalServicesFactory { actor ->
             val actual = RunMethodLocalServices(actor)
             object : MethodLocalServices by actual {
                 override fun addMarkRequest(premise: InitialAp, mark: TaintMark) {
@@ -54,15 +64,26 @@ class ReferenceSourcePredicateTest {
                 }
             }
         })
-        val algebra = ReferenceAlgebra(core.mode, request = { pr, kind -> rawRequests += pr to kind }, manager = f.manager,
-            historicalRun1 = referencePositions.isNotEmpty())
+        private val groups = if (core.config.run1) GroupedScalarMarks(f.manager.marks) else null
+        val algebra: FactAlgebra<Set<Pattern>, Conclusion> = if (core.config.run1)
+            SelectedReferenceAlgebra(core.mode, request = { pr, kind -> rawRequests += pr to kind },
+                allows = { _, _ -> true }, hit = { _, _ -> }, manager = f.manager,
+                join = { _, _, _, _, _ -> error("Source NNF owns its scalar joins") })
+        else ReferenceAlgebra(core.mode, request = { pr, kind -> rawRequests += pr to kind }, manager = f.manager)
+        fun expected(premise: Set<Pattern>, p: Pattern, demand: Boolean = false): Result =
+            Result(premise.mapTo(LinkedHashSet()) { groups?.pattern(it) ?: it },
+                groups?.conclusion(Conclusion(p.fact, p.exclusion, demand)) ?: Conclusion(p.fact, p.exclusion, demand))
+        fun group(mark: TaintMark): TaintMark = groups?.atom(mark) ?: mark
         private val decoder = FormsReference(f.ops)
 
         fun give(source: SourceRuleOccurrence, premise: Set<Pattern>, input: Conclusion,
                  node: CommonInst = f.inst(2), statementEdge: Boolean = false) {
-            algebra.sourcePredicate(source, premise, input, node, statementEdge) { pr, out -> raw += Result(pr, out) }
-            val key = f.manager.premiseOf(premise.map(f.manager::initial))
-            val facts = f.manager.factsOf(input.fact, input.exclusion, if (input.demand) Layer.DEMAND else Layer.NORMAL)
+            val runtimePremise = premise.mapTo(LinkedHashSet()) { groups?.pattern(it) ?: it }
+            val runtimeInput = groups?.conclusion(input) ?: input
+            algebra.sourcePredicate(source, runtimePremise, runtimeInput, node, statementEdge) { pr, out -> raw += Result(pr, out) }
+            val key = f.manager.premiseOf(runtimePremise.map(f.manager::initial))
+            val facts = f.manager.factsOf(runtimeInput.fact, runtimeInput.exclusion,
+                if (runtimeInput.demand) Layer.DEMAND else Layer.NORMAL)
             core.localServices.sourcePredicate(source, key, facts, node, statementEdge) { pr, out ->
                 val rawPremise = pr.members.map { it.toPattern() }.toSet()
                 decoder.conclusions(out).forEach { tree += Result(rawPremise, it) }
@@ -84,7 +105,7 @@ class ReferenceSourcePredicateTest {
             val original = setOf(f.pattern(b))
             val agreement = Agreement(f)
             agreement.give(source, original, Conclusion(f.pattern(a, listOf(field)).fact, ExclusionSet.Empty, false))
-            assertEquals(listOf(result(original, target)), agreement.raw)
+            assertEquals(listOf(agreement.expected(original, target)), agreement.raw)
             agreement.give(source, original, Conclusion(f.pattern(a, listOf(field), mark = u).fact, ExclusionSet.Empty, false))
             assertEquals(1, agreement.raw.size)
             assertTrue(agreement.rawRequests.isEmpty())
@@ -101,7 +122,7 @@ class ReferenceSourcePredicateTest {
                 val source = source(f, listOf(f.pattern(a), f.pattern(b)), targets.map { it.fact }) { builder, leaves ->
                     builder.and(leaves)
                 }
-                val agreement = Agreement(f, index = 3)
+                val agreement = Agreement(f, index = 3, source = source)
                 for ((position, base) in order.withIndex()) {
                     val pr = if (base == a) setOf(pa) else setOf(ZERO_PATTERN)
                     agreement.give(source, pr, Conclusion(f.pattern(base).fact, ExclusionSet.Empty, demand && base == b))
@@ -123,7 +144,7 @@ class ReferenceSourcePredicateTest {
             val literal = f.pattern(a, listOf(field))
             val target = f.pattern(ret, tail = Tail.ANY_TAINT, mark = MarkSlot.Concrete(f.mark("U")))
             val source = source(f, listOf(literal), listOf(target.fact)) { _, leaves -> leaves.single() }
-            val agreement = Agreement(f, index = 3)
+            val agreement = Agreement(f, index = 3, source = source)
             for (excluded in listOf(field, other)) {
                 val initial = f.pattern(a, tail = Tail.ANY_TAINT, exclusion = ExclusionSet.of(excluded))
                 agreement.give(source, setOf(initial), Conclusion(initial.fact, initial.exclusion, false))
@@ -142,12 +163,12 @@ class ReferenceSourcePredicateTest {
             val flow = Conclusion(initial.fact, ExclusionSet.Empty, false)
             val run1 = Agreement(f)
             run1.give(source, setOf(initial), flow)
-            assertEquals(listOf<Pair<Set<Pattern>, RequestKind>>(setOf(initial) to RequestKind.Mark(f.mark("T"))), run1.rawRequests)
+            assertEquals(listOf<Pair<Set<Pattern>, RequestKind>>(setOf(initial) to RequestKind.Mark(run1.group(f.mark("T")))), run1.rawRequests)
             assertTrue(run1.raw.isEmpty())
             val excluded = flow.copy(fact = flow.fact.copy(mark = MarkSlot.Star(MarkSet(intArrayOf(f.mark("T").id)))))
             run1.give(source, setOf(initial), excluded)
-            assertEquals(1, run1.rawRequests.size)
-            val restricted = Agreement(f, index = 3)
+            assertEquals(2, run1.rawRequests.size, "An unchanged excluded Group still records its interest")
+            val restricted = Agreement(f, index = 3, source = source)
             restricted.give(source, setOf(initial), flow)
             assertTrue(restricted.raw.isEmpty())
             assertTrue(restricted.rawRequests.isEmpty())
@@ -160,7 +181,7 @@ class ReferenceSourcePredicateTest {
     }
 
     @Test
-    fun `historical root source position traffic has no selected runtime source output`(): Unit {
+    fun `historical root source Position remains a full scalar reference control`() {
         MethodAnalysisFixtures().use { f ->
             val cls = f.manager.accessors.index(ClassStaticAccessor("Box"))
             val field = f.field("f")
@@ -168,14 +189,15 @@ class ReferenceSourcePredicateTest {
             val source = source(f, listOf(f.pattern(STATIC, listOf(cls, field), Tail.ANY))) { _, leaves -> leaves.single() }
             val initial = f.pattern(STATIC, tail = Tail.STAR, mark = MarkSlot.STAR)
             val input = Conclusion(initial.fact, ExclusionSet.of(other), false)
-            val removedPosition = setOf(initial) to RequestKind.Position(f.manager.path(listOf(cls, field))!!)
-            val agreement = Agreement(f, referencePositions = listOf(removedPosition))
-            agreement.give(source, setOf(initial), input, statementEdge = true)
-            assertEquals(listOf<Pair<Set<Pattern>, RequestKind>>(setOf(initial) to RequestKind.Position(f.manager.path(listOf(cls, field))!!)),
-                agreement.rawRequests)
-            assertTrue(agreement.raw.isEmpty())
-            agreement.give(source, setOf(initial), input.copy(exclusion = ExclusionSet.of(cls)), statementEdge = true)
-            assertEquals(1, agreement.rawRequests.size)
+            val requests = arrayListOf<Pair<Set<Pattern>, RequestKind>>()
+            val algebra = ReferenceAlgebra(ApMode(true, Direction.FORWARD, 1, MarkMode.FULL),
+                request = { pr, kind -> requests += pr to kind }, manager = f.manager, historicalRun1 = true)
+            algebra.sourcePredicate(source, setOf(initial), input, f.inst(2), true) { _, _ -> fail("Position is a request") }
+            assertEquals(listOf<Pair<Set<Pattern>, RequestKind>>(setOf(initial) to
+                RequestKind.Position(checkNotNull(f.manager.path(listOf(cls, field))))), requests)
+            algebra.sourcePredicate(source, setOf(initial), input.copy(exclusion = ExclusionSet.of(cls)),
+                f.inst(2), true) { _, _ -> fail("An excluded class cannot produce a source") }
+            assertEquals(1, requests.size)
         }
     }
 
@@ -189,7 +211,7 @@ class ReferenceSourcePredicateTest {
             val agreement = Agreement(f)
             for (pr in listOf(setOf(f.pattern(a)), setOf(f.pattern(b))))
                 agreement.give(source, pr, Conclusion(f.pattern(a).fact, ExclusionSet.Empty, false))
-            assertEquals(listOf(result(setOf(f.pattern(a)), target), result(setOf(f.pattern(b)), target)), agreement.raw)
+            assertEquals(listOf(agreement.expected(setOf(f.pattern(a)), target), agreement.expected(setOf(f.pattern(b)), target)), agreement.raw)
             assertFalse(source.predicate.isMulti(0))
         }
     }
@@ -210,7 +232,7 @@ class ReferenceSourcePredicateTest {
             assertTrue(first.raw.isEmpty())
             first.give(source, setOf(f.pattern(b)), inputB)
             second.give(source, setOf(f.pattern(a)), inputA)
-            val expected = setOf(result(setOf(f.pattern(a), f.pattern(b)), f.pattern(ret)))
+            val expected = setOf(first.expected(setOf(f.pattern(a), f.pattern(b)), f.pattern(ret)))
             assertEquals(expected, first.raw.toSet())
             assertEquals(expected, second.raw.toSet())
         }
@@ -233,7 +255,7 @@ class ReferenceSourcePredicateTest {
             assertEquals(expected, agreement.raw.toSet())
             assertEquals(3, agreement.raw.size)
             assertTrue(agreement.rawRequests.isEmpty())
-            val compatibility = ReferenceAlgebra(ApMode(true, Direction.FORWARD, 1), manager = f.manager,
+            val compatibility = ReferenceAlgebra(ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.FULL), manager = f.manager,
                 request = { _, _ -> error("A reversed source cannot request") })
             val results = ArrayList<Result>()
             compatibility.sourcePredicate(source, premise, input, f.inst(2), false) { pr, out -> results += Result(pr, out) }

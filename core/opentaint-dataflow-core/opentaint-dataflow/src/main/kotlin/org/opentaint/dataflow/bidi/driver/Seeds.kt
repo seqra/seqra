@@ -6,6 +6,7 @@ import org.opentaint.dataflow.bidi.ap.PathEdge
 import org.opentaint.dataflow.bidi.ap.Pattern
 import org.opentaint.dataflow.bidi.store.RuleId
 import org.opentaint.dataflow.bidi.interp.RuleOccurrenceId
+import org.opentaint.dataflow.bidi.interp.ActionId
 import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.Collections
 
@@ -44,7 +45,8 @@ sealed interface Seed {
     }
 
     /** The producer owns edge paths; preserve the supplied forward edge for later source selection. */
-    data class Source(override val method: MethodKey, override val statement: CommonInst, val edge: PathEdge) : Seed {
+    data class Source(override val method: MethodKey, override val statement: CommonInst,
+                      val edge: PathEdge, val action: ActionId? = null) : Seed {
         init {
             check(edge.from.base !is AccessPathBase.CleanerTemporary && edge.to.base !is AccessPathBase.CleanerTemporary) {
                 "A field-action temporary cannot enter a source seed"
@@ -59,13 +61,13 @@ class SeedIndex(byPlace: Map<Pair<MethodKey, CommonInst>, List<Seed>>) {
         LinkedHashMap<Pair<MethodKey, CommonInst>, List<Seed>>().apply {
             for ((place, seeds) in byPlace) put(place, Collections.unmodifiableList(ArrayList(seeds)))
         })
-    private val sources: Set<Triple<MethodKey, CommonInst, PathEdge>> =
+    private val sources: Set<Seed.Source> =
         this.byPlace.values.asSequence().flatten().filterIsInstance<Seed.Source>()
-            .mapTo(HashSet()) { Triple(it.method, it.statement, it.edge) }
+            .toSet()
 
     fun at(method: MethodKey, statement: CommonInst): List<Seed> = byPlace[method to statement].orEmpty()
-    fun allowsSource(method: MethodKey, statement: CommonInst, forward: PathEdge): Boolean =
-        Triple(method, statement, forward) in sources
+    fun allowsSource(method: MethodKey, statement: CommonInst, forward: PathEdge, action: ActionId? = null): Boolean =
+        Seed.Source(method, statement, forward, action) in sources
     val size: Int get() = byPlace.values.sumOf { it.size }
 
     fun sinkMethods(): Set<MethodKey> = byPlace.values.asSequence().flatten()

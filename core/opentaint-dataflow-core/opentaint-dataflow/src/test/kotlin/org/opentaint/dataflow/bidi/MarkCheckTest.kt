@@ -31,7 +31,7 @@ class MarkCheckTest {
     private val u = m.marks.mark("U")
     private val freshMark = m.marks.mark("Fresh")
     private val empty = ExclusionSet.Empty
-    private val run1 = ApMode(true, Direction.FORWARD, 4)
+    private val run1 = ApMode(true, Direction.FORWARD, 4, markMode = MarkMode.FULL)
     private val forward = ApMode(false, Direction.FORWARD, 4)
     private val backward = ApMode(false, Direction.BACKWARD, 4)
     private fun ex(vararg ids: Int) = ExclusionSet.of(ids)
@@ -137,7 +137,7 @@ class MarkCheckTest {
     fun `the zero literal holds in both layers and zero targets are canonical`() {
         for (layer in Layer.entries) {
             val zero = Reach.of(layer)
-            val hit = ops.checkMark(zero, m.zero.toPattern(), ApMode(true, Direction.FORWARD, 3))
+            val hit = ops.checkMark(zero, m.zero.toPattern(), ApMode(true, Direction.FORWARD, 3, markMode = MarkMode.FULL))
             assertTrue(hit is MarkCheck.Holds)
             assertSame(zero, hit.facts)
             assertSame(zero, ops.targetTree(m.zero.toPattern().fact, layer))
