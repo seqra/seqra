@@ -1,5 +1,10 @@
 # IR interpreter — specification
 
+> For the selected mark/static change, use [Mark groups and direct static handling](grouped-run1-statics.md)
+> and its pinned pre-bottom-up baseline. It overrides older proposal links
+> at the listed phase seams. Other ordinary contracts below remain in force.
+> This specification work does not change the runtime.
+
 The [unified run-1 contract](run1-field-writes.md) specifies static read/mark
 requests, initial gates, replay and batching together with the following
 field-preservation rows on F1: complete overwrite kills and disjoint keeps

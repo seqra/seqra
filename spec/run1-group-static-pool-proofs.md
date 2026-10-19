@@ -1,5 +1,9 @@
 # Forward statics and group-demand coverage: proof dossier
 
+> For the selected combined feature, use [the combined proof dossier](grouped-run1-statics-proofs.md).
+> This file preserves earlier local proof scope and evidence. Its old runtime
+> algorithm requirements do not override the combined specification.
+
 Date: 18 October 2026. Status: **revised proposal; analyzer unchanged**.
 Language: ASD-STE100 Simplified Technical English. Defined mathematical
 terms and code names keep their stated meanings.

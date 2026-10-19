@@ -1,5 +1,9 @@
 # Static group-demand coverage from run-1 to run-2
 
+> Superseded for implementation by [Mark groups and direct static handling](grouped-run1-statics.md),
+> based on pinned analyzer `a80d5c580`. This file keeps historical design and
+> local proof evidence. It does not add runtime requirements to that spec.
+
 Date: 18 October 2026. Status: **proof review and proposed correction;
 analyzer unchanged**.
 Language: ASD-STE100 Simplified Technical English. Defined technical terms,

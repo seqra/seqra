@@ -1,111 +1,45 @@
 # Current proof status
 
-## Proposed run-1 forward statics and group-demand coverage
+## Selected combined mark/static specification
 
-The [universal demand review](run1-static-demand-completeness-review.md)
-does not establish a general no-loss theorem. It finds a finite supported
-counterexample to a strict per-method group gate without carry permission:
-`set(); pass_only(); consume()`. A nonzero static requirement must enter
-the resolved relay, which has no group guide. The current actual-input
-admission rule avoids this loss. This is a design-policy counterexample,
-not a demonstrated current runtime false negative.
+[Mark groups and direct static handling](grouped-run1-statics.md) is the
+single implementation contract. Start from `a80d5c580b3b4715ab39679fbf66f0f190125fa0`,
+whose core/rules equal measured `28a123f0`. The
+[baseline manifest](baselines/pre-bottom-up-a80d5c580.json) pins the document
+and runtime trees. The selected base predates the bottom-up static runtime.
+The current workspace has not been reset or implemented from that pin.
 
-The selected [shared static GROUP demand](run1-universal-static-carry.md)
-closes that relay counterexample without per-field run-1 propagation.
-It is an implicit all-method entry/exit permission for actual static full
-queries. The constructive model proves every finite static identity/copy
-transport path and agreement with current actual-input admission on identity
-relays. Real body kills remain effective. Productive nonstatic, control-ZERO
-and cross-group results keep their separate guide obligations; the complete
-early-summary compiler theorem is still not proved.
+The [combined proof dossier](grouped-run1-statics-proofs.md) separates the
+concept, merged storage and finite inclusion claim. Run-1 uses owner-group
+DEMAND taint, write-gated conditional reads, early static effects and direct
+operation-input refinement. Run-2 uses full marks at limit 1. The implicit
+all-method static GROUP demand preserves actual full queries. Baseline
+StrongQueries already admits actual queries and their computed results;
+no helper-permission builder or backward writer-search graph is required.
 
-The [immediate static-summary revision](run1-immediate-static-summaries.md)
-adds early write-effect publication and caller summary lifting. Its ZERO
-review corrects the wrapper case: an internal sink requirement returns as
-`Z -> C.f/T` under the existing backward exception. It needs no extra
-run-1 wrapper carry guide. Getter and writer nonzero queries remain separate.
-The four existing `CallZeroTest` controls pass; runtime implementation is
-unchanged. The nonzero-query admission-policy choice is stated separately.
+The constructive composition creates target permission and full positive
+replay from a finite full reference tree. It retains all guards and exact
+source leaves. The connected getter/wrapper/relay/setter control uses actual
+port/body certificates. The selected initial parser checks the nine pinned
+scalar families and rejects the historical root family. Whole JVM/AP/
+condition compilation and queue/record adapter correctness remain explicit
+production gates. This is not a whole-engine proof or a runtime speed claim.
 
-The [static proposal](run1-group-static-pool.md) keeps write-gated forward
-reads and direct current-point group refinement. A published FLOW/group
-write admits a pending read. Prescan candidates and synthetic identities
-do not. ZERO activates conditional summaries while retaining the static
-premise; group supply still requires a finite source/writer derivation.
+Earlier strict-guide counterexamples and guide-builder models remain local
+or historical evidence. They do not add the removed runtime phases. The
+unified audit and stable-source receipt are linked in the combined dossier.
+Lean builds **159 jobs**; the audit checks **6,812 declarations**, passes
+**461 controls**, and finds **zero unexpected axioms**. These totals include
+the stated historical comparison models.
+Runtime source and the measured project checkpoints below are unchanged.
 
-The [demand-coverage review](run1-static-demand-coverage.md) found a real
-design gap: a G edge at the caller sink does not give a FLOW-only getter
-or identity helper a G demand. Run-2 needs the matching **group** demand,
-not exact full-mark demands. The proposal now requires forward group-guide
-generation over reached summary, call-input, writer and point interfaces
-before freezing the handoff. Missing group guidance cannot be replaced by
-an unpruned spatial query scope.
-
-The new constructive models prove the counterexample, coverage of all
-visited identity helpers, and frozen group demands for every rule/premise
-and designated target of a finite full positive witness. Different groups,
-all guard slots, full-rule occurrence indices and paired full endpoint
-permissions are retained. The [proof dossier](run1-group-static-pool-proofs.md)
-also retains read admission, rooted supply and finite writer lookup proofs.
-
-The new [actual-port proof](lean/ApSpec/Run1StaticReadWritePath.lean) covers
-the static corridor omitted from run-1: read, callee entry, caller before
-the call, preceding writer callee exit, and the actual store. It constructs
-carry guides from frozen grounded field/groups and closed method/port
-metadata. A separate captured writer guide retains the ordinary RHS result.
-Static identity permission cannot publish that RHS or bypass a real kill.
-Full marks and the original read are retained; source ZERO stays unmarked.
-General RHS/source paths still need the positive-witness compiler and the
-ordinary reverse CFG/call adapter.
-
-Complete production collection/compilation of real control, AP, source,
-call and condition interfaces is still required. So are actual reverse
-primitive completeness, point-seed activation, paired publication and
-queue refinement. The finite result is group-gate coverage for the compiled
-calculus, not a checked complete JVM iteration. It does not assert that
-every unsupported speculative inventory candidate executes.
-
-Lean 4.33.1 builds **157 jobs**. The focused combined audit checks **4,201
-declarations**, finds **zero unexpected axioms**, and passes **299 controls**.
-The dossier links the stable-source receipt. The earlier local read/point
-audit remains a narrower 1,384-declaration/113-control checkpoint.
-Analyzer implementation and measured project results below are unchanged.
-
-## Selected rule-group mark specification
-
-The [rule-group mark contract](rule-group-marks.md) specifies one group for
-an entire top-level rule, including join branches. Run-1 taint values are
-group-valued DEMAND. Selected-mark cleaners retain those values and request
-the group; RemoveAllMarks can still kill. A NORMAL FLOW group exclusion is
-a partial-domain record and requires its independent repair interest.
-Run-2 is BACKWARD with full marks at field limit 1. Run-3 is FORWARD/full/
-limit 2; later limits increase. There is no run/limit 0.
-
-The [proof dossier](rule-group-mark-proofs.md) separates the new concept from
-merged group storage. It covers finite mark ownership, exclusion/cleaner
-laws, same-group survivor repair, actual-supply joins, complete full-member
-decoding, executable route witnesses, the positive schedule and scoped
-mark-slot savings. It lists the AP, provider, signed NNF/ND, queue, record
-and handoff adapter obligations. These local proofs do not establish a
-complete JVM iteration or a project speedup.
-
-Lean 4.33.1 build passes. The focused audit checks **1,090 declarations**
-with **zero unexpected axioms**; **80 controls pass**. The dossier links
-the exact source-hash receipt and logs. Signed NNF coverage is checked at
-one fixed observation position; multi-position binding remains an adapter.
-
-The analyzer is unchanged. This specification takes precedence only at its
-stated mark/schedule seam. The static pool is still a separate proposal.
-The measured runtime and latest reached/completed/accepted runs remain the
-ones in the implementation checkpoint below.
-
-## Current caller-owned subscription implementation
+## Latest measured branch: caller-owned subscriptions
 
 The [detailed caller-owned contract](run1-caller-owned-subscriptions.md) and
 its [proof dossier](run1-caller-owned-subscriptions-proofs.md) specify direct
 canonical static descriptors, the existing caller input relation, shared
 callee/field request views, callsite P/A frontiers and ordinary full-port
-summary application. The runtime now implements the selected design. The
+summary application. The measured branch implements that caller-owned design. The
 [implementation map](../docs/design/bidirectional-caller-owned-subscriptions-implementation-20261018.md)
 records the adapters. After the mixed-batch correction, the full common
 gate passes **1,607 tests**, the JVM

@@ -1,5 +1,9 @@
 # Rule groups, full marks and the first two runs
 
+> Superseded for implementation by [Mark groups and direct static handling](grouped-run1-statics.md),
+> based on pinned analyzer `a80d5c580`. This file keeps historical design and
+> local proof evidence. It does not add runtime requirements to that spec.
+
 Date: 18 October 2026. Status: **selected specification; analyzer unchanged**.
 Language: ASD-STE100 Simplified Technical English. Defined technical terms,
 code names and mathematical notation keep their stated meanings.

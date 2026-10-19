@@ -1,5 +1,9 @@
 # Rule-group marks: constructive proofs and their scope
 
+> For the selected combined feature, use [the combined proof dossier](grouped-run1-statics-proofs.md).
+> This file preserves earlier local proof scope and evidence. Its old runtime
+> algorithm requirements do not override the combined specification.
+
 Date: 18 October 2026. Status: **selected spec; analyzer unchanged**.
 This dossier follows [proof-guide.md](proof-guide.md) and supports
 [rule-group-marks.md](rule-group-marks.md). It uses ASD-STE100 Simplified

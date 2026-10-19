@@ -1,5 +1,10 @@
 # Analyzer core — specification
 
+> For the selected mark/static change, use [Mark groups and direct static handling](grouped-run1-statics.md)
+> and its pinned pre-bottom-up baseline. It overrides older proposal links
+> at the listed phase seams. Other ordinary contracts below remain in force.
+> This specification work does not change the runtime.
+
 The selected [rule-group mark contract](rule-group-marks.md) overrides mark
 precision and the numbered schedule below. Run-1 uses DEMAND group values
 at field limit 1. Run-2 uses full marks at field limit 1. Later limits grow

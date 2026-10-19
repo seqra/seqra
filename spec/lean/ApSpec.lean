@@ -154,3 +154,5 @@ import ApSpec.Run1StaticReadWritePath
 import ApSpec.Run1StaticEarlySummaryZero
 import ApSpec.Run1StaticEarlySummaryGap
 import ApSpec.Run1UniversalStaticCarry
+import ApSpec.GroupedRun1Initials
+import ApSpec.GroupedRun1StaticComposition

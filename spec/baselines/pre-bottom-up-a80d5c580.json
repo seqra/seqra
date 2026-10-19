@@ -1,0 +1,44 @@
+{
+  "selected_commit": "a80d5c580b3b4715ab39679fbf66f0f190125fa0",
+  "runtime_equivalent_commit": "28a123f0eac937e8f2feca9ee5dd84e38fa8f979",
+  "first_bottom_up_commit": "ab6c3cd006cb62e6a017c0e3c32d96573d2214e3",
+  "first_bottom_up_parent": "cbccdbd08591e81a502cf4de70e2cf34a2f331e4",
+  "trees": {
+    "core": "db89e5f9dd4a142b6a093006193c22e7e416abd3",
+    "rules": "e2a7d29770276ca7d4d0efe974914f687ca67def"
+  },
+  "runtime_diff_28a_to_selected_empty": true,
+  "runtime_diff_28a_to_first_bottom_up_parent_empty": true,
+  "baseline_precedence": [
+    "spec/run1-field-writes.md",
+    "spec/run1-requests.md",
+    "spec/ap.md + spec/analyzer-core.md + spec/interpreter.md for unchanged contracts"
+  ],
+  "documents": {
+    "spec/ap.md": {
+      "git_blob": "950c99b205f27ef0e342a8d4f9ad066ad9f9d2f8",
+      "sha256": "f1565cf7c486f287165b6ca31caec5e4542c606325514e83e96bbd15ea80b757"
+    },
+    "spec/analyzer-core.md": {
+      "git_blob": "1c8f153074d29a468c02e40d18885234a011f1d9",
+      "sha256": "b8b0b54656a9e1930113c7240db613060a123f1d1712c08eabd20de7f4b63580"
+    },
+    "spec/interpreter.md": {
+      "git_blob": "3ba20526102b71f81981f126cc3ead1c398127a5",
+      "sha256": "d087d11b3bd5e907698bd674901ebde0c72e0001793cf3dea7ef19569800f785"
+    },
+    "spec/run1-field-writes.md": {
+      "git_blob": "25a69566741c728202f039bb7cafba9605da46ca",
+      "sha256": "d57ee5f8c730aa23730afc016302f9f13475d268fce91674feee829dd02ce7dc"
+    },
+    "spec/run1-requests.md": {
+      "git_blob": "cf419d8f4e465560d954b5838a096734184a53da",
+      "sha256": "156df96a3dead3a8a928b1deb6d2fc9aa8302dafc2aae10183a7cffd522c16d9"
+    },
+    "spec/proof-guide.md": {
+      "git_blob": "2293cceea275cf42639c9200e5a5e47c81862330",
+      "sha256": "b0ae31e1b136d0faa573060dd7eded71a01b4c3904efb23ad7069c397112d051"
+    }
+  },
+  "current_proof_guide_matches_pin": true
+}

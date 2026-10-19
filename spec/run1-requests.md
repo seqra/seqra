@@ -1,5 +1,10 @@
 # F78: run-1 mark requests
 
+> For the selected mark/static change, use [Mark groups and direct static handling](grouped-run1-statics.md)
+> and its pinned pre-bottom-up baseline. It overrides older proposal links
+> at the listed phase seams. Other ordinary contracts below remain in force.
+> This specification work does not change the runtime.
+
 The current complete normative contract is
 [Run-1 requests, field writes and static summaries](run1-field-writes.md).
 It includes field/mark prescan requests, nine initial families, independent
