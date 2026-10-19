@@ -1,6 +1,6 @@
 # Mark groups and direct static handling
 
-Date: 19 October 2026. Revision: **2, fixed normative contract**.
+Date: 19 October 2026. Revision: **2.1, source and semantic-scope clarification**.
 Runtime conformance to this revision is pending. Language: ASD-STE100 Simplified Technical
 English. Defined technical terms, program names and mathematical notation
 keep their stated meanings.
@@ -19,28 +19,62 @@ still describes runtime grounding state.
 
 ## 0. Selected semantic scope
 
-This section follows the standing semantic-scope rule in
-[proof-guide.md](proof-guide.md). There are two reference points: a80 is
-the inherited ordinary primitive baseline; ff2966455 is the delivered
-mark/static implementation. Do not confuse a previously selected feature
-change with a new change in this revision.
+This section follows [proof-guide.md](proof-guide.md). The comparison base
+is **a80d5c580**, before the previous mark/static implementation. Its runtime
+equals measured **28a123f0**. The intermediate implementation **ff2966455**
+is not that base. Revision 2.1 clarifies the selected contract; it adds no
+source-transfer, field-transfer or cleaner policy.
 
-| Area | Selected behavior and change | Preserved boundary |
+### Changes from the base
+
+| Mechanism | Base behavior | Selected behavior |
 | --- | --- | --- |
-| Run-1 marks | The earlier feature replaced full variants with owner groups, all DEMAND; later runs use full marks. | No full identity is lost from the catalog, seeds or later rules. |
-| Static flow | The earlier feature selected global run-1 write/read/group joins, relaxed static order/context and early DEMAND summaries. | Later runs still execute actual CFG/call/cleaner operations; run-1 cannot confirm a finding. |
-| Writer eligibility, this revision | Remove the extra exact-field guard validator in ff2966455. Use the inherited bounded DEMAND relation and complete ordinary premises. This can admit extra run-1 candidates. | No new weak-write policy, AP transfer, tail conversion or NORMAL taint record. |
-| Rule execution, this revision | Normalize GROUP aliases at the provider; remove alias-only proof products. | Preserve declared source transfer families/anchors, action IDs, bound positions and FULL predicates. |
-| Dependency storage, this revision | Delete grounding formulas, masks, cofactors and support-only revisions. Ordinary premises carry dependencies. | Do not drop an ND member, combine incompatible calls or turn an analyzed initial into supply. |
-| END, records and schedule | Keep the earlier selected empty END policy, NORMAL-only persistence and `[1,1,2,3,...]` limits. | No new policy change is introduced here. |
+| Mark representation | Full marks on run-1 | Keep `(owner group, full mark)` identity; run-1 uses only the group, later runs use full marks. One whole top-level join rule has one group. |
+| Conditions | Full-mark leaves | Project each mark to its registered group and simplify the GROUP condition. Preserve each position/check kind, original FULL predicate, source action and action ID. GROUP/FULL forms have separate cache keys. |
+| Layers | Some exact taint starts/results can be NORMAL | All run-1 group TAINT and static-dependent results are DEMAND. Independent ordinary FLOW can remain NORMAL. Run-1 group candidates cannot confirm an exact finding. |
+| Selected-mark cleaners | Can remove the exact selected mark | Request the selected position's group; retain actual group taint as DEMAND. Keep the FLOW complement and independent DEMAND repair. A group is never removed by this cleaner. |
+| Static flow | Static entry/request plans and propagation through method/call paths | Use a new run-scoped write/read/group service. Reads need a reached write; supplied groups need an actual derivation. Refine at the saved operation input. Do not relay static current facts through the run-1 CFG. |
+| Static precision | Ordinary static order and caller bindings constrain propagation | The global run-1 pool deliberately ignores static call order and caller context. These extra candidates are DEMAND. Later FULL runs use actual CFG/call transfer and strong writes. |
+| Static summaries | Ordinary return publication and W-dependent executable S defaults | Publish reached static effects early, with complete ordinary premises and existing notification batching. Remove executable run-1 S defaults. After run-1, add one implicit shared static DEMAND for actual backward query permission. |
+| ZERO at a call | Does not supply a static premise | Only in run-1, ZERO can activate a conditional static-premised summary while retaining that premise. It supplies no group. Later runs require the actual static fact. |
+| Requests | Full-mark Base and static requests | Reuse Base P/R with group sets. Remove static request slots/plans; use direct static interests and actual write/supply joins. Ordinary FLOW summaries still apply directly to actual caller group inputs without a Base request. |
+| Sink end-fact actions | Execute configured `trackFactsReachAnalysisEnd` actions | Treat this list as empty in every run. Keep sink conditions/seeds and ordinary source actions. This is an explicit rule-policy change beyond run-1. |
+| Persistence | Quarantine run-1 records | After a complete run-1, persist independently valid NORMAL summaries only. Group/static speculative results remain DEMAND. Typed Group/Full exclusions keep their denotation in later readers. |
+| Field-limit schedule | Default limits `[1,2,3,4,...]` | Limits `[1,1,2,3,...]`: run-1 GROUP forward; run-2 FULL backward at limit 1; later FULL runs increase the limit. Direction still alternates. |
 
-Unchanged behavior includes section 4's grammar/entry/field rules, typed
-exclusions, selected cleaner repair, RemoveAll, source permissions, actual
-query admission, ZERO discovery and exact later source/report confirmation.
-No IR, reference-manager, added-input-history or exception-policy change
-is selected. If a proof or implementation needs another major semantic
-change, expose it and obtain the intended behavior before implementing it,
-or retain this scope. Do not add a hidden helper to change the contract.
+### Mechanisms reused without a semantic change
+
+- **AP and fields:** initial descriptor geometry, tails, ordinary entry
+  conversion, definite overwrite kills, disjoint preservation, pre-store
+  RHS evaluation and weak aliases. New static point resumes use these
+  existing AP relations, without another entry conversion. An E-update
+  residual still moves to DEMAND with empty E. There is no new field rule.
+- **Source actions:** existing AP transfer, bound positions, original
+  incoming Facts, complete premises, permissions and action order. Only
+  their mark selectors and result layer have the changes listed above.
+- **Ordinary calls and joins:** current caller N2 inputs, complete compatible
+  ND bindings, CallerRef and ordinary summary application. No extra callee
+  input history, method-wide root mask or replacement join is added.
+- **Ordinary requests:** Base P/R ownership, merged storage,
+  `commit(temporary)` then replacement, both arrival orders, and ignoring
+  E/mx for request matching. Members become groups; static rows are removed.
+- **Kills and confirmation:** actual RemoveAllMarks admission, structural
+  kills, actual-query rules, ZERO seed discovery, balanced backward calls,
+  exact FULL source hits/seeds and exact later report confirmation.
+- **Ownership and infrastructure:** method actors, method-queue-empty
+  notifications, counted child work, cancellation, IR and managed soft
+  references. No new barrier policy, clipping cap or cache manager is added.
+
+Relative to **ff2966455 only**, delete GroundingSupport, guard formulas,
+fixed certificates, cofactors, support revisions and input-root masks.
+Remove its extra exact-field writer validator. This restores the base's
+bounded DEMAND eligibility; a widened sibling-field candidate may survive
+as DEMAND. These mechanisms never existed in a80, so their deletion is
+not another semantic change from that base.
+
+If a proof or implementation needs another major semantic change, expose
+it and obtain the intended behavior before implementing it, or retain this
+scope. Do not add a hidden helper to change the contract.
 
 ## 1. Pinned implementation baseline
 
@@ -337,36 +371,37 @@ GROUP leaf/proof ordinals are local to that view; they are not FULL ordinals.
 Diagnostic callback/proof counts can change. Semantic occurrence/report
 identities and every configured action remain.
 
-### Source transfer cases
+### Source conditions and unchanged source actions
 
-Source condition normalization must not change the action's AP transfer.
-Before GROUP projection, retain the original UNCONDITIONAL, UNARY and
-MULTI transfer families from the bound signed/role-processed FULL DAG.
-Keep each unary family's bound source Pattern. Project and normalize each
-family's admission root separately in one shared GROUP DAG, without cubes.
-Equal families can merge only when transfer kind, bound anchor and action
-relation agree. Actions keep their original ordinal and `ActionId`.
-
-A collapsed MULTI condition still uses its original target construction.
-Do not require at least two normalized leaves to execute it. A unary case
-still uses its declared source Pattern, suffix and POSITION transfer.
-Pass its original admitted current Facts to that primitive, not only the
-predicate's checked/intersected piece. The baseline unary operation needs
-the original current image for suffix, exclusion and POSITION behavior.
-A source with both enabled families retains both semantic outputs under
-the original ActionId. Do not repeat it for erased full aliases.
+The rule is a mark projection. For example:
 
 ```text
-p.[any]/g; guard P(p.f,T) AND P(p.f,U), same group
-AssignMark target q.[any-taint]
-MULTI target construction: q.[any-taint]/g, DEMAND
-GROUP guard: one P(p.f,g), still MULTI
+CM(p1, (g,T)) AND CM(p2, (g,U))
+  -> CM(p1, g) AND CM(p2, g)
 ```
 
-Reclassifying it as unary could produce q.[any] instead. This is forbidden.
-The same transfer-preservation rule covers EXACT, ANY, ANY_TAINT and
-generic STAR actions; no fixed-target proof silently covers other tails.
-Transfer-family metadata belongs to immutable forms, never AP edges.
+Keep distinct bound positions distinct. Use the existing condition matching, complete
+ordinary binding and source action. Project the action's mark to its own
+registered group and emit the result as DEMAND. Preserve its AP transfer,
+tails, original bound positions, incoming Facts, action order and ActionId.
+FULL runs use the original full condition and actions.
+
+No new source-case analysis, provider API or runtime store is required by
+this specification. The earlier UNCONDITIONAL/UNARY/MULTI discussion names
+existing interpreter paths. It does not define new source semantics.
+There is one compiler compatibility check: folding equal-position aliases
+must not select a different AP transfer because the guard has fewer leaves.
+In particular, a unary transfer still receives the original incoming Facts.
+The detailed source-family model is proof/regression evidence only.
+
+### Selected-mark cleaners
+
+`RemoveMark(T)` has different run-1 behavior from its FULL behavior.
+Request the removed position's group g. Never remove an actual Group(g)
+fact in run-1, even if the catalog currently has only one full mark in g.
+Retain that fact as DEMAND so later FULL analysis can apply the exact
+cleaner. A request alone creates no taint; repair needs an actual matching
+input or static supply. Keep the original position and operation stage.
 
 For a selected cleaner of T in group g:
 
@@ -379,6 +414,11 @@ FLOW I -> x except X:
 Group(g) -> selected cleaner(T): retain Group(g), DEMAND
 Group(h), h != g:                retain Group(h), DEMAND
 ```
+
+The FLOW complement can remain NORMAL. It describes only the branch that
+excludes g; it does not prove that this cleaner removed g from the program.
+An actual g continues on the independent DEMAND repair. This is the earlier
+selected complement/repair policy, not a new permission to clean a group.
 
 Emit the interest even when g is already excluded or the value delta is
 empty. A stored group branch still needs its local cleaner/check demand
@@ -901,7 +941,7 @@ it does not require rebuilding the feature from an old checkout.
 | `Run1Grounding.kt`, `GroundingSupport`, `GroundingRequirement`, `GroundingArgument`, fixed certificates and guard FLOW-shadow validator | Delete completely; no renamed validator, edge label or formula solver |
 | Method/point/rule work support fields, store cofactors, publication/N2 support revisions, call guard replay/rebinding and input-root masks | Delete; retain ordinary current AP inputs, complete caller/ND joins and semantic publication deltas |
 | Static writer-support probes, forwarded grounded-input directories and grounding statistics | Delete; use ordinary early summaries, actual all-static joins and Base writer interests |
-| GROUP dispatch over every original full alias | Replace with selected normalized GROUP NNF/source cases; keep original FULL metadata and action IDs |
+| GROUP dispatch over every original full alias | Replace with normalized GROUP conditions; reuse existing source AP transfers, original FULL metadata and action IDs |
 
 Retain InitialFactStore, MethodEdgeStore, ordinary RunSummaryStore and
 PublicationIndex, SummaryStorage's concurrency protocol, ordinary caller
@@ -918,8 +958,8 @@ the obsolete transport implementations.
 ## 16. Required validation and implementation gates
 
 The proof dossier must contain constructive witnesses for ownership/full
-projection, signed-to-positive bound GROUP normalization, source transfer
-families/anchors, cleaner repair and exclusions, complete ordinary writer
+projection, signed-to-positive bound GROUP normalization, unchanged source
+action/AP semantics, cleaner repair and exclusions, complete ordinary writer
 composition, rooted supply/read admission, point refinement, merged joins,
 early effects, ZERO wrappers, shared static demand, actual-query productive
 replay, exact source enumeration and the combined finite handoff.

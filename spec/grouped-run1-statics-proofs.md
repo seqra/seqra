@@ -1,7 +1,7 @@
 # Mark groups and direct statics: proof dossier
 
-Date: 19 October 2026. Revision: **2, fixed semantic contract and finite
-constructive proofs**. Runtime conformance is pending. This dossier supports
+Date: 19 October 2026. Revision: **2.1, source and scope clarification of the
+fixed semantic contract**. Runtime conformance is pending. This dossier supports
 [grouped-run1-statics.md](grouped-run1-statics.md). It follows
 [proof-guide.md](proof-guide.md). It uses ASD-STE100 Simplified Technical
 English. Defined technical terms and program names keep their meanings.
@@ -19,6 +19,9 @@ Revision 2 removes its extra exact-field writer validator and runtime
 grounding state. It restores bounded ordinary DEMAND writer eligibility;
 it does not change field transfer. The spec's section 0 is the explicit
 semantic-scope inventory required by [proof-guide.md](proof-guide.md).
+Revision 2.1 makes that inventory relative to the pre-feature a80 base and
+clarifies that source actions are reused. It does not select new source
+semantics or a new cleaner/field policy. The Lean statements are unchanged.
 
 The selected reference now treats `trackFactsReachAnalysisEnd` as empty in
 every run, for method, entry and exit sinks. Use the same effective rule
@@ -67,8 +70,8 @@ implementation. Both have the same rooted supply, conditional read edge,
 current-point refinement, source identity and full backward semantics.
 Merging requests/groups and contracting identity relays must preserve the
 decoded semantic answer relation. Diagnostic callback counts can differ.
-For provider normalization, compare old alias evaluation with normalized
-GROUP cases under the same GROUP valuation. Preserve source transfer kind,
+For provider normalization, compare old alias evaluation with the normalized
+GROUP condition under the same GROUP valuation. Preserve source transfer kind,
 unary anchor, complete premises and action identities. Boolean equivalence
 alone does not prove output-tail equivalence.
 
@@ -94,7 +97,7 @@ declarations as well as public theorems.
 | Tail-preserving layer demotion | `preservation_full_payload`; `Run1DefaultSummaryApplication.ordinary_root_STAR_layer_only` | Use the layer law only; do not restore the removed executable root default |
 | Signed full literals/NNF | `RuleGroupConditions.exact_truth_implies_possible_truth`, `exact_full_literal_contradiction`, `same_group_distinct_pair_not_false` | Fixed-position NNF model; compiler keeps all actual positions and occurrence IDs |
 | Bound GROUP normalization, revision 2 | `Run1GroupRuleViews` signed fold, positive normalizer and full-witness construction | Position/check-kind/registered-owner literals; original role policy precedes projection; no signed GROUP tautology fold |
-| Source transfer preservation, revision 2 | `Run1GroupSourceCases` original-family extraction and generic transfer dispatch | Preserve original UNCONDITIONAL/UNARY/MULTI meaning and unary Pattern; a collapsed MULTI case still uses its declared target construction |
+| Unchanged source action/AP semantics | `Run1GroupSourceCases` compatibility witnesses and generic transfer dispatch | Existing action transfer, input Facts, positions and IDs; no required runtime source-case API or analysis phase |
 | FULL lookup and stable IDs, revision 2 | `Run1GroupRuleViews` selected-view and occurrence-resolution laws | Original candidate/action order; GROUP and FULL cache keys distinct; no GROUP-ordinal FULL decoding |
 | Selected cleaner repair | `RuleGroupMarks.exact_clean_partition`, `normal_complement_sound`; `RuleGroupRequestRepair.concrete_survivor_covered` | NORMAL complement plus DEMAND repair; later exact cleaning distinguishes T from U |
 | RemoveAllMarks and real kills | `requested_input_reexecuted_through_remove_all_is_empty`; universal-carry `kill_still_kills` | Point reply reruns the operation; it cannot resume after a kill |
@@ -327,8 +330,12 @@ and `filtered_seed_still_resolves` keep registered FULL seeds addressable
 by original occurrence. `cache_views_distinct`, `backward_uses_full` and
 `forward_three_uses_full` separate GROUP from all later FULL forms.
 
-[Run1GroupSourceCases.lean](lean/ApSpec/Run1GroupSourceCases.lean) constructs
-original source witnesses and their distinct full-leaf supports.
+[Run1GroupSourceCases.lean](lean/ApSpec/Run1GroupSourceCases.lean) is a
+compatibility proof model of existing source transfers. It is not a new
+source-processing phase. Its family extraction, leaf/pair circuits and
+`sourceCases` function are executable proof witnesses, not mandatory
+runtime data structures or provider APIs. It constructs original source
+witnesses and their distinct full-leaf supports.
 `compileSourceWitness` retains each witness's transfer family and unary
 anchor. `decodeSourceCase` constructs a witness in the reverse direction.
 `source_family_equivalence` proves both directions under the same GROUP

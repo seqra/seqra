@@ -4,6 +4,13 @@ Date: 2026-10-19. Status: refactoring proposal. No runtime change is made.
 Language: ASD-STE100 Simplified Technical English. Defined technical terms,
 code names and mathematical notation keep their stated meanings.
 
+The [spec's semantic inventory](../../spec/grouped-run1-statics.md#0-selected-semantic-scope)
+compares the complete feature with the pre-feature a80 base. Its revision
+2.1 clarifies source handling: project condition/action marks and reuse the
+existing source AP transfer. No new `provider.sourceCases` API or runtime
+source-case analysis is selected. The detailed source-family construction
+is proof/regression evidence only.
+
 The runtime under review is `ff2966455da2e5ffd0db655a1ff06c5954ed3c8a`.
 The [termination investigation](../reports/bidirectional-grouped-statics-termination-investigation-20261019.md)
 confirms a support-only work cycle with one group and one AP leaf.
@@ -193,36 +200,32 @@ Keep the original `ActionId`, including its action ordinal. Two equal
 configured actions remain two actions. Do not run an action once per full
 alias removed from the group condition.
 
-Condition simplification must not select a different source transfer.
-The current unary path uses `applyEdge`; the multi-input path uses
-`targetTree`. Their AP results need not be equal. Before GROUP projection,
-retain the original source transfer cases and each unary case's bound
-source Pattern. Normalize their GROUP admission roots separately in one
-shared DAG. No cube expansion or full-alias product is required.
+For a source condition, only the mark selector changes:
 
-```kotlin
-val occurrence = RuleOccurrenceId(formKey, role, candidate.ordinal)
-val cases = provider.sourceCases(candidate, binding, view)
-
-for (case in cases) onConditionSatisfied(case.admission, completeBinding) {
-    for ((ordinal, action) in candidate.original.actions.withIndex()) {
-        val id = ActionId(occurrence, SOURCE, ordinal)
-        applyDeclaredTransfer(case.transfer, id, action, completeBinding)
-    }
-}
+```text
+CM(p1, (g,T)) AND CM(p2, (g,U))
+  -> CM(p1, g) AND CM(p2, g)
 ```
 
-The transfer cases are the existing UNCONDITIONAL, UNARY and MULTI source
-families, with their declared AP relation. Equal aliases can share a case
-only when that relation and its bound anchor agree. A collapsed AND can
-have one GROUP leaf and still use the original MULTI target construction.
-Do not retain a `combination.leaves.size >= 2` gate for that case.
-If the original source has both unary and multi cases, keep the union of
-their enabled transfer results under the same original `ActionId`.
-One Boolean result does not require one output or callback.
-This is immutable form metadata, not support attached to an AP edge.
+Keep distinct bound positions, use the ordinary complete binding and run the existing
+source action with its group mark. Its AP transfer, original input Facts,
+tails, bound positions and ActionId stay unchanged. There is no new source
+transfer algorithm. The schematic execution is:
 
-Selected-mark cleaners still request the group and retain group TAINT.
+```text
+guard = simplify(projectConditionMarks(original.boundCondition))
+when guard has an ordinary accepted binding:
+    execute existing source actions with group selectors and DEMAND layer
+```
+
+The baseline has unary and multi-input implementation paths. If equal
+positions collapse to one GROUP leaf, do not select another AP primitive
+from that new leaf count. Section 15.3 records this compiler regression
+check. It does not require a new provider API, source-case store or phase.
+
+Selected-mark cleaners request the removed position's group and never kill
+group TAINT in run-1. Actual group input survives as DEMAND; a request alone
+does not invent that input. The FLOW complement/DEMAND repair remains.
 `RemoveAllMarks` and structural field kills retain their current rules.
 `trackFactsReachAnalysisEnd` stays empty in every run.
 
@@ -648,7 +651,7 @@ This document states proof obligations; it does not claim they are proved.
 2. Model provider projection separately from runtime execution. Prove that
    exact signed folding precedes GROUP projection, positive GROUP
    normalization preserves its projected meaning, and positions stay distinct.
-   Preserve original source transfer cases and bound unary Patterns. Prove
+   Reuse the original source AP transfer and bound positions. Prove
    output AP/tail and complete accepted premise coverage, not only truth.
    Prove inclusion of every full positive witness in the group condition.
 3. Prove stable occurrence/action identity, exact FULL view selection,
@@ -715,7 +718,7 @@ earlier bounded DEMAND contract. Section 4's field operations do not change.
 The initial grammar, field limit, tails and definite kills do not change.
 
 There is also a change to the required condition representation. Run-1
-will use normalized GROUP conditions and source transfer cases. It will
+will use normalized GROUP conditions and existing source AP transfers. It will
 not retain each full alias as a runtime leaf/proof alternative. Original
 FULL rules and occurrence/action identities remain available. This
 preserves projected truth; it does not preserve every run-1 proof record.
@@ -736,7 +739,7 @@ Section numbers below refer to that document.
 | 2. Domain and proof scope | Remove runtime support from the edge definition. Define writer derivation in the bounded ordinary DEMAND relation, rather than through a separate exact-field validator. | Full reference-witness inclusion, rooted groups, accepted static order/context approximation, later FULL confirmation |
 | 3. Ownership, forms and schedule | Specify provider-selected GROUP and FULL condition views and separate compiled cache selection. Preserve each imported leaf's registered owner; add no single-owner rejection. | Catalog, top-level join ownership, typed atoms, run schedule and layer rules |
 | 4. Initials and field transfer | Retain the section. Clarify that no extra writer validator follows these operations. | All legal initial families, STAR-to-ANY entry, exact entry, point materialization, no static entry lane, selective writes and empty E |
-| 5. Conditions | Replace run-1 full-alias leaf retention with exact signed folding, existing role/negative policy, then positive GROUP projection and normalization. Preserve original source transfer cases before GROUP simplification. | Original FULL conditions and IDs, distinct bound positions/check kinds, no cubes, unchanged action AP semantics |
+| 5. Conditions | Replace run-1 full-alias leaf retention with exact signed folding, existing role/negative policy, then positive GROUP projection and normalization. Reuse the existing source AP transfer. | Original FULL conditions and IDs, distinct bound positions/check kinds, no cubes, unchanged action AP semantics |
 | 5. END, cleaners and exclusions | Retain these rules. | Empty END in every run, selected cleaner requests/repair, RemoveAll, actual kills, typed exclusions and NORMAL complements |
 | 6. Ordinary requests | Keep Base P/R. Make the ordinary-origin writer bootstrap explicit: C.f/g interest plus p/FLOW-to-C.f/FLOW offers Base(p)/g. | Commit-then-replace, both arrival orders, no static request rows, request matching ignores E/mx only for interest |
 | 7. Storage | Remove grounded-input/support bits and support from continuation/writer keys. Keep references to ordinary early summaries for static joins and writer interests. | Existing owners, merged region/group sets, no duplicate Facts history or static relay graph |
@@ -779,9 +782,9 @@ Section numbers below refer to that document.
 | --- | --- |
 | 1. Base and conventions | Keep a80 as the inherited AP/field contract; use the delivered ff2966455 runtime as refactoring input. Replace the full-alias index overview with provider-selected conditions. |
 | 2. Files | Delete `Run1Grounding.kt` and its store/protocol additions. Add provider view selection, transfer-aware GROUP compilation and view-specific cache payloads. |
-| 3. Ownership | Keep provenance/census logic. Extend the wrapper with selected condition/source-case views. Preserve imported owners and original candidate/action order. |
+| 3. Ownership | Keep provenance/census logic. Select GROUP/FULL condition views and reuse source AP transfers. Preserve imported owners and original candidate/action order. |
 | 4. Atoms and forms | Keep typed atoms and action mark gates. Select GROUP/FULL condition payloads explicitly; both run-1 and run-3 are forward. Do not mutate shared FULL forms. |
-| 5. Conditions and cleaners | Replace group-to-full-leaf dispatch and its instruction not to coalesce equal groups. Normalize GROUP NNF within the retained source transfer cases. Keep exclusion algebra and cleaner semantics. |
+| 5. Conditions and cleaners | Replace group-to-full-leaf dispatch and its instruction not to coalesce equal groups. Normalize GROUP NNF without changing source AP transfers. Keep exclusion algebra and cleaner semantics. |
 | 6. Config and initials | Retain schedule, layer rules, initial grammar and entry/point distinction. |
 | 7. Operations and resumes | Remove support fields from `OperationInput` and continuations. Retain exact operation/stage/cleaner addresses, current AP image, complete premise and ordinary call state. |
 | 8. Static service | Delete support-growth batches, input-grounding directories, support probes and support-keyed images. Index ordinary early-summary references for all-static matching and ordinary FLOW writer interests. |
@@ -799,10 +802,10 @@ Section numbers below refer to that document.
 | 19. Sequence/tests | Replace grounding implementation stages with GROUP/FULL view, transfer-preservation, complete-premise pool and finite-progress stages. |
 | 20. Evidence | Keep old measured acceptance failures bound to ff2966455. Add new results only after a new validation run. |
 
-### 15.3 A source transfer detail that needs an explicit constraint
+### 15.3 Compiler regression check for unchanged source transfer
 
 Boolean condition equivalence alone does not preserve source transfer.
-The current implementation has different unary and multi-input paths.
+The baseline implementation has different unary and multi-input paths.
 This source-derived example shows the risk; it is not a new executed test:
 
 ```text
@@ -856,7 +859,7 @@ positions, or preserve source transfer modes by itself.
 | Obligation | Required statement and control |
 | --- | --- |
 | Bound condition rewrite | Exact signed folds occur before positive projection. Projection uses each registered owner. GROUP normalization preserves projected truth and unconditional classification, with distinct positions/check kinds intact. Include same-group signed literals and legal imported/mixed owners. |
-| Transfer-aware source rewrite | Preserve the original UNCONDITIONAL/UNARY/MULTI transfer family and bound unary Pattern. Prove output AP/tail/layer and complete accepted GROUP-premise coverage for each declared action. Include the ANY_TAINT example above, mixed families, exact targets and generic STAR separately. |
+| Unchanged source actions | Prove that condition mark projection preserves each existing action's AP transfer, bound positions, original input Facts, output tail and complete GROUP premises. The source-family model is compatibility evidence, not a required runtime phase or API. |
 | Occurrence/action and FULL views | Group alias removal retains original candidate/action IDs and every configured action. B2 selects the original FULL sink occurrence after eviction/rebuild, including F1/F3 forward cache separation. Group ordinals are never FULL seed ordinals. |
 | Ordinary early-summary composition | Construct complete singleton/ND applications through real caller ports. Every unresolved original survives. Mixed premises cannot use an all-static shortcut or combine incompatible calls. An old input/new summary and new input/old summary both fire. |
 | Pool supply and bootstrap | Every supplied group has a source-backed derivation in the bounded AP program. ZERO roots require legitimate source/control permission. All-static FLOW copies apply actual pool groups. Ordinary FLOW writers route interests through Base P/R. Requests, hypothetical initials and unseeded cycles supply nothing. |
@@ -894,7 +897,7 @@ convert the runtime loop diagnostics to bounded-quiescence regressions.
 | --- | --- |
 | 1–2. Claim/concept | Define rooted derivation in the bounded ordinary AP program. State projected condition equivalence, reference inclusion and the allowed run-1 precision change separately. |
 | 3. Requirement map | Add transfer-aware provider normalization, explicit FULL decoding, ordinary pool adapters and engine progress. Keep the reusable pure results and their limited scopes. |
-| 4–5. Coverage/ZERO argument | Reconnect full witness projection to normalized source cases, complete early-summary joins and the real backward pipeline. Preserve source/control and static-premise distinctions. |
+| 4–5. Coverage/ZERO argument | Reconnect full witness projection to normalized GROUP conditions and existing source actions, complete early-summary joins and the real backward pipeline. Preserve source/control and static-premise distinctions. |
 | 6. NORMAL | Keep its claim. Recheck that every newly admitted group/static candidate is DEMAND and cannot enter normal persistence. |
 | 7. Savings | Remove support identity from the runtime size model. Add a semantic-membership bound and the scoped alias-work comparison. |
 | 8. Evidence map | Distinguish reusable laws, revised adapters and retired strict-validator controls. A Lean ghost witness is not a required runtime support object. |
