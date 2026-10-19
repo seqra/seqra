@@ -20,6 +20,23 @@ import kotlin.test.*
 class FormsCacheTest {
     private data class Form(val value: Int, val direction: Direction = Direction.FORWARD)
 
+    @Test fun `group and full forward reverse payloads are separate and reclaimable`(): Unit {
+        val refs = SoftReferenceManager(RefManager())
+        val cache = FormsCache<Form>(1, refs) { it.copy(direction = Direction.BACKWARD) }
+        val group = cache.get(0, Direction.FORWARD, RuleView.RUN1_GROUP) { Form(1) }
+        val full = cache.get(0, Direction.FORWARD, RuleView.FULL) { Form(2) }
+        assertEquals(Form(1), group)
+        assertEquals(Form(2), full)
+        assertSame(group, cache.get(0, Direction.FORWARD, RuleView.RUN1_GROUP) { error("Rebuilt GROUP") })
+        assertSame(full, cache.get(0, Direction.FORWARD) { error("Reused GROUP as FULL") })
+        assertEquals(Form(2, Direction.BACKWARD), cache.get(0, Direction.BACKWARD, RuleView.FULL) { error("Lost FULL") })
+        assertEquals(Form(1, Direction.BACKWARD), cache.get(0, Direction.BACKWARD, RuleView.RUN1_GROUP) { error("Lost GROUP") })
+        assertEquals(2, refs.cleanup())
+        refs.enable()
+        assertEquals(Form(3), cache.get(0, Direction.FORWARD, RuleView.RUN1_GROUP) { Form(3) })
+        assertEquals(Form(4, Direction.BACKWARD), cache.get(0, Direction.BACKWARD, RuleView.FULL) { Form(4) })
+    }
+
     @Test fun `managed cleanup evicts one forward reverse pair and rebuilds equal values`(): Unit {
         val refs = SoftReferenceManager(RefManager())
         var builds = 0
@@ -405,6 +422,40 @@ class FormsCacheTest {
         override fun statementSummary(method: MethodKey, statement: CommonInst): StatementSummary = error("Use cached method forms")
         override fun callPlan(caller: MethodKey, statement: CommonInst, call: CommonCallExpr): CallPlan = error("Use cached method forms")
         override fun isSummaryBase(base: AccessPathBase) = true
+    }
+
+    @Test fun `both views preserve compatible custom method callback pin hooks`(): Unit {
+        var pinned: String? = null
+        val visited = arrayListOf<String>()
+        fun <R> pin(name: String, use: () -> R): R {
+            check(pinned == null)
+            pinned = name
+            visited += name
+            try { return use() } finally { pinned = null }
+        }
+        val forms = object : MethodForms {
+            override fun statement(direction: Direction, s: CommonInst): StatementSummary = error("Use pinned callback")
+            override fun call(direction: Direction, s: CommonInst, call: CommonCallExpr): CallPlan = error("Use pinned callback")
+            override fun entryRules(direction: Direction): RuleStatement = error("Use pinned callback")
+            override fun exitRules(direction: Direction, exit: CommonInst): ExitRules = error("Use pinned callback")
+            override fun <R> withStatement(direction: Direction, s: CommonInst, use: (StatementSummary) -> R): R =
+                pin("statement") { use(rules.summary) }
+            override fun <R> withCall(direction: Direction, s: CommonInst, call: CommonCallExpr, use: (CallPlan) -> R): R =
+                pin("call") { use(plan) }
+            override fun <R> withEntryRules(direction: Direction, use: (RuleStatement) -> R): R =
+                pin("entry") { use(rules) }
+            override fun <R> withExitRules(direction: Direction, exit: CommonInst, use: (ExitRules) -> R): R =
+                pin("exit") { use(exits) }
+        }
+        for (view in RuleView.entries) {
+            val directed = DirectedForms(interp, Direction.FORWARD, { forms }, view)
+            directed.withStatement(fixture.method, normal) { assertEquals("statement", pinned) }
+            directed.withCall(fixture.method, normal, callExpr) { assertEquals("call", pinned) }
+            directed.withStartRules(fixture.method, entry) { assertEquals("entry", pinned) }
+            directed.withEndRules(fixture.method, normal) { assertEquals("exit", pinned) }
+        }
+        assertEquals(List(RuleView.entries.size) { listOf("statement", "call", "entry", "exit") }.flatten(), visited)
+        assertNull(pinned)
     }
     private fun directed(direction: Direction) = DirectedForms(interp, direction) { method ->
         object : MethodForms {

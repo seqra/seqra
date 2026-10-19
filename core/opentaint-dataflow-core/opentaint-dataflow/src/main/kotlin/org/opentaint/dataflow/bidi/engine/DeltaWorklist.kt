@@ -3,8 +3,7 @@ package org.opentaint.dataflow.bidi.engine
 /** Unchanged work precedes stored deltas. A repeat set lasts through an entire unchanged burst. */
 class DeltaWorklist {
     private val unchanged = ArrayList<EdgeDelta>()
-    private data class Seen(val delta: EdgeDelta, val support: GroundingSupport = delta.grounding)
-    private val seen = HashSet<Seen>()
+    private val seen = HashSet<EdgeDelta>()
     private var zeroUnchanged = 0
     private val zero = ArrayList<EdgeDelta>()
     private val other = ArrayList<EdgeDelta>()
@@ -18,7 +17,7 @@ class DeltaWorklist {
     }
 
     fun addUnchanged(delta: EdgeDelta): Boolean {
-        if (!seen.add(Seen(delta))) return false
+        if (!seen.add(delta)) return false
         unchanged += delta
         if (delta.zeroToZero) zeroUnchanged++
         return true

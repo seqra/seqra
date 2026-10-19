@@ -14,32 +14,6 @@ import kotlin.test.*
 
 /** Actual actors and counted replies; expected values do not call the static service's selection helpers. */
 class GroupedDirectStaticsEngineTest {
-    @Test fun `twenty binary guard alternatives retain a linear structural expression`() {
-        DriverFixtures().use { f ->
-            val p = f.program
-            val t = p.mark("guard T")
-            val initial = f.manager.initial(AccessPathBase.Argument(0), null, Tail.STAR, ExclusionSet.Empty, MarkSlot.Concrete(t))
-            val accepted = f.manager.factsOf(PathFact(initial.base, emptyList(), Tail.ANY, initial.mark), ExclusionSet.Empty, Layer.DEMAND)
-            var support = GroundingSupport.TRUE
-            repeat(20) { index ->
-                fun row(branch: Int) = GroundingSupport.require(listOf(GroundingRequirement(initial, accepted,
-                    Pattern(PathFact(initial.base, listOf(p.field("g${index}_$branch")), Tail.ANY, initial.mark), ExclusionSet.Empty))))
-                support = support.and(row(0).or(row(1)))
-            }
-            val seen = java.util.IdentityHashMap<GroundingSupport, Boolean>()
-            fun visit(node: GroundingSupport) {
-                if (seen.put(node, true) != null) return
-                when (node) {
-                    is GroundingSupport.And -> { visit(node.left); visit(node.right) }
-                    is GroundingSupport.Or -> { visit(node.left); visit(node.right) }
-                    else -> Unit
-                }
-            }
-            visit(support)
-            assertEquals(79, seen.size, "No distributive product of alternatives is constructed")
-        }
-    }
-
     private fun id(key: MethodKey, index: Int, f: DriverFixtures): OperationId =
         OperationId(FormKey(FormOwner(), key.method, key, f.program.inst(key, index)))
 
@@ -110,7 +84,10 @@ class GroupedDirectStaticsEngineTest {
         assertTrue(nestedGuardedWriter(oneCompatibleCall = true))
     }
 
-    private fun unarySpatialWriter(actualField: String, recursive: Boolean = false): Boolean {
+    private data class SpatialResult(val candidate: Boolean, val finalFinding: Boolean, val reachedFull: Boolean)
+
+    private fun unarySpatialWriter(actualField: String, recursive: Boolean = false,
+                                   refine: Boolean = false): SpatialResult {
         DriverFixtures().use { f ->
             val p = f.program
             val main = p.method("spatial main", listOf(listOf(1), listOf(2), emptyList()), 2).key()
@@ -137,27 +114,52 @@ class GroupedDirectStaticsEngineTest {
             val builder = RulePredicate.Builder(p.cancellation, p.ap.marks)
             val condition = builder.build(builder.leaf(p.pattern(arg, listOf(p.field("f")), mark = MarkSlot.Concrete(g))))
             val action = SourceAction(ActionId(id, ActionRole.SOURCE, 0), target)
+            val grouped = RulePredicate.Builder(p.cancellation, p.ap.marks)
+            val groupedCondition = grouped.build(grouped.leaf(p.pattern(arg, listOf(p.field("f")),
+                mark = MarkSlot.Concrete(p.ap.marks.group(p.ap.marks.groupOf(g))))))
+            val occurrence = SourceRuleOccurrence(id, condition, listOf(action), groupTransfers = true,
+                unaryTransfers = listOf(SourceUnaryTransfer(groupedCondition, condition.leaves.single())))
             p.statement(writer, 1, StatementSummary(setOf(arg), listOf(MicroEdge.of(ZERO_KEEP), MicroEdge.of(keepEdge(arg))),
-                emptyList(), emptyMap(), sources = listOf(SourceRuleOccurrence(id, condition, listOf(action))),
+                emptyList(), emptyMap(), sources = listOf(occurrence),
                 staticOperations = listOf(StaticOperation.Write(OperationId(form, action = action.id),
                     Pattern(target, ExclusionSet.Empty), action = action.id))))
             val required = p.pattern(STATIC, field, mark = MarkSlot.Concrete(h))
             val sink = SinkRule(f.rule("spatial writer result"), 0, listOf(required), emptyList())
             val checks = StatementSummary.EMPTY.withStaticOperations(listOf(StaticOperation.MarkInput(this.id(main, 2, f), required)))
             p.exit(main, 2, ExitRules(RuleStatement(checks, StatementSummary.EMPTY, listOf(sink)), false, emptySet()))
-            val result = f.run(p.config(roots = listOf(main)), timeout = 20.seconds)
-            assertEquals(RunStatus.COMPLETE, result.status)
-            return result.witnessesByKey().any { it.key.rule == sink.rule }
+            if (!refine) {
+                val result = f.run(p.config(roots = listOf(main)), timeout = 20.seconds)
+                assertEquals(RunStatus.COMPLETE, result.status)
+                val candidate = result.witnessesByKey().any { it.key.rule == sink.rule }
+                assertTrue(result.witnessesByKey().filter { it.key.rule == sink.rule }.values.flatten()
+                    .flatMap { it.edges }.all { it.facts.layer == Layer.DEMAND })
+                return SpatialResult(candidate, false, false)
+            }
+            val report = f.driver(FixedLimits(listOf(1, 1, 2)), 20.seconds).analyze(listOf(main))
+            assertTrue(f.results.all { it.status == RunStatus.COMPLETE })
+            return SpatialResult(f.results.first().witnessesByKey().any { it.key.rule == sink.rule },
+                report.entries.any { it.key.rule == sink.rule }, f.results.any { it.runIndex > 1 })
         }
     }
 
-    @Test fun `unary static source guard checks actual caller suffix before pool supply`() {
-        assertFalse(unarySpatialWriter("h"))
-        assertTrue(unarySpatialWriter("f"))
+    @Test fun `ordinary canonical input permits a sibling field DEMAND candidate`() {
+        assertTrue(unarySpatialWriter("h").candidate)
+        assertTrue(unarySpatialWriter("f").candidate)
     }
 
-    @Test fun `rooted recursive guard replay reaches a finite unchanged binding`() {
-        assertTrue(unarySpatialWriter("f", recursive = true))
+    @Test fun `later FULL refinement rejects the sibling candidate and retains the matching source`() {
+        val sibling = unarySpatialWriter("h", refine = true)
+        assertTrue(sibling.candidate)
+        assertTrue(sibling.reachedFull)
+        assertFalse(sibling.finalFinding)
+        val matching = unarySpatialWriter("f", refine = true)
+        assertTrue(matching.candidate)
+        assertTrue(matching.reachedFull)
+        assertTrue(matching.finalFinding)
+    }
+
+    @Test fun `rooted recursive ordinary summaries reach a finite unchanged binding`() {
+        assertTrue(unarySpatialWriter("f", recursive = true).candidate)
     }
 
     @Test fun `early setter and getter cross two ZERO wrappers and refine through backward run two`() {
@@ -255,6 +257,51 @@ class GroupedDirectStaticsEngineTest {
             assertEquals(RunStatus.COMPLETE, result.status)
             assertTrue(result.witnessesByKey().none { it.key.rule == sink.rule })
             assertTrue(result.analyzers.flatMap { it.summaries.all() }.none { (_, value) -> value is TaintTree && value.base == STATIC })
+        }
+    }
+
+    @Test fun `actual caller marks apply FLOW writers and static copies without a marked callee start`() {
+        DriverFixtures().use { f ->
+            val p = f.program
+            val main = p.method("flow bootstrap main", listOf(listOf(1), listOf(2), listOf(3), emptyList()), 3).key()
+            val setter = p.method("flow bootstrap setter", listOf(listOf(1), emptyList()), 1).key()
+            val copy = p.method("flow bootstrap copy", listOf(listOf(1), emptyList()), 1).key()
+            val local = AccessPathBase.LocalVar(0); val arg = AccessPathBase.Argument(0)
+            val full = p.mark("flow bootstrap T")
+            val cls = f.manager.accessors.index(ClassStaticAccessor("C"))
+            val from = listOf(cls, p.field("from")); val target = listOf(cls, p.field("target"))
+            val source = PathEdge(ZERO_FACT, p.pattern(local, mark = MarkSlot.Concrete(full)).fact, ExclusionSet.Empty)
+            p.entry(main, RuleStatement(f.summary(ZERO_KEEP, source), StatementSummary.EMPTY, emptyList()))
+            val store = starEdge(arg, emptyList(), STATIC, from)
+            p.statement(setter, 0, write(f, setter, 0, store))
+            val transfer = starEdge(STATIC, from, STATIC, target)
+            val copyId = id(copy, 0, f)
+            p.statement(copy, 0, f.summary(ZERO_KEEP, transfer).withStaticOperations(listOf(
+                StaticOperation.Read(copyId, transfer),
+                StaticOperation.Write(copyId, Pattern(transfer.to, ExclusionSet.Empty), transfer))))
+            p.call(main, 1, CallPlan(setOf(STATIC, local, arg), listOf(
+                CallStage.Edges(BEFORE, BOUND, BIND_IN,
+                    f.summary(ZERO_KEEP, keepEdge(STATIC), starEdge(local, emptyList(), arg, emptyList()))),
+                CallStage.Edges(BOUND, ADDED, SOURCES, f.summary(ZERO_KEEP, keepEdge(STATIC), keepEdge(arg))),
+                CallStage.Callees(ADDED, RETURNED, listOf(setter)),
+                CallStage.Edges(RETURNED, AFTER, BIND_BACK, f.summary(ZERO_KEEP, keepEdge(STATIC))),
+            ), emptyList(), BEFORE, AFTER))
+            p.call(main, 2, call(f, copy))
+            val wanted = p.pattern(STATIC, target, mark = MarkSlot.Concrete(full))
+            val sink = SinkRule(f.rule("flow bootstrap sink"), 0, listOf(wanted), emptyList())
+            p.exit(main, 3, ExitRules(RuleStatement(StatementSummary.EMPTY.withStaticOperations(listOf(
+                StaticOperation.MarkInput(id(main, 3, f), wanted))), StatementSummary.EMPTY, listOf(sink)),
+                false, emptySet()))
+            val result = f.run(p.config(roots = listOf(main)), timeout = 20.seconds)
+            assertEquals(RunStatus.COMPLETE, result.status)
+            assertTrue(result.witnessesByKey().any { it.key.rule == sink.rule })
+            assertTrue(result.analyzers.single { it.key == setter }.summaries.all().any { (original, value) ->
+                original.isFlow && original.member(0).base == arg && value.base == STATIC
+            }, "The ordinary FLOW writer must be published")
+            assertTrue(result.analyzers.single { it.key == copy }.summaries.all().any { (original, value) ->
+                original.isFlow && original.member(0).base == STATIC && value.base == STATIC
+            }, "Actual pool groups must apply the all-static FLOW copy")
+            assertTrue(f.processed.none { it.run == 1 && it.delta.facts.base == STATIC })
         }
     }
 }

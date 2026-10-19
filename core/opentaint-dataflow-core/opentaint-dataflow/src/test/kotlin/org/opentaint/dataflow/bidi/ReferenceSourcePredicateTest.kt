@@ -7,6 +7,7 @@ import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.driver.Seed
 import org.opentaint.dataflow.bidi.driver.SeedIndex
 import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
+import org.opentaint.dataflow.bidi.fixtures.GroupRuleFixtureViews
 import org.opentaint.dataflow.bidi.fixtures.GroupedScalarMarks
 import org.opentaint.dataflow.bidi.fixtures.SelectedReferenceAlgebra
 import org.opentaint.dataflow.bidi.interp.*
@@ -74,6 +75,7 @@ class ReferenceSourcePredicateTest {
             Result(premise.mapTo(LinkedHashSet()) { groups?.pattern(it) ?: it },
                 groups?.conclusion(Conclusion(p.fact, p.exclusion, demand)) ?: Conclusion(p.fact, p.exclusion, demand))
         fun group(mark: TaintMark): TaintMark = groups?.atom(mark) ?: mark
+        private val selectedViews = GroupRuleFixtureViews(f.manager.marks, f.cancellation)
         private val decoder = FormsReference(f.ops)
 
         fun give(source: SourceRuleOccurrence, premise: Set<Pattern>, input: Conclusion,
@@ -84,7 +86,8 @@ class ReferenceSourcePredicateTest {
             val key = f.manager.premiseOf(runtimePremise.map(f.manager::initial))
             val facts = f.manager.factsOf(runtimeInput.fact, runtimeInput.exclusion,
                 if (runtimeInput.demand) Layer.DEMAND else Layer.NORMAL)
-            core.localServices.sourcePredicate(source, key, facts, node, statementEdge) { pr, out ->
+            val selectedSource = if (core.config.run1) selectedViews.source(source) else source
+            core.localServices.sourcePredicate(selectedSource, key, facts, node, statementEdge) { pr, out ->
                 val rawPremise = pr.members.map { it.toPattern() }.toSet()
                 decoder.conclusions(out).forEach { tree += Result(rawPremise, it) }
             }

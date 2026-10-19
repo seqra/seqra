@@ -13,6 +13,7 @@ import org.opentaint.dataflow.bidi.interp.RuleKind
 import org.opentaint.dataflow.bidi.interp.RuleOccurrenceId
 import org.opentaint.dataflow.bidi.interp.MicroEdgeBuilder
 import org.opentaint.dataflow.bidi.interp.RuleStatement
+import org.opentaint.dataflow.bidi.interp.RuleView
 import org.opentaint.dataflow.bidi.interp.SinkRule
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRArgumentTypeMethodContext
@@ -40,10 +41,11 @@ internal object JIRBoundaryForms {
     /** Zero is kept. A context-filtered initial base has its identity; source targets are gen only. */
     fun entryRules(interp: JIRInterpreter, entry: JIRMethodEntry, key: MethodKey,
                    aliasAnalysis: JIRLocalAliasAnalysis? = entry.aliasAnalysis,
-                   potentialUnknownAliases: Boolean = false): RuleStatement {
+                   potentialUnknownAliases: Boolean = false, view: RuleView = RuleView.FULL): RuleStatement {
         val method = key.method as JIRMethod
         val node = key.statement as JIRInst
         val rewriter = calleeRewriter(interp, aliasAnalysis, method, node, potentialUnknownAliases)
+        val forms = interp.ruleForms(view)
         val builder = MicroEdgeBuilder().apply { keepZero() }
         val form = FormKey(interp.entries.formOwner, method, key, node)
         val bases = listOf<AccessPathBase>(AccessPathBase.This) + method.parameters.indices.map { AccessPathBase.Argument(it) }
@@ -53,19 +55,19 @@ internal object JIRBoundaryForms {
             builder.operandFilter(base, interp.typeFilters.of(cls.toType()))
         }
         for ((ordinal, rule) in interp.rules.entryPointRulesForMethod(method, node, fact = null).withIndex()) {
-            if (!interp.ruleForms.valid(rule)) continue
-            val condition = interp.ruleForms.rewriteSourceOrSink(rule, rewriter, projectNegatives = false)
-            if (condition.isTrue) interp.ruleForms.source(builder, rule,
+            if (!forms.valid(rule)) continue
+            val condition = forms.rewriteSourceOrSink(rule, rewriter, projectNegatives = false)
+            if (condition.isTrue) forms.source(builder, rule,
                 RuleOccurrenceId(form, RuleKind.ENTRY_SOURCE, ordinal), condition)
         }
         val sinks = interp.rules.sinkRulesForMethodEntry(method, node, fact = null)
             .withIndex().flatMap { (ordinal, rule) ->
-                if (!interp.ruleForms.valid(rule)) return@flatMap emptyList()
-                val condition = interp.ruleForms.rewriteSourceOrSink(rule, rewriter, projectNegatives = false)
-                if (condition.isTrue) interp.ruleForms.sinks(rule, condition,
+                if (!forms.valid(rule)) return@flatMap emptyList()
+                val condition = forms.rewriteSourceOrSink(rule, rewriter, projectNegatives = false)
+                if (condition.isTrue) forms.sinks(rule, condition,
                     RuleOccurrenceId(form, RuleKind.ENTRY_SINK, ordinal)) else emptyList()
             }
-        interp.ruleForms.sinkInputs(sinks).forEach(builder::staticOperation)
+        forms.sinkInputs(sinks).forEach(builder::staticOperation)
         return RuleStatement(builder.build(), genSummary(sinks), sinks)
     }
 
@@ -77,13 +79,13 @@ internal object JIRBoundaryForms {
     fun exitRules(interp: JIRInterpreter, entry: JIRMethodEntry, key: MethodKey,
                   exit: CommonInst, entryRules: RuleStatement,
                   aliasAnalysis: JIRLocalAliasAnalysis? = entry.aliasAnalysis,
-                  potentialUnknownAliases: Boolean = false): ExitRules {
+                  potentialUnknownAliases: Boolean = false, view: RuleView = RuleView.FULL): ExitRules {
         val normal = when (exit) {
             is JMethodExitNormalInst -> true
             is JMethodExitExceptionalInst -> false
             else -> error("Not a boundary exit: $exit")
         }
-        val forms = if (normal) interp.ruleForms else interp.ruleFormsAtThrow
+        val forms = interp.ruleForms(view, exceptional = !normal)
         val method = key.method as JIRMethod
         val rewriter = calleeRewriter(interp, aliasAnalysis, method, exit, potentialUnknownAliases)
         val builder = MicroEdgeBuilder().apply { keepZero() }

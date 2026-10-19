@@ -5,6 +5,7 @@ import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.bidi.ap.ApManager
 import org.opentaint.dataflow.bidi.ap.ApOps
+import org.opentaint.dataflow.bidi.interp.RuleView
 import org.opentaint.dataflow.configuration.CommonCondition
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.jvm.*
@@ -33,7 +34,8 @@ internal class JIRRuleTestFixtures(val cp: JIRClasspath) {
         rules: TaintRulesProvider = NoTaintRules,
         errors: RuleErrors = RuleErrors(),
         resultBase: AccessPathBase = AccessPathBase.Return,
-    ): JIRRuleForms = JIRRuleForms(rules, manager, errors, typeFilters, resultBase)
+        view: RuleView = RuleView.FULL,
+    ): JIRRuleForms = JIRRuleForms(rules, manager, errors, typeFilters, resultBase, view = view)
 
     fun source(actions: List<AssignMark>, condition: Condition = trueCondition,
                method: CommonMethod = method("plain")) = TaintMethodSource(method, condition, actions, null)

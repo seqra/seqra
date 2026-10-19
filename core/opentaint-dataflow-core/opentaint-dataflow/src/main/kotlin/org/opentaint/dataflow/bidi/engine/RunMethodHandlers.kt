@@ -66,12 +66,6 @@ class RunMethodHandlers(
             checkNotNull(subscriptions).subscribe(sub)
         }
 
-        override fun borrowN2(row: N2InputRef): org.opentaint.dataflow.bidi.ap.Facts? =
-            checkNotNull(subscriptions).borrowN2(row)
-
-        override fun borrowN2Cofactors(row: N2InputRef): List<Subscription> =
-            checkNotNull(subscriptions).borrowN2Cofactors(row)
-
         override fun freeze() {
             subscriptions?.freeze()
             subscriptions = null

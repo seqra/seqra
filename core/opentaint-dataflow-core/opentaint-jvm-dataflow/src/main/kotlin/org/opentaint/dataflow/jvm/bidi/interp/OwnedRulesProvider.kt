@@ -12,6 +12,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
+import org.opentaint.dataflow.util.Cancellation
 
 /** New-core view around the complete existing provider chain. Full objects and
  * full literals remain unchanged, except for owned sink copies with no end actions. */
@@ -25,6 +26,9 @@ class OwnedRulesProvider(private val delegate: TaintRulesProvider,
     private fun mark(name: String) { names.add(name); catalog.observeModelReference(name) }
 
     fun observedFullNames(): List<String> = synchronized(names) { names.toList() }
+
+    /** Select only after full signed folding, binding and original role admission. */
+    internal fun groupConditions(cancellation: Cancellation): GroupRuleConditions = GroupRuleConditions(catalog, cancellation)
 
     /** Census both selected and allRelevant role views before group execution. */
     fun censusMethod(method: CommonMethod, statement: CommonInst) {

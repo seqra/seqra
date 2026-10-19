@@ -86,6 +86,12 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
     val exitInputs: List<ExitInput> = Collections.unmodifiableList(exits)
     val callInputs: List<CallInput> = Collections.unmodifiableList(calls)
     private val formCache = ConcurrentHashMap<MethodKey, MethodForms>()
+    private var groupRuleViews: GroupRuleFixtureViews? = null
+    /** Opt in before reading any forms; original construction rows remain FULL oracle inputs. */
+    fun enableGroupRuleViews() {
+        check(formCache.isEmpty())
+        groupRuleViews = groupRuleViews ?: GroupRuleFixtureViews(ap.marks, cancellation)
+    }
     private val graphCache = ConcurrentHashMap<Pair<MethodKey, Direction>, MethodInstGraph>()
     private val operationOwner = FormOwner()
     private val callExpressions = ConcurrentHashMap<CommonInst, CommonCallExpr>()
@@ -200,7 +206,7 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
         val exitCache = FormsCache(programMethod(key).successors.size) { e: ExitRules -> ExitRules(e.reversed(), false, emptySet()) }
         val callCache = FormsCache(programMethod(key).successors.size, CallPlan::reversed)
         val entryCache = FormsCache(1, RuleStatement::reversed)
-        object : MethodForms {
+        val full = object : MethodForms {
             override fun statement(direction: Direction, s: CommonInst): StatementSummary =
                 statementCache.get(s.location.index, direction) { statementRows[s.location.index] ?: StatementSummary.EMPTY }
             override fun entryRules(direction: Direction): RuleStatement = entryCache.get(0, direction) { entryRules }
@@ -209,6 +215,7 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
             override fun call(direction: Direction, s: CommonInst, call: CommonCallExpr): CallPlan =
                 callCache.get(s.location.index, direction) { checkNotNull(callRows[s.location.index]) { "A known call needs a full-key plan" } }
         }
+        groupRuleViews?.forms(full) ?: full
     }
     fun graph(key: MethodKey, direction: Direction): MethodInstGraph = graphCache.computeIfAbsent(key to direction) {
         val method = programMethod(key)

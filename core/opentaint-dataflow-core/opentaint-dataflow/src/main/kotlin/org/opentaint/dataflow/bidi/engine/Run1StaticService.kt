@@ -2,7 +2,6 @@ package org.opentaint.dataflow.bidi.engine
 
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.interp.*
-import org.opentaint.dataflow.bidi.store.CallerRef
 
 /** An immutable AP slice. The selector is stored separately from group membership. */
 data class StaticRegion(val pattern: Pattern) {
@@ -20,19 +19,14 @@ sealed interface StaticOwnerEffect {
     data class PointReady(override val owner: MethodKey, val id: Long, val supply: RegionGroups) : StaticOwnerEffect
     data class WriterReady(override val owner: MethodKey, val id: Long,
                            val inputs: List<RegionGroups>) : StaticOwnerEffect
-    data class InputReady(override val owner: MethodKey, val row: N2InputRef,
-                          val inputs: List<RegionGroups>) : StaticOwnerEffect
+    data class WriterInterest(override val owner: MethodKey, val id: Long,
+                              val groups: GroupSet) : StaticOwnerEffect
 }
 
 data class StaticReadRegistration(val owner: MethodKey, val id: Long, val region: Pattern)
 data class StaticInterest(val owner: MethodKey, val id: Long, val region: Pattern, val wanted: GroupSet)
 data class StaticWriterRegistration(val owner: MethodKey, val id: Long, val premise: PremiseKey)
-data class GroundedInputPort(val caller: MethodKey, val call: org.opentaint.ir.api.common.cfg.CommonInst,
-                             val stageOrdinal: Int = 0)
-data class N2InputRef(val owner: MethodKey, val callee: MethodKey, val handle: Int, val ref: CallerRef,
-                      val stageOrdinal: Int = ref.stageOrdinal)
-data class StaticInputRegistration(val row: N2InputRef, val slices: List<RegionGroups>)
-data class GroundedInputGrowth(val row: N2InputRef, val slices: List<RegionGroups>)
+data class StaticFlowWriter(val owner: MethodKey, val id: Long, val region: Pattern)
 
 /** Temporary actor-owned deltas. Commit is the only route to cumulative service membership. */
 class StaticBatch {
@@ -41,10 +35,9 @@ class StaticBatch {
     val writes = ArrayList<Pattern>()
     val supplies = ArrayList<RegionGroups>()
     val writers = ArrayList<StaticWriterRegistration>()
-    val inputs = ArrayList<StaticInputRegistration>()
-    val groundedInputs = ArrayList<GroundedInputGrowth>()
+    val flowWriters = ArrayList<StaticFlowWriter>()
     val isEmpty: Boolean get() = reads.isEmpty() && interests.isEmpty() && writes.isEmpty() &&
-        supplies.isEmpty() && writers.isEmpty() && inputs.isEmpty() && groundedInputs.isEmpty()
+        supplies.isEmpty() && writers.isEmpty() && flowWriters.isEmpty()
 }
 
 /** Run-1 positive forward closure. Program transfer and resumption always run at the addressed owner. */
@@ -68,18 +61,8 @@ class Run1StaticService(private val ap: ApManager) {
     private class WriterRow(val registration: StaticWriterRegistration) {
         val delivered = HashMap<List<Pattern>, List<GroupSet>>()
     }
-    private data class InputDelivery(val marks: List<GroupSet>, val revision: Long)
-    private class InputRow {
-        var revision = 0L
-        val delivered = HashMap<List<Pattern>, InputDelivery>()
-    }
-    private sealed interface Dependent {
-        data class Writer(val key: Key) : Dependent
-        data class Input(val row: N2InputRef) : Dependent
-    }
-    private inner class GroundedRegions {
-        val groups = LinkedHashMap<Pattern, GroupSet>()
-        val index = Regions<Pattern>()
+    private class FlowWriterRow(val registration: StaticFlowWriter) {
+        var delivered = GroupSet.EMPTY
     }
     private val writes = LinkedHashSet<Pattern>()
     private val writeIndex = Regions<Pattern>()
@@ -90,17 +73,16 @@ class Run1StaticService(private val ap: ApManager) {
     private val interests = LinkedHashMap<Key, InterestRow>()
     private val interestIndex = Regions<Key>()
     private val writers = LinkedHashMap<Key, WriterRow>()
-    private val inputs = LinkedHashMap<N2InputRef, InputRow>()
-    private val grounded = LinkedHashMap<MethodKey, LinkedHashMap<GroundedInputPort, GroundedRegions>>()
-    private val staticDependents = Regions<Dependent>()
-    private val methodDependents = LinkedHashMap<MethodKey, Regions<Dependent>>()
+    private val flowWriters = LinkedHashMap<Key, FlowWriterRow>()
+    private val flowWriterIndex = Regions<Key>()
+    private val staticDependents = Regions<Key>()
     private var candidateVisits = 0L
     private var replies = 0L
 
     fun commit(batch: StaticBatch): List<StaticOwnerEffect> = synchronized(lock) {
         ap.cancellation.checkpoint()
         val out = ArrayList<StaticOwnerEffect>()
-        val dirty = LinkedHashSet<Dependent>()
+        val dirty = LinkedHashSet<Key>()
         // Register first. Each fresh side joins the existing opposite index.
         for (read in batch.reads) {
             val key = Key(read.owner, read.id)
@@ -119,22 +101,28 @@ class Run1StaticService(private val ap: ApManager) {
             row.wanted = row.wanted + interest.wanted
             for (position in groupIndex.around(interest.region))
                 admitInterest(row, position, groups.getValue(position), out)
+            for (writer in flowWriterIndex.around(interest.region))
+                admitWriterInterest(flowWriters.getValue(writer), row, out)
         }
         for (writer in batch.writers) {
             val key = Key(writer.owner, writer.id)
-            if (writers.putIfAbsent(key, WriterRow(writer)) == null)
-                watch(writer.owner, writer.premise, Dependent.Writer(key))
-            dirty += Dependent.Writer(key)
-        }
-        for (input in batch.inputs) {
-            if (!isRootedPortOrigin(input.row.ref.premise)) continue
-            val row = inputs[input.row] ?: InputRow().also {
-                inputs[input.row] = it
-                watch(input.row.owner, input.row.ref.premise, Dependent.Input(input.row))
+            if (writers.putIfAbsent(key, WriterRow(writer)) == null) {
+                check(!writer.premise.isZero)
+                writer.premise.forEachMember { member ->
+                    check(member.base == STATIC) { "Only all-static summaries subscribe to pool values" }
+                    staticDependents.add(member.toPattern(), key)
+                }
+                dirty += key
             }
-            // Apply old support again only when its existing N2 row grows.
-            row.revision++
-            dirty += Dependent.Input(input.row)
+        }
+        for (writer in batch.flowWriters) {
+            val key = Key(writer.owner, writer.id)
+            if (key in flowWriters) continue
+            val row = FlowWriterRow(writer)
+            flowWriters[key] = row
+            flowWriterIndex.add(writer.region, key)
+            for (interest in interestIndex.around(writer.region))
+                admitWriterInterest(row, interests.getValue(interest), out)
         }
         for (write in batch.writes) admitWrite(region(write), out)
         for (supply in batch.supplies) {
@@ -151,50 +139,17 @@ class Run1StaticService(private val ap: ApManager) {
                 admitInterest(interests.getValue(key), position, fresh, out)
             dirty += staticDependents.around(position)
         }
-        for ((input, slices) in batch.groundedInputs) {
-            check(isRootedPortOrigin(input.ref.premise)) {
-                "Ordinary conditional inputs must discharge their binding through caller summary joins"
-            }
-            val port = GroundedInputPort(input.ref.caller, input.ref.call, input.stageOrdinal)
-            val row = grounded.getOrPut(input.callee) { LinkedHashMap() }.getOrPut(port) { GroundedRegions() }
-            for (slice in slices) {
-                val position = region(slice.region)
-                val old = row.groups[position] ?: GroupSet.EMPTY
-                val fresh = minus(slice.groups, old)
-                if (fresh.isEmpty) continue
-                row.groups[position] = old + fresh
-                row.index.add(position, position)
-                dirty += methodDependents[input.callee]?.around(position).orEmpty()
-            }
-        }
-        // Only dependencies touched by new region/group memberships are visited.
-        for (dependent in dirty) {
+        // Only all-static dependencies touched by a new pool membership are revisited.
+        for (key in dirty) {
             ap.cancellation.checkpoint()
-            when (dependent) {
-                is Dependent.Writer -> {
-                    val writer = writers.getValue(dependent.key)
-                    for (binding in candidateBindings(writer.registration.owner, writer.registration.premise)) {
-                        val image = binding.map { it.region }
-                        val marks = binding.map { it.groups }
-                        val old = writer.delivered[image]
-                        if (old == null || hasGroupGrowth(marks, old)) {
-                            writer.delivered[image] = unionGroups(marks, old)
-                            out += StaticOwnerEffect.WriterReady(writer.registration.owner, writer.registration.id, binding)
-                        }
-                    }
-                }
-                is Dependent.Input -> {
-                    val input = dependent.row
-                    val row = inputs.getValue(input)
-                    for (binding in candidateBindings(input.owner, input.ref.premise)) {
-                        val image = binding.map { it.region }
-                        val marks = binding.map { it.groups }
-                        val old = row.delivered[image]
-                        if (old == null || old.revision != row.revision || hasGroupGrowth(marks, old.marks)) {
-                            row.delivered[image] = InputDelivery(unionGroups(marks, old?.marks), row.revision)
-                            out += StaticOwnerEffect.InputReady(input.owner, input, binding)
-                        }
-                    }
+            val writer = writers.getValue(key)
+            for (binding in candidateBindings(writer.registration.premise)) {
+                val image = binding.map { it.region }
+                val marks = binding.map { it.groups }
+                val old = writer.delivered[image]
+                if (old == null || hasGroupGrowth(marks, old)) {
+                    writer.delivered[image] = unionGroups(marks, old)
+                    out += StaticOwnerEffect.WriterReady(writer.registration.owner, writer.registration.id, binding)
                 }
             }
         }
@@ -208,13 +163,17 @@ class Run1StaticService(private val ap: ApManager) {
     private fun unionGroups(now: List<GroupSet>, old: List<GroupSet>?): List<GroupSet> =
         if (old == null) now else now.indices.map { now[it] + old[it] }
 
-    private fun watch(owner: MethodKey, premise: PremiseKey, dependent: Dependent) {
-        premise.forEachMember { member ->
-            if (member.isZero) return@forEachMember
-            val index = if (member.base == STATIC) staticDependents
-                else methodDependents.getOrPut(owner) { Regions() }
-            index.add(member.toPattern(), dependent)
-        }
+    private fun admitWriterInterest(writer: FlowWriterRow, interest: InterestRow,
+                                    out: MutableList<StaticOwnerEffect>) {
+        ap.cancellation.checkpoint()
+        candidateVisits++
+        // This routes a request, not a taint supply. Exclusions do not suppress it.
+        if (intersect(writer.registration.region.copy(exclusion = ExclusionSet.Empty),
+                interest.registration.region.copy(exclusion = ExclusionSet.Empty)) == null) return
+        val fresh = minus(interest.wanted, writer.delivered)
+        if (fresh.isEmpty) return
+        writer.delivered += fresh
+        out += StaticOwnerEffect.WriterInterest(writer.registration.owner, writer.registration.id, fresh)
     }
 
     private fun admitRead(row: ReadRow, write: Pattern, out: MutableList<StaticOwnerEffect>) {
@@ -243,59 +202,37 @@ class Run1StaticService(private val ap: ApManager) {
         out += StaticOwnerEffect.PointReady(row.registration.owner, row.registration.id, RegionGroups(overlap, fresh))
     }
 
-    /** Current Facts remain solely in the caller's existing N2 row. */
-    fun registerInput(row: N2InputRef, added: Facts): List<StaticOwnerEffect> {
-        if (added is Reach || !isRootedPortOrigin(row.ref.premise)) return emptyList()
-        val batch = StaticBatch()
-        batch.inputs += StaticInputRegistration(row, emptyList())
-        return commit(batch)
-    }
-
-    /** Candidate bindings use one caller/context/stage port. Complete AP checks run
-     * at owners, after unlocking. No program transfer or foreign store read runs here. */
-    private fun candidateBindings(owner: MethodKey, premise: PremiseKey): List<List<RegionGroups>> {
-        if (premise.isZero) return listOf(emptyList())
-        val members = ArrayList<InitialAp>()
-        premise.forEachMember { members += it }
-        val ports: List<GroundedRegions?> = if (members.any { it.base != STATIC })
-            grounded[owner]?.values.orEmpty().toList() else listOf(null)
-        val results = LinkedHashSet<List<RegionGroups>>()
-        for (port in ports) {
-            var combinations: List<List<RegionGroups>> = listOf(emptyList())
-            for (member in members) {
-                val matching = ArrayList<RegionGroups>()
-                val pool = if (member.base == STATIC) groups else port?.groups.orEmpty()
-                val positions = if (member.base == STATIC) groupIndex.around(member.toPattern())
-                    else port?.index?.around(member.toPattern()).orEmpty()
-                for (position in positions) {
-                    ap.cancellation.checkpoint()
-                    candidateVisits++
-                    val marks = pool.getValue(position)
-                    val selected = when (val mark = member.mark) {
-                        is MarkSlot.Concrete -> {
-                            val g = ap.marks.groupOf(mark.mark)
-                            if (g in marks) GroupSet.of(g) else GroupSet.EMPTY
-                        }
-                        is MarkSlot.Star -> marks
+    /** The owner rechecks every member with ordinary AP matching after unlocking. */
+    private fun candidateBindings(premise: PremiseKey): List<List<RegionGroups>> {
+        var combinations: List<List<RegionGroups>> = listOf(emptyList())
+        premise.forEachMember { member ->
+            val matching = ArrayList<RegionGroups>()
+            for (position in groupIndex.around(member.toPattern())) {
+                ap.cancellation.checkpoint()
+                candidateVisits++
+                val marks = groups.getValue(position)
+                val selected = when (val mark = member.mark) {
+                    is MarkSlot.Concrete -> {
+                        val group = ap.marks.groupOf(mark.mark)
+                        if (group in marks) GroupSet.of(group) else GroupSet.EMPTY
                     }
-                    if (!selected.isEmpty) matching += RegionGroups(position, selected)
+                    is MarkSlot.Star -> marks
                 }
-                if (matching.isEmpty()) { combinations = emptyList(); break }
-                combinations = combinations.flatMap { prefix -> matching.map { prefix + it } }
+                if (!selected.isEmpty) matching += RegionGroups(position, selected)
             }
-            results += combinations
+            if (matching.isEmpty()) return emptyList()
+            combinations = combinations.flatMap { prefix -> matching.map { prefix + it } }
         }
-        return results.toList()
+        return combinations
     }
 
     data class Statistics(val writeRegions: Int, val suppliedRegions: Int, val suppliedGroups: Long,
                           val readDescriptors: Int, val pointSubscriptions: Int, val writerRows: Int,
-                          val inputRows: Int, val groundedRegions: Long, val candidateVisits: Long,
+                          val flowWriterRows: Int, val candidateVisits: Long,
                           val ownerReplies: Long)
     fun statistics(): Statistics = synchronized(lock) {
         Statistics(writes.size, groups.size, groups.values.sumOf { it.size.toLong() }, reads.size,
-            interests.size, writers.size, inputs.size,
-            grounded.values.sumOf { ports -> ports.values.sumOf { it.groups.size.toLong() } }, candidateVisits, replies)
+            interests.size, writers.size, flowWriters.size, candidateVisits, replies)
     }
 
     fun slices(value: Facts): List<RegionGroups> {
@@ -324,16 +261,10 @@ class Run1StaticService(private val ap: ApManager) {
     fun clear() = synchronized(lock) {
         writes.clear(); writeIndex.clear(); groups.clear(); groupIndex.clear()
         reads.clear(); readIndex.clear(); interests.clear(); interestIndex.clear()
-        writers.clear(); inputs.clear(); grounded.clear(); staticDependents.clear(); methodDependents.clear()
+        writers.clear(); flowWriters.clear(); flowWriterIndex.clear(); staticDependents.clear()
     }
 
     companion object {
-        /** Keep ordinary-origin effects conditional until normal summary composition
-         * reaches a complete rooted call binding. Forwarding scalar slots through
-         * nested ordinary callers would merge incompatible upstream invocations. */
-        fun isRootedPortOrigin(premise: PremiseKey): Boolean = premise.isZero ||
-            (0 until premise.size).all { premise.member(it).base == STATIC }
-
         fun region(pattern: Pattern): Pattern = pattern.copy(fact = pattern.fact.copy(mark = MarkSlot.STAR))
         fun hasStaticMember(premise: PremiseKey): Boolean {
             var found = false

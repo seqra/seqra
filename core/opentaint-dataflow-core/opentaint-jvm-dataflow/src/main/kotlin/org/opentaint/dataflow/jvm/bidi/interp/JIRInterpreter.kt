@@ -11,6 +11,7 @@ import org.opentaint.dataflow.bidi.interp.CallPlan
 import org.opentaint.dataflow.bidi.interp.ExitNode
 import org.opentaint.dataflow.bidi.interp.Interpreter
 import org.opentaint.dataflow.bidi.interp.MethodForms
+import org.opentaint.dataflow.bidi.interp.RuleView
 import org.opentaint.dataflow.bidi.interp.UnresolvedCallObserver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
@@ -37,6 +38,15 @@ class JIRInterpreter(
     internal val ruleForms = JIRRuleForms(rules, manager, errors, typeFilters, statistics = entries.formStatistics)
     internal val ruleFormsAtThrow = JIRRuleForms(rules, manager, errors, typeFilters,
         resultBase = AccessPathBase.Exception, statistics = entries.formStatistics)
+    private val groupRuleForms = JIRRuleForms(rules, manager, errors, typeFilters,
+        statistics = entries.formStatistics, view = RuleView.RUN1_GROUP)
+    private val groupRuleFormsAtThrow = JIRRuleForms(rules, manager, errors, typeFilters,
+        resultBase = AccessPathBase.Exception, statistics = entries.formStatistics, view = RuleView.RUN1_GROUP)
+
+    internal fun ruleForms(view: RuleView, exceptional: Boolean = false): JIRRuleForms = when (view) {
+        RuleView.FULL -> if (exceptional) ruleFormsAtThrow else ruleForms
+        RuleView.RUN1_GROUP -> if (exceptional) groupRuleFormsAtThrow else groupRuleForms
+    }
 
     fun idx(accessor: Accessor): AccessorIdx = manager.accessors.index(accessor)
     fun forms(key: MethodKey): MethodForms = entries.forms(this, key)

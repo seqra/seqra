@@ -24,6 +24,7 @@ class StaticCatalogIterationTest {
 
     private fun program(f: DriverFixtures, crossed: Boolean): Program {
         val p = f.program
+        p.enableGroupRuleViews()
         val roots = List(if (crossed) 2 else 1) { index ->
             p.method("catalog root $index", listOf(listOf(1), listOf(2), emptyList()), 2).key("root $index")
         }

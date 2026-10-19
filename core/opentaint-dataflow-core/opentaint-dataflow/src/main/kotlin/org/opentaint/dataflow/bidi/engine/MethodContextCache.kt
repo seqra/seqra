@@ -5,6 +5,7 @@ import org.opentaint.dataflow.bidi.ap.ApMode
 import org.opentaint.dataflow.bidi.ap.ApOps
 import org.opentaint.dataflow.bidi.ap.Direction
 import org.opentaint.dataflow.bidi.ap.MethodKey
+import org.opentaint.dataflow.bidi.interp.RuleView
 import org.opentaint.dataflow.bidi.interp.DirectedForms
 import org.opentaint.dataflow.bidi.interp.Interpreter
 import org.opentaint.dataflow.bidi.interp.MethodForms
@@ -22,7 +23,8 @@ interface MethodContextSource {
 class MethodContextCache(val interpreter: Interpreter, private val source: MethodContextSource) {
     fun forms(key: MethodKey): MethodForms = source.forms(key)
     fun graph(key: MethodKey, direction: Direction): MethodInstGraph = source.graph(key, direction)
-    fun directed(direction: Direction): DirectedForms = DirectedForms(interpreter, direction, ::forms)
+    fun directed(direction: Direction, view: RuleView = RuleView.FULL): DirectedForms =
+        DirectedForms(interpreter, direction, ::forms, view)
 }
 
 /** A run selects its graph and form direction while retaining the full method key. */

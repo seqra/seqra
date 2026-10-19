@@ -11,8 +11,7 @@ import org.opentaint.dataflow.bidi.store.Record
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 /** New propagation content preserves its exact premise, position and fact group. */
-data class EdgeDelta(val premise: PremiseKey, val node: CommonInst, val facts: Facts,
-                     val grounding: GroundingSupport = GroundingSupport.TRUE) {
+data class EdgeDelta(val premise: PremiseKey, val node: CommonInst, val facts: Facts) {
     val zeroToZero: Boolean get() = premise.isZero && facts is Reach
 
     override fun equals(other: Any?): Boolean = this === other || other is EdgeDelta &&
@@ -23,8 +22,7 @@ data class EdgeDelta(val premise: PremiseKey, val node: CommonInst, val facts: F
 enum class Cut { STATEMENT, CALL, ENTRY_RULES, EXIT_RULES, SEED }
 
 /** Published summary content keeps its canonical keys and the unchanged fact object. */
-data class Publication(val premise: PremiseKey, val conclusion: Facts,
-                       val grounding: GroundingSupport = GroundingSupport.TRUE) {
+data class Publication(val premise: PremiseKey, val conclusion: Facts) {
     val layer: Layer get() = conclusion.layer
 }
 
@@ -35,9 +33,6 @@ data class Subscription(
     val linkLayer: Layer,
     val added: Facts,
     val zeroOnly: Boolean = false,
-    val supportRevision: Long = 0,
-    val inputRef: N2InputRef? = null,
-    val grounding: GroundingSupport = GroundingSupport.TRUE,
 ) {
     val caller: MethodKey get() = ref.caller
 
@@ -63,7 +58,6 @@ interface ProtocolSteps {
 
 /** Native records and opposite-direction leaf views have separate application boundaries. */
 interface SummaryApplier {
-    fun registerStaticInput(row: N2InputRef, added: Facts) = Unit
     fun requestStaticGroups(part: Subscription, marks: org.opentaint.dataflow.bidi.store.RequestMarkSelection) {
         error("This summary applier does not support static point requests")
     }

@@ -105,7 +105,7 @@ class OwnedRulesProviderTest : BasicTestUtils() {
         assertTrue(fixture.forms(selected).valid(owned))
     }
 
-    @Test fun `group lookup retains the full NNF leaves and their separate ordinals`(): Unit {
+    @Test fun `provider group view merges aliases and keeps original full leaves separate`(): Unit {
         val marks = MarkTable()
         marks.register("T", MarkGroupKey.Rule("joined"))
         marks.register("U", MarkGroupKey.Rule("joined"))
@@ -120,9 +120,12 @@ class OwnedRulesProviderTest : BasicTestUtils() {
         val builder = RulePredicate.Builder(Cancellation(), marks)
         val predicate = builder.build(builder.and(listOf(builder.leaf(pattern(t)), builder.leaf(pattern(u)),
             builder.leaf(pattern(v)))))
-        val found = arrayListOf<Pair<Int, Pattern>>()
-        predicate.matchingLeaves(base, marks.group(marks.groupOf(t))) { ordinal, leaf -> found += ordinal to leaf }
-        assertEquals(listOf(0 to pattern(t), 1 to pattern(u)), found)
+        val provider = OwnedRulesProvider(NoTaintRules, marks)
+        val selected = provider.groupConditions(Cancellation()).select(predicate)
+        val found = arrayListOf<Pattern>()
+        selected.matchingLeaves(base, marks.group(marks.groupOf(t))) { _, leaf -> found += leaf }
+        assertEquals(listOf(pattern(marks.group(marks.groupOf(t)))), found)
+        assertEquals(2, selected.leaves.size)
         assertEquals(listOf(pattern(t), pattern(u), pattern(v)), predicate.leaves)
         val exact = arrayListOf<Pattern>()
         predicate.matchingLeaves(base, u) { _, leaf -> exact += leaf }

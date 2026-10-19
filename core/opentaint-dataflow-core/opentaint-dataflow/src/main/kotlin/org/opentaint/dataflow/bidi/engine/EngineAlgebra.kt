@@ -15,7 +15,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 internal class EngineAlgebra(private val core: RunMethodAnalyzer) : FactAlgebra<PremiseKey, Facts> {
     private fun input(at: Place, premise: PremiseKey, facts: Facts): OperationInput =
         OperationInput(at.site ?: ResumeSite.StatementInput(core.operation(at.node)), premise, facts,
-            at.callerLayer?.let { CallResumeState(it, at.identityCandidate, at.pendingDemotion) }, core.currentGroundingSupport)
+            at.callerLayer?.let { CallResumeState(it, at.identityCandidate, at.pendingDemotion) })
 
     override fun reached(s: StatementSummary, premise: PremiseKey, c: Facts, at: Place) =
         core.reachedOperations(s, input(at, premise, c))
@@ -31,20 +31,8 @@ internal class EngineAlgebra(private val core: RunMethodAnalyzer) : FactAlgebra<
     }
 
     override fun applyEdgeAt(me: MicroEdge, c: Facts, premise: PremiseKey, at: Place, out: ResultSink) {
-        var input = input(at, premise, c)
-        if (core.config.run1 && me.edge.from.mark is MarkSlot.Concrete && me.edge.from.base != AccessPathBase.Zero) {
-            core.observeGrounding(input)
-            val literal = Pattern(me.edge.from,
-                if (me.edge.from.tail == Tail.ANY_TAINT) me.edge.fromExclusion else me.edge.exclusion)
-            val checked = core.ops.checkMark(c, literal, core.mode)
-            if (checked is MarkCheck.Holds) input = input.copy(support = core.guardGrounding(input, checked.facts, literal))
-        }
         core.ops.applyEdge(c, premise, me.edge, at.statementEdge, core.mode,
-            core.collect(input) { pr, result ->
-                val support = if (me.edge.to.mark is MarkSlot.Concrete && me.edge.to.tail != Tail.STAR)
-                    core.fixedGrounding(input) else core.currentGroundingSupport
-                core.withGroundingSupport(support) { out(pr, result) }
-            }, may = me.may)
+            core.collect(input(at, premise, c), out), may = me.may)
     }
 
     override fun operationResult(me: MicroEdge?, premise: PremiseKey, input: Facts, result: Facts, at: Place, out: ResultSink) {

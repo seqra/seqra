@@ -291,6 +291,7 @@ class CurrentSequenceTest {
     fun `CONJ backward literal branches stay demand and only the call with both inputs produces a candidate`(): Unit {
         for (normalReversal in listOf(false, true)) DriverFixtures().use { f ->
             val p = f.program
+            p.enableGroupRuleViews()
             val root = p.method("CONJ root", straight(7), 6).key()
             val m = p.method("CONJ M", straight(2), 1).key()
             val a = x; val b = AccessPathBase.LocalVar(2); val clean = AccessPathBase.LocalVar(3)

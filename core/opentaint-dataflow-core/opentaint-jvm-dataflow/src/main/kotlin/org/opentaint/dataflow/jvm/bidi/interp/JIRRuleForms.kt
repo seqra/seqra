@@ -12,6 +12,7 @@ import org.opentaint.dataflow.bidi.ap.CleanReach
 import org.opentaint.dataflow.bidi.ap.Cleaner
 import org.opentaint.dataflow.bidi.ap.ExclusionSet
 import org.opentaint.dataflow.bidi.ap.MarkSlot
+import org.opentaint.dataflow.bidi.ap.MarkMode
 import org.opentaint.dataflow.bidi.ap.PathEdge
 import org.opentaint.dataflow.bidi.ap.PathFact
 import org.opentaint.dataflow.bidi.ap.PathNode
@@ -27,10 +28,12 @@ import org.opentaint.dataflow.bidi.interp.RuleKind
 import org.opentaint.dataflow.bidi.interp.FormCacheStatistics
 import org.opentaint.dataflow.bidi.interp.RuleOccurrenceId
 import org.opentaint.dataflow.bidi.interp.RulePredicate
+import org.opentaint.dataflow.bidi.interp.RuleView
 import org.opentaint.dataflow.bidi.interp.OperationId
 import org.opentaint.dataflow.bidi.interp.StaticOperation
 import org.opentaint.dataflow.bidi.interp.SourceAction
 import org.opentaint.dataflow.bidi.interp.SourceRuleOccurrence
+import org.opentaint.dataflow.bidi.interp.SourceUnaryTransfer
 import org.opentaint.dataflow.bidi.interp.TemporaryKey
 import org.opentaint.dataflow.bidi.interp.MicroEdge
 import org.opentaint.dataflow.bidi.interp.MicroEdgeBuilder
@@ -92,6 +95,7 @@ internal class JIRRuleForms(
     private val typeFilters: JIRTypeFilters,
     private val resultBase: AccessPathBase = AccessPathBase.Return,
     private val statistics: FormCacheStatistics? = null,
+    private val view: RuleView = RuleView.FULL,
 ) {
     private val fallbackFormOwner = FormOwner()
 
@@ -127,12 +131,16 @@ internal class JIRRuleForms(
     }
 
     fun node(path: List<AccessorIdx>): PathNode? = manager.path(path)
-    fun mark(m: RuleMark): TaintMark = manager.marks.mark(m.name)
-    fun mark(name: String): TaintMark = manager.marks.mark(name)
+    private fun fullMark(m: RuleMark): TaintMark = manager.marks.mark(m.name)
+    private fun fullMark(name: String): TaintMark = manager.marks.mark(name)
+    fun mark(m: RuleMark): TaintMark = selectedMark(fullMark(m))
+    fun mark(name: String): TaintMark = selectedMark(manager.marks.mark(name))
+    private fun selectedMark(mark: TaintMark): TaintMark = manager.marks.runtimeAtom(mark,
+        if (view == RuleView.RUN1_GROUP) MarkMode.GROUP else MarkMode.FULL)
 
     fun literal(rule: Any, l: TaintMarkAwareConditionExpr.Literal): PathFact? = when (l) {
-        is ContainsMarkLiteral -> pos(rule, l.position)?.fact(mark(l.mark.mark))
-        is ContainsMarkOnAnyAccessorLiteral -> pos(rule, l.position)?.copy(any = true)?.fact(mark(l.mark.mark))
+        is ContainsMarkLiteral -> pos(rule, l.position)?.fact(fullMark(l.mark.mark))
+        is ContainsMarkOnAnyAccessorLiteral -> pos(rule, l.position)?.copy(any = true)?.fact(fullMark(l.mark.mark))
     }
 
     /** Validate before folding; entry eligibility can inspect signed output before negative approximation. */
@@ -341,9 +349,22 @@ internal class JIRRuleForms(
         return checkNotNull(done[condition])
     }
 
-    fun predicate(rule: Any, cond: ExprOrConstant, mayBeArray: (Int) -> Boolean = { false }): RulePredicate =
-        JIRRulePredicates(manager, statistics) { checkNotNull(literal(rule, it)) { "A rejected rule reaches predicate compilation" } }
+    private fun fullPredicate(rule: Any, cond: ExprOrConstant, mayBeArray: (Int) -> Boolean = { false }): RulePredicate =
+        JIRRulePredicates(manager, if (view == RuleView.FULL) statistics else null) {
+            checkNotNull(literal(rule, it)) { "A rejected rule reaches predicate compilation" }
+        }
             .compile(normalizedSourceOrSink(cond), mayBeArray)
+
+    private fun groupConditions(): GroupRuleConditions = (rules as? OwnedRulesProvider)?.groupConditions(manager.cancellation)
+        ?: GroupRuleConditions(manager.marks, manager.cancellation)
+
+    private fun selectedPredicate(full: RulePredicate): RulePredicate =
+        if (view == RuleView.FULL) full else groupConditions().select(full).also {
+            statistics?.compiledPredicate(it.nodeCount, it.leaves.size)
+        }
+
+    fun predicate(rule: Any, cond: ExprOrConstant, mayBeArray: (Int) -> Boolean = { false }): RulePredicate =
+        selectedPredicate(fullPredicate(rule, cond, mayBeArray))
 
     // Providers can return transient bound copies. Validate each input without retaining those rules.
     fun valid(rule: TaintConfigurationItem): Boolean = validate(rule)
@@ -440,9 +461,9 @@ internal class JIRRuleForms(
 
     /** Constant sources retain the original zero edge; conditions and actions are separate vectors. */
     fun source(b: MicroEdgeBuilder, rule: TaintConfigurationSource, id: RuleOccurrenceId, cond: ExprOrConstant): RulePredicate {
-        val predicate = predicate(rule, cond)
+        val full = fullPredicate(rule, cond)
+        val predicate = selectedPredicate(full)
         if (predicate.isFalse || rule.actionsAfter.isEmpty()) return predicate
-        markInputs(predicate, id).forEach(b::staticOperation)
         rule.actionsAfter.forEachIndexed { ordinal, action ->
             val target = markTarget(rule, action)
             if (target.base == AccessPathBase.ClassStatic) {
@@ -458,14 +479,34 @@ internal class JIRRuleForms(
             }
             return predicate
         }
-        b.source(SourceRuleOccurrence(id, predicate, rule.actionsAfter.mapIndexed { ordinal, action ->
+        val actions = rule.actionsAfter.mapIndexed { ordinal, action ->
             SourceAction(ActionId(id, ActionRole.SOURCE, ordinal), markTarget(rule, action))
-        }))
+        }
+        if (view == RuleView.FULL) {
+            markInputs(predicate, id).forEach(b::staticOperation)
+            b.source(SourceRuleOccurrence(id, predicate, actions))
+        } else {
+            val groups = groupConditions()
+            val anchors = full.leaves.withIndex().filter { full.isUnary(it.index) }
+                .map { groups.project(it.value) }.distinct()
+            val unary = anchors.map { anchor ->
+                val builder = RulePredicate.Builder(manager.cancellation, manager.marks)
+                SourceUnaryTransfer(builder.build(builder.leaf(anchor)), anchor)
+            }
+            val multi = groups.multiAdmission(full)
+            // Absorption of the observation guard must not erase an input of
+            // the existing source AP operation retained for compatibility.
+            markInputs((predicate.leaves + anchors + multi?.leaves.orEmpty()).distinct(), id).forEach(b::staticOperation)
+            b.source(SourceRuleOccurrence(id, predicate, actions, groupTransfers = true,
+                unaryTransfers = unary, multiPredicate = multi))
+        }
         return predicate
     }
 
-    fun markInputs(predicate: RulePredicate, id: RuleOccurrenceId): List<StaticOperation.MarkInput> =
-        predicate.leaves.mapIndexedNotNull { ordinal, pattern ->
+    fun markInputs(predicate: RulePredicate, id: RuleOccurrenceId): List<StaticOperation.MarkInput> = markInputs(predicate.leaves, id)
+
+    private fun markInputs(patterns: List<Pattern>, id: RuleOccurrenceId): List<StaticOperation.MarkInput> =
+        patterns.mapIndexedNotNull { ordinal, pattern ->
             if (pattern.fact.base != AccessPathBase.ClassStatic) null else
                 StaticOperation.MarkInput(OperationId(id.form,
                     action = ActionId(id, ActionRole.MARK_INPUT, ordinal)), pattern)

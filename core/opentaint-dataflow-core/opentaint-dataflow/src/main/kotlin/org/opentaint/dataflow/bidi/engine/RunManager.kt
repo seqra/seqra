@@ -15,6 +15,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import mu.KLogging
 import org.opentaint.dataflow.bidi.interp.DirectedForms
+import org.opentaint.dataflow.bidi.interp.RuleView
 import org.opentaint.dataflow.bidi.ap.MethodKey
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
@@ -59,7 +60,8 @@ class RunManager<A : RunActor>(
     val inFlight = InFlight {
         if (status.compareAndSet(null, RunStatus.COMPLETE)) completion.complete(RunStatus.COMPLETE)
     }
-    val forms: DirectedForms = shared.contexts.directed(config.direction)
+    val forms: DirectedForms = shared.contexts.directed(config.direction,
+        if (config.run1) RuleView.RUN1_GROUP else RuleView.FULL)
     val staticService: Run1StaticService? = if (config.run1) Run1StaticService(shared.ap) else null
     private val memory = MemoryManager(shared.refManager, OOM_THRESHOLD) { fail(RunStatus.OOM) }
 
@@ -179,17 +181,6 @@ class RunManager<A : RunActor>(
         val end = checkNotNull(status.get())
         staticService?.let { logger.info { "BIDI_STATIC_STATISTICS run=${config.index} status=$end totals=${it.statistics()}" } }
         val snapshot = synchronized(admission) { runners.values.toList() }
-        if (config.run1 && joined) {
-            var methods = 0L
-            var trueRows = 0L
-            var conditionalOrCertifiedRows = 0L
-            for (runner in snapshot) for (actor in runner.analyzers()) if (actor is RunMethodAnalyzer) {
-                methods++
-                trueRows += actor.groundingTrueRows
-                conditionalOrCertifiedRows += actor.groundingGuardedRows
-            }
-            logger.info { "BIDI_GROUNDING_STATISTICS run=${config.index} status=$end methods=$methods trueRows=$trueRows conditionalOrCertifiedRows=$conditionalOrCertifiedRows" }
-        }
         val analyzers = if (end == RunStatus.COMPLETE) snapshot.flatMap { it.analyzers() } else emptyList()
         var failure: Throwable? = null
         fun release(action: () -> Unit) {

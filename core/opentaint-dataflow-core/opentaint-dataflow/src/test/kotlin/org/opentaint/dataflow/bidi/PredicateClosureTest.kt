@@ -27,6 +27,7 @@ class PredicateClosureTest {
 
     private fun program(f: DriverFixtures, width: Int = 1): Program {
         val p = f.program
+        p.enableGroupRuleViews()
         val rootMethod = p.method("predicate caller", listOf(listOf(1, 2), listOf(3), listOf(4), listOf(5), listOf(3), emptyList()), 5)
         val calleeMethod = p.method("predicate callee", listOf(listOf(1), emptyList()), 1)
         val root = rootMethod.key("caller context")
@@ -325,6 +326,7 @@ class PredicateClosureTest {
     fun `full witness observation distinguishes OR proofs whose matched must facts and premises are equal`(): Unit {
         DriverFixtures().use { f ->
             val p = f.program
+            p.enableGroupRuleViews()
             val root = p.method("two equal-looking proofs", listOf(listOf(1), emptyList()), 1).key()
             val field = p.field("f")
             val mark = MarkSlot.Concrete(p.mark("T"))

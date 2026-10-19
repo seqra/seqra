@@ -47,16 +47,6 @@ class UnitRunner<A : RunActor> internal constructor(
 
     override fun summaryStorage(key: MethodKey): SummaryStorage = run.summaryStorage(key)
 
-    override fun borrowN2(row: N2InputRef): Facts? {
-        check(shared.unitResolver.resolve(row.owner.method) == unit) { "N2 rows must be read by their owner" }
-        return (handler as? SubscriptionHandler)?.borrowN2(row)
-    }
-
-    override fun borrowN2Cofactors(row: N2InputRef): List<Subscription> {
-        check(shared.unitResolver.resolve(row.owner.method) == unit) { "N2 rows must be read by their owner" }
-        return (handler as? SubscriptionHandler)?.borrowN2Cofactors(row).orEmpty()
-    }
-
     override fun subscribe(sub: Subscription) {
         check(!run.ended && !closed.get()) { "The runner is closed" }
         shared.cancellation.checkpoint()

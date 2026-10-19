@@ -16,9 +16,6 @@ interface RunnerPort<A : RunActor> {
     val steps: ProtocolSteps
     val staticService: Run1StaticService? get() = null
     fun sendStatic(effect: StaticOwnerEffect): Boolean = send(RunEvent.StaticOwner(effect))
-    fun borrowN2(row: N2InputRef): Facts? = null
-    /** Borrow semantic cofactors at the existing qualified N2 row, on its owner. */
-    fun borrowN2Cofactors(row: N2InputRef): List<Subscription> = emptyList()
     fun send(event: RunEvent): Boolean
     fun post(event: RunEvent.Delivery): Boolean
     fun post(event: RunEvent.ChangedRequests): Boolean = error("Request delivery needs its subscribed runner")

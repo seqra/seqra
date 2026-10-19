@@ -28,10 +28,6 @@ class SubscriptionManager(port: SubscriptionPort) {
             CalleeSubscriptions(port.ops, port.statistics).also { storage.addSubscriber(this) }
         }
         val admitted = entry.admit(sub) ?: return
-        if (port.config.run1 && port.staticService != null && !sub.zeroOnly && admitted.handle >= 0) {
-            val row = N2InputRef(sub.caller, sub.callee, admitted.handle, sub.ref)
-            port.applier(sub.caller).registerStaticInput(row, admitted.fresh.added)
-        }
         val statistics = port.statistics
         if (statistics == null) {
             port.steps.replay { replay(storage, admitted) }
@@ -54,29 +50,23 @@ class SubscriptionManager(port: SubscriptionPort) {
 
     private fun replay(storage: SummaryStorage, admitted: CalleeSubscriptions.Admission) {
         val port = active()
-        for (part in admitted.replayParts) {
+        val part = admitted.fresh
+        for ((pub, member) in storage.candidates(part, port.config.mode)) {
             port.ops.manager.cancellation.checkpoint()
-            for ((pub, member) in storage.candidates(part, port.config.mode)) {
-                port.ops.manager.cancellation.checkpoint()
-                applyMatch(part, pub, member)
-            }
-            if (isStaticControl(part)) for ((pub, member) in storage.staticCandidates()) {
-                port.ops.manager.cancellation.checkpoint()
-                applyStaticControl(part, pub, member)
-            }
-            if (!part.zeroOnly && port.config.restricted) replayRecords(part)
+            applyMatch(part, pub, member)
         }
+        if (isStaticControl(part)) for ((pub, member) in storage.staticCandidates()) {
+            port.ops.manager.cancellation.checkpoint()
+            applyStaticControl(part, pub, member)
+        }
+        if (!part.zeroOnly && port.config.restricted) replayRecords(part)
         if (port.config.run1 && !admitted.fresh.zeroOnly) {
-            // Request geometry still uses the current rows. Guarded cofactor
-            // relations must remain separate when their results are composed.
-            val flows = admitted.currentParts.filter { current ->
-                checkKinds(current)
-                current.added is FlowTree
-            }
-            if (flows.isNotEmpty()) {
+            val current = admitted.current
+            checkKinds(current)
+            if (current.added is FlowTree) {
                 port.abstractionStatistics?.freshFlowInputVisit(admitted.growth)
-                val rows = storage.borrowMatchingRequests(flows.first().added)
-                joinRequests(rows) { visit -> flows.forEach(visit) }
+                val rows = storage.borrowMatchingRequests(current.added)
+                joinRequests(rows) { visit -> visit(current) }
             }
         }
     }
@@ -229,11 +219,6 @@ class SubscriptionManager(port: SubscriptionPort) {
 
     private fun isStaticControl(part: Subscription): Boolean =
         active().config.run1 && !part.zeroOnly && part.ref.premise.isZero && part.added is Reach
-
-    fun borrowN2(row: N2InputRef): Facts? = active().let { byCallee[row.callee]?.borrow(row) }
-
-    fun borrowN2Cofactors(row: N2InputRef): List<Subscription> =
-        active().let { byCallee[row.callee]?.borrowCofactors(row).orEmpty() }
 
     private fun applyStaticControl(part: Subscription, pub: Publication, member: Int) {
         val port = active()

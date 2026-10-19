@@ -7,8 +7,6 @@ import org.opentaint.dataflow.bidi.interp.ProofKey
 import org.opentaint.dataflow.bidi.interp.SourceRuleOccurrence
 import org.opentaint.dataflow.bidi.interp.RulePredicate
 import org.opentaint.dataflow.bidi.interp.ResumeSite
-import org.opentaint.dataflow.bidi.interp.StaticOperation
-import org.opentaint.dataflow.bidi.interp.OperationId
 import org.opentaint.dataflow.bidi.store.*
 import org.opentaint.ir.api.common.cfg.CommonInst
 
@@ -52,7 +50,6 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
     override fun conjunctionAt(edge: ConjunctiveEdge, premise: PremiseKey, facts: Facts, node: CommonInst,
                                at: OperationInput, sink: (PremiseKey, Facts) -> Unit) {
         val core = activeCore()
-        core.observeGrounding(at)
         val store = checkNotNull(conjunctionStore) { "A backward form has independent conjunction branches" }
         for ((index, literal) in edge.literals.withIndex()) {
             core.ap.cancellation.checkpoint()
@@ -62,18 +59,11 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
                 is MarkCheck.Request -> core.needGroups(at, checked.mark)
                 is MarkCheck.Holds -> {
                     val combinations = store.add(edge, node, edge.literals.size, index,
-                        ConjunctionStore.Input(premise, checked.facts.layer, checked.facts, literal, index,
-                            core.guardGrounding(at, checked.facts, literal, leaf = index)))
+                        ConjunctionStore.Input(premise, checked.facts.layer, checked.facts))
                     for (combination in combinations) {
                         core.ap.cancellation.checkpoint()
                         val result = core.ops.targetTree(edge.target, combination.layer, core.mode)
-                        val input = at.copy(premise = combination.premise, support = combinationSupport(combination.inputs))
-                        val write = if (edge.target.base == STATIC) StaticOperation.Write(at.site.operation,
-                            Pattern(edge.target, ExclusionSet.Empty)) else null
-                        val value = core.forceRun1Layer(combination.premise, result)
-                        val support = if (edge.target.tail != Tail.STAR) core.fixedGrounding(input)
-                            else checkNotNull(input.support)
-                        core.withGroundingSupport(support) { sink(combination.premise, value) }
+                        sink(combination.premise, core.forceRun1Layer(combination.premise, result))
                         core.ap.cancellation.checkpoint()
                     }
                 }
@@ -90,28 +80,17 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
                                    statementEdge: Boolean, at: OperationInput, sink: (PremiseKey, Facts) -> Unit) {
         val core = activeCore()
         if (source.actions.isEmpty()) return
-        core.observeGrounding(at)
         val predicate = source.predicate
-        fun transfer(leaf: Int, multi: Boolean) {
+        fun transfer(pattern: Pattern, multi: Boolean) {
             for (action in source.actions) {
                 core.ap.cancellation.checkpoint()
-                val edge = source.transfer(predicate.leaves[leaf], action, multi)
+                val edge = source.transfer(pattern, action, multi)
                 if (edge.edge.from.base != facts.base) continue
                 if (core.config.seededSources && !core.config.seeds.allowsSource(core.key, node, edge.forward, action.id)) continue
-                val checked = if (core.forward && !multi) core.ops.checkMark(facts, predicate.leaves[leaf], core.mode) else null
-                val sourceSupport = if (checked is MarkCheck.Holds) {
-                    core.guardGrounding(at, checked.facts, predicate.leaves[leaf], ProofKey(source.id, listOf(leaf)), leaf)
-                } else at.support
-                val sourceAt = at.copy(support = sourceSupport)
                 core.ops.applyEdge(facts, premise, edge.edge, statementEdge, core.mode,
-                    core.collect(sourceAt) { _, result ->
+                    core.collect(at) { _, result ->
                         core.sourceHits?.add(core.key, node, edge.forward, action.id)
-                        val write = if (action.target.base == STATIC) StaticOperation.Write(
-                            OperationId(action.id.occurrence.form, at.site.operation.stageOrdinal, action.id),
-                            Pattern(action.target, ExclusionSet.Empty), action = action.id) else null
-                        val support = if (action.target.tail != Tail.STAR) core.fixedGrounding(sourceAt)
-                            else sourceAt.support ?: core.currentGroundingSupport
-                        core.withGroundingSupport(support) { sink(premise, result) }
+                        sink(premise, result)
                     }, may = edge.may)
             }
         }
@@ -119,40 +98,48 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
             check(!core.forward)
             for (leaf in predicate.leaves.indices) {
                 core.ap.cancellation.checkpoint()
-                if (predicate.isUnary(leaf)) transfer(leaf, multi = false)
-                if (predicate.isMulti(leaf)) transfer(leaf, multi = true)
+                if (predicate.isUnary(leaf)) transfer(predicate.leaves[leaf], multi = false)
+                if (predicate.isMulti(leaf)) transfer(predicate.leaves[leaf], multi = true)
             }
             return
         }
         check(core.forward)
-        matchingLeaves(core, predicate, facts) { leaf, pattern ->
-            core.ap.cancellation.checkpoint()
-            // Unary transfer needs the original Facts for suffix, exclusion and POSITION behavior.
-            if (predicate.isUnary(leaf)) transfer(leaf, multi = false)
-            if (predicate.isMulti(leaf)) when (val checked = core.ops.checkMark(facts, pattern, core.mode, core.unchangedStaticInitial(premise))) {
+        fun multiLeaf(selected: RulePredicate, leaf: Int, pattern: Pattern, allowSingle: Boolean) {
+            when (val checked = core.ops.checkMark(facts, pattern, core.mode, core.unchangedStaticInitial(premise))) {
                 MarkCheck.None -> Unit
                 is MarkCheck.Request -> core.needGroups(at, checked.mark)
-                is MarkCheck.Holds -> checkNotNull(predicateStore).add(source.id, node, predicate, leaf,
-                    ConjunctionStore.Input(premise, checked.facts.layer, checked.facts, pattern, leaf,
-                        core.guardGrounding(at, checked.facts, pattern, ProofKey(source.id, listOf(leaf)), leaf))) { combination ->
-                    if (combination.leaves.size >= 2) for (action in source.actions) {
+                is MarkCheck.Holds -> checkNotNull(predicateStore).add(source.id, node, selected, leaf,
+                    ConjunctionStore.Input(premise, checked.facts.layer, checked.facts)) { combination ->
+                    // GROUP folding can leave one accepted leaf in an original MULTI transfer.
+                    if (allowSingle || combination.leaves.size >= 2) for (action in source.actions) {
                         core.ap.cancellation.checkpoint()
-                        if (core.config.seededSources && combination.leaves.none { selected ->
+                        if (core.config.seededSources && combination.leaves.none { index ->
                             core.config.seeds.allowsSource(core.key, node,
-                                source.transfer(predicate.leaves[selected], action, multi = true).forward, action.id)
+                                source.transfer(selected.leaves[index], action, multi = true).forward, action.id)
                         }) continue
                         val result = core.ops.targetTree(action.target, combination.layer, core.mode)
-                        val input = at.copy(premise = combination.premise, support = combinationSupport(combination.inputs, combination.proof))
-                        val write = if (action.target.base == STATIC) StaticOperation.Write(
-                            OperationId(action.id.occurrence.form, at.site.operation.stageOrdinal, action.id),
-                            Pattern(action.target, ExclusionSet.Empty), action = action.id) else null
-                        val value = core.forceRun1Layer(combination.premise, result)
-                        val support = if (action.target.tail != Tail.STAR) core.fixedGrounding(input)
-                            else checkNotNull(input.support)
-                        core.withGroundingSupport(support) { sink(combination.premise, value) }
+                        sink(combination.premise, core.forceRun1Layer(combination.premise, result))
                     }
                 }
             }
+        }
+        if (core.config.run1 && source.groupTransfers) {
+            for (unary in source.unaryTransfers) {
+                core.ap.cancellation.checkpoint()
+                matchingLeaves(core, unary.predicate, facts) { _, _ ->
+                    // Use the declared anchor and original Facts, never the checked AP piece.
+                    transfer(unary.anchor, multi = false)
+                }
+            }
+            source.multiPredicate?.let { multi ->
+                matchingLeaves(core, multi, facts) { leaf, pattern -> multiLeaf(multi, leaf, pattern, allowSingle = true) }
+            }
+            return
+        }
+        matchingLeaves(core, predicate, facts) { leaf, pattern ->
+            core.ap.cancellation.checkpoint()
+            if (predicate.isUnary(leaf)) transfer(pattern, multi = false)
+            if (predicate.isMulti(leaf)) multiLeaf(predicate, leaf, pattern, allowSingle = false)
         }
     }
 
@@ -164,7 +151,6 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
     override fun checkSinksAt(premise: PremiseKey, node: CommonInst, facts: Facts, sinks: List<SinkRule>, at: OperationInput): Triggers {
         val core = activeCore()
         if (!core.forward || sinks.isEmpty()) return Triggers.NONE
-        core.observeGrounding(at)
         val fired = ArrayList<Pair<SinkRule, Layer>>()
         val parts = ArrayList<Facts>()
         for (sink in sinks) {
@@ -235,19 +221,6 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
                 }
             }
         }
-    }
-
-    private fun combinationSupport(inputs: List<ConjunctionStore.Input>, proof: ProofKey? = null): GroundingSupport {
-        val core = activeCore()
-        var inherited = GroundingSupport.TRUE
-        val requirements = ArrayList<GroundingRequirement>()
-        for (input in inputs) {
-            val facts = input.facts ?: continue
-            if (input.grounding != null) { inherited = inherited.and(input.grounding); continue }
-            inherited = inherited.and(core.currentGroundingSupport)
-            input.requirement?.let { requirements += GroundingRequirement(input.premise, facts, it, proof, input.leafOrdinal) }
-        }
-        return inherited.and(GroundingSupport.require(requirements))
     }
 
     private fun witness(core: RunMethodAnalyzer, sink: SinkRule, node: CommonInst, edges: List<SinkEdge>, proof: ProofKey? = null) {

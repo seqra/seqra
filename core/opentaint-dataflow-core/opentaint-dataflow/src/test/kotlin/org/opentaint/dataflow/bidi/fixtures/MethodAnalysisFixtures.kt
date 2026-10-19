@@ -254,14 +254,11 @@ class MethodAnalysisFixtures(
         val port = object : RunnerPort<RunMethodAnalyzer> {
             override val config = config
             override val shared = this@MethodAnalysisFixtures.shared
-            override val forms = contexts.directed(config.direction)
+            override val forms = contexts.directed(config.direction, if (config.run1) RuleView.RUN1_GROUP else RuleView.FULL)
             override val ops = this@MethodAnalysisFixtures.ops
             override val steps = ProtocolSteps.Inline
             override val staticService = if (config.run1)
                 staticServices.getOrPut(config) { Run1StaticService(manager) } else null
-            override fun borrowN2(row: N2InputRef): Facts? = questionManagers.getValue(actor).borrowN2(row)
-            override fun borrowN2Cofactors(row: N2InputRef): List<Subscription> =
-                questionManagers.getValue(actor).borrowN2Cofactors(row)
             override fun send(event: RunEvent): Boolean {
                 events += event
                 // This fixture owns one actor. Foreign-owner effects remain

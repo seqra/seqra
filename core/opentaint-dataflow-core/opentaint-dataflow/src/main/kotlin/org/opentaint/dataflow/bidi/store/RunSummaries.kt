@@ -27,6 +27,13 @@ class RunSummaryStore(private val m: ApManager) {
     fun all(): Sequence<Pair<PremiseKey, Facts>> = entries(groups)
     fun demandEdges(): Sequence<Pair<PremiseKey, Facts>> = entries(demand)
 
+    /** Borrow the current raw relation on its actor owner. Consume this view
+     * before mutating the store; do not retain a historical Facts snapshot. */
+    fun borrow(premise: PremiseKey): Sequence<Facts> {
+        m.cancellation.checkpoint()
+        return groups[premise]?.all() ?: emptySequence()
+    }
+
     private fun checkShape(premise: PremiseKey, facts: Facts) {
         check(facts.base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot enter a summary" }
         check((facts is FlowTree) == premise.isFlow) { "K6: the conclusion kind follows the premise" }

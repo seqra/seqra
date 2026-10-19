@@ -11,11 +11,6 @@ class PublicationIndex(private val ap: ApManager, private val ops: ApOps) {
     private val interners = ap.newInterners()
     private val merged = LinkedHashMap<PremiseKey, ConclusionGroup>()
     private val byMember = PathTrie<Member>(ap.cancellation)
-    private data class SupportLeaf(val pattern: Pattern, val layer: Layer)
-    /** Only guarded premises need cofactor metadata. Keys are semantic leaf
-     * memberships, never historical Facts versions or a second summary store. */
-    private val supported = HashMap<PremiseKey, LinkedHashMap<SupportLeaf, GroundingSupport>>()
-
     fun addAll(pubs: List<Publication>): List<Publication> {
         ap.cancellation.checkpoint()
         val out = ArrayList<Publication>()
@@ -30,17 +25,6 @@ class PublicationIndex(private val ap: ApManager, private val ops: ApOps) {
             check(pub.premise !is PremiseSet || pub.conclusion is TaintTree) {
                 "A multi-premise publication must be TAINT"
             }
-            val previous = merged[pub.premise]
-            val supportRows = supported[pub.premise] ?: if (pub.grounding != GroundingSupport.TRUE) {
-                LinkedHashMap<SupportLeaf, GroundingSupport>().also { rows ->
-                    // These earlier rows had no conditional guard.
-                    for (facts in previous?.all().orEmpty()) for (leaf in ops.leaves(facts)) {
-                        ap.cancellation.checkpoint()
-                        rows[SupportLeaf(leaf, facts.layer)] = GroundingSupport.TRUE
-                    }
-                    supported[pub.premise] = rows
-                }
-            } else null
             val group = merged.getOrPut(pub.premise) {
                 for (member in 0 until pub.premise.size) {
                     ap.cancellation.checkpoint()
@@ -49,17 +33,7 @@ class PublicationIndex(private val ap: ApManager, private val ops: ApOps) {
                 }
                 ConclusionGroup(ap, interners)
             }
-            val delta = group.add(pub.conclusion)
-            if (supportRows == null) delta?.let { out += Publication(pub.premise, it) }
-            else for (leaf in ops.leaves(pub.conclusion)) {
-                ap.cancellation.checkpoint()
-                val key = SupportLeaf(leaf, pub.layer)
-                val before = supportRows[key]
-                val after = before?.or(pub.grounding) ?: pub.grounding
-                if (before == after) continue
-                supportRows[key] = after
-                out += Publication(pub.premise, ap.factsOf(leaf.fact, leaf.exclusion, pub.layer), after)
-            }
+            group.add(pub.conclusion)?.let { out += Publication(pub.premise, it) }
         }
         return Collections.unmodifiableList(out)
     }
@@ -120,11 +94,6 @@ class PublicationIndex(private val ap: ApManager, private val ops: ApOps) {
     }
 
     private fun publications(premise: PremiseKey): List<Publication> {
-        val rows = supported[premise]
-        return if (rows == null) merged.getValue(premise).all().map { Publication(premise, it) }.toList()
-        else rows.map { (leaf, support) ->
-            ap.cancellation.checkpoint()
-            Publication(premise, ap.factsOf(leaf.pattern.fact, leaf.pattern.exclusion, leaf.layer), support)
-        }
+        return merged.getValue(premise).all().map { Publication(premise, it) }.toList()
     }
 }

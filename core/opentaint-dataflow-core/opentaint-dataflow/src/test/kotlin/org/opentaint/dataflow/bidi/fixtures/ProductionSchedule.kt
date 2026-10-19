@@ -3,6 +3,7 @@ package org.opentaint.dataflow.bidi.fixtures
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.ap.ReferenceRequestKind as RequestKind
 import org.opentaint.dataflow.bidi.engine.*
+import org.opentaint.dataflow.bidi.interp.RuleView
 import org.opentaint.dataflow.bidi.engine.historical.Run1Slot as HistoricalRun1Slot
 import org.opentaint.dataflow.bidi.engine.historical.Run1StaticProfiles
 import org.opentaint.dataflow.bidi.engine.historical.Run1StaticProfile
@@ -92,13 +93,10 @@ class ProductionSchedule(
     private inner class UnitPort : RunnerPort<RunMethodAnalyzer> {
         override val config get() = this@ProductionSchedule.config
         override val shared get() = this@ProductionSchedule.shared
-        override val forms = shared.contexts.directed(config.direction)
+        override val forms = shared.contexts.directed(config.direction, if (config.run1) RuleView.RUN1_GROUP else RuleView.FULL)
         override val ops get() = shared.ops
         override val steps get() = deferred
         override val staticService get() = this@ProductionSchedule.staticService
-        override fun borrowN2(row: N2InputRef): Facts? = (handler as SubscriptionHandler).borrowN2(row)
-        override fun borrowN2Cofactors(row: N2InputRef): List<Subscription> =
-            (handler as SubscriptionHandler).borrowN2Cofactors(row)
         val actors = LinkedHashMap<MethodKey, RunMethodAnalyzer>()
         private val queued = Collections.newSetFromMap(IdentityHashMap<RunMethodAnalyzer, Boolean>())
         val handler = factories.create(this)
