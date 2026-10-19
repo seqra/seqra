@@ -6,7 +6,7 @@ Our current goal: implement optimization and repeat major testing on real projec
 Always cleanup memory snapshot/profiles from the previous runs.
 
 # Optimization:
-Implement optimization wrt the fixed [grouped-run1-statics.md](spec/grouped-run1-statics.md)
+Implement optimization wrt the [bidirectional-immutable-mark-groups-implementation-20261019.md](docs/design/bidirectional-immutable-mark-groups-implementation-20261019.md) and [run1-group-policy-and-ownership-census.md](spec/run1-group-policy-and-ownership-census.md) 
 Commit after implementation.  
 Avoid changes in the analyzer core, that were not proposed and designed.
 If you have an optimization idea, write a proposal. Then we will include it into the next iteration.
