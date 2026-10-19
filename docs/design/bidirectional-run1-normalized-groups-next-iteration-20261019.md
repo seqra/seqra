@@ -60,6 +60,32 @@ smaller measured ownership. This order is an engineering estimate, not a
 measured speedup or a promised byte saving. None proves a universal 60-second
 bound.
 
+## Example notation
+
+The examples are small analysis cases. They are not extra project runs or
+measured project frequencies. They illustrate the proposals; no optimization
+or new semantic behavior is selected.
+
+```text
+x/$/g @D         exact-position TAINT with Group(g), in DEMAND
+x/*/FLOW @N      rooted abstract FLOW, in NORMAL
+x/[any]/g @D    a current may-taint fact; not a legal run-1 initial
+P -> F          complete original premise P produces current fact F
+S.C.f           static base S, class accessor C, then field f
+mx={g}          FLOW excludes the entire group g
+```
+
+`g` abbreviates `Group(g)`. `Full(g,T)` is one original full mark owned by g.
+`N` and `D` mean NORMAL and DEMAND. `$`, `*` and `[any-taint]` retain their
+ordinary exact/rooted/must meanings. Every example uses empty field exclusion
+E. Any FLOW mx is also empty unless shown. These omissions are for display;
+implementation keys must retain all required geometry, exclusions and state.
+An exact group leaf is still a mark approximation. It is not a proof of T.
+Premise P is retained even when several current facts or outputs are equal.
+Static descriptors below belong to reached read/point effects, not generic
+static method-entry seeding. Static reads require a corresponding reached
+write. No example emits an ANY/MUST initial.
+
 ## 1. Avoid eager bound-rule materialization during ownership census
 
 Current: census queries all eight rule roles and both relevance flags over
@@ -166,6 +192,42 @@ If source-only census cannot preserve a provider's behavior, use its current
 binding path. This proposal changes materialization and lifetime, not rule
 admission or ownership semantics.
 
+### Example: census keeps full rules before a fact needs them
+
+Code under analysis:
+
+```java
+String echoA(String p) { return p; }
+String echoB(String p) { return p; }
+// One configured broad exit-sink rule r:
+//   anyFunction, CM(Result, Full(g,T)), empty end-action list.
+```
+
+Assume this template survives ordinary binding/selection in both methods.
+For a permitted exact input, the fact annotations in each method are:
+
+```text
+P_A = arg0/$/g;   echoA: P_A -> arg0/$/g @D -> Result/$/g @D
+P_B = arg0/$/g;   echoB: P_B -> arg0/$/g @D -> Result/$/g @D
+// A/B distinguish actor contexts; the canonical arg0 descriptor may be shared.
+// Run-1 checks CM(Result,g); FULL retains CM(Result,Full(g,T)).
+
+Before census handling:
+  bind A/normal, A/allRelevant, B/normal, B/allRelevant
+  -> observe the eligible full T and its original owner g
+  -> retain four bound lists and their condition/metadata payloads
+After census handling:
+  bind the same four queries -> observe the same full T/owner g
+  -> do not insert these miss results into the long-lived bound caches
+  -> when runtime needs a rule, use/rebuild the same original bound rule
+```
+
+Census emits no fact in either version. The fact transitions and the two
+method-specific sink occurrences above stay the same. The first new route
+still constructs the bound rules. Neutral census-result reuse is valid only
+under the complete-query proof stated above. Here normal/allRelevant happen
+to agree; this does not authorize merging those views in general.
+
 ## 2. Share static input selection by complete premise
 
 Current: one method can register many output-specific writer rows for the
@@ -213,8 +275,10 @@ onFreshSupply(p, freshInput) {
 
 For P with M outputs and r supplied images, current input matching can occur
 M*r times. Factoring makes shared input matching proportional to r, while
-retaining the required M*r output compositions. Neither the snapshot nor
-this formula measures the actual matching/composition cost split.
+retaining the required effects for the M*r matching input/output pairs.
+Existing AP APIs can compose packed outputs together; M*r is not a lower
+bound on AP API calls. Neither the snapshot nor this formula measures the
+actual matching/composition cost split.
 
 Keep tails, E, typed FLOW mx, mark selectors, layers and run domain in the
 semantic input key. If matching needs additional binding state, include it.
@@ -238,6 +302,47 @@ new output orders, replacement, disappearing selectors, exact AP composition,
 late growth and counted completion. For ND, preserve the full compatible tuple;
 do not replace a conjunction with independent member existence unless its
 output is separately proved constant. Fallback is the current per-output row.
+
+### Example: one static input, three static outputs
+
+Code under analysis:
+
+```java
+void copyStatics() {
+    Object x = C.f;
+    D.h1 = x;
+    D.h2 = x;
+    D.h3 = x;
+}
+```
+
+Assume a corresponding write has activated the read. The reached read and
+writes produce these ordinary conditional relations, all in DEMAND:
+
+```text
+P = S.C.f/*/FLOW
+P -> x/*/FLOW @D
+Y1: P -> S.D.h1/*/FLOW @D
+Y2: P -> S.D.h2/*/FLOW @D
+Y3: P -> S.D.h3/*/FLOW @D
+A = S.C.f/$/g @D                 // actual rooted pool supply
+
+Before:
+  writer(P,Y1): match A against P -> apply Y1 -> S.D.h1/$/g @D
+  writer(P,Y2): match A against P -> apply Y2 -> S.D.h2/$/g @D
+  writer(P,Y3): match A against P -> apply Y3 -> S.D.h3/$/g @D
+After:
+  input(P): match A against P once -> compatible binding B
+  B + current Y1 -> S.D.h1/$/g @D
+  B + current Y2 -> S.D.h2/$/g @D
+  B + current Y3 -> S.D.h3/$/g @D
+```
+
+The exact-copy slice shown here uses ordinary AP composition in both cases.
+Three input subscriptions/matches become one; all three output effects
+remain. Existing packed AP composition can batch those effects. A new supply needs a new match. If Y3 arrives after A, it must still
+join the old supply. Do not cache one binding forever or copy the output
+store. Keep each output's layer and current selector validation.
 
 ## 3. Keep current eligible members by group
 
@@ -277,6 +382,42 @@ GROUP, model declarations, same-member conjunction and mutable policy. Retain
 the scalar path for uncovered cases. Ownership conflicts remain errors.
 Measure lookup count, inspected full members, list allocations and lock time;
 59.33% sampled inclusion does not promise a 59.33% speedup.
+
+### Example: an int binding needs only one group's members
+
+Code under analysis:
+
+```java
+int identity(int p) { return p; }
+int y = identity(n);
+```
+
+Track one permitted grouped input slice `P -> n/$/g @D`. Let eligible full
+T track primitive values, U not track primitive values, and both belong to
+g. V and W belong to other groups. At the int binding the existing scalar
+policy keeps T and rejects U:
+
+```text
+eligible catalog: [Full(g,T), Full(g,U), Full(h,V), Full(j,W)]
+
+Before:
+  scan all four entries -> construct group list [T,U]
+  run existing ordered policy on [T,U] -> keep g
+After:
+  currentDirectory[g] -> existing immutable snapshot [T,U]
+  run the same ordered policy on [T,U] -> keep g
+
+Same ordinary binding/return projection in both cases:
+  caller: P -> n/$/g @D
+  callee: I = arg0/$/g; I -> arg0/$/g @D -> Result/$/g @D
+  caller after the summary join: P -> y/$/g @D
+```
+
+The diagram abbreviates the ordinary caller/callee premise substitutions;
+it does not remove their checks. The directory removes the full-catalog
+scan and list construction. It does not prove that g is exact T or cache
+the policy result. A late eligible member changes the current snapshot;
+previously borrowed immutable snapshots stay unchanged.
 
 ## 4. Avoid identity GROUP and exclusion conversion
 
@@ -323,6 +464,42 @@ writes, point resumes, summary application and later FULL group readers.
 Measure actual skipped walks and normalizations. Allocation/sample categories
 overlap with catalog policy and cannot be added as separate savings.
 
+### Example: copying an already selected group value
+
+Code under analysis:
+
+```java
+String q = p;
+cleanT(q);       // configured selected-mark cleaner RemoveMark(q,T)
+consume(q);
+```
+
+For a permitted exact GROUP input, the ordinary copy gives
+`P -> p/$/g @D -> q/$/g @D`. Its result already has the runtime mark domain:
+
+```text
+Before:
+  copy result q/$/g @D
+    -> generic runtimeFact projection/walk -> equal q/$/g @D
+    -> another result boundary can project/walk it again
+After, at a proved GROUP-closed boundary:
+  copy result q/$/g @D -> use that canonical value
+  keep required layer forcing, cover, limits and generic fallback
+```
+
+The cleaner also illustrates the exclusion shortcut. On its independent
+abstract FLOW lane it can produce `P_FLOW -> q/*/FLOW(mx={g}) @N`. Its request
+and the actual group-taint DEMAND repair still execute:
+
+```text
+Before: withCatalog(sameCatalog) -> normalize the canonical mx={g} again
+After:  withCatalog(sameCatalog) -> return the same immutable mx={g}
+Same FLOW meaning; actual q/$/g @D is not cleaned on run-1.
+```
+
+This example removes repeated representation work. It does not skip the
+cleaner, its requests, group repair or an unproved conversion boundary.
+
 ## 5. Deduplicate normalized static operation inputs
 
 Current source traces show distinct service replies becoming equal before
@@ -348,6 +525,50 @@ for every future allowed supply. Keep complete original premise, cleaner
 phase, field/tail geometry, caller state, wanted-group growth, source identity,
 DEMAND forcing and current selector validity. Preserve both arrival orders.
 Use the original key for any case without that equivalence proof.
+
+### Example: two read replies become the same operation input
+
+Code under analysis:
+
+```java
+void use() {
+    Object x = C.f;   // read site s
+    sink(x);         // check for a full mark owned by g
+}
+```
+
+Assume two admitted writes have announced overlapping regions
+`S.C.f/$` and `S.C.f/[any-taint]`, with empty E. These are reached writer
+regions, not two initials emitted by the read. The current read conversion
+maps both fresh overlaps to the same abstract STAR input:
+
+```text
+P = S.C.f/*/FLOW
+ReadReady(s, S.C.f/$)           -> K = (s, P, S.C.f/*/FLOW @D, state)
+ReadReady(s, S.C.f/[any-taint]) -> K = (s, P, S.C.f/*/FLOW @D, state)
+
+Before: enqueue K twice -> execute the same read twice
+        -> P -> x/*/FLOW @D twice -> successor store merges the result
+After:  the existing freshness owner recognizes the same normalized K
+        -> enqueue/execute once -> the same P -> x/*/FLOW @D
+```
+
+A second equality can occur at the later group-refinement point:
+
+```text
+saved relation 1: P -> x/*/FLOW(mx={g}) @D
+saved relation 2: P -> x/*/FLOW(mx={})  @D
+actual supply:   S.C.f/$/g @D
+both materialize at the same sink site/state as Q -> x/$/g @D,
+where Q = S.C.f/$/g is the legal concrete static premise.
+```
+
+The existing point materializer clears mx for this relation. Before, two
+point IDs can execute that equal input. After, a proved equal normalized
+relation can share the point key. The earlier request for g is retained.
+Ordinary FLOW mx is not erased elsewhere. Distinct sites, supplies, layers,
+initials or call states must remain distinct; overlapping geometry alone
+is not equality.
 
 ## 6. Admit request memberships before constructing deltas
 
@@ -385,6 +606,41 @@ classification, repeated IDs, commit/replace, both orders, late input,
 request-only scheduling and cleanup. Do not run old geometry merely to
 reproduce admitted batch-dependent diagnostic counts.
 
+### Example: two checks offer the same Base/group request
+
+Code under analysis:
+
+```java
+void inspect(String p) {
+    sinkT(p);   // configured ContainsMark(argument0,T)
+    sinkU(p);   // configured ContainsMark(argument0,U)
+}
+```
+
+T and U are eligible full marks with the same owner g. Track only the
+independent abstract lane `P = p/*/FLOW`, with current
+`P -> p/*/FLOW @N`. The GROUP checks request the same original Base p/group:
+
+```text
+First offer:  R[p]={}, PENDING[p]={}  -> add g to PENDING[p]
+Second offer: R[p]={}, PENDING[p]={g} -> no new membership
+
+Before second admission:
+  construct offered member/delta -> subtraction/merge finds g already in PENDING
+After second admission:
+  test R.contains(p,g), then PENDING.contains(p,g) -> return before construction
+
+Same queue-empty barrier:
+  summaryStorage.commit(temporary); temporary = new RequestStorage()
+  R[p]={g}; PENDING[p]={}
+```
+
+Here `PENDING` names the temporary store, to distinguish it from premise P.
+Both versions already merge requests and coalesce scheduling. Neither
+creates taint merely because a check requests g. Later actual marked input
+uses the same ordinary join. Both sink checks/occurrences remain; the example
+is not permission to skip a whole sink, source or cleaner.
+
 ## 7. Share equivalent static-interest matching
 
 Current: the path index narrows candidates but indexes each owner/id interest.
@@ -406,6 +662,44 @@ Prove identical per-subscriber effects and demand guides, late subscribers,
 copies/cycles, cleanup and counted completion. Use current matching when the
 complete sharing key is unproved. Measure distinct keys before promising
 large savings.
+
+### Example: share a query, retain two continuations
+
+Code under analysis:
+
+```java
+void useTwice() {
+    Object x = C.f;
+    sinkT(x);             // site a, wants g
+    Object y = C.f;
+    sinkT(y);             // site b, wants g
+}
+```
+
+Corresponding writes have activated the reads. The owner has two different
+point relations with the same static premise/query:
+
+```text
+P = S.C.f/*/FLOW
+point a: P -> x/*/FLOW @D, wants {g}
+point b: P -> y/*/FLOW @D, wants {g}
+pool supply A = S.C.f/$/g @D
+
+Before:
+  interest(owner,idA,P,{g}) -> match A/P -> deliver idA -> resume site a
+  interest(owner,idB,P,{g}) -> match A/P -> deliver idB -> resume site b
+After:
+  shared complete query(P,{g}) -> match A/P once
+  fan out the same fresh availability to idA and idB
+  resume a -> Q -> x/$/g @D; resume b -> Q -> y/$/g @D
+  Q = S.C.f/$/g
+```
+
+There are still two deliveries and two distinct operation continuations.
+The optimization shares pure matching, not x/y facts or sink occurrences.
+A later subscriber must receive already available g. Growing wanted groups
+must receive their new matches. If query semantics differ, keep separate
+match relations; each owner retains its real premise and continuation state.
 
 ## 8. Coalesce equal call-stage values after observations
 
@@ -445,6 +739,42 @@ behavior. Keep the list path for an unproved non-idempotent observation.
 Count raw stage attempts versus distinct complete values in a future fixed
 study. No project-wide multiplier is inferred from the synthetic API test.
 
+### Example: keep plus self-copy produce equal stage values
+
+Code under analysis and configured pass model:
+
+```java
+void inspect(String p) {
+    externalTouch(p);    // unresolved target
+}
+// Pass model: keep argument0, CopyMark(T,arg0,arg0), CopyMark(U,arg0,arg0).
+// owner(T) = owner(U) = g. The unresolved default identity also remains.
+```
+
+Take one exact grouped argument slice at the pass stage. Let K contain the
+same complete premise, `arg0/$/g @D` and `identityCandidate`. Node, stage,
+caller layer and pendingDemotion are fixed in this frame:
+
+```text
+GROUP lowering before edge-set insertion:
+  T self-copy and U self-copy -> one g self-copy
+  abstract keep remains a different edge
+
+Before: pass keep -> K; pass g-copy -> K; pass-frame output [K,K]
+        parallel default identity -> [K] in another frame
+After:  pass keep and g-copy both execute required observations
+        local set retains [K] in the pass frame
+        parallel default identity still retains [K]
+
+Whole-call callbacks: 3 -> 2. Stored successor values: 1 -> 1.
+```
+
+This is the shape of the executed counting control, not a new execution of
+the JVM lowerer on this Java snippet. FULL can have the same duplicate
+shape. Different premises or identity flags must not merge. If two distinct
+source ActionIds produce equal facts, observe both before coalescing; this
+example does not merge source identities or separate parallel frames.
+
 ## 9. Allocate conclusion containers on first use
 
 Current: ConclusionGroup eagerly creates reach/kind maps. FlowGroup and
@@ -471,7 +801,40 @@ all admitted mixtures, empty/one/many bases, annotation broadening and borrowed
 lifetimes. Use ordinary maps for mixed cases. Measure occupancy before a byte
 estimate. This is representation work, not fact reduction or subsumption.
 
+### Example: one bucket needs only DEMAND TAINT storage
+
+Code under analysis:
+
+```java
+String identity(String p) { return p; }
+```
+
+Select the method-edge bucket immediately before return under the concrete
+initial `P = arg0/$/g`. Suppose its only current value is
+`P -> p/$/g @D`. The method's independent FLOW initial has another premise
+key; it is not stored in this bucket.
+
+```text
+Before, for this one premise bucket:
+  reach[2], FLOW map, TAINT map are allocated
+  p's TaintGroup allocates NORMAL list and DEMAND list
+  only the DEMAND list contains p/$/g
+After:
+  same reach meaning in a scalar mask; no FLOW map yet
+  same TAINT value/merge algorithm; no NORMAL list yet
+
+First add:    identical decoded stored fact and fresh delta
+Repeat add:   no delta in either representation
+New kind/base/layer, if legal: allocate/promote then use the existing algorithms
+```
+
+The fact count does not change. This example saves empty containers, not an
+AP transfer or source/sink occurrence. It does not assert that every real
+bucket has this occupancy or assign unmeasured byte savings.
+
 ## Future candidates
+
+### Constant-image all-static ND writers
 
 Constant-image all-static ND writers can use a complete existence witness
 instead of enumerating all candidate tuples only when the AP image is proved
@@ -481,6 +844,44 @@ not its current retained pattern. Defer this optimization until measured
 transient tuples or a later heap justify it. `candidateVisits` is not a tuple
 counter; ordinary N2 E6 is not the direct static ND path.
 
+Example code and model fixture:
+
+```java
+void joinStatics() {
+    Object a = C.f;
+    Object b = C.h;
+    guardedEmit(a, b);
+}
+// Model fixture at guardedEmit: a complete two-position mark guard
+// can produce a fixed group-k mark at D.out.
+```
+
+This future example assumes the following admitted AP/model summary. It does
+not claim that the production JVM lowerer currently constructs this ND summary
+from the Java snippet. The fresh heap has no such retained PremiseSet.
+
+```text
+P1 = S.C.f/*/g; P2 = S.C.h/*/h
+{P1 AND P2} -> S.D.out/$/k @D   // fixed TAINT output, independent of bindings
+A1,A2: two actual pool slices, each accepted by ordinary matching against P1
+B1,B2: two actual pool slices, each accepted by ordinary matching against P2
+
+Before: enumerate (A1,B1), (A1,B2), (A2,B1), (A2,B2)
+        -> validate/apply complete bindings -> the same fixed output image
+After, only under the constant-image proof:
+  find one complete ordinary compatible binding, e.g. (A1,B1)
+  -> apply it through existing AP operations -> the same output image
+  -> later equivalent tuples add no pool effect for this current selector
+```
+
+No match for P2 means no output in either version. A spatial candidate alone
+does not count as an accepted slice. Preserve current-selector checks, retry/
+ack and all ordinary demand guides. FLOW/ANY_TAINT binding-dependent images
+keep full processing. This is a future existence optimization, not a new
+source rule or permission to discard a premise.
+
+### Managed payload lifetime
+
 Managed payload lifetime can trade memory for rebuild cost using the current
 managed-reference mechanism. First measure actual rebuilds and strong owners.
 A form-build count alone does not prove eviction. Keep GROUP/FULL isolation,
@@ -488,12 +889,88 @@ stable logical keys, live continuations and exact source/ActionIds after
 rebuild. No SoftReferenceManager rewrite or WeakIdentityCache is proposed.
 This is a separate future option, not a substitute for avoiding eager payload.
 
+Example code under analysis:
+
+```java
+String echo(String p) { return p; }
+String a = echo(first);     // uses the selected form payload
+// Other analysis work creates memory pressure between these visits.
+String b = echo(second);    // same logical method/form query
+```
+
+For one permitted input slice, the ordinary relation is
+`P -> arg0/$/g @D -> Result/$/g @D`, then the usual return binding selects a
+or b. Consider a payload with no remaining pinned user between the visits:
+
+```text
+Before, an allowed hit trace under the current managed policy:
+  first visit -> build payload F -> retain F -> second visit uses F
+After, a possible earlier-release policy using the existing manager:
+  first visit -> build F -> release eligible payload under pressure
+  second visit -> rebuild F' from original rules -> same logical form/IDs
+
+Same facts and source/sink occurrences; more rebuild work can buy lower retention.
+```
+
+The current form cache already has managed references; this is a possible
+lifetime-policy change, not their introduction. Release is not guaranteed.
+A live user must keep its payload valid. Strong raw rule caches can still
+retain the underlying AST, so this example does not reclaim all bound-rule
+memory. Rebuild the proper view: run-1 GROUP and later FULL payloads remain
+separate, with stable FormOwner/operation/ActionIds. Never rebuild FULL from
+only a remembered GROUP predicate.
+
+### Provider and form calculation sharing
+
 Provider/form calculation sharing must retain the original full condition,
 source AP selection and occurrence identities. Do not reintroduce condition
 cubes, full alias proof products or shared mutable actions. Ownership setup
 was 253.969 seconds on ThingsBoard, outside the engine target. Census/cache
 work can reduce this setup and the starting live set; report those benefits
 separately from engine time.
+
+Example code under analysis:
+
+```java
+String echoA(String p) { return p; }
+String echoB(String p) { return p; }
+// Both match one broad configured exit rule: CM(Result, Full(g,T)).
+```
+
+For the same permitted exact input slice, each method keeps its own relation
+`P_method -> arg0/$/g @D -> Result/$/g @D`. The unchanged binding checks in
+this example establish that both Result positions admit the same condition:
+
+```text
+Before:
+  bind echoA -> occurrence A + a new CM(Result,Full(g,T)) tree + metadata
+  bind echoB -> occurrence B + an equal condition tree + equal immutable metadata
+After:
+  same two method/position checks and same two occurrence wrappers
+  share only the proved equal immutable FULL subtree/metadata
+  GROUP view derives CM(Result,g); FULL retains CM(Result,Full(g,T))
+```
+
+Do not share a context-sensitive whole form across methods. Pure calculation
+sharing also keeps action identity when two original source actions produce
+equal GROUP facts:
+
+```text
+source actions a0=AssignMark(T,q), a1=AssignMark(U,q), owner(T)=owner(U)=g
+original plain-q AP target -> q/$/g @D in GROUP for either action
+before: compute equal selected AP result twice; observe both ActionIds
+after:  reuse a proved equal pure result; still observe both ActionIds
+FULL: a0 still means Full(g,T); a1 still means Full(g,U)
+```
+
+The action trace is an identity-preservation fixture for a path that repeats
+pure calculation. Existing GROUP edge-set admission can already share part
+of this work. It is not evidence that the selected JVM lowerer repeats both
+calculations. Only an actually repeated calculation is a saving candidate.
+The original source primitive, anchor and tail remain. A plain-q target is
+EXACT here; an original AnyField target would retain its ordinary MUST tail.
+Sharing a GROUP result does not merge FULL marks, source actions or sink
+occurrences. Required source eligibility and guard handling still execute.
 
 ## Implementation and measurement gates
 
