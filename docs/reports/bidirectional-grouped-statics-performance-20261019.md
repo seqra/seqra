@@ -226,10 +226,14 @@ S(n+1) = S(n) OR (S(n) AND B)
 
 Each expression has the Boolean meaning `A`, but its syntax can grow.
 Finite AP and mark domains do not bound that syntax.
-The exact recurrence has not been reproduced in a production core fixture
-or identified in this project. Large finite alternatives can also cause
-the observed comparisons. The next proposal separates that open question
-from the measured comparison cost.
+At measurement time this recurrence had not been reproduced in a core
+fixture. A [later investigation](bidirectional-grouped-statics-termination-investigation-20261019.md)
+now reproduces the feedback with the production actor, one group, one
+loop-header fact and two guard atoms, including a nonzero/certificate case.
+The exact loop identity in the named projects remains unknown.
+Large finite alternatives can also cause expensive comparisons.
+The new evidence makes semantic convergence the first correction,
+before guard-comparison speed.
 
 | Run-1 terminal guard metadata | OWASP | conductor | ThingsBoard | Stirling-PDF |
 | --- | ---: | ---: | ---: | ---: |

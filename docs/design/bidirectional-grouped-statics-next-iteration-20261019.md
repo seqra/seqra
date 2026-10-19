@@ -1,5 +1,11 @@
 # Next iteration: reduce run-1 guard and propagation work
 
+The [rule-provider and GroundingSupport removal proposal](bidirectional-run1-rule-provider-and-grounding-removal-20261019.md)
+supersedes this document's guard/certificate retention and full-alias
+designs. It removes `GroundingSupport` entirely and keeps the earlier
+DEMAND field contract. The measurements below remain evidence; the other
+optimization candidates are separate future work.
+
 Proposal based on the [fresh performance report](../reports/bidirectional-grouped-statics-performance-20261019.md).
 Measured runtime revision:
 `ff2966455da2e5ffd0db655a1ff06c5954ed3c8a`.
@@ -67,8 +73,14 @@ S(n+1) = S(n) OR (S(n) AND B)
 All terms have the Boolean meaning `A`.
 Their structures differ under the current constructors.
 A finite AP domain does not bound that structural growth.
-The exact recurrence has not been reproduced in the production core.
-It has not been identified in the sampled project.
+The [termination investigation](../reports/bidirectional-grouped-statics-termination-investigation-20261019.md)
+now reproduces the feedback in the production method actor.
+One group and one loop-header fact suffice, including a legal nonzero
+initial with fixed-image certificates. Ten diagnostic methods pass.
+They characterize the bug; they do not assert the desired quiescence.
+A scoped constructive Lean model proves strict syntax growth for the
+selected smart-constructor recurrence at every finite depth.
+The exact loop has not been identified in a named project.
 A large finite set of real alternatives can also cause deep comparisons.
 
 The following terminal counters provide other evidence.
@@ -147,7 +159,7 @@ The retained-memory ranking is provisional because owner bytes are unknown.
 
 | Rank | Change | Expected impact | Confidence and remaining limit |
 |---:|---|---|---|
-| 1 | Reduce guard comparison and redundant eligibility state | High CPU and allocation target; possible reduction in redundant guard nodes | Deep comparisons and 87.70% conductor suffix / 52.76% PDF allocation family; redundant retained bytes unknown |
+| 1 | Restore finite support convergence, then reduce guard cost | Stop support-only work after semantic closure; reduce redundant guard state | Production core cycle with one group/fact; major sampled support cost; project loop identities unknown |
 | 2 | Reuse canonical marks and current group-member lists | High allocation target; remove repeated normalization and whole-catalog scans | OWASP normalizer 76.36%; ThingsBoard normalizer 32.17%; families overlap |
 | 3 | Keep unchanged guarded transport temporary | Possible removal of persistent transport-only rows | Potentially large memory scope; avoidable row share unknown |
 | 4 | Check existing request membership before allocation | Fewer temporary request sets and rejected admission steps | Exact duplicate population; allocation cost per offer unknown |
@@ -155,7 +167,43 @@ The retained-memory ranking is provisional because owner bytes are unknown.
 | 6 | Reuse prescan ownership metadata | Less setup and repeated rule metadata work | Setup times measured; not a direct run-1 engine-time saving |
 | 7 | Share group calculations with full proof aliases | Fewer repeated checks and unary AP calculations | Conditional on active alias multiplicity and allocation evidence |
 
-## 1. Reduce guard comparison and redundant eligibility state
+## 1. Restore support convergence and reduce guard cost
+
+### 1.0 Correct semantic progress before comparison speed
+
+**Current behavior.** The fact store has a finite AP domain, but guard
+syntax has no such bound. A marked-copy loop can form
+`S = S OR (S AND B)` forever. The fact, group and semantic guard vocabulary
+do not change. Structural inequality keeps scheduling more work.
+This is now an executed core witness, rather than only a source hypothesis.
+
+**Required behavior.** Emit support-only work only for a real new logical
+or fixed-image alternative. Keep those two components separate.
+
+```text
+no new support iff
+  incoming.logical implies stored.logical
+  AND incoming.fixed implies stored.fixed
+```
+
+This condition preserves real certificate growth and new alternatives.
+Never suppress all support-only deltas just because the AP value is old.
+Do not weaken grounded writer checks, original ND bindings or proof identities.
+
+A general correction needs a finite semantic support representation or
+a finite keyed dependency graph with a proved solving procedure.
+It must not unfold derivation history on each CFG cycle.
+This choice needs a separate detailed design and constructive refinement
+proof. No general representation is selected or implemented here.
+Local absorption and exact ZERO folding close specific families; they
+are not a proof that every support cycle terminates.
+The executed nonzero case rules out ZERO folding as a complete correction.
+
+The technical steps below can reduce the cost of exact operations.
+They come after the semantic-progress design.
+Faster equality and hash interning alone cannot close an unbounded sequence
+of different expressions. Keep the new actor diagnostics and convert
+them to quiescence regression tests when the correction is implemented.
 
 This package has four separate steps.
 Keep their proofs and measurements separate.
@@ -398,7 +446,7 @@ For `A = plain TRUE = (TRUE,FALSE)` and
 certificate. Replacing the whole value with `A` would erase it.
 Keep this case as a negative control.
 
-First reproduce the source-derived loop in an actual finite core fixture:
+The actual core investigation now reproduces this family:
 
 ```java
 x = sourceT();
@@ -410,9 +458,10 @@ sinkT(y);
 ```
 
 Keep AP, group, original input and occurrence identities fixed.
-Test whether the current core produces the structural recurrence.
-Test the proposed bounded stabilization for that case.
-Also test the nonzero input through real FLOW and writer adapters.
+The current tests observe stable AP state and continuing syntax growth.
+The corrected implementation must instead reach bounded quiescence.
+Retain the exact nonzero/certificate case and extend it through real FLOW
+and writer adapters.
 
 Local ZERO folding and absorption do not establish general convergence.
 Hash caching, identity memoization and hash-consing do not establish it either.
@@ -435,7 +484,7 @@ No general canonical Boolean representation is selected here.
   A new eligibility alternative must still propagate without an AP delta.
 - Preserve two equal-output source actions and their exact later seeds.
   Preserve every original source/sink proof observation.
-- Reproduce the guarded loop before claiming it is fixed.
+- Convert the reproduced guarded loop into a quiescence regression.
   Do not claim it caused the sampled timeout from source reasoning alone.
 
 See `Stirling-PDF-grounding-native-review.json`,
@@ -884,13 +933,17 @@ The eligibility-key change in section 1 does not authorize that change.
 1. Use the closed CPU and expanded allocation evidence.
    Bind every result to source, capture interval and counter scope.
    Keep conductor suffix attribution separate from full-engine claims.
-2. Reproduce the guard-growth case in a finite core fixture.
-   Keep it separate from claims about any measured project's recurrence.
+2. Use the reproduced core guard-growth cases as failing-behavior witnesses.
+   Design finite semantic support progress before technical cost changes.
+   Keep them separate from claims about any named project's recurrence.
 3. Update the spec and proofs for the complete selected package.
    State the local scope and all preserved observations.
    Follow [proof-guide.md](../../spec/proof-guide.md) before runtime changes.
    Use constructive Lean models with executable finite witnesses.
    Model logical support and fixed-image certificates separately.
+   For the selected semantic-progress design, prove a finite state bound
+   and that an accepted change adds a real component alternative.
+   Prove closure across transfer, storage, rebinding and publication.
    Prove exact DAG equality, hash consistency, containment and rebind
    refinement before their implementation. Include collision controls and
    the visited-pair bound. Keep the model-to-Kotlin adapter obligations
@@ -902,9 +955,13 @@ The eligibility-key change in section 1 does not authorize that change.
    Refine the model when a counterexample breaks a proposed law.
    Run the constructive axiom audit with each model change.
    A small mirrored Boolean test is not a proof of the JVM implementation.
-4. Implement exact structural cost changes first.
+4. Implement the selected semantic-progress correction first, after its
+   design and proofs are complete. Convert the reproduced cases into
+   bounded-quiescence tests. Retain real new-alternative and certificate
+   growth controls.
+5. Implement exact structural cost changes, the scoped eligibility key
+   and targeted laws as separate work.
    Test cached hashes, collisions, identity memoization and deep graphs.
-5. Implement the scoped eligibility key and targeted laws as separate work.
    Test complete bindings, certificates and no-value-delta updates.
    Make no general convergence claim from local absorption.
 6. Select further proposals using the new evidence and proof readiness.
