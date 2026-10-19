@@ -1,7 +1,7 @@
 # Mark groups and direct statics: proof dossier
 
-Date: 19 October 2026. Revision: **2.1, source and scope clarification of the
-fixed semantic contract**. Candidate B88 passes its selected local gate;
+Date: 19 October 2026. Revision: **2.2, all-known membership and census refinement**.
+Candidate B88 implements revision 2.1 and passes its selected local gate;
 fixed-project acceptance fails. This dossier supports
 [grouped-run1-statics.md](grouped-run1-statics.md). It follows
 [proof-guide.md](proof-guide.md). It uses ASD-STE100 Simplified Technical
@@ -25,6 +25,17 @@ semantic-scope inventory required by [proof-guide.md](proof-guide.md).
 Revision 2.1 makes that inventory relative to the pre-feature a80 base and
 clarifies that source actions are reused. It does not select new source
 semantics or a new cleaner/field policy. The Lean statements are unchanged.
+
+Revision 2.2 is specified, not implemented. Its complete selected contract,
+implementation snippets and new proof map are in
+[Group primitive filtering and ownership census](run1-group-policy-and-ownership-census.md).
+All known owned full IDs now participate in groups. This is a semantic change
+from active eligibility, not an equivalence to B88. The one-bit filter and
+no-retain census are refinements of the new all-known scalar reference.
+Instantiate inherited catalog-parametric decoder/static proofs with that
+known-owned catalog. Keep original source/rule admission distinct.
+The new primitive full-witness theorem covers the type-policy seam; exact
+ordered census observation and runtime rule identity remain separate duties.
 
 The selected reference now treats `trackFactsReachAnalysisEnd` as empty in
 every run, for method, entry and exit sinks. Use the same effective rule
@@ -93,7 +104,9 @@ declarations as well as public theorems.
 | Spec requirement | Checked construction | Scope and production contract |
 | --- | --- | --- |
 | Stable owner/full identity, section 3 | `RuleGroupMarks.own_valid`, `valid_pair_eq_iff_full`, `exact_selection_covered` | Provider adapter must register outer rule ownership before flattening; one join rule stays one group |
-| Full identity after run-1 | `later_does_not_merge_full_marks`; `RuleGroupSchedule.extracted_complete` | Complete eligible catalog; no representative-only decoding |
+| Full identity after run-1 | `later_does_not_merge_full_marks`; `RuleGroupSchedule.extracted_complete` | Complete known-owned catalog; no representative-only decoding |
+| All-known primitive filtering, revision 2.2 | `GroupPrimitiveMetadata.AllKnown.one_bit_nonempty`, `owned_entry_coverage`, `all_known_conjunction` | New member domain, valid nonempty group, exact pure JVM property; original FULL/path filtering unchanged |
+| Census lifetime, revision 2.2 | `OwnershipCensus.census_equals_cached_reference`, `query_list_same_all_known`, `census_lookup_no_bound_insertion` | Same final ordered names/owners under complete stable query/provider contracts; exact-key hits, no capable miss insertion; explicit wrapper-state/error adapter duties |
 | Positive schedule | `RuleGroupSchedule.limit_positive`, `full_from_run_two`, `no_strict_growth_first_boundary` | Driver must not stop at equal run-1/run-2 limits |
 | Initial grammar, section 4 | `GroupedRun1Initials` parser; baseline `Run1InitialShapes` no-ANY/no-MUST and projection laws | Nine selected scalar families; root family removed; ordinary b excludes ZERO and cleaner temporary |
 | Selective writes/empty E | `Run1StrongPreservation.definite_kill`, `exclusion_fallback`, `preservation_no_new_E`, `strong_write_survival_coverage` | Same baseline definite/may-alias classification; no generic weak-write rule |

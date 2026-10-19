@@ -1,8 +1,9 @@
 # Mark groups and direct static handling
 
-Date: 19 October 2026. Revision: **2.1, source and semantic-scope clarification**.
-Candidate `b88c85d5b` implements this revision and passes the selected local
-gate. Fixed-project acceptance fails; see section 18. Language: ASD-STE100 Simplified Technical
+Date: 19 October 2026. Revision: **2.2, all-known marks and census lifetime**.
+Candidate `b88c85d5b` implements revision 2.1 and passes its selected local
+gate. Revision 2.2 is specified, not implemented. Fixed-project acceptance
+fails; see section 18. Language: ASD-STE100 Simplified Technical
 English. Defined technical terms, program names and mathematical notation
 keep their stated meanings.
 
@@ -18,6 +19,11 @@ maps the changed contract to code and lists the superseded parts of the
 earlier implementation proposal. The spec is authoritative if a proposal
 still describes runtime grounding state.
 
+The selected next iteration is specified in full, including code and proofs,
+in [Group primitive filtering and ownership census](run1-group-policy-and-ownership-census.md).
+That document controls known-owned membership, primitive filtering and
+census lookup/lifetime. It introduces no other field/static/source changes.
+
 ## 0. Selected semantic scope
 
 This section follows [proof-guide.md](proof-guide.md). The comparison base
@@ -25,6 +31,16 @@ is **a80d5c580**, before the previous mark/static implementation. Its runtime
 equals measured **28a123f0**. The intermediate implementation **ff2966455**
 is not that base. Revision 2.1 clarifies the selected contract; it adds no
 source-transfer, field-transfer or cleaner policy.
+
+Revision 2.2 adds one major semantic change relative to B88: all known full
+IDs participate in their registered owner groups, even without active rule
+observation. Its metadata query must equal this new all-known scalar policy.
+Ownership census must preserve the ordered discovered names/owners, while
+capable providers avoid inserting census-only bound results into runtime
+caches. Unknown providers keep their complete existing path. This does not
+enable a disabled action or change source admission, fields, requests,
+layers, static routing or later FULL matching. See the selected next-iteration
+spec for the current/new table, proofs, fallback and implementation details.
 
 ### Changes from the base
 
@@ -105,7 +121,8 @@ This task records the pin; it does not reset the current workspace.
 The delivered input to the refactoring was
 `ff2966455da2e5ffd0db655a1ff06c5954ed3c8a`. It already contains the new
 mark/static feature and the grounding state that this revision removes.
-The selected runtime is now `b88c85d5b710d28293d7672af92b085a3838fb19`:
+The measured implementation baseline for revision 2.2 is
+`b88c85d5b710d28293d7672af92b085a3838fb19`:
 `dac301f2e` removes grounding and normalizes rule views; B88 restores the
 two missing alias write descriptors. Use a80 to
 check the unchanged primitive, request, call, ZERO and record contracts.
@@ -219,8 +236,14 @@ sealed interface Selector {
 
 Group, Full, FLOW and control ZERO have distinct typed identities. Numeric
 ID equality between their namespaces is not semantic equality. Maintain
-one complete eligible full-mark catalog across prescan and all runs. A late
-provider extension must update dependent queries before a complete barrier.
+one complete known full-mark catalog across prescan and all runs. Every
+known full ID with an assigned owner participates in that group; active
+eligibility is not a second membership condition. Pending full IDs wait for
+the existing ownership-completion step. A late provider extension must update
+dependent queries before a complete barrier. Metadata changes alone do not
+replay previously dropped inputs. Preserve the existing generation/replay
+boundary. Primitive filtering and no-retain census use the complete contract
+in [the next-iteration spec](run1-group-policy-and-ownership-census.md).
 
 The new-core provider supplies two immutable selected views:
 
@@ -326,9 +349,11 @@ and form compilation. Ignore only that action list. Keep each sink's full
 condition, occurrence, finding and backward seed.
 
 Do not emit these end facts, collect their static effects or mark interests,
-or create forward GEN/reversed END_FACTS triggers from them. Marks used only
-by those disabled actions are not eligible for this iteration. A mark still
-used by a condition, source or other retained rule keeps its ordinary role.
+or create forward GEN/reversed END_FACTS triggers from them. Do not visit the
+disabled actions to discover names. An end-only name already declared or
+imported in the catalog is nevertheless a known group member under revision
+2.2. Membership does not enable its disabled action. A mark still used by a
+condition, source or other retained rule keeps its ordinary role.
 Source actions and conditional source rules remain enabled. Do not modify
 the legacy provider's shared rule objects or the IR.
 
@@ -507,7 +532,7 @@ jump to follow a reference witness.
 
 | Store | Owner and purpose |
 | --- | --- |
-| Full mark/owner catalog, original rules and selected forms | Existing provider/cache lifetime; explicit GROUP/FULL payload selection |
+| Full mark/owner catalog, original rules and selected forms | Known-owned catalog and explicit GROUP/FULL selection; no-retain capable census, existing runtime cache/form lifetime |
 | Method edges and ordinary work | Existing method actor; AP admission/deltas only; no runtime support metadata |
 | Initials and summaries | Existing method actor; ordinary computed edges and early static effects, with complete premises |
 | Ordinary input/summary/request subscriptions and ND joins | Baseline caller N2 and SummaryStorage ownership |
@@ -779,7 +804,7 @@ catalogs and ordinary retained records. Read an early static effect as a
 DEMAND publication. A forward `Z -> C.f/Group(g)` gives a backward pair with
 entry C.f/Group(g) and **explicit control-ZERO exit**, not an absent exit.
 
-Group demands select every eligible full member of the owner group, not
+Group demands select every known owned full member of the group, not
 one representative or only members observed in run-1. Keep geometry,
 context, full literal occurrence and complete ND/condition premises. Backward sink
 seeds use the original full predicates and their complete required positive
@@ -793,7 +818,7 @@ Install one shared implicit static demand for every eligible method key,
 including a later-created actor:
 
 ```text
-for every eligible group g:
+for every group g with at least one known owned full ID:
   entry pattern = S / empty path / ANY  / Group(g)
   exit pattern  = S / empty path / STAR / Group(g)
 ```
@@ -943,7 +968,7 @@ it does not require rebuilding the feature from an old checkout.
 | `FrozenStaticRequests`, static R/P rows, wide/class static request views | Remove; ordinary nonstatic Base requests retain P/R |
 | Baseline W-dependent executable S-root default | Remove from run-1 execution; install the implicit GROUP demand after run-1 |
 | Baseline inherited same-slot request suppression | Remove; selected cleaner/check interests stay active even when excluded or unchanged |
-| `trackFactsReachAnalysisEnd` lowering | Treat as empty in all runs; no sink end-fact GEN, static metadata, track-only eligible marks or reversed action triggers |
+| `trackFactsReachAnalysisEnd` lowering | Treat as empty in all runs; no sink end-fact GEN, static metadata, disabled-action discovery or reversed triggers; already known names remain members |
 | `staticRootFact`/`withoutStaticRootFact` dispatch guards based on current geometry | Remove from rule/condition handling; no synthetic root initial does not make actual broad static data control-only |
 | `Run1StaticFlow`, `Run1ConcreteStaticFlow`, `StaticIdentityEntries`, `ConcreteStaticEntries`, `ConcreteStaticSubscriptions` | Do not port packed bottom-up static lanes/codecs |
 | `StaticNeedRouter`, `PendingNeedReplay`, need waves/replay statistics | Do not port the reverse static graph or graph-change traversals |

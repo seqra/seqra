@@ -1,5 +1,10 @@
 # Run-1 normalized groups and direct statics: performance report
 
+The [root-cause follow-up](bidirectional-run1-work-amplification-root-cause-20261019.md)
+clarifies existing deduplication, necessary static joins and the distinct
+runtime type-policy path. Its fixed-fact diagnostic verifies the full-catalog
+operation multiplier. The measured project results below remain unchanged.
+
 The fresh eight-run study is complete. Exact source/input equality passed.
 Strict finding comparison, eight JFR analyses, seven available native profiles
 and the ThingsBoard heap owner/actor/provider checks are closed. Four counting

@@ -4,6 +4,11 @@
 > This file preserves earlier local proof scope and evidence. Its old runtime
 > algorithm requirements do not override the combined specification.
 
+For revision 2.2, instantiate these local catalog-parametric proofs with all
+known owned full IDs. See [the selected census/primitive spec](run1-group-policy-and-ownership-census.md)
+for its new semantic boundary, constructive metadata/census proofs and Kotlin
+adapter duties. The old eligible policy is a comparison, not the new oracle.
+
 Date: 18 October 2026. Status: **selected spec; analyzer unchanged**.
 This dossier follows [proof-guide.md](proof-guide.md) and supports
 [rule-group-marks.md](rule-group-marks.md). It uses ASD-STE100 Simplified

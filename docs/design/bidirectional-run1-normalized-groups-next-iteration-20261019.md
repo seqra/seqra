@@ -2,8 +2,31 @@
 
 Date: 2026-10-19. This proposal uses the fresh measurements for
 `b88c85d5b710d28293d7672af92b085a3838fb19` and grouped-statics revision 2.1.
-No optimization below is selected or implemented. The implementation and
+No optimization below is implemented. The previous implementation and
 2,063-test gate are closed. Project acceptance fails.
+
+The selected next iteration combines the primitive metadata fix with
+**Avoid eager bound-rule materialization during ownership census** (item 1).
+The complete code/proof contract is
+[Group primitive filtering and ownership census](../../spec/run1-group-policy-and-ownership-census.md).
+The earlier [primitive metadata proposal](bidirectional-run1-group-primitive-metadata-20261019.md)
+retains the design explanation.
+It uses the user's new decision: all known full marks participate in their
+owner groups. It removes active-eligibility tracking and replaces enumeration
+for the known JVM primitive policy with one bit per valid group. This is an
+explicit membership change from revision 2.1. Census uses exact transient
+binding without miss insertion; it does not require a template scanner.
+This selection does not include the general member-list directory in item 3
+or the other hypotheses below. Analyzer
+implementation remains unchanged.
+
+**Root-cause review:** the [follow-up analysis](../reports/bidirectional-run1-work-amplification-root-cause-20261019.md)
+supersedes this document's causal priority. MethodEdgeStore and temporary
+RequestStorage already deduplicate. Proposals 2, 5 and 6 are narrower work/
+allocation hypotheses, not established explanations for the whole slowdown.
+Defer their selection until avoided project work is measured. The runtime
+full-member scan is a separate, now count-verified cost; provider condition
+caching does not intercept it.
 
 OWASP and Conductor timed out in run-1. ThingsBoard reached the memory guard
 in run-1. None completed or accepted run-1. Stirling-PDF completed and accepted
@@ -15,7 +38,9 @@ Earlier FF/Dac proposals are historical; their measurements do not set this orde
 ## Selected semantic boundary
 
 This is a proposal to avoid work and materialization under the current
-semantics. It proposes no new approximation. Keep:
+semantics. The separate selected proposal above supersedes only the
+eligible-member domain and its group-filter implementation. The unselected
+ideas below retain their original semantic boundary. Keep:
 
 - Ordinary AP geometry, tails, field exclusions, typed mark exclusions,
   layer transfer and field limits `1, 1, 2, 3, ...`.
@@ -35,7 +60,7 @@ proofs and tests required by [the proof guide](../../spec/proof-guide.md).
 The proof obligations below are requirements, not claims that those proofs
 already exist. Use the current path for every case outside a proved scope.
 
-## Order by expected impact
+## Provisional impact estimate; selection deferred
 
 The order first addresses retained collections that block ThingsBoard, then
 measured engine work across the other projects. For a CPU-only first step,
@@ -87,6 +112,12 @@ static method-entry seeding. Static reads require a corresponding reached
 write. No example emits an ANY/MUST initial.
 
 ## 1. Avoid eager bound-rule materialization during ownership census
+
+Selected. Use the complete
+[next-iteration spec](../../spec/run1-group-policy-and-ownership-census.md)
+for exact cache families, provider capabilities, ordered neutral replay,
+generated identities and lifetime. Its all-known member domain supersedes
+the active-eligibility language in this earlier explanation.
 
 Current: census queries all eight rule roles and both relevance flags over
 graph methods and call targets. A miss resolves method-specific full rules
@@ -161,6 +192,10 @@ when a raw cache entry is absent; cache removal is not a whole-payload saving.
 The Spring wrapper stops the known-provider bidirectional factory. Restore
 that capability through the wrapper, with all its role overrides:
 
+This earlier runtime-factory suggestion is superseded by the selected spec's
+state-preserving census-only adapter. Do not add a new runtime Spring view
+boundary or reset a nested StringConcat cache. The snippet below is historical.
+
 ```kotlin
 class SpringRuleProvider(private val base: TaintRulesProvider, private val ctx: Ctx)
     : TaintRulesProvider by base, BidirectionalRulesProviderFactory {
@@ -233,6 +268,11 @@ to agree; this does not authorize merging those views in general.
 Current: one method can register many output-specific writer rows for the
 same premise. Each row selects and matches the same supplied input again.
 Its key includes output Pattern and layer.
+
+The input join itself is required to move actual groups through a conditional
+static copy such as `C.f -> D.h`. It is not static CFG fact propagation.
+The proposal factors repeated selection; it does not remove that equation
+application or establish its share of the current CPU cost.
 
 ```text
 (owner, premise P, output Y1) -> select/match P -> apply Y1
@@ -346,10 +386,22 @@ store. Keep each output's layer and current selector validation.
 
 ## 3. Keep current eligible members by group
 
+Historical alternative, not selected. The separate selected
+[all-known metadata proposal](bidirectional-run1-group-primitive-metadata-20261019.md)
+removes active eligibility and uses a property bit for the JVM policy.
+It does not add this general member-list directory.
+
 Current: each `eligibleMembers(g)` scans all eligible full marks and builds
 lists. PDF starts with 1,172 full marks in 51 groups. One visit can inspect
 1,172 owners to answer one group's policy check. Fewer propagated marks do
 not remove these internal scalar operations.
+
+This is a per-fact type/primitive policy, not a ContainsMark rule condition.
+The existing compiled form already caches its simplified GROUP condition.
+A method-cached GROUP provider view can save separate compilation work, but
+cannot remove this type-policy catalog scan. The follow-up fixed-fact test
+measures `20 * E` owner probes for 20 GROUP filter calls at unchanged group
+count, versus no such probes for FULL atoms.
 
 New: maintain the same ordered membership directory in the catalog owner.
 Publish immutable snapshots under the existing lock. Refresh on all relevant
@@ -502,6 +554,11 @@ cleaner, its requests, group repair or an unproved conversion boundary.
 
 ## 5. Deduplicate normalized static operation inputs
 
+MethodEdgeStore already prevents unchanged successor facts from propagating
+again. These addressed resumes execute before that successor gate. Their
+duplicate project frequency is unmeasured; do not treat this source witness
+as an identified dominant runtime cause.
+
 Current source traces show distinct service replies becoming equal before
 operation execution:
 
@@ -576,6 +633,10 @@ Current: requests already merge in R/P, but producers can repeatedly build
 and offer the same member. OWASP has 23,873 R duplicates, 30,573,022 P
 duplicates and 46,996 fresh P admissions. This is 99.847% duplicate membership;
 it is not a measured CPU percentage or another queued task per duplicate.
+
+Temporary P already rejects duplicates. The possible saving is intermediate
+R-subtraction/admission allocation before that rejection. It does not add
+request deduplication or prove that request admission is a major CPU cost.
 
 New: check the existing owners first, then construct a fresh delta once.
 

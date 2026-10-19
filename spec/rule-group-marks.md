@@ -4,6 +4,11 @@
 > based on pinned analyzer `a80d5c580`. This file keeps historical design and
 > local proof evidence. It does not add runtime requirements to that spec.
 
+The current member domain and census/primitive implementation are defined by
+[the selected next-iteration spec](run1-group-policy-and-ownership-census.md).
+Use all known owned full IDs, including inactive declarations. Original
+source/rule admission remains separate from catalog membership.
+
 Date: 18 October 2026. Status: **selected specification; analyzer unchanged**.
 Language: ASD-STE100 Simplified Technical English. Defined technical terms,
 code names and mathematical notation keep their stated meanings.
@@ -108,8 +113,9 @@ remove-all actions do not create groups. Method or argument specialization,
 context changes and cache rebuilds do not create groups.
 
 The same owner registry serves prescan and every numbered run. The closed
-full-mark catalog must cover every full mark that a rule/model can produce,
-test or remove. A late provider extension must update matching group-demand
+known-owned full-mark catalog must cover every full mark that a rule/model
+can produce, test or remove. Active observation is not a membership gate.
+A late provider extension must update matching group-demand
 queries before a complete barrier; it cannot silently add an unseen member.
 The finite Lean decoder uses an explicit closed catalog.
 
@@ -151,7 +157,7 @@ record exclusions. They are not propagated group-taint values after run-1.
 | New selected-mark FLOW exclusion | Whole group `(g, *)` | Exact `(g, T)` as in the current full-mark rules |
 | Persisted run-1 FLOW exclusion | Keep the whole-group meaning | Match by the full mark's owner group |
 | Mark request | Group request, run-1 only | No run-1 request protocol |
-| Forward demand consumed by run-2 | Group selector | Concrete query for every eligible full member |
+| Forward demand consumed by run-2 | Group selector | Selection covers every known owned full member |
 
 No producer may put an exact full taint value into run-1 state. Sources,
 initial emission, calls, rule outputs, ND and replay all use the group
@@ -422,7 +428,7 @@ cancellation guards.
 
 Run-2 has field limit 1 and full concrete marks. It follows the forward
 demand under the existing AP handoff rules. A demand for group G permits
-any eligible actual full mark owned by G; FLOW alone is insufficient to
+any actual full mark owned by G; FLOW alone is insufficient to
 emit a full-mark initial. The proposed static adapter must generate those
 group demands at the matching method/port, not only at the final sink.
 See [static demand coverage](run1-static-demand-coverage.md). A group demand is a predicate
@@ -438,10 +444,10 @@ fun expand(d: GroupDemand, catalog: FullMarkCatalog): List<FullQuery> =
     }
 ```
 
-Expand against the complete eligible catalog, not only full marks observed
+Expand against the complete known-owned catalog, not only full marks observed
 in run-1. The mathematical decoder enumerates all members. An implementation
 can match the group predicate lazily while visiting full rule/operator marks,
-if it produces the same eligible concrete queries. Never choose one arbitrary
+if it produces the same actual concrete queries. Never choose one arbitrary
 member or propagate `(g, *)` as a concrete run-2 taint value.
 
 Preserve demand geometry, owner/context, endpoint, condition and support
@@ -521,6 +527,11 @@ The [proof dossier](rule-group-mark-proofs.md) separates:
 8. Representation equivalence and finite cost laws.
 9. AP, provider, NNF/ND, record-reader, request and driver adapter obligations.
 
+The selected next iteration also proves all-known scalar/metadata equivalence
+and census observation/cache refinement. The old eligible and new all-known
+domains are not equivalent. Existing finite decoders are catalog-parametric;
+instantiate them with the new member domain and retain actual full witnesses.
+
 ## 14. Required controls
 
 ```text
@@ -537,6 +548,8 @@ Also check source and sink signed NNF, same-group distinct literals,
 conditional source generation, ND obligations, cross-join mark references,
 old group exclusions in both record directions, late supply/request order,
 unknown-group bootstrap, and all legal initial/AP-tail shapes.
+Use the new spec's inactive-name, primitive-filter, late-owner and no-retain
+census controls. A known declaration alone must not create a source or fact.
 Check exactly `F1/GROUP/1`, `B2/FULL/1`, `F3/FULL/2`, `B4/FULL/3`, and reject
 run/limit zero. Current analyzer tests do not validate an unimplemented
 domain. Use the constructive model as the oracle before runtime changes.

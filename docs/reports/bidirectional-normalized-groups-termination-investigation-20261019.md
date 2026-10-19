@@ -1,5 +1,10 @@
 # Normalized mark groups: finite work or a new loop
 
+The [root-cause follow-up](bidirectional-run1-work-amplification-root-cause-20261019.md)
+clarifies existing deduplication, necessary static joins and the distinct
+runtime type-policy path. Its fixed-fact diagnostic verifies the full-catalog
+operation multiplier. The measured project results below remain unchanged.
+
 Date: 2026-10-19. Runtime:
 `b88c85d5b710d28293d7672af92b085a3838fb19`.
 Language: ASD-STE100 Simplified Technical English. Program names and defined

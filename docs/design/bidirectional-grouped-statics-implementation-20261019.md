@@ -1,5 +1,11 @@
 # Mark groups and direct statics: implementation proposal
 
+The selected next iteration is now
+[Group primitive filtering and ownership census](../../spec/run1-group-policy-and-ownership-census.md).
+Its code/proof contract supersedes eligible-member APIs, census retention,
+primitive filtering and member-domain handoff snippets here. B88 implements
+revision 2.1; the all-known/census revision is not implemented.
+
 The fixed [specification, revision 2.1](../../spec/grouped-run1-statics.md)
 supersedes the grounding/support and full-alias execution design in this
 document. Use the [refactoring proposal and section map](bidirectional-run1-rule-provider-and-grounding-removal-20261019.md)
