@@ -30,8 +30,12 @@ Revision 2.3 is specified, not implemented. Its selected contract, code and
 new proof map are in
 [Immutable mark groups and static demand guidance](run1-group-policy-and-ownership-census.md).
 All full names come from serialized declarations and original owner sidecars.
-Uniform primitive tracking is an asserted input contract. Mixed groups,
-undeclared executable marks and FULL-only policies on GROUP are rejected.
+Uniform primitive tracking is an asserted input contract. Mixed groups and
+undeclared executable marks are rejected. Reuse the existing MarkPolicy and
+TypeFilter.and for primitive filtering; no GROUP-policy tag or rejection
+check is required. The existing full_group_policy, primitive_policy_and,
+group_policy_and and same_witness_and_scalar results cover this path without
+a new formal model. Arbitrary FULL predicates retain their FULL behavior.
 Immutable-key interning and direct group-name filtering replace member/OR
 metadata. Query-specific static permissions replace global enumeration.
 No ownership-binding census or census-lookup adapter remains. The old

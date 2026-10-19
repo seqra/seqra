@@ -1,6 +1,6 @@
 # Immutable mark groups and static demand guidance
 
-Date: 19 October 2026. Revision: **2, serialized declarations; no binding census**.
+Date: 19 October 2026. Revision: **2.1, direct primitive policy; no binding census**.
 Status: selected specification, not implemented. Runtime remains
 `b88c85d5b710d28293d7672af92b085a3838fb19` (B88).
 Use ASD-STE100 Simplified Technical English. Defined code names keep their
@@ -54,17 +54,22 @@ admission/publication rules remain unchanged.
 | Group primitive representation | Generic descriptor, per-full bits and group aggregation | Encode the flag once in the group name |
 | MarkTable | Mutable ownership, eligibility, pending names and census seal | Interner of immutable keys and stable opaque IDs |
 | Primitive filtering | Enumerate members or read aggregated metadata | Apply the same suffix policy directly to FULL/GROUP names |
-| GROUP custom policies | Implicit existential lift over full members | Explicit native GROUP policy; no hidden full-member fallback |
+| Policy plumbing | Proposed GROUP-specific policy tag, checks and conjunction | Reuse existing MarkPolicy and TypeFilter.and; no new policy type |
 | Shared static guidance | Enumerate all groups and retain patterns | Construct one query-dependent paired demand |
 | Mark discovery | Bind all methods/roles/relevance views | Visit serialized declarations at load time |
 | Rule caches | Census populates them, or proposed CENSUS mode avoids insertion | No ownership-census lookup at all; ordinary runtime caches remain |
 
-**Explicit input-contract changes:** reject a group with mixed primitive flags;
-reject an executable undeclared full name; and reject a FULL-only policy used
-on a GROUP atom without native GROUP semantics. A custom provider must supply
+**Explicit input-contract changes:** reject a group with mixed primitive flags
+and reject an executable undeclared full name. A custom provider must supply
 complete declarations. Do not silently fall back to method-binding census.
 
-This includes plain/model groups. An existing SharedModel containing both
+This revision removes the proposed GROUP-policy tag, rejection check and
+special conjunction. Reuse the existing primitive MarkPolicy on FULL/GROUP
+names and the existing TypeFilter.and. The selected policy scope is primitive
+tracking and its conjunctions. No new custom-policy framework or automatic
+member-based lift is selected. Static demand matching is unchanged.
+
+The uniformity assertion includes plain/model groups. A SharedModel with both
 `T` and `U%%primitive%%` is invalid. Do not split it into new groups, OR its
 flags, change an existing group name or retain a dynamic compatibility lane.
 One complete join rule still has one owner/group.
@@ -373,57 +378,61 @@ No runtime algorithm uses those counts as completeness or admission gates.
 ## 6. Direct primitive filtering
 
 A FULL atom's name remains its existing full string. A GROUP atom's name is
-the canonical encoded group name. Both use the existing suffix test.
+the canonical encoded group name. Both use the existing suffix test. Reuse
+the existing MarkPolicy interface and TypeFilter.and without changes.
 
 ```kotlin
 fun isPrimitiveTracking(mark: TaintMark): Boolean =
     manager.marks.name(mark)
         .endsWith(PrimitiveTaintExt.PRIMITIVE_TRACKING_ENABLED_MODE)
+
+// Existing JIRTypeFilters.make: keep this construction unchanged.
+private fun make(t: JIRType): TypeFilter {
+    val primitive = generateSequence(t) { it.ifArrayGetElementType }
+        .map { it.typeName == "java.lang.Character" || it.unboxIfNeeded() is JIRPrimitiveType }
+        .toList()
+    return TypeFilter(checker.localFilter(t),
+        markPolicy = if (true !in primitive) null else MarkPolicy { mark, level ->
+            !primitive.getOrElse(level) { false } || isPrimitiveTracking(mark)
+        })
+}
 ```
 
-Keep Character, unboxing, primitive types, arrays, out-of-range levels, path
-filters, root/element traversal, filter order and cancellation unchanged.
-No generic FullMarkProperty or PropertyMarkPolicy is needed.
+The existing `primitive` list records the Java type at each consecutive
+array-element depth. It is cached with the type filter, not computed per mark.
+For `int[][] a`:
 
-Make GROUP policy support explicit, instead of silently lifting an arbitrary
-FULL predicate through a member scan:
+| Depth | Value | Type | Primitive flag |
+| --- | --- | --- | --- |
+| 0 | a | int[][] | false |
+| 1 | a[i] | int[] | false |
+| 2 | a[i][j] | int | true |
+
+A primitive or boxed value keeps the mark only when its name has the primitive
+suffix. Unknown depths retain the existing false default. Path validity is
+still checked by the existing path filter. A field accessor stops this
+element-depth policy; field transfers use their existing value-type filters.
+
+In Filter.keepPolicyMarks, replace the FULL/GROUP branch and member scan with
+one existing policy call:
 
 ```kotlin
-fun interface MarkPolicy { fun keeps(mark: TaintMark, elements: Int): Boolean }
-fun interface GroupMarkPolicy : MarkPolicy
-
-// JIRTypeFilters.make: same existing primitive-level computation.
-val policy = if (true !in primitiveLevels) null else GroupMarkPolicy { mark, k ->
-    !primitiveLevels.getOrElse(k) { false } || isPrimitiveTracking(mark)
-}
-
-fun keepMark(atom: TaintMark, policy: MarkPolicy, level: Int): Boolean {
-    check(!marks.isGroup(atom) || policy is GroupMarkPolicy) {
-        "GROUP filtering requires a native group policy"
-    }
-    return policy.keeps(atom, level)
-}
+val atom = TaintMark(id)
+val keep = policy.keeps(atom, level)
 ```
 
-The tag is a policy contract, not a general property framework. In this
-iteration the JVM installs only the primitive policy and its conjunctions.
-A full-only arbitrary policy remains usable for FULL values. Do not silently
-keep/drop GROUP facts when such a policy has no native GROUP meaning.
+Keep the surrounding mark loop, cancellation checks, result interning,
+Character/unboxing handling, path filters, root/element traversal and filter
+order unchanged. Keep TypeFilter.and's existing conjunction of policy calls.
+Do not add GroupMarkPolicy, policy-kind checks, a separate keepMark helper,
+special conjunction code, FullMarkProperty or PropertyMarkPolicy.
 
-```kotlin
-fun andPolicies(a: MarkPolicy?, b: MarkPolicy?): MarkPolicy? = when {
-    a == null -> b
-    b == null -> a
-    a is GroupMarkPolicy && b is GroupMarkPolicy ->
-        GroupMarkPolicy { mark, k -> a.keeps(mark, k) && b.keeps(mark, k) }
-    else -> MarkPolicy { mark, k -> a.keeps(mark, k) && b.keeps(mark, k) }
-}
-```
-
-A native policy must satisfy, for every declared full m in g:
-`keepsFull(m,k) = keepsGroup(g,k)`. Uniform primitive groups satisfy this.
-Conjunction preserves it pointwise. No independent member witnesses, property
-masks, metadata invalidation or generic scalar fallback are involved.
+Uniformity gives `keepsFull(m,k) = keepsGroup(owner(m),k)` for each declared
+full m. The same equality holds after the existing pointwise conjunction.
+These facts prove primitive behavior unchanged on valid groups. Arbitrary
+FULL predicates retain their current FULL behavior; no claim of automatic
+GROUP equivalence for another predicate is made. This change adds no member
+scan or custom-policy registration/rejection path.
 
 ## 7. Static demand matching without group enumeration
 
@@ -583,12 +592,15 @@ Required constructive results:
 
 The additive model is [UniformMarkGroups.lean](lean/ApSpec/UniformMarkGroups.lean),
 with its [focused audit](lean/uniform-mark-groups-audit.lean).
+Removing the policy tag changes no model definition or theorem. The existing
+primitive/conjunction results cover the direct MarkPolicy path; no new Lean
+execution is required for this specification-only simplification.
 
 | Obligation | Checked constructive result |
 | --- | --- |
 | Uniform declared property and stable owner | `validated_property`, `validated_owners`, `uniform_group` |
 | Canonical typed owner/flag encoding | `decode_encode`, `encode_injective` |
-| Direct primitive decision and conjunction | `full_group_policy`, `nonempty_scalar_eq_group`, `same_witness_and_scalar`, `native_policy_and` |
+| Direct primitive decision and existing conjunction | `full_group_policy`, `nonempty_scalar_eq_group`, `primitive_policy_and`, `group_policy_and`, `same_witness_and_scalar` |
 | Binding cannot invent a name from position specialization | `Serialized.binding_names_scanned`, `bound_property_from_validated_declarations` |
 | Serialized setup makes no binding query | `Serialized.setup_scan_and_no_binding_queries` |
 | Immutable canonical key slots and projection | `Interner.existing_slot_stable`, `intern_lookup`, `intern_idempotent`, `projected_key_exact` |
@@ -632,7 +644,8 @@ wall-time or universal 60-second theorem is claimed.
    group/full projection, typed exclusions and fixtures; keep original FULL
    names, opaque-ID stability within the interner and public rule identities.
 3. Encode the group flag and use the current primitive policy directly.
-   Mark native GROUP policies explicitly; preserve that contract through AND.
+   Remove the member branch in Filter.keepPolicyMarks. Reuse MarkPolicy,
+   JIRTypeFilters.make and TypeFilter.and; add no policy types or checks.
 4. Replace global static pattern enumeration with entry-dependent matching.
    Compare successful complete emitted initials/restricted results, including
    cross-group, FLOW/ZERO, tails/E/mx and both layers.
@@ -648,7 +661,8 @@ wall-time or universal 60-second theorem is claimed.
 | Serialized TaintConfiguration.loadConfig | Pure complete mark-name collector; no bound-rule query |
 | Provider declaration capability | Merge all loaded branches; preserve runtime wrappers/roles and original ownership |
 | ap/RuleMarkCatalog.kt | Immutable-key interners; remove owners/eligibility/census/member/global-group APIs |
-| ap/Filter.kt, Primitives.kt, JVM JIRTypeFilters | Direct scalar policy on runtime atom; native GROUP tag and AND |
+| ap/Filter.kt | Call the existing policy on the runtime atom; remove FULL/GROUP branching and member scans |
+| ap/Primitives.kt, JVM JIRTypeFilters | Reuse MarkPolicy, TypeFilter.and, cached type/depth flags and existing suffix test unchanged |
 | DemandStore and two query call sites | Actual-input/premise-specific implicit static pair |
 | Run1StaticService / Run1PointResume | Rename explicit GroupSet conversion to atomsFor; no universe lookup |
 | JIRBidiAnalysis / OwnedRulesProvider | Remove bound census, scratch/full-name handoff and observation side effects; retain effective rules |
@@ -663,8 +677,8 @@ Required controls:
   static fields. Unknown/custom providers require declarations, not fallback.
 - Equal immutable keys/handles, owner projection, typed Group/Full exclusions,
   no pending ownership, no unknown-name registration and no ZERO group.
-- Primitive/boxed/Character/reference/array levels, FULL unchanged, native
-  GROUP AND, and explicit failure for a full-only policy on a GROUP atom.
+- Primitive/boxed/Character/reference/array levels, FULL unchanged, direct
+  GROUP suffix filtering and the existing TypeFilter.and on the same input.
 - Enumerated-reference versus query-specific permission results for static
   actual inputs/premises, cross-group output, packed groups, late declared
   marks, FLOW/ZERO, nonstatic input and all ordinary AP/paired-exit checks.
@@ -676,8 +690,9 @@ Required controls:
 For 20 fixed primitive GROUP filter calls at declared name populations 51 and
 1,172, require zero full-member scans, zero owner/member probes and zero group
 inventory scans. Count direct name accesses/suffix tests normally. Remove the
-old opaque GROUP fallback diagnostic; retain arbitrary-policy FULL controls
-and a negative GROUP-contract control. Compare complete Facts, not booleans.
+old opaque GROUP fallback diagnostic; retain arbitrary-policy FULL controls.
+No new GROUP-policy type or rejection control is required. Compare complete
+Facts, not booleans.
 
 For setup, require zero bound-rule lookups caused by mark declaration work
 and zero census-caused runtime cache insertions. Measure ordinary prescan

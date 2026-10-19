@@ -38,9 +38,12 @@ Revision 2.3 replaces the unimplemented revision 2.2 census/metadata proposal.
 All serialized mark declarations participate, including inactive/end-only
 names as metadata. Assert uniform primitive tracking per owner group and
 encode it in the group name. Mixed groups and undeclared executable marks
-are input-contract errors. Require native GROUP policy support; FULL-only
-opaque predicates are not lifted by member enumeration. These restrictions
-are explicit selected changes, not claims of compatibility with mixed models.
+are input-contract errors. Primitive filtering uses the existing MarkPolicy
+and TypeFilter.and directly on FULL/GROUP names. No new policy tag, runtime
+policy-kind rejection or special conjunction is required. Arbitrary FULL
+predicates keep their current FULL behavior; member-based lifting is removed.
+The uniformity and declaration restrictions are explicit selected changes,
+not claims of compatibility with mixed models.
 MarkTable interns immutable owned keys. Serialized loading resolves owners
 before execution; no method-binding census or pending ownership remains.
 The implicit static permission family is matched from actual inputs/premises
