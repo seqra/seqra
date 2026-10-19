@@ -1464,20 +1464,18 @@ tests, 416 JVM dataflow tests, 15 selected JVM acceptance/resolver tests and
 31 rule tests. The JVM acceptance controls reach run-3 with limits
 `1, 1, 2`. They retain exact full-mark findings, source action identities
 and negative controls. The Lean build and constructive audit also pass.
-These checks do not establish project performance. No project run, profile
-or memory snapshot has measured this implementation yet. Project acceptance
-remains open until the fresh, committed-source measurements are complete.
-The selected base's reached/completed/accepted runs remain:
+These checks do not establish project performance.
+Fresh measurement of runtime `ff2966455da2e5ffd0db655a1ff06c5954ed3c8a`
+is complete. All four projects reached **run-1 / no completed engine /
+no accepted forward report**. Each stopped with TIMEOUT, without an OOM.
+Run-1 engine times are 908.767 seconds for OWASP, 986.838 for conductor,
+700.235 for ThingsBoard and 1,026.865 for Stirling-PDF.
+All four fail the 60-second run-1 engine target. The strict finding gate
+also fails because no forward result was accepted.
 
-```text
-OWASP:        run-7 / run-6 / run-5
-Conductor:    run-2 / run-1 / run-1   (run-1 engine 49.567 s)
-ThingsBoard:  run-1 / none  / none
-Stirling-PDF: run-2 / run-1 / run-1
-```
-
-The latest measured post-refactoring runtime remains `63d5481e4e4b69ec`:
-OWASP **run-7/run-6/run-5**, conductor **run-1/none/none**, ThingsBoard
-**run-1/none/none**, Stirling-PDF **run-2/run-1/run-1**. These values do not
-measure the new design. See the spec's measurement checkpoint and linked
-reports. No time or memory saving is claimed before implementation testing.
+See the [current performance report](../reports/bidirectional-grouped-statics-performance-20261019.md)
+for the fresh main comparison, source guard, profiles and measurement limits.
+The [next proposal](bidirectional-grouped-statics-next-iteration-20261019.md)
+addresses the measured guard and mark work. No next-iteration runtime
+change is included in this revision. Older runtime reports remain
+historical evidence; they do not establish current acceptance.

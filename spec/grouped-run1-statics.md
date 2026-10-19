@@ -715,22 +715,26 @@ and local proof evidence. They do not add hidden runtime phases or storage.
 
 ## 18. Measurement checkpoint
 
-No new project runs are part of this specification. The selected baseline
-has the following reached / completed engine / accepted forward runs, from
-the [selective-preservation report](../docs/reports/bidirectional-run1-selective-preservation-20261016.md):
+The latest measured implementation is
+`ff2966455da2e5ffd0db655a1ff06c5954ed3c8a`.
+The selected implementation base in section 1 remains unchanged.
+The [fresh report](../docs/reports/bidirectional-grouped-statics-performance-20261019.md)
+contains these reached / completed engine / accepted forward runs:
 
-| Project | Selected baseline | Baseline run-1 engine |
+| Project | Latest runs | Run-1 engine |
 | --- | --- | --- |
-| OWASP | run-7 / run-6 / run-5 | 263.421 s, COMPLETE |
-| Conductor | run-2 / run-1 / run-1 | 49.567 s, COMPLETE |
-| ThingsBoard | run-1 / none / none | 176.913 s, OOM |
-| Stirling-PDF | run-2 / run-1 / run-1 | 36.586 s, COMPLETE |
+| OWASP | run-1 / none / none | 908.767 s, TIMEOUT |
+| conductor | run-1 / none / none | 986.838 s, TIMEOUT |
+| ThingsBoard | run-1 / none / none | 700.235 s, TIMEOUT |
+| Stirling-PDF | run-1 / none / none | 1,026.865 s, TIMEOUT |
 
-The latest measured post-refactoring runtime remains
-`63d5481e4e4b69ecf042c1149bb574ad40fd1624`: OWASP **run-7 / run-6 /
-run-5**; conductor **run-1 / none / none**; ThingsBoard **run-1 / none /
-none**; Stirling-PDF **run-2 / run-1 / run-1**. These later measurements
-come from the [latest measured report](../docs/reports/bidirectional-caller-owned-subscriptions-performance-20261018.md).
-They do not measure the selected new specification. Baseline strict project
-comparison had 16 missing and 342 additional identities; implementation
-acceptance must report these differences rather than assume a green base.
+All four fail the 60-second run-1 engine target.
+No OOM occurred and no forward report was accepted.
+The strict comparison has 4,149 missing project-qualified reference sink
+identities and no additions. The report explains timeout-censored export;
+these differences do not prove 4,149 semantic false negatives.
+Project completion and finding parity fail acceptance.
+The selected 2,039-test pass and formal checks do not override that result.
+Older runtime measurements are historical and do not measure this revision.
+The [next proposal](../docs/design/bidirectional-grouped-statics-next-iteration-20261019.md)
+is based on the fresh profiles. It has not been implemented.
