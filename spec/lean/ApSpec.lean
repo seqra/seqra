@@ -156,3 +156,8 @@ import ApSpec.Run1StaticEarlySummaryGap
 import ApSpec.Run1UniversalStaticCarry
 import ApSpec.GroupedRun1Initials
 import ApSpec.GroupedRun1StaticComposition
+import ApSpec.Run1GroupRuleViews
+import ApSpec.Run1GroupSourceCases
+import ApSpec.Run1OrdinaryStaticSupply
+import ApSpec.Run1OrdinaryStaticSupplyPipeline
+import ApSpec.Run1SemanticProgress

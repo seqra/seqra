@@ -1,5 +1,12 @@
 # Mark groups and direct statics: implementation proposal
 
+The fixed [specification, revision 2](../../spec/grouped-run1-statics.md)
+supersedes the grounding/support and full-alias execution design in this
+document. Use the [refactoring proposal and section map](bidirectional-run1-rule-provider-and-grounding-removal-20261019.md)
+for those changes. Preserve the original source transfer families/anchors;
+do not infer them from normalized GROUP arity. This document retains the
+earlier implementation/evidence history and is not an extra requirement.
+
 Date: 19 October 2026. Status: **implementation in progress; acceptance pending**.
 Use ASD-STE100 Simplified Technical English. Code names and defined technical
 terms keep their meanings. This proposal implements

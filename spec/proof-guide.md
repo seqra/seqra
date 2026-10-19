@@ -12,3 +12,20 @@ optimization has a different complexity, or a different complexity over some pra
 scope. The core idea is for the implementation to be sound and complete      
 within some scope. The wider the scope the better, but stay practical: working in      
 real-world scenarios is crucial and is the guideline-quality gate.
+
+## Semantic scope
+
+Every new or revised spec must state the selected major semantic changes
+and the behavior that must remain unchanged. For each major change, show
+current versus new behavior and identify the affected invariants and proofs.
+Check the spec and its formal model for hidden changes outside that scope.
+In particular, a representation, condition rewrite or correctness helper
+can change field transfer, premise matching, layers or source/sink behavior.
+Do not treat such a change as an implementation detail.
+
+The previous mark-group/static iteration introduced unselected grounding
+support and field-sensitive writer validation. Use this case as a regression
+check for spec creation. Proofs of a changed model do not authorize a new
+semantic contract. If implementation requires an unselected major change,
+highlight it and obtain the intended behavior before implementing it, or
+redesign within the selected scope. Do not add it silently to close a gap.

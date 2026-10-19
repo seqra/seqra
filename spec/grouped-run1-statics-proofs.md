@@ -1,19 +1,24 @@
 # Mark groups and direct statics: proof dossier
 
-Date: 19 October 2026. Status: **specification and finite constructive
-proofs; runtime implementation has not started**. This dossier supports
+Date: 19 October 2026. Revision: **2, fixed semantic contract and finite
+constructive proofs**. Runtime conformance is pending. This dossier supports
 [grouped-run1-statics.md](grouped-run1-statics.md). It follows
 [proof-guide.md](proof-guide.md). It uses ASD-STE100 Simplified Technical
 English. Defined technical terms and program names keep their meanings.
 
 ## 1. Baseline and claim
 
-The implementation base is `a80d5c580b3b4715ab39679fbf66f0f190125fa0`.
+The inherited primitive baseline is `a80d5c580b3b4715ab39679fbf66f0f190125fa0`.
 Its core and rules equal the measured `28a123f0eac937e8f2feca9ee5dd84e38fa8f979`
 version. The [manifest](baselines/pre-bottom-up-a80d5c580.json) pins both
 runtime trees, document blobs and document SHA-256 values. The spec's section
 17 states every selected behavior change. Ordinary actual-query, ZERO,
 full-mark primitive, ND and record-reader contracts remain in force.
+The delivered implementation being refactored is `ff2966455`.
+Revision 2 removes its extra exact-field writer validator and runtime
+grounding state. It restores bounded ordinary DEMAND writer eligibility;
+it does not change field transfer. The spec's section 0 is the explicit
+semantic-scope inventory required by [proof-guide.md](proof-guide.md).
 
 The selected reference now treats `trackFactsReachAnalysisEnd` as empty in
 every run, for method, entry and exit sinks. Use the same effective rule
@@ -30,12 +35,15 @@ assuming that all necessary helper guides already exist. It does not prove
 that a real JVM compiler emits the complete reference program.
 
 The checked scope is a finite positive semantic program plus local signed
-NNF, AP, call-port, cleaner and queue models. A reference witness contains
+NNF, AP, call-port, cleaner and owner-work models. A reference witness contains
 the successful operation and all its positive children. Negative residuals
 use the separate possible-condition lemma; they are not positive source
 roots. The compiler must retain their original full predicates for later
-confirmation. The local NNF proof has one fixed observation position.
-Multi-position binding is an explicit adapter contract.
+confirmation. The earlier `RuleGroupConditions` result has one fixed
+observation position. The new `Run1GroupRuleViews` model distinguishes bound
+positions/check kinds. The real JVM metadata/position binding and AP-to-cell
+compiler remain explicit production adapters. No proof silently adds a
+runtime validator.
 
 No theorem below proves all JVM front ends, arbitrary exceptional flow,
 unbounded execution, wall-clock time or a whole project finding set. The
@@ -49,12 +57,20 @@ static order/context becomes conservative; early static effects are DEMAND.
 The NORMAL part excludes those speculative effects. Run-2 uses exact full
 marks, real CFG/call transfer and strong writes. Equality of the old and new
 run-1 NORMAL/DEMAND sets is not a requirement.
+The previous runtime's extra field-sensitive writer rejection is also not
+retained. Source-backed abstract derivation is required; exact historical
+guard revalidation is not. A widened p.left/g can enable a p.right/g DEMAND
+candidate, as specified in section 2 of the normative spec.
 
 Within the selected concept, compare a scalar implementation with a merged
 implementation. Both have the same rooted supply, conditional read edge,
 current-point refinement, source identity and full backward semantics.
 Merging requests/groups and contracting identity relays must preserve the
 decoded semantic answer relation. Diagnostic callback counts can differ.
+For provider normalization, compare old alias evaluation with normalized
+GROUP cases under the same GROUP valuation. Preserve source transfer kind,
+unary anchor, complete premises and action identities. Boolean equivalence
+alone does not prove output-tail equivalence.
 
 The pool can derive a conservative group combination absent from one exact
 context. That is an admitted DEMAND candidate. It cannot invent a group
@@ -77,11 +93,15 @@ declarations as well as public theorems.
 | Selective writes/empty E | `Run1StrongPreservation.definite_kill`, `exclusion_fallback`, `preservation_no_new_E`, `strong_write_survival_coverage` | Same baseline definite/may-alias classification; no generic weak-write rule |
 | Tail-preserving layer demotion | `preservation_full_payload`; `Run1DefaultSummaryApplication.ordinary_root_STAR_layer_only` | Use the layer law only; do not restore the removed executable root default |
 | Signed full literals/NNF | `RuleGroupConditions.exact_truth_implies_possible_truth`, `exact_full_literal_contradiction`, `same_group_distinct_pair_not_false` | Fixed-position NNF model; compiler keeps all actual positions and occurrence IDs |
+| Bound GROUP normalization, revision 2 | `Run1GroupRuleViews` signed fold, positive normalizer and full-witness construction | Position/check-kind/registered-owner literals; original role policy precedes projection; no signed GROUP tautology fold |
+| Source transfer preservation, revision 2 | `Run1GroupSourceCases` original-family extraction and generic transfer dispatch | Preserve original UNCONDITIONAL/UNARY/MULTI meaning and unary Pattern; a collapsed MULTI case still uses its declared target construction |
+| FULL lookup and stable IDs, revision 2 | `Run1GroupRuleViews` selected-view and occurrence-resolution laws | Original candidate/action order; GROUP and FULL cache keys distinct; no GROUP-ordinal FULL decoding |
 | Selected cleaner repair | `RuleGroupMarks.exact_clean_partition`, `normal_complement_sound`; `RuleGroupRequestRepair.concrete_survivor_covered` | NORMAL complement plus DEMAND repair; later exact cleaning distinguishes T from U |
 | RemoveAllMarks and real kills | `requested_input_reexecuted_through_remove_all_is_empty`; universal-carry `kill_still_kills` | Point reply reruns the operation; it cannot resume after a kill |
 | Mixed old/new exclusions | `selector_inter_denotation`, `selector_union_denotation`, `inherited_group_is_not_a_single_full_exclusion` | Typed denotation, including native/reverse record readers |
 | Merged ordinary requests | `RuleGroupRequestRepair.routeWitness`, `Handoff.survivorWitness`; initial-refinement merged join lemmas | Preserve baseline N2 actual inputs and complete ND original; no second input-history store |
-| Rooted static group supply | `Run1StaticGroupDerivation.solution_exact`, `solutionRoot`, `solution_empty_without_seed` | Complete positive forward rule/support compiler; requests are not seeds |
+| Rooted static group supply | `Run1StaticGroupDerivation.solution_exact`, `solutionRoot`, `solution_empty_without_seed`; `Run1OrdinaryStaticSupply` | Source-backed bounded AP rules and complete ordinary bindings; requests/initials are not seeds; no runtime support syntax |
+| Connected ordinary publication and supply | `Run1OrdinaryStaticSupplyPipeline.compileConnected`, `compileNdConnected`, `compileMarkedConnected`, `compileRequestedConnected` | Computed wrapper/call/copy/group effects and scalar getter; independent finite full witness; separate reached-write admission and primitive adapters |
 | No static relay requirement | `compact_expanded_exact`, `strict_chain_saving` | Equality for the accepted identity-relay contraction scope, not old flow-sensitive context equality |
 | Write-gated reads, section 8 | `Run1StaticReadAdmission` reached-read/write join and arrival controls; composition `rooted_write_admits_read` | Actual reached FLOW/group write; certified AP overlap/image; no prescan candidate admission |
 | Original-slot/current-point refinement | `Run1StaticInitialRefinement.zero_keeps_static_premise`, `identity_refinement_commutes`, `materializationCertificate`, `materializationRoot` | Same operation input, group-refined premise, ordinary full guard/AP adapter |
@@ -93,7 +113,7 @@ declarations as well as public theorems.
 | Finite candidate and full replay | composition `compileCoverage`, `completeFiniteWitness`, `target_tree_is_admitted` | Constructed from one full positive tree; no premise that every helper guide exists |
 | Exact source identity | composition `selected_source_confirms`, `collectAllSources`, `collect_visits_each_branch`, `matching_source_is_enumerated`, `source_leaf_keeps_every_occurrence` | Traverse all positive children and all matching source/action identities; retain exact full marks |
 | NORMAL record export | cleaner NORMAL-complement law plus inherited pinned ordinary record contract | Export only complete independently valid NORMAL; new typed exclusion reader/repair checks required |
-| Owner queues/completion | Existing request/register-before-snapshot contracts and finite join models | Atomic commit-before-send, counted work and cancellation remain implementation checks |
+| Owner queues/completion | `Run1SemanticProgress.any_initial_trace_bound`, `no_infinite_productive_schedule`, `any_maximal_trace_quiescent` | Any represented owner/work selection; complete finite key universe and finite unchanged bursts; count children before parent release; real JVM queues/IO remain adapter checks |
 
 The composition module is
 [GroupedRun1StaticComposition.lean](lean/ApSpec/GroupedRun1StaticComposition.lean).
@@ -125,6 +145,12 @@ write/read orders and duplicate batches. A read cannot disappear because its
 writer arrives late. For symbolic APs, the adapter must certify the actual
 intersection and current image. It cannot use class-point equality as a
 proof of field coverage.
+The revision-2 ordinary supply model retains every unresolved caller
+original, checks complete tuple arity and all call-port components, and
+applies all-static FLOW/GEN effects to actual supplied cells. No method-wide
+input mask can replace this binding. Writer-output interests route to known
+ordinary FLOW originals through Base P/R. Requests themselves cannot seed
+the positive closure. No extra exact-field guard is inferred.
 
 Fourth, a surviving conditional FLOW edge keeps its original static slot.
 Local copies and call/return bindings change its current image, not that
@@ -132,6 +158,10 @@ original. `identity_refinement_commutes` proves that a direct original-slot
 answer has the same group/AP image as identity-path refinement. The joined
 reply is enqueued at the operation input and executes that operation again.
 The reply does not create a method-entry analysis or bypass a cleaner.
+GROUP condition normalization keeps the declared action transfer family.
+Its constructive proof accounts for original unary anchors and MULTI
+target construction, including ANY_TAINT. The original FULL condition and
+every action occurrence remain available to the backward decoder.
 
 Fifth, `compileCoverage` constructs a supported target group permission,
 all positive branch certificates and exact backward `Replay`. Each reverse
@@ -225,8 +255,10 @@ not assert that those future Kotlin changes are already correct.
 For K distinct full marks with one owner, group storage uses one membership
 instead of K. `homogeneous_strict_slot_saving` proves strict savings when
 K is greater than one. More generally, the mark component for a fixed AP,
-premise and support key has at most the number of distinct owner groups.
-Do not merge unequal ND/call support merely because groups are equal.
+premise and operation key has at most the number of distinct owner groups.
+Do not merge incompatible ND/call bindings merely because groups are equal.
+Provider normalization also removes alias-only proof choices. It does not
+remove different spatial witnesses or declared transfer families.
 
 For a pure chain with H identity static relays, the expanded scoped model
 performs H relay steps; contraction has no relay rule. `compact_expanded_exact`
@@ -238,9 +270,15 @@ flow-sensitive candidate set.
 Each region/group supply bit and continuation-region-image/group delivery
 bit grows once. No method-by-field-by-group product, reverse static request
 graph, method-entry replay wave or extra helper-permission pass is required.
-Ordinary N2/ND storage remains. AP regions, distinct reached supports and
+Ordinary N2/ND storage remains. AP regions, distinct complete premises and
 ordinary work can still be large. A whole-project strict memory improvement
 and the 60-second run-1 engine target require measurement.
+The new progress proof bounds productive owner steps, not only static rule
+firings. Its universe enumerates every key of a finite semantic type.
+Fresh memberships consume credit; unchanged bursts consume finite repeat
+keys; commits secure children before releasing the parent. Duplicate
+observations do not generate a support revision. Quantum stutters are not
+productive steps. No finite enumeration is a runtime clipping cap.
 
 ## 8. Active and historical evidence
 
@@ -253,6 +291,10 @@ audited theorem does not make its old algorithm a selected requirement.
 | `Run1StaticGroupDerivation`, `Run1StaticInitialRefinement`, `Run1StaticReadAdmission` | Active rooted closure, direct join and read admission laws |
 | `Run1StaticEarlySummaryZero`, `Run1UniversalStaticCarry` | Active ZERO and actual static transport laws |
 | `GroupedRun1StaticComposition`, `GroupedRun1Initials` | Active combined finite program and selected initial grammar |
+| `Run1GroupRuleViews`, `Run1GroupSourceCases` | Revision-2 bound GROUP compiler, declared transfer cases, IDs and FULL view laws |
+| `Run1OrdinaryStaticSupply` | Revision-2 complete local composition, actual static images, rooted closure and Base writer-interest join; reference inclusion is not a connected pipeline theorem |
+| `Run1OrdinaryStaticSupplyPipeline` | Revision-2 executable wrapper publication, complete call application, supply/copy/read/sink pipeline and its independent full reference witness |
+| `Run1SemanticProgress` | Revision-2 semantic work/credit model, finite bursts and counted commits |
 | `Run1StaticDemandTreeCoverage` | Full positive tree and ghost rule/premise certificates; no required runtime ghost-pair pass |
 | `Run1GroupStaticHandoff` | Catalog decoding laws; old inventory-search solver is not selected |
 | `Run1StaticDemandCoverage`, `Run1StaticReadWritePath` | Earlier sufficient guide/corridor constructions; do not require their helper-guide builder |
@@ -263,6 +305,146 @@ The older backward-provider/request-slice and post-baseline bottom-up runtime
 algorithms are not certified as the selected implementation. Keep useful
 pure laws; do not port their obsolete state or protocols. The spec's removal
 table distinguishes baseline removal from post-baseline code not ported.
+
+### Revision-2 rule and source proofs
+
+[Run1GroupRuleViews.lean](lean/ApSpec/Run1GroupRuleViews.lean) has distinct
+bound positions, check kinds and registered owners. `Positive.normalize_eval`
+proves truth equality for the executable positive normalizer. The true/false
+classification lemmas exclude an accidental unconditional source. Its
+`Signed.fold_eval` proves a small exact-full fold. It does not certify the
+whole Kotlin signed normalizer. `bound_full_witness_covered` composes this
+fold, a declared binding relation, residual-negative possibility and GROUP
+normalization. The production binding must satisfy `BindingPreserves` for
+its actual input and bound valuations. It cannot replace two positions
+with one.
+
+`original_role_admission_preserved` and `original_role_rejection_preserved`
+retain the decision on the original candidate. GROUP possibility cannot
+authorize an otherwise rejected cleaner. `all_original_actions_preserved`
+keeps the action list. `resolveFull_present`, `resolveFull_keeps_original`
+and `filtered_seed_still_resolves` keep registered FULL seeds addressable
+by original occurrence. `cache_views_distinct`, `backward_uses_full` and
+`forward_three_uses_full` separate GROUP from all later FULL forms.
+
+[Run1GroupSourceCases.lean](lean/ApSpec/Run1GroupSourceCases.lean) constructs
+original source witnesses and their distinct full-leaf supports.
+`compileSourceWitness` retains each witness's transfer family and unary
+anchor. `decodeSourceCase` constructs a witness in the reverse direction.
+`source_family_equivalence` proves both directions under the same GROUP
+valuation. Thus normalization removes alias choices without introducing a
+new transfer family. The leaf/pair circuits are proof constructions, not a
+required runtime pair directory or cube expansion.
+
+`generic_dispatch_preserved` uses arbitrary action, input and output types.
+It proves that the same transfer family, original anchor, action and input
+call the same primitive. This is the law for all target tails. The smaller
+`mode_preserved_output` and `multi_always_fixed` model executes the concrete
+ANY versus ANY_TAINT regression from section 5 of the spec. It is not a
+substitute for the generic law. Production unary dispatch must pass the
+original admitted current Facts, not only the checked condition image.
+
+### Revision-2 ordinary supply and connected proofs
+
+[Run1OrdinaryStaticSupply.lean](lean/ApSpec/Run1OrdinaryStaticSupply.lean)
+models complete current call rows. `applyCall_full_binding` checks tuple
+arity, owner and the full caller/callee/statement/stage/context/layer port.
+`applyCall_keeps_every_original` retains every original premise. Missing
+members or incompatible ports cannot become a ZERO effect. A nonstatic
+original remains conditional until ordinary caller composition resolves it.
+The scalar cells represent certified AP intersections. The unchanged AP
+compiler must supply their actual overlap and output image.
+
+FLOW, fixed GEN and input-dependent marked images are distinct operations.
+`flow_output_preserves_mark`, `generated_output_uses_declared_group` and
+`marked_output_exact_image` check their results. In particular, a marked
+summary is not assumed to have a fixed GEN target. `staticApply` accepts
+only a complete all-static binding. `tupleRules_exact_application` and
+`compileStatic_complete_application` connect those computed operations to
+the positive supply solver. The finite tuple enumeration is ghost evidence;
+it is not a runtime instruction to materialize a Cartesian product.
+
+`no_sources_no_group`, `supplyRoot` and `eligibleSourceRoot` prove rooted
+supply. Requests and analyzed initials are not roots. `writerRequest`
+admits only an ordinary-origin singleton mark-preserving FLOW writer.
+`writer_interest_arrival_commutes` keeps both arrival orders.
+`generated_writer_does_not_request_output_group` rejects an output-group
+shortcut through a GEN action. `answer_is_actual` requires an actual
+matching Base/group input. The model's `completeWitness` retains reference
+rules in a larger finite program. This inclusion lemma alone does not
+prove that a new owner pipeline constructs those rules.
+
+[Run1OrdinaryStaticSupplyPipeline.lean](lean/ApSpec/Run1OrdinaryStaticSupplyPipeline.lean)
+is that separate connected execution in a restricted language. It constructs
+setter and two-position guarded-writer summaries through any finite number
+of wrappers by actual `applyCall` and `republish`. It then applies actual
+source inputs, computes static groups and copies, and executes the scalar
+getter and sink. The direct, ND and marked-copy runners use the declared
+reached read/write geometry of that fixed fragment. They do not derive a
+general reached-write admission inventory from program syntax. The separate
+read-admission laws and production adapter remain required. No runner takes
+the target group demand or required wrapper summaries as assumptions.
+
+`fullReferenceWitness` and `fullNdWitness` construct independent full-mark
+reference trees. `compileConnected`, `compileNdConnected` and
+`compileMarkedConnected` map these trees to the actual computed GROUP
+target and exact B2 `Replay`. The ND construction requires both actual
+source positions even when their groups agree. `join_both_arrival_orders`
+and `joined_application_complete` check standing summary/input joins.
+The direct `compileConnected` path uses actual caller GROUP inputs with a
+FLOW summary. The baseline caller subscribes the complete actual N2 input
+before callee-entry abstraction. Its ordinary matching/application accepts
+TAINT under a FLOW premise and carries that actual group. A marked callee
+initial or Base request is not required for this operation. Eager all-static
+FLOW copies can then carry this supplied group through a static copy chain.
+
+`compileRequestedConnected` adds a causal request path: an admitted writer
+interest produces a Base request; `requestedRows` obtains actual answers;
+ordinary application then computes the write and copy. This runner derives
+its getter's write-presence inventory from those emitted values. An absent
+actual source cannot be replaced by the interest. This theorem starts with
+an admitted writer-field interest. It does not prove reverse consumer-need
+routing through static copies. It is an additional refinement/repair path,
+not the bootstrap prerequisite for plain FLOW writes and copies. The generic
+AP/JVM compiler, saved-stage refinement and actual
+query adapters retain their separate proof and runtime-test obligations.
+
+### Revision-2 progress proof
+
+[Run1SemanticProgress.lean](lean/ApSpec/Run1SemanticProgress.lean) enumerates
+the complete finite semantic key type. `encoding_does_not_alias` requires
+a round-trip encoding of complete actual keys. `semantic_offer_not_clipped`
+and `admit_many_fresh_exact` exclude a finite runtime truncation disguised
+as termination. Fresh semantic membership, not a support formula, revision
+counter or observer history, reserves work.
+
+The potential is:
+
+```text
+unadmitted key count * (finite work-key count + 3)
+  + sum of queued finite burst weights
+```
+
+`any_step_decreases` proves strict decrease after any represented owner
+selection and local work permutation. `any_initial_trace_bound` bounds all
+such productive traces. `no_infinite_productive_schedule` excludes an
+infinite productive schedule; `any_maximal_trace_quiescent` proves complete
+finite termination without requiring one fixed queue order. This is not
+an output-equality theorem for arbitrary order-sensitive programs.
+
+`quantum_does_not_commit` and `quantum_keeps_reservations` retain a pending
+batch across quantum yields. `pending_commit_accounting` and
+`secured_children_before_release` count children before parent release.
+Rejected sends cannot be reported as complete. Dormant unanswered interests
+are not queued reservations. Unchanged ordinary bursts are finite work,
+not a new runtime scheduler or a reason to delay ordinary AP transfer.
+The production key encoding, finite-burst simulation, real concurrent IO
+and fairness remain explicit adapters. This proof promises no wall time.
+
+The removed strict sibling-field writer rejection is not an active invariant.
+The normative DEMAND-candidate trace replaces it. Pure AP shape, overwrite,
+disjoint-transfer and exclusion laws remain active. Old proof-helper syntax
+does not require runtime `GroundingSupport` or a replacement validator.
 
 ## 9. Reproduction and remaining gates
 
@@ -280,12 +462,39 @@ merged/scalar joins, exact/wrong groups, kills, late arrival, zero-only return,
 source identity and the combined example. The evidence receipt pins source
 hashes before and after the commands.
 
-Lean 4.33.1 builds **159 jobs**. The unified audit checks **6,812 owned
-declarations** across 20 modules, passes **461 controls**, and finds
-**zero unexpected axioms**. These totals include the historical/ghost
-comparison models listed in section 8. They are not a whole-engine claim.
+Revision 2 passes Lean **4.33.1**, **164 build jobs**, **9,494 owned
+declarations** across **25 modules**, and **585 controls**. The audit finds
+**zero unexpected axioms**. It checks all helpers in the five new modules,
+not only the named coverage theorems. The default `ApSpec` build imports
+those modules, so reproduction does not depend on earlier targeted builds.
 
-The [validation receipt](/drive-testcomp/opentaint-go-rules/grouped-run1-statics-20261019/validation/20261019T002423.078469Z/receipt.json)
+The [fixed-revision receipt](/drive-testcomp/opentaint-go-rules/grouped-statics-refactoring-20261019/validation/fixed-spec-20261019T093246.448682Z/receipt.json)
+has SHA-256
+`c7dc5b95e34efe64c75091075f84097d8294358ddd264f90b8cf5a998b52078c`.
+Its [build log](/drive-testcomp/opentaint-go-rules/grouped-statics-refactoring-20261019/validation/fixed-spec-20261019T093246.448682Z/build.log),
+[audit log](/drive-testcomp/opentaint-go-rules/grouped-statics-refactoring-20261019/validation/fixed-spec-20261019T093246.448682Z/audit.log)
+and before/after source manifests preserve the exact outputs and hashes.
+Formal sources stayed unchanged during both commands. Selected baseline
+document blobs and runtime trees match the manifest. The current proof guide
+adds the requested semantic-scope rule to its pinned historical text; it is
+not claimed byte-identical to that text. No tracked core/rules implementation
+was changed. This is formal validation, not a new application measurement.
+
+Independent final reviews checked the semantic-scope inventory, source
+transfer cases, ordinary supply and progress claims. Review separated the
+core reference-inclusion lemma from the connected pipeline theorem, checked
+actual N2 GROUP/FLOW application, and corrected the getter-admission scope
+description above. No extra field-transfer policy or runtime validator was
+selected. Real AP/JVM lowering and concurrent execution retain the stated
+adapter gates.
+
+The previous revision's Lean 4.33.1 build used **159 jobs**. Its audit checked **6,812 owned
+declarations** across 20 modules, passed **461 controls**, and found
+**zero unexpected axioms**. These historical totals include the ghost
+comparison models in section 8. They do not validate the new compiler or
+ordinary supply/progress adapters. Revision-2 validation is recorded separately.
+
+The [previous validation receipt](/drive-testcomp/opentaint-go-rules/grouped-run1-statics-20261019/validation/20261019T002423.078469Z/receipt.json)
 has SHA-256
 `5cd85c97a5daba265700a2a6f834072f397435a75dc818b09333e224772302ed`.
 It pins every Lean source, the aggregate, audit, toolchain and baseline
@@ -301,9 +510,9 @@ scope and the combined proof. The proof review first found an unregistered
 getter, missing read gate and missing caller-order certificate in the example.
 These controls were added and the final scoped review passed. The spec also
 now distinguishes selected guidance from raw/live summary publication.
-The final source-occurrence refinement adds all-match enumeration and keeps
+That previous source-occurrence refinement added all-match enumeration and kept
 two source action IDs for the same exact fact. Its new inclusion lemmas and
-controls pass in the final audit above.
+controls passed in the previous audit above.
 
 Before implementation acceptance, use the baseline common/JVM/application
 gates. Add integration tests for every new adapter in section 16 of the spec.
@@ -314,13 +523,10 @@ they do not implement this feature or constitute a new project run.
 
 ## 10. Measurement state
 
-No analyzer measurement in this task uses the new design. The selected base
-reached/completed/accepted **OWASP run-7/run-6/run-5**, **conductor run-2/run-1/
-run-1**, **ThingsBoard run-1/none/none**, and **Stirling-PDF run-2/run-1/run-1**.
-Conductor's base run-1 completed in 49.567 seconds.
-
-The latest measured post-refactoring runtime remains
-`63d5481e4e4b69ecf042c1149bb574ad40fd1624`: **OWASP run-7/run-6/run-5**,
-**conductor run-1/none/none**, **ThingsBoard run-1/none/none**, and
-**Stirling-PDF run-2/run-1/run-1**. These are different checkpoints. The
-specification's section 18 retains the baseline timing and finding caveats.
+No analyzer measurement uses this fixed revision. The latest measured
+runtime remains `ff2966455da2e5ffd0db655a1ff06c5954ed3c8a`, as recorded in
+the [current report](../docs/reports/bidirectional-grouped-statics-performance-20261019.md).
+OWASP, conductor, ThingsBoard and Stirling-PDF each reached **run-1**, completed
+**none** and accepted **none**. All four timed out. No OOM occurred.
+The normative spec's section 18 retains engine times and finding caveats.
+Formal validation is not a new project measurement or acceptance result.

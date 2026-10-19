@@ -21,6 +21,11 @@ import ApSpec.Run1StrongPreservation
 import ApSpec.Run1DefaultSummaryApplication
 import ApSpec.GroupedRun1Initials
 import ApSpec.GroupedRun1StaticComposition
+import ApSpec.Run1GroupRuleViews
+import ApSpec.Run1GroupSourceCases
+import ApSpec.Run1OrdinaryStaticSupply
+import ApSpec.Run1OrdinaryStaticSupplyPipeline
+import ApSpec.Run1SemanticProgress
 import Lean
 
 open Lean Elab Command
@@ -46,7 +51,12 @@ run_elab do
     `ApSpec.Run1StrongPreservation,
     `ApSpec.Run1DefaultSummaryApplication,
     `ApSpec.GroupedRun1Initials,
-    `ApSpec.GroupedRun1StaticComposition]
+    `ApSpec.GroupedRun1StaticComposition,
+    `ApSpec.Run1GroupRuleViews,
+    `ApSpec.Run1GroupSourceCases,
+    `ApSpec.Run1OrdinaryStaticSupply,
+    `ApSpec.Run1OrdinaryStaticSupplyPipeline,
+    `ApSpec.Run1SemanticProgress]
   let mut total : Nat := 0
   let mut unexpected : Nat := 0
   for mod in modules do
@@ -88,7 +98,12 @@ run_elab do
     ("baseline selective field writes composite", ApSpec.Run1StrongPreservation.Controls.checks),
     ("baseline layer-only application composite", ApSpec.Run1DefaultSummaryApplication.SelectedControls.checks)] ++
     ApSpec.GroupedRun1Initials.Controls.controls ++
-    ApSpec.GroupedRun1StaticComposition.Controls.controls
+    ApSpec.GroupedRun1StaticComposition.Controls.controls ++
+    ApSpec.Run1GroupRuleViews.Controls.controls ++
+    ApSpec.Run1GroupSourceCases.Controls.controls ++
+    ApSpec.Run1OrdinaryStaticSupply.Controls.controls ++
+    ApSpec.Run1OrdinaryStaticSupplyPipeline.Controls.controls ++
+    ApSpec.Run1SemanticProgress.Controls.controls
   for (name, passed) in controls do
     if !passed then throw (IO.userError ("Control failed: " ++ name))
   IO.println s!"Grouped run-1 statics controls PASS: {controls.length}"
@@ -107,3 +122,19 @@ run_elab do
 #print axioms ApSpec.RuleGroupMarks.exact_clean_partition
 #print axioms ApSpec.RuleGroupConditions.exact_truth_implies_possible_truth
 #print axioms ApSpec.Run1StrongPreservation.strong_write_survival_coverage
+#print axioms ApSpec.Run1GroupRuleViews.full_witness_covered
+#print axioms ApSpec.Run1GroupRuleViews.Positive.normalize_eval
+#print axioms ApSpec.Run1GroupRuleViews.bound_full_witness_covered
+#print axioms ApSpec.Run1GroupSourceCases.source_family_equivalence
+#print axioms ApSpec.Run1GroupSourceCases.generic_dispatch_preserved
+#print axioms ApSpec.Run1OrdinaryStaticSupply.applyCall_keeps_every_original
+#print axioms ApSpec.Run1OrdinaryStaticSupply.no_sources_no_group
+#print axioms ApSpec.Run1OrdinaryStaticSupplyPipeline.compileConnected
+#print axioms ApSpec.Run1OrdinaryStaticSupplyPipeline.compileNdConnected
+#print axioms ApSpec.Run1OrdinaryStaticSupplyPipeline.compileMarkedConnected
+#print axioms ApSpec.Run1OrdinaryStaticSupplyPipeline.compileRequestedConnected
+#print axioms ApSpec.Run1SemanticProgress.initial_finite_quiescence
+#print axioms ApSpec.Run1SemanticProgress.trace_length_bound
+#print axioms ApSpec.Run1SemanticProgress.any_step_decreases
+#print axioms ApSpec.Run1SemanticProgress.no_infinite_productive_schedule
+#print axioms ApSpec.Run1SemanticProgress.any_maximal_trace_quiescent
