@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
@@ -19,7 +21,7 @@ import kotlin.test.assertTrue
 
 /** Groups are checked by literal leaves and bounded unions, without production decoding. */
 class GroupMergeTest {
-    private val m = ApManager(Cancellation())
+    private val m = testApManager(Cancellation())
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Return
     private val f = m.accessors.index(FieldAccessor("Box", "f", "Box"))

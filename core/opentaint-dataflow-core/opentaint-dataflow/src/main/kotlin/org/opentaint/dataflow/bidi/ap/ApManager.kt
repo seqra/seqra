@@ -9,10 +9,9 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /** Shared canonical keys. Each store will own its trie-node cache. */
-class ApManager(val cancellation: Cancellation, refManager: RefManager = RefManager()) {
+class ApManager(val cancellation: Cancellation, refManager: RefManager = RefManager(), val marks: MarkTable) {
     val softRefs: SoftReferenceManager = refManager.softRefManager("bidi")
     val accessors = AccessorTable()
-    val marks = MarkTable()
     val flowAlg: FlowAlgebra get() = FlowAlgebra
     val taintAlg = TaintAlgebra(this)
 

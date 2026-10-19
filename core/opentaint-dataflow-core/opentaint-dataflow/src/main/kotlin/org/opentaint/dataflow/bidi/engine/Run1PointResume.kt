@@ -180,7 +180,7 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
                 val original = writer.premise as? InitialAp ?: return
                 check(original.base != STATIC && !original.isZero && original.mark is MarkSlot.Star && writer.output.fact.mark is MarkSlot.Star)
                 if (currentValues(writer).none()) return
-                for (atom in core.ap.marks.groupAtoms(effect.groups).ids)
+                for (atom in core.ap.marks.atomsFor(effect.groups).ids)
                     core.addMarkRequest(original, TaintMark(atom))
             }
         }

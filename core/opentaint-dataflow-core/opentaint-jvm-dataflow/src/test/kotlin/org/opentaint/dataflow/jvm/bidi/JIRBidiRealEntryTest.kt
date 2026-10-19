@@ -39,6 +39,9 @@ class JIRBidiRealEntryTest : BidiJIRTestUtils() {
         val selected = ArrayList<Set<String>>()
         var selection: Set<String>? = null
         val rules = object : TaintRulesProvider by NoTaintRules {
+            override val markDeclarations = org.opentaint.dataflow.bidi.ap.RawMarkDeclarations(
+                setOf(mark.name), emptyMap(), emptyMap(),
+            )
             override fun entryPointRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?,
                 allRelevant: Boolean): Iterable<TaintEntryPointSource> =
                 if (method == root && (selection == null || source.serializedId in checkNotNull(selection)))
@@ -63,8 +66,7 @@ class JIRBidiRealEntryTest : BidiJIRTestUtils() {
             val entry = JIRBidiAnalysis(cp, graph, f.units, rules, f.params, FixedLimits(listOf(1, 1, 2)), f.refManager,
                 driverFactory = { policy, shared, remaining ->
                     runtimeShared = shared
-                    assertTrue(shared.ap.marks.isOwnershipCensusComplete,
-                        "The ownership census must complete before the actual engine starts")
+                    assertEquals(mark.name, shared.ap.marks.name(shared.ap.marks.full(mark.name)))
                     IterationDriver(policy, shared, remaining).also { actualDriver = it }
                 })
             entry.gather(f.manager, listOf(MethodWithContext(root, EmptyMethodContext)), f.engine.prescanResolvedGraph())
@@ -77,8 +79,7 @@ class JIRBidiRealEntryTest : BidiJIRTestUtils() {
             assertFailsWith<IllegalStateException> { f.engine.apManager }
 
             val report = entry.run(10.seconds)
-            assertTrue(assertNotNull(runtimeShared).ap.marks.isOwnershipCensusComplete,
-                "The full catalog remains valid after the engine closes")
+            assertEquals(mark.name, assertNotNull(runtimeShared).ap.marks.let { it.name(it.full(mark.name)) })
             assertEquals(listOf(copiedIds), selected)
             assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
             val frontiers = assertNotNull(actualDriver).frontiers

@@ -248,7 +248,7 @@ class Run1StaticService(private val ap: ApManager) {
 
     fun facts(region: Pattern, groups: GroupSet): Facts {
         require(!groups.isEmpty)
-        val atoms = ap.marks.groupAtoms(groups)
+        val atoms = ap.marks.atomsFor(groups)
         var result: TaintTree? = null
         for (atom in atoms.ids) {
             val one = ap.factsOf(region.fact.copy(mark = MarkSlot.Concrete(TaintMark(atom))), region.exclusion, Layer.DEMAND) as TaintTree

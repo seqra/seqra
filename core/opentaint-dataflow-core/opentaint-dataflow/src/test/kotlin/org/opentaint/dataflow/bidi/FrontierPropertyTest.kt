@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.demandProbe
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.*
@@ -163,7 +164,7 @@ class FrontierPropertyTest {
             val counts = expected.groupingBy { it.first }.eachCount()
             assertEquals(counts, handOff.demandEdges, "index=$index mask=$mask")
             val actual = keys.flatMap { key -> listOf(listOf(a), listOf(b)).flatMap { path ->
-                handOff.demand.near(key, y, f.manager.path(path)).map { key to it }
+                handOff.demand.near(key, demandProbe(y, path)).map { key to it }
             } }.toSet()
             assertEquals(expected, actual, "Normalized abstract exclusions collide, while full allowed premises and contexts remain distinct")
             val frontier = frontierOf(f.config, result, handOff, f.report)

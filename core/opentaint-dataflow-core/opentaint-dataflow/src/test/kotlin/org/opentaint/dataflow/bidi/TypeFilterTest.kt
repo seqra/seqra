@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.*
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.ap.ExclusionSet
@@ -15,7 +17,7 @@ import kotlin.test.assertTrue
 /** The oracle evaluates the concrete path first, then the mark policy on element-only paths. */
 class TypeFilterTest {
     private val cancellation = Cancellation()
-    private val m = ApManager(cancellation)
+    private val m = testApManager(cancellation)
     private val ops = ApOps(m)
     private val x = AccessPathBase.Argument(0)
     private val fieldF = FieldAccessor("Box", "f", "Box")

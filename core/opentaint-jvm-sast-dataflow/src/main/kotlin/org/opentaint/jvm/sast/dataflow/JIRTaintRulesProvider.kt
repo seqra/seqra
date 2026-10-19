@@ -2,6 +2,7 @@ package org.opentaint.jvm.sast.dataflow
 
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.bidi.ap.RawMarkDeclarations
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
 import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSink
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
@@ -17,6 +18,9 @@ class JIRTaintRulesProvider(
     private val taintConfiguration: TaintConfiguration,
     private val ignoreSinkEndFacts: Boolean = false,
 ) : TaintRulesProvider, BidirectionalRulesProviderFactory {
+    override val markDeclarations: RawMarkDeclarations
+        get() = taintConfiguration.rawMarkDeclarations()
+
     override fun bidirectionalRulesView(): TaintRulesProvider =
         if (ignoreSinkEndFacts) this else JIRTaintRulesProvider(taintConfiguration, ignoreSinkEndFacts = true)
     override fun entryPointRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) = getRules(method) {

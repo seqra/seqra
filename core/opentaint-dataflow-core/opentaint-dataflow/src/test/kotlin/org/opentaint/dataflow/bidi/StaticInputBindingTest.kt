@@ -13,7 +13,6 @@ class StaticInputBindingTest {
             val caller = f.method("caller", listOf(emptyList()), 0).key()
             val callee = f.method("callee", listOf(emptyList()), 0).key()
             val full = f.mark("T")
-            f.ap.marks.finishFixtureOwnershipCensus()
             val group = f.ap.marks.group(f.ap.marks.groupOf(full))
             fun fact(path: List<Int>) = f.fact(AccessPathBase.Argument(0), path,
                 mark = MarkSlot.Concrete(group), layer = Layer.DEMAND)

@@ -277,7 +277,7 @@ class CurrentSequenceTest {
             assertEquals(listOf(Triple(root, root.statement, source)),
                 f.results[1].analyzers.flatMap { it.sourceHits!!.entries().toList() })
             assertTrue(f.configs[2].seeds.allowsSource(root, root.statement, source))
-            assertContains(f.configs[2].demand!!.near(m, argument, null), DemandPattern(p.pattern(argument, mark = t), null))
+            assertContains(f.configs[2].demand!!.near(m, demandProbe(argument)), DemandPattern(p.pattern(argument, mark = t), null))
             assertTrue(selected(f, f.results[2], m).none { it.second.fact.mark == u })
             assertTrue(f.results[2].witnessesByKey().getValue(earlyKey).all { !it.confirmed })
             assertFalse(laterKey in f.results[2].witnessesByKey())
@@ -350,9 +350,9 @@ class CurrentSequenceTest {
             val concreteReturn = p.pattern(returned, mark = t)
             assertEquals(normalReversal, f.records.byEntry(m, concreteReturn).any { it.direction == Direction.BACKWARD },
                 "Split literal branches cannot become independent normal records")
-            assertTrue(f.configs[2].demand!!.near(m, argument, null).any { it.entry == required.first() },
+            assertTrue(f.configs[2].demand!!.near(m, demandProbe(argument)).any { it.entry == required.first() },
                 "Run-2 limit-one DEMAND branches remain additive when a native NORMAL record also exists")
-            assertTrue(f.configs[2].demand!!.near(m, arg1, null).any { it.entry == required.last() })
+            assertTrue(f.configs[2].demand!!.near(m, demandProbe(arg1)).any { it.entry == required.last() })
             assertTrue(f.configs[2].seeds.allowsSource(root, root.statement, sa))
             assertTrue(f.configs[2].seeds.allowsSource(root, root.statement, sb))
             assertTrue(f.results[2].witnessesByKey().values.flatten().all { !it.confirmed })

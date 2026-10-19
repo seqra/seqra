@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
@@ -70,7 +72,7 @@ class FactValuesTest {
 
     @Test
     fun `mark names have canonical values and zero has a reserved id`() {
-        val table = MarkTable()
+        val table = MarkTable(org.opentaint.dataflow.bidi.fixtures.COMMON_FIXTURE_DECLARATIONS)
         val t = table.mark("T")
         val u = table.mark("U")
         assertEquals(t, table.mark("T"))
@@ -92,7 +94,7 @@ class FactValuesTest {
         assertTrue(TaintMark(2) in a)
         assertFalse(TaintMark(4) in a)
         assertTrue(MarkSet.EMPTY.isEmpty)
-        val manager = ApManager(Cancellation())
+        val manager = testApManager(Cancellation())
         assertSame(MarkSet.EMPTY, manager.intern(MarkSet(intArrayOf())))
         assertSame(manager.intern(a), manager.intern(b))
     }
@@ -147,7 +149,7 @@ class FactValuesTest {
 
     @Test
     fun `field exclusions own input and return array snapshots before interning`() {
-        val manager = ApManager(Cancellation())
+        val manager = testApManager(Cancellation())
         val input = intArrayOf(3, 1)
         val exclusion = assertIs<ExclusionSet.Concrete>(ExclusionSet.of(input))
         val interned = manager.intern(exclusion)
@@ -161,7 +163,7 @@ class FactValuesTest {
 
     @Test
     fun `path cells preserve order share suffixes and cache exact counted depth`() {
-        val manager = ApManager(Cancellation())
+        val manager = testApManager(Cancellation())
         val f = manager.accessors.index(FieldAccessor("Box", "f", "Box"))
         val e = manager.accessors.index(ElementAccessor)
         val c = manager.accessors.index(ClassStaticAccessor("Box"))
@@ -182,7 +184,7 @@ class FactValuesTest {
 
     @Test
     fun `path construction and conversion support 32768 accessors without recursion limits`() {
-        val manager = ApManager(Cancellation())
+        val manager = testApManager(Cancellation())
         val f = manager.accessors.index(FieldAccessor("Box", "f", "Box"))
         val c = manager.accessors.index(ClassStaticAccessor("Box"))
         val input = IntArray(32768) { if (it % 4 == 0) c else f }
@@ -207,7 +209,7 @@ class FactValuesTest {
 
     @Test
     fun `concurrent accessor and mark publication keeps canonical manager keys`() {
-        val manager = ApManager(Cancellation())
+        val manager = testApManager(Cancellation())
         val workers = 8
         val barrier = CyclicBarrier(workers)
         val executor = Executors.newFixedThreadPool(workers)

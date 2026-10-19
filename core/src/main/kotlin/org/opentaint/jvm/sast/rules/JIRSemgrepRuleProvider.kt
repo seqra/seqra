@@ -3,6 +3,8 @@ package org.opentaint.jvm.sast.rules
 import org.opentaint.common.sast.rules.SemgrepRuleProvider
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.bidi.ap.MarkGroupKey
+import org.opentaint.dataflow.bidi.ap.RawMarkDeclarations
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
 import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSink
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFieldRule
@@ -12,6 +14,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.BidirectionalRulesProviderFactory
 import org.opentaint.dataflow.jvm.ap.ifds.taint.forBidirectionalCore
+import org.opentaint.dataflow.jvm.bidi.interp.mergeRawMarkDeclarations
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
@@ -30,6 +33,28 @@ class JIRSemgrepRuleProvider(
             require(previous == null || previous == owner) { "Conflicting generated mark owner: $mark" }
         }
     }
+
+    private val generatedDeclarations: RawMarkDeclarations = run {
+        val flags = linkedMapOf<MarkGroupKey, Boolean>()
+        for (rule in rules) {
+            require(rule.ruleId in rule.primitiveByOwner) {
+                "Missing primitive flag for loaded rule: ${rule.ruleId}"
+            }
+            for ((owner, primitive) in rule.primitiveByOwner) {
+                val key = MarkGroupKey.Rule(owner)
+                val previous = flags.putIfAbsent(key, primitive)
+                require(previous == null || previous == primitive) { "Conflicting primitive flag: $owner" }
+            }
+        }
+        mergeRawMarkDeclarations(listOf(RawMarkDeclarations(
+            names = markOwners.keys,
+            explicitOwners = markOwners.mapValues { (_, owner) -> MarkGroupKey.Rule(owner) },
+            primitiveByOwner = flags,
+        )))
+    }
+
+    override val markDeclarations: RawMarkDeclarations
+        get() = mergeRawMarkDeclarations(listOf(base.markDeclarations, generatedDeclarations))
 
     override fun bidirectionalRulesView(): TaintRulesProvider {
         val selected = base.forBidirectionalCore()

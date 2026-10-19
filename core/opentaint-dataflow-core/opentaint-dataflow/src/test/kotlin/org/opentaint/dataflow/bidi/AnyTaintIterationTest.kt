@@ -96,7 +96,7 @@ class AnyTaintIterationTest {
                 if (config.direction == Direction.FORWARD) report.add(config, joined)
                 val handOff = HandOff.of(config, joined, report, shared)
                 val storedDemand = keys.associateWith { key ->
-                    bases.flatMap { handOff.demand.near(key, it, null) }.toSet()
+                    bases.flatMap { handOff.demand.near(key, demandProbe(it)) }.toSet()
                 }
                 val seedSnapshot = keys.flatMap { key ->
                     f.program.programMethod(key).successors.indices.flatMap { handOff.seeds.at(key, f.program.inst(key, it)) }
@@ -128,7 +128,7 @@ class AnyTaintIterationTest {
                 barriers += Barrier(config, observation, storedDemand, seedSnapshot, native, handOff.demandEdges.toMap())
                 if (next is Next.Run) {
                     assertEquals(storedDemand, keys.associateWith { key -> bases.flatMap {
-                        next.config.demand!!.near(key, it, null)
+                        next.config.demand!!.near(key, demandProbe(it))
                     }.toSet() })
                     assertEquals(seedSnapshot, keys.flatMap { key -> f.program.programMethod(key).successors.indices.flatMap {
                         next.config.seeds.at(key, f.program.inst(key, it))

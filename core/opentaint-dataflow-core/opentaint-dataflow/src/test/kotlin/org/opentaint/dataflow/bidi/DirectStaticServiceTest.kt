@@ -47,7 +47,6 @@ class DirectStaticServiceTest {
             val owner = f.method("consumer", listOf(emptyList()), 0).key()
             val t = f.mark("T")
             val u = f.mark("U")
-            f.ap.marks.finishFixtureOwnershipCensus()
             val g = f.ap.marks.groupOf(t)
             val h = f.ap.marks.groupOf(u)
             val position = field(f, "f")
@@ -88,7 +87,6 @@ class DirectStaticServiceTest {
         for (supplyFirst in listOf(false, true)) FiniteProgramFixtures().use { f ->
             val owner = f.method("writer", listOf(emptyList()), 0).key()
             val t = f.mark("T"); val u = f.mark("U")
-            f.ap.marks.finishFixtureOwnershipCensus()
             val g = f.ap.marks.groupOf(t); val h = f.ap.marks.groupOf(u)
             val left = field(f, "left"); val right = field(f, "right")
             val premise = f.ap.premiseOf(listOf(
@@ -115,7 +113,7 @@ class DirectStaticServiceTest {
     @Test fun `a writer interest joins in both orders without creating group supply`() {
         for (writerFirst in listOf(false, true)) FiniteProgramFixtures().use { f ->
             val owner = f.method("writer", listOf(emptyList()), 0).key()
-            val t = f.mark("T"); f.ap.marks.finishFixtureOwnershipCensus()
+            val t = f.mark("T")
             val g = f.ap.marks.groupOf(t)
             val output = field(f, "result")
             val writer = StaticBatch().apply { flowWriters += StaticFlowWriter(owner, 7, output) }
@@ -133,7 +131,7 @@ class DirectStaticServiceTest {
     @Test fun `a disjoint output does not receive a consumer interest`() {
         FiniteProgramFixtures().use { f ->
             val owner = f.method("writer", listOf(emptyList()), 0).key()
-            val t = f.mark("T"); f.ap.marks.finishFixtureOwnershipCensus()
+            val t = f.mark("T")
             val service = Run1StaticService(f.ap)
             assertTrue(service.commit(StaticBatch().apply {
                 flowWriters += StaticFlowWriter(owner, 1, field(f, "left"))

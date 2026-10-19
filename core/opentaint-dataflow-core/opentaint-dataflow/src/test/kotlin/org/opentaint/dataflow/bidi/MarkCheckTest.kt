@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
@@ -18,7 +20,7 @@ import kotlin.test.assertTrue
 /** Concrete exact/any literals are checked against a local decoder and the per-path reference. */
 class MarkCheckTest {
     private val cancellation = Cancellation()
-    private val m = ApManager(cancellation)
+    private val m = testApManager(cancellation)
     private val ops = ApOps(m)
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Return

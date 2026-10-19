@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
@@ -15,7 +17,7 @@ import kotlin.test.assertTrue
 /** Full-mark primitive/reference regression; selected GROUP behavior has separate differential controls. */
 class OrdinaryStaticRequestGateTest {
     private val cancellation = Cancellation()
-    private val m = ApManager(cancellation)
+    private val m = testApManager(cancellation)
     private val ops = ApOps(m)
     private val run1 = ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.FULL)
     private val cls = m.accessors.index(ClassStaticAccessor("C"))

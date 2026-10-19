@@ -1,6 +1,9 @@
 # Immutable mark groups: implementation proposal
 
-Date: 19 October 2026. Status: proposed; runtime code is unchanged.
+Date: 19 October 2026. Status: implemented; the
+[validation report](../reports/bidirectional-immutable-mark-groups-validation-20261019.md)
+records the selected gate. The following sections retain the approved design;
+statements about unexecuted work describe the proposal checkpoint.
 Use ASD-STE100 Simplified Technical English. Code names keep their meanings.
 
 Implement [Immutable mark groups and static demand guidance, revision 2.1](../../spec/run1-group-policy-and-ownership-census.md).

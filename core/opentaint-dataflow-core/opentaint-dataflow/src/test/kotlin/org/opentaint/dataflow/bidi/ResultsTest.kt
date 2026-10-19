@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.bidi.ap.*
@@ -12,7 +14,7 @@ import kotlin.test.assertTrue
 
 /** Result grouping from ap-impl.md §5.2; expected roots use sparse constructors only. */
 class ResultsTest {
-    private val m = ApManager(Cancellation())
+    private val m = testApManager(Cancellation())
     private val base = AccessPathBase.Argument(0)
     private val f = m.accessors.index(FieldAccessor("Box", "f", "Box"))
     private val g = m.accessors.index(FieldAccessor("Box", "g", "Box"))

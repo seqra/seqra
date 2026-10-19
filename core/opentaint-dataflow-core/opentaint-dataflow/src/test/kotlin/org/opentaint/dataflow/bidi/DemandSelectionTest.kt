@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.bidi.ap.*
@@ -13,7 +15,7 @@ import kotlin.test.assertTrue
 
 /** Structural demand selection reads raw headers before restriction or native read-view conversion. */
 class DemandSelectionTest {
-    private val manager = ApManager(Cancellation())
+    private val manager = testApManager(Cancellation())
     private val ops = ApOps(manager)
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Return

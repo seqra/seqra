@@ -92,7 +92,7 @@ class CurrentModeFixtures : AutoCloseable {
         .filter { it.run == run && it.method == method }
         .flatMap { it.delta.premise.members.asSequence() }.filterNot { it.isZero }.map { it.toPattern() }.toSet()
     fun patterns(run: Int, method: MethodKey, base: AccessPathBase): Set<DemandPattern> =
-        actual.configs.single { it.index == run }.demand!!.near(method, base, null).toSet()
+        actual.configs.single { it.index == run }.demand!!.near(method, demandProbe(base)).toSet()
     fun p(base: AccessPathBase, path: List<Int> = emptyList(), tail: Tail = Tail.EXACT,
           mark: MarkSlot = MarkSlot.STAR, exclusion: ExclusionSet = ExclusionSet.Empty): Pattern =
         Pattern(PathFact(base, path, tail, mark), exclusion)

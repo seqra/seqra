@@ -2,6 +2,7 @@ package org.opentaint.dataflow.jvm.ap.ifds.taint
 
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.bidi.ap.RawMarkDeclarations
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
@@ -24,6 +25,10 @@ import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
 interface TaintRulesProvider : CommonTaintRulesProvider {
     /** Full generated identity -> outer rule ID, captured by the rule generator. */
     val markOwners: Map<String, String> get() = emptyMap()
+
+    /** Complete loaded metadata, independent of method binding and selected-rule filtering. */
+    val markDeclarations: RawMarkDeclarations
+        get() = error("This provider must declare its mark metadata")
 
     fun entryPointRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintEntryPointSource>
     fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintMethodSource>

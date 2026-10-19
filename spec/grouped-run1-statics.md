@@ -1,9 +1,11 @@
 # Mark groups and direct static handling
 
 Date: 19 October 2026. Revision: **2.3, immutable groups and serialized declarations**.
-Candidate `b88c85d5b` implements revision 2.1 and passes its selected local
-gate. Revision 2.3 is specified, not implemented. Fixed-project acceptance
-fails; see section 18. Language: ASD-STE100 Simplified Technical
+Candidate `b88c85d5b` was the revision 2.1 runtime baseline. The immutable
+group iteration now implements revision 2.3; its
+[local validation](../docs/reports/bidirectional-immutable-mark-groups-validation-20261019.md)
+passes. Fresh fixed-project acceptance is pending; section 18 records the
+historical baseline. Language: ASD-STE100 Simplified Technical
 English. Defined technical terms, program names and mathematical notation
 keep their stated meanings.
 

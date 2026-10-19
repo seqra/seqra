@@ -1,5 +1,9 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+import org.opentaint.dataflow.bidi.fixtures.TestMark
+import org.opentaint.dataflow.bidi.fixtures.testDeclarations
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.bidi.ap.*
@@ -7,23 +11,22 @@ import org.opentaint.dataflow.util.Cancellation
 import kotlin.test.*
 
 class GroupedMarkViewsTest {
-    private val m = ApManager(Cancellation())
+    private val m = testApManager(Cancellation(), declarations = testDeclarations(
+        TestMark("outer#left;state;v;1", MarkGroupKey.Rule("outer")),
+        TestMark("outer#right;state;v;2", MarkGroupKey.Rule("outer")),
+        TestMark("late-outer", MarkGroupKey.Rule("outer")),
+        TestMark("other;state;v;3", MarkGroupKey.Rule("other")),
+        TestMark("P%%primitive%%", MarkGroupKey.Rule("primitive")),
+    ))
     private val ops = ApOps(m)
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Return
-    private val t = m.marks.reserveFull("outer#left;state;v;1")
-    private val u = m.marks.reserveFull("outer#right;state;v;2")
-    private val v = m.marks.reserveFull("other;state;v;3")
+    private val t = m.marks.full("outer#left;state;v;1")
+    private val u = m.marks.full("outer#right;state;v;2")
+    private val v = m.marks.full("other;state;v;3")
     private val group = ApMode(true, Direction.FORWARD, 1)
     private val full = ApMode(false, Direction.FORWARD, 1)
 
-    init {
-        m.marks.register(m.marks.name(t), MarkGroupKey.Rule("outer"))
-        m.marks.register(m.marks.name(u), MarkGroupKey.Rule("outer"))
-        m.marks.register(m.marks.name(v), MarkGroupKey.Rule("other"))
-        listOf(t, u, v).forEach(m.marks::markEligible)
-        m.marks.finishOwnershipCensus()
-    }
     private val g = m.marks.group(m.marks.groupOf(t))
     private val h = m.marks.group(m.marks.groupOf(v))
     private fun p(base: AccessPathBase, atom: TaintMark, tail: Tail = Tail.EXACT) =
@@ -33,17 +36,16 @@ class GroupedMarkViewsTest {
     private fun onlyAtom(f: Facts): TaintMark =
         ((ops.leaves(f).single().fact.mark) as MarkSlot.Concrete).mark
 
-    @Test fun `full handles exist before census without guessing an outer rule`() {
-        val catalog = MarkTable()
-        val a = catalog.reserveFull("rule#with#literal-hash;classifier;v;0")
-        assertEquals("rule#with#literal-hash;classifier;v;0", catalog.name(a))
-        assertFails { catalog.key(a) }
-        catalog.register(catalog.name(a), MarkGroupKey.Rule("rule#with#literal-hash"))
-        catalog.markEligible(a)
-        catalog.finishOwnershipCensus()
-        assertEquals(a, catalog.reserveFull(catalog.name(a)))
+    @Test fun `full handles have complete immutable owners from first use`() {
+        val name = "rule#with#literal-hash;classifier;v;0"
+        val catalog = MarkTable(testDeclarations(TestMark(name, MarkGroupKey.Rule("rule#with#literal-hash"))))
+        val a = catalog.full(name)
+        assertEquals(name, catalog.name(a))
         assertIs<MarkAtomKey.Full>(catalog.key(a))
-        assertFails { catalog.register(catalog.name(a), MarkGroupKey.Rule("rule")) }
+        assertEquals(a, catalog.full(name))
+        val group = catalog.group(catalog.groupOf(a))
+        assertEquals(encodeGroup(MarkGroupKey.Rule("rule#with#literal-hash"), false).encoded, catalog.name(group))
+        assertFails { catalog.full("undeclared") }
     }
 
     @Test fun `full group and control atoms use distinct namespaces`() {
@@ -53,19 +55,23 @@ class GroupedMarkViewsTest {
         assertEquals(g, m.marks.runtimeAtom(u, MarkMode.GROUP))
         assertEquals(TaintMark.ZERO, m.marks.runtimeAtom(TaintMark.ZERO, MarkMode.GROUP))
         assertFails { m.marks.runtimeAtom(g, MarkMode.FULL) }
-        assertEquals(listOf(t, u), m.marks.eligibleMembers(m.marks.groupOf(t)))
+        assertEquals(m.marks.groupOf(t), m.marks.groupOf(u))
     }
 
-    @Test fun `model fallback is installed only after all declarations and survives extension`() {
-        val catalog = MarkTable()
-        val imported = catalog.observeModelReference("shared")
-        catalog.register("shared", MarkGroupKey.Model("explicit"))
-        val undeclared = catalog.observeModelReference("plain")
-        catalog.finishOwnershipCensus()
-        assertNotEquals(catalog.groupOf(imported), catalog.groupOf(undeclared))
-        val late = catalog.observeModelReference("late")
-        assertEquals(catalog.groupOf(undeclared), catalog.groupOf(late))
-        assertFails { catalog.register("plain", MarkGroupKey.Model("too late")) }
+    @Test fun `predeclared shared model names keep their owner on late first use`() {
+        val catalog = MarkTable(testDeclarations(
+            TestMark("shared", MarkGroupKey.Model("explicit")),
+            TestMark("plain", MarkGroupKey.SharedModel),
+            TestMark("late", MarkGroupKey.SharedModel),
+        ))
+        val imported = catalog.full("shared")
+        val plain = catalog.full("plain")
+        val before = catalog.key(plain)
+        assertNotEquals(catalog.groupOf(imported), catalog.groupOf(plain))
+        val late = catalog.full("late")
+        assertEquals(catalog.groupOf(plain), catalog.groupOf(late))
+        assertEquals(before, catalog.key(plain))
+        assertFails { catalog.full("new generation") }
     }
 
     @Test fun `typed exclusion union intersection and extension-safe subset follow denotation`() {
@@ -81,8 +87,7 @@ class GroupedMarkViewsTest {
         assertEquals(eg, eg.union(eu))
         assertTrue(eu.isSubsetOf(eg))
         assertFalse(eg.isSubsetOf(MarkExclusions.of(m.marks, listOf(t, u))))
-        m.marks.register("late-outer", MarkGroupKey.Rule("outer"))
-        val late = m.marks.observeModelReference("late-outer")
+        val late = m.marks.full("late-outer")
         assertTrue(late in eg)
     }
 
@@ -159,14 +164,22 @@ class GroupedMarkViewsTest {
         }
     }
 
-    @Test fun `group mark policy is the existential lift of the existing full policy`() {
+    @Test fun `uniform group primitive policy uses the same suffix as full atoms`() {
         val accepts = object : FactTypeChecker.FactApFilter {
             override fun check(accessor: org.opentaint.dataflow.ap.ifds.Accessor) =
                 FactTypeChecker.FilterResult.Accept
         }
+        val primitive = m.marks.full("P%%primitive%%")
+        val primitiveGroup = m.marks.group(m.marks.groupOf(primitive))
+        val filter = TypeFilter(accepts, MarkPolicy { mark, level ->
+            level != 0 || m.marks.name(mark).endsWith("%%primitive%%")
+        })
+        assertEquals(primitiveGroup, onlyAtom(assertNotNull(ops.filter(taint(primitive), filter))))
+        assertEquals(primitive, onlyAtom(assertNotNull(ops.filter(taint(primitive, full), filter))))
+        assertNull(ops.filter(taint(t), filter))
+        assertNull(ops.filter(taint(t, full), filter))
+        // An arbitrary FULL lambda still receives each original full atom.
         val keepU = TypeFilter(accepts, MarkPolicy { mark, level -> mark == u && level == 0 })
-        assertEquals(g, onlyAtom(assertNotNull(ops.filter(taint(t), keepU))))
-        assertNull(ops.filter(taint(v), keepU))
         assertNull(ops.filter(taint(t, full), keepU))
         assertEquals(u, onlyAtom(assertNotNull(ops.filter(taint(u, full), keepU))))
     }

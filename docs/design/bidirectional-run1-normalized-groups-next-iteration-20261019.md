@@ -2,8 +2,10 @@
 
 Date: 2026-10-19. This proposal uses the fresh measurements for
 `b88c85d5b710d28293d7672af92b085a3838fb19` and grouped-statics revision 2.1.
-No optimization below is implemented. The previous implementation and
-2,063-test gate are closed. Project acceptance fails.
+This document records the original proposal. The selected immutable-group
+iteration is now implemented; see its
+[validation report](../reports/bidirectional-immutable-mark-groups-validation-20261019.md).
+Other hypotheses below remain unselected. The baseline project acceptance failed.
 
 The selected next iteration is now
 [Immutable mark groups and static demand guidance](../../spec/run1-group-policy-and-ownership-census.md).
@@ -15,7 +17,7 @@ interning. Remove member/global-group enumeration and the whole bound-rule
 ownership census. Static permissions use the actual input/premise owner.
 No no-insert lookup mode, trace memo, property OR or census wrapper adapter is
 selected. The older code below is historical where it describes those paths.
-Other optimization hypotheses stay unselected. Runtime remains unchanged.
+Other optimization hypotheses stay unselected. Fresh project measurements follow.
 Use the [implementation proposal](bidirectional-immutable-mark-groups-implementation-20261019.md)
 for the selected code changes, removal list and validation sequence.
 

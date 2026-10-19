@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.demandProbe
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.*
@@ -89,11 +90,11 @@ class FrontierSeedIndexTest {
             assertEquals(2, accepted)
             val snapshot = builder.build()
             for (key in keys) {
-                assertEquals(listOf(explicit), snapshot.covering(key, AccessPathBase.Zero, null))
-                assertEquals(setOf(explicit, implicit), snapshot.near(key, AccessPathBase.Zero, null).toSet())
+                assertEquals(listOf(explicit), snapshot.covering(key, f.manager.zero))
+                assertEquals(setOf(explicit, implicit), snapshot.near(key, f.manager.zero.toPattern()).toSet())
             }
             builder.add(keys.first(), DemandPattern(f.pattern(y), f.pattern(x)))
-            assertTrue(snapshot.near(keys.first(), y, null).isEmpty(), "A demand snapshot owns its builder contents")
+            assertTrue(snapshot.near(keys.first(), demandProbe(y)).isEmpty(), "A demand snapshot owns its builder contents")
         }
     }
 

@@ -50,7 +50,7 @@ class OneRunAcceptanceTest {
         val actual = schedule.run()
         val universe = BoundedDenotation((listOf(AccessPathBase.Zero, x, y, z, returned) + extraBases).distinct(),
             (fields + f.field("fresh accessor")).distinct(),
-            (marks + f.mark("fresh mark") + f.ap.marks.groupAtoms() + TaintMark.ZERO).distinct(), 2)
+            (marks + f.mark("fresh mark") + (marks + f.mark("fresh mark")).map { f.ap.marks.group(f.ap.marks.groupOf(it)) } + TaintMark.ZERO).distinct(), 2)
         try { actual.assertEquivalent(expected, universe) }
         catch (failure: AssertionError) {
             throw AssertionError("index=${config.index} program=${f.describe()} trace=${schedule.trace}", failure)

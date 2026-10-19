@@ -1,8 +1,10 @@
 # Immutable mark groups and static demand guidance
 
 Date: 19 October 2026. Revision: **2.1, direct primitive policy; no binding census**.
-Status: selected specification, not implemented. Runtime remains
-`b88c85d5b710d28293d7672af92b085a3838fb19` (B88).
+Status: implemented. The runtime baseline was
+`b88c85d5b710d28293d7672af92b085a3838fb19` (B88). The
+[implementation validation](../docs/reports/bidirectional-immutable-mark-groups-validation-20261019.md)
+records the passing selected gate. Fresh project measurements follow.
 Use ASD-STE100 Simplified Technical English. Defined code names keep their
 meanings. Follow [proof-guide.md](proof-guide.md).
 

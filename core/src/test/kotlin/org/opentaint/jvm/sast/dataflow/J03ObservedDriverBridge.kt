@@ -61,6 +61,7 @@ class J03ObservedDriverBridge {
     private val snapshots = ArrayList<CompleteJvmRun>()
     private val witnessSnapshots = ArrayList<J03ObservedWitness>()
     private val symbols = ConcurrentHashMap<String, Accessor>()
+    private var declaredGroups: Map<String, String> = emptyMap()
     private var driver: IterationDriver? = null
     private var pending: JoinedRun? = null
 
@@ -77,6 +78,10 @@ class J03ObservedDriverBridge {
         policy: IterationPolicy,
         refManager: RefManager,
     ): JIRBidiAnalysis {
+        val raw = rules.markDeclarations
+        val declarations = org.opentaint.dataflow.jvm.bidi.interp.finalizeMarkDeclarations(
+            raw, org.opentaint.dataflow.util.Cancellation())
+        declaredGroups = (raw.names + raw.explicitOwners.keys).associateWith { declarations.fullKey(it).group.encoded }
         val ctor = JIRBidiAnalysis::class.java.declaredConstructors.single { it.parameterCount == 8 }
         ctor.isAccessible = true
         val factory: (IterationPolicy, SharedObjects, Duration) -> IterationDriver = ::createDriver
@@ -207,13 +212,7 @@ class J03ObservedDriverBridge {
             seedSnapshot(config.seeds), outgoing?.let { seedSnapshot(it.seeds) }, ownMap(counters),
             counters.values.sumOf { it.steps }, counters.values.sumOf { it.edgeDeltas },
             joined.result.demandLayerEdges, joined.result.recordCrossings, counters.values.sumOf { it.triggerSeeds },
-            ownSet(counters.filterValues { it.nonZeroInitial }.keys), ownMap(buildMap {
-                for (groupAtom in ops.manager.marks.groupAtoms()) {
-                    val group = (ops.manager.marks.key(groupAtom) as MarkAtomKey.Group).id
-                    for (full in ops.manager.marks.eligibleMembers(group))
-                        put(ops.manager.marks.name(full), ops.manager.marks.name(groupAtom))
-                }
-            }))
+            ownSet(counters.filterValues { it.nonZeroInitial }.keys), ownMap(declaredGroups), outgoing?.demand?.let { field(it, "staticGroupsEnabled") as Boolean })
     }
 
     private fun edges(ops: ApOps, key: MethodKey, premise: PremiseKey, facts: Facts,

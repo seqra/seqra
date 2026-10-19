@@ -58,7 +58,6 @@ internal class GroupRuleConditions(private val catalog: MarkTable, private val c
     }
 
     private fun selectedNodes(full: RulePredicate): IntArray {
-        check(catalog.isOwnershipCensusComplete) { "Finish ownership before compiling GROUP conditions" }
         val selected = IntArray(full.nodeCount)
         for (node in 0 until full.nodeCount) {
             cancellation.checkpoint()

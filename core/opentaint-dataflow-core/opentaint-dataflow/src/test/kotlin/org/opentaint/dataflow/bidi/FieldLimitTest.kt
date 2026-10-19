@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
@@ -19,7 +21,7 @@ import kotlin.test.assertTrue
 
 /** Raw input leaves and local typed-tree decoding make the per-leaf reference independent of trie cutting. */
 class FieldLimitTest {
-    private val manager = ApManager(Cancellation())
+    private val manager = testApManager(Cancellation())
     private val ops = ApOps(manager)
     private val x = AccessPathBase.Argument(0)
     private val f = manager.accessors.index(FieldAccessor("Box", "f", "Box"))

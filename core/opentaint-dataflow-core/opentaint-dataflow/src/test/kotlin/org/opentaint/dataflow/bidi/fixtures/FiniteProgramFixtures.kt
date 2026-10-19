@@ -67,10 +67,11 @@ class ProgramMethod internal constructor(val method: CommonMethod, successors: L
 }
 
 /** Complete finite input program. Construction lists are separate from engine indexes and tree stores. */
-class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), threads: Int = 1) : AutoCloseable {
+class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), threads: Int = 1,
+                            markDeclarations: MarkDeclarations = COMMON_FIXTURE_DECLARATIONS) : AutoCloseable {
     private data class ProgramUnit(val name: String) : UnitType
     val refManager = RefManager()
-    val ap = ApManager(cancellation, refManager).also { it.marks.finishFixtureOwnershipCensus() }
+    val ap = testApManager(cancellation, refManager, markDeclarations)
     val manager: ApManager get() = ap
     val ops = ApOps(ap)
     val records = PersistentRecordStore(ap)

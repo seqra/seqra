@@ -130,9 +130,9 @@ class TemporaryStorageBoundaryTest {
             assertFailsWith<IllegalStateException> { builder.add(fixture.method, bad) }
         }
         val before = builder.build()
-        assertTrue(before.near(fixture.method, temp, null).isEmpty())
-        assertTrue(before.near(fixture.method, entry.fact.base, null).isEmpty())
+        assertTrue(before.near(fixture.method, entry.copy(fact = entry.fact.copy(base = temp))).isEmpty())
+        assertTrue(before.near(fixture.method, entry).isEmpty())
         assertTrue(builder.add(fixture.method, DemandPattern(entry, exit)))
-        assertEquals(listOf(DemandPattern(entry, exit)), builder.build().near(fixture.method, entry.fact.base, null))
+        assertEquals(listOf(DemandPattern(entry, exit)), builder.build().near(fixture.method, entry))
     }
 }

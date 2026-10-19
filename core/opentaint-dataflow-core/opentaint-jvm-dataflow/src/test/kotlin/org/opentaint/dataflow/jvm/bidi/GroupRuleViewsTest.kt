@@ -15,7 +15,7 @@ import org.opentaint.dataflow.configuration.jvm.TaintMark as RuleMark
 import org.opentaint.dataflow.jvm.BasicTestUtils
 import org.opentaint.dataflow.jvm.bidi.fixtures.JIRRuleTestFixtures
 import org.opentaint.dataflow.jvm.bidi.fixtures.NoTaintRules
-import org.opentaint.dataflow.jvm.bidi.interp.OwnedRulesProvider
+import org.opentaint.dataflow.jvm.bidi.interp.EffectiveBidiRulesProvider
 import org.opentaint.dataflow.taint.PositionAccess
 import org.opentaint.dataflow.taint.RuleConditionRewriter.ExprOrConstant
 import org.opentaint.dataflow.taint.TaintMarkAwareConditionExpr
@@ -25,11 +25,10 @@ import kotlin.test.*
 
 /** This uses the selected provider compiler, not a hand-built GROUP oracle. */
 class GroupRuleViewsTest : BasicTestUtils() {
-    private fun fixture(): JIRRuleTestFixtures = JIRRuleTestFixtures(cp).also { fixture ->
-        for (name in listOf("T", "U")) fixture.manager.marks.register(name, MarkGroupKey.Rule("joined"))
-        fixture.manager.marks.register("V", MarkGroupKey.Rule("imported"))
-        fixture.manager.marks.finishOwnershipCensus()
-    }
+    private fun fixture(): JIRRuleTestFixtures = JIRRuleTestFixtures(cp, mapOf(
+        "T" to MarkGroupKey.Rule("joined"), "U" to MarkGroupKey.Rule("joined"),
+        "V" to MarkGroupKey.Rule("imported"),
+    ))
 
     private fun literal(base: AccessPathBase, mark: String = "T", negated: Boolean = false,
                         path: PositionAccess = PositionAccess.Simple(base)) =
@@ -37,7 +36,7 @@ class GroupRuleViewsTest : BasicTestUtils() {
     private fun and(vararg terms: TaintMarkAwareConditionExpr) = TaintMarkAwareConditionExpr.And(arrayOf(*terms))
     private fun or(vararg terms: TaintMarkAwareConditionExpr) = TaintMarkAwareConditionExpr.Or(arrayOf(*terms))
     private fun groups(fixture: JIRRuleTestFixtures) = fixture.forms(
-        OwnedRulesProvider(NoTaintRules, fixture.manager.marks), view = RuleView.RUN1_GROUP)
+        EffectiveBidiRulesProvider(NoTaintRules, fixture.manager.marks), view = RuleView.RUN1_GROUP)
     private fun occurrence(fixture: JIRRuleTestFixtures): RuleOccurrenceId {
         val method = fixture.method("plain")
         return RuleOccurrenceId(FormKey(FormOwner(), method, null, method.instList.first()), RuleKind.CALL_SOURCE, 0)

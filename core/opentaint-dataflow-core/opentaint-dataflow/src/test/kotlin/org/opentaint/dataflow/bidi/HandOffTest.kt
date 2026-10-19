@@ -4,6 +4,7 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.*
 import org.opentaint.dataflow.bidi.engine.*
+import org.opentaint.dataflow.bidi.fixtures.demandProbe
 import org.opentaint.dataflow.bidi.fixtures.HandOffFixtures
 import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
 import org.opentaint.dataflow.bidi.interp.*
@@ -18,18 +19,11 @@ class HandOffTest {
     private val returned = AccessPathBase.Return
     private val bases = listOf(AccessPathBase.Zero, x, y, returned, AccessPathBase.This, AccessPathBase.ClassStatic)
 
-    /** Root queries enumerate each stated base. Remove only the universally implicit zero pattern. */
+    /** FLOW root probes expose explicit rows. Query-dependent static permission is checked
+     * with actual FULL inputs in ImplicitStaticGroupDemandTest and Run1OrdinaryStaticDefaultsTest. */
     private fun explicit(f: HandOffFixtures, handOff: HandOff, key: MethodKey): Set<DemandPattern> =
-        bases.flatMap { handOff.demand.near(key, it, null) }.filterTo(LinkedHashSet()) {
+        bases.flatMap { handOff.demand.near(key, demandProbe(it)) }.filterTo(LinkedHashSet()) {
             it != DemandPattern(f.manager.zero.toPattern(), null)
-        }
-
-    /** The run-1 handoff adds one symbolic static guide for each eligible group. */
-    private fun implicitStatics(f: HandOffFixtures): Set<DemandPattern> = if (f.index != 1) emptySet() else
-        f.manager.marks.groupAtoms().mapTo(LinkedHashSet()) { group ->
-            val mark = MarkSlot.Concrete(group)
-            DemandPattern(f.pattern(STATIC, tail = Tail.ANY, mark = mark),
-                f.pattern(STATIC, tail = Tail.STAR, mark = mark))
         }
 
     private fun rule(id: String): RuleId = object : CommonTaintConfigurationSink {
@@ -78,7 +72,7 @@ class HandOffTest {
             val before = result.analyzers.single().summaries.all().toList()
             val handOff = HandOff.of(f.config, result, f.report, f.shared)
             val expected = DemandPattern(f.pattern(returned, listOf(b), Tail.ANY, u), initial.toPattern())
-            assertEquals(setOf(expected) + implicitStatics(f), explicit(f, handOff, key))
+            assertEquals(setOf(expected), explicit(f, handOff, key))
             assertEquals(mapOf(key to 1), handOff.demandEdges)
             assertEquals(0, handOff.seeds.size)
             assertEquals(before, result.analyzers.single().summaries.all().toList())
@@ -87,7 +81,7 @@ class HandOffTest {
             val record = f.records.byEntry(key, initial.toPattern()).single()
             assertSame(initial, record.premise)
             assertEquals(recordFact, record.conclusion)
-            assertEquals(setOf(expected) + implicitStatics(f), explicit(f, handOff, key))
+            assertEquals(setOf(expected), explicit(f, handOff, key))
         }
     }
 
@@ -107,7 +101,7 @@ class HandOffTest {
             f.selected(key, premise, normal)
             val result = f.result()
             val handOff = HandOff.of(f.config, result, f.report, f.shared)
-            assertEquals(setOf(DemandPattern(target, a.toPattern()), DemandPattern(target, b.toPattern())) + implicitStatics(f),
+            assertEquals(setOf(DemandPattern(target, a.toPattern()), DemandPattern(target, b.toPattern())),
                 explicit(f, handOff, key))
             assertEquals(mapOf(key to 2), handOff.demandEdges)
             assertEquals(listOf(premise to normal), result.analyzers.single().summaries.demandEdges().toList())
@@ -143,7 +137,7 @@ class HandOffTest {
                 explicit(f, handOff, key))
             assertEquals(mapOf(key to 2), handOff.demandEdges)
             assertEquals(setOf(DemandPattern(f.manager.zero.toPattern(), null)),
-                handOff.demand.near(f.key("not analysed"), AccessPathBase.Zero, null).toSet())
+                handOff.demand.near(f.key("not analysed"), f.manager.zero.toPattern()).toSet())
             assertEquals(0, handOff.seeds.size)
             f.records.persist(Direction.BACKWARD, result.analyzers.asSequence().map { it.key to it.summaries })
             val record = f.records.byEntry(key, initial.toPattern()).single()
@@ -358,7 +352,7 @@ class HandOffTest {
             val forwardResult = RunResult(RunStatus.COMPLETE, listOf(forward), 3, Direction.FORWARD, f.vulnerabilities)
             val forwardHandOff = HandOff.of(forwardConfig, forwardResult, report, f.shared)
             assertEquals(setOf(DemandPattern(targetPattern, a.toPattern()), DemandPattern(targetPattern, b.toPattern())),
-                forwardHandOff.demand.near(f.key, returned, null).toSet())
+                forwardHandOff.demand.near(f.key, demandProbe(returned)).toSet())
             assertEquals(mapOf(f.key to 2), forwardHandOff.demandEdges, "One backward guide per conjunction member")
             // Only eligible singleton NORMAL summaries can enter the record store.
             f.records.persist(Direction.FORWARD, sequenceOf(f.key to forward.summaries))
@@ -382,9 +376,9 @@ class HandOffTest {
             val backwardResult = RunResult(RunStatus.COMPLETE, listOf(backward), 4, Direction.BACKWARD, f.vulnerabilities)
             val backwardHandOff = HandOff.of(backwardConfig, backwardResult, report, f.shared)
             assertEquals(setOf(DemandPattern(a.toPattern(), targetPattern)),
-                backwardHandOff.demand.near(f.key, x, null).toSet())
+                backwardHandOff.demand.near(f.key, demandProbe(x)).toSet())
             assertEquals(setOf(DemandPattern(b.toPattern(), targetPattern)),
-                backwardHandOff.demand.near(f.key, y, null).toSet())
+                backwardHandOff.demand.near(f.key, demandProbe(y)).toSet())
             assertEquals(mapOf(f.key to 2), backwardHandOff.demandEdges)
             assertEquals(0, forwardHandOff.seeds.size)
             assertEquals(0, backwardHandOff.seeds.size)

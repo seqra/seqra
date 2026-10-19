@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.demandProbe
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
@@ -191,7 +192,7 @@ class Run1StaticDriverSafetyTest {
             assertTrue(hasTaint(f,seen.processed,3,root,2,gp,t))
             assertTrue(seen.results.first().witnessesByKey().any { it.key.rule == killed.rule })
             assertTrue(checkNotNull(seen.configs.single { it.index == 2 }.demand)
-                .near(callee, STATIC, null).any { it.entry.fact.path.isEmpty() &&
+                .near(callee, demandProbe(STATIC, fp, MarkSlot.Concrete(t))).any { it.entry.fact.path.isEmpty() &&
                     it.entry.fact.mark == GroupedScalarMarks(f.manager.marks).slot(MarkSlot.Concrete(t)) },
                 "The shared Group permission retains actual Full marks and never starts FLOW")
             assertTrue(seen.results.filter { it.runIndex > 1 }.all { result ->

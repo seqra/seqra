@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.demandProbe
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.HandOff
@@ -13,7 +14,7 @@ class NormalizedHandOffTest {
     private val resultBase = AccessPathBase.Return
 
     private fun stored(h: HandOff, method: MethodKey, vararg bases: AccessPathBase): Set<DemandPattern> =
-        bases.flatMap { h.demand.near(method, it, null) }.toSet()
+        bases.flatMap { h.demand.near(method, demandProbe(it)) }.toSet()
 
     @Test
     fun `forward selected abstract leaves normalize exactly once while distinct STAR exit field exclusions remain`(): Unit {
@@ -159,11 +160,11 @@ class NormalizedHandOffTest {
             assertEquals(setOf(DemandPattern(zero, null), DemandPattern(zero, f.pattern(y, listOf(a), Tail.ANY, u))),
                 stored(h, key, AccessPathBase.Zero))
             assertEquals(listOf(DemandPattern(zero, f.pattern(y, listOf(a), Tail.ANY, u))),
-                h.demand.covering(key, AccessPathBase.Zero, null))
+                h.demand.covering(key, f.manager.zero))
             assertEquals(mapOf(key to 3), h.demandEdges)
             assertTrue(stored(h, recordOnly, x).isEmpty())
             assertEquals(setOf(DemandPattern(zero, null)), stored(h, recordOnly, AccessPathBase.Zero))
-            assertTrue(h.demand.covering(recordOnly, AccessPathBase.Zero, null).isEmpty())
+            assertTrue(h.demand.covering(recordOnly, f.manager.zero).isEmpty())
         }
     }
 

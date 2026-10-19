@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.bidi.ap.ApManager
@@ -22,7 +24,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class FactShapeTest {
-    private val manager = ApManager(Cancellation())
+    private val manager = testApManager(Cancellation())
     private val base = AccessPathBase.Argument(0)
     private val mark = MarkSlot.Concrete(manager.marks.mark("T"))
     private val f = manager.accessors.index(FieldAccessor("Box", "f", "Box"))

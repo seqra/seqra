@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.bidi.ap.ReferenceRequestAction as RequestAction
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
@@ -277,7 +279,7 @@ class RequestStoreTest {
         val root = policy()
         val atF = policy(p(f))
         val deep = policy(p(f, g))
-        val foreign = ApManager(Cancellation())
+        val foreign = testApManager(Cancellation())
         val other = foreign.initial(x, foreign.path(p(f)), Tail.STAR, ExclusionSet.Empty, MarkSlot.STAR)
         val original: List<Pair<InitialAp, RequestKind>> = listOf(root to RequestKind.Mark(t), atF to RequestKind.Mark(t))
         original.forEach { (initial, kind) -> store.add(initial, kind) }
@@ -327,7 +329,7 @@ class RequestStoreTest {
     @Test
     fun `local origin handles preserve manager ID collisions and grouped position origins`(): Unit {
         val store = RequestStore()
-        val origins = List(33) { ApManager(Cancellation()).initial(STATIC, null, Tail.STAR, ExclusionSet.Empty, MarkSlot.STAR) }
+        val origins = List(33) { testApManager(Cancellation()).initial(STATIC, null, Tail.STAR, ExclusionSet.Empty, MarkSlot.STAR) }
         assertEquals(1, origins.map { it.id }.toSet().size)
         val kind = position(p(cls, f))
         for (initial in origins) {

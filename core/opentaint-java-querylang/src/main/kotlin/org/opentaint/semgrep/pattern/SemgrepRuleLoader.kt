@@ -324,7 +324,9 @@ class SemgrepRuleLoader(
         val typeOps = strategy.typeOps
         return runCatching {
             val ctx = RuleConversionCtx(rule.info.ruleId, rule.modeModifier(), rule.info.sinkMeta, a2trTrace, typeOps)
-            val rules = convertNormalRuleWithStrategy(strategy, ctx, rule.rule)
+            val rules = convertNormalRuleWithStrategy(strategy, ctx, rule.rule).copy(
+                primitiveByOwner = mapOf(rule.info.ruleId to rule.info.primitiveTracking),
+            )
             rules to rule.info.metadata
         }.onFailure { ex ->
             a2trTrace.error(FailedToCreateTaintRules(ex.message))
@@ -355,8 +357,11 @@ class SemgrepRuleLoader(
         val typeOps = strategy.typeOps
         return runCatching {
             val ctx = RuleConversionCtx(rule.info.ruleId, rule.modeModifier(), rule.info.sinkMeta, a2trTrace, typeOps)
-            val rules = convertJoinRuleWithStrategy(strategy, ctx, taintAutomata)
+            val converted = convertJoinRuleWithStrategy(strategy, ctx, taintAutomata)
                 ?: return null
+            val rules = converted.copy(
+                primitiveByOwner = mapOf(rule.info.ruleId to rule.info.primitiveTracking),
+            )
             rules to rule.info.metadata
         }.onFailure { ex ->
             a2trTrace.error(FailedToCreateTaintRules(ex.message))

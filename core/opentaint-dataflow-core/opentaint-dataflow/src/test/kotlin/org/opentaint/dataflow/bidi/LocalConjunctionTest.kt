@@ -24,7 +24,8 @@ class LocalConjunctionTest {
         val p = initial.toPattern()
         val m = p.fact.mark as? MarkSlot.Concrete ?: return p
         val full = when (f.manager.marks.key(m.mark)) {
-            is MarkAtomKey.Group -> f.manager.marks.eligibleMembers(f.manager.marks.groupOf(m.mark)).single()
+            is MarkAtomKey.Group -> listOf("T", "U", "V", "W")
+                .map(f.manager.marks::full).single { f.manager.marks.groupOf(it) == f.manager.marks.groupOf(m.mark) }
             else -> m.mark
         }
         return p.copy(fact = p.fact.copy(mark = MarkSlot.Concrete(full)))

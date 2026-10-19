@@ -109,6 +109,7 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
         val forwardPr = JvmObservedPath(argument, tail = Tail.STAR, mark = "*")
         assertEquals(setOf(JvmObservedConclusion(JvmObservedPath(result, tail = Tail.ANY, mark = "*"), Layer.DEMAND)),
             r.raw(1, getter, result))
+        assertEquals(true, r.runs[0].outgoingStaticGroupGuidance)
         assertContains(assertNotNull(r.runs[0].outgoingDemand), JvmObservedDemand(getter,
             JvmObservedPath(result, tail = Tail.ANY, mark = "*"), forwardPr))
         val backwardPr = JvmObservedPath(result, tail = Tail.ANY, mark = t)

@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
@@ -22,7 +24,7 @@ import kotlin.test.assertFails
 
 /** Direct vectors from ap.md 4.1. The matrices cover generic concat, not native-summary reachability. */
 class ApplyEdgeVectorsTest {
-    private val manager = ApManager(Cancellation())
+    private val manager = testApManager(Cancellation())
     private val source = AccessPathBase.Argument(0)
     private val target = AccessPathBase.Return
     private val f = manager.accessors.index(FieldAccessor("Box", "f", "Box"))

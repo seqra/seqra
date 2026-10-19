@@ -61,7 +61,7 @@ class Run1OrdinaryStaticDefaultsTest {
             val expected = DemandPattern(p.pattern(STATIC, tail = Tail.ANY, mark = group),
                 p.pattern(STATIC, tail = Tail.STAR, mark = group))
             for (method in listOf(root, callee, unseen)) {
-                assertContains(handoff.demand.near(method, STATIC, null), expected)
+                assertContains(handoff.demand.near(method, Pattern(actual, ExclusionSet.Empty)), expected)
             }
         }
     }

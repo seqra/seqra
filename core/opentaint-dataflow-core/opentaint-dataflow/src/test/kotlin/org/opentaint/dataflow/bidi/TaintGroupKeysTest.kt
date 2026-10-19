@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.bidi.ap.*
@@ -14,7 +16,7 @@ import kotlin.test.assertTrue
 
 /** CurrentTaintGroupKeys destination regression, with a local sparse builder and decoder. */
 class TaintGroupKeysTest {
-    private val m = ApManager(Cancellation())
+    private val m = testApManager(Cancellation())
     private val x = AccessPathBase.Argument(0)
     private val f = m.accessors.index(FieldAccessor("Box", "f", "Box"))
     private val g = m.accessors.index(FieldAccessor("Box", "g", "Box"))

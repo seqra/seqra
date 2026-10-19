@@ -32,7 +32,7 @@ class DriverIntegrationTest {
                     f.ops.leaves(facts).map { Conclusion(it.fact, it.exclusion, facts.layer == Layer.DEMAND) }
                 }.toSet())
             assertEquals(setOf(DemandPattern(coarse, zero)),
-                f.configs[1].demand!!.near(program.root, AccessPathBase.Return, null).toSet())
+                f.configs[1].demand!!.near(program.root, coarse).toSet())
             assertEquals(listOf(Seed.Sink(program.rule, program.root, program.sink, precise)),
                 f.configs[1].seeds.at(program.root, program.sink))
             val backward = f.results[1].analyzers.single()
@@ -41,7 +41,7 @@ class DriverIntegrationTest {
             assertSame(program.source, backward.sourceHits.entries().single().third)
             val backwardCoarse = coarse.copy(fact = coarse.fact.copy(mark = mark))
             assertEquals(setOf(DemandPattern(backwardCoarse, null)),
-                f.configs[2].demand!!.near(program.root, AccessPathBase.Return, null).toSet())
+                f.configs[2].demand!!.near(program.root, backwardCoarse).toSet())
             assertEquals(listOf(Seed.Source(program.root, program.root.statement, program.source)),
                 f.configs[2].seeds.at(program.root, program.root.statement))
             val finalRaw = f.results[2].analyzers.single().summaries.all().flatMap { (_, facts) ->

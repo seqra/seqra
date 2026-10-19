@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.demandProbe
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.*
@@ -42,11 +43,11 @@ class DemandLinkTest {
                 witness.edges.any { edge -> f.ops.leaves(edge.facts).any { it.fact.tail != Tail.EXACT } }
             }, "The run-2 limit-one guide still permits a coarse normal must answer in run-3")
             val coarseDemand = Pattern(PathFact(argument, listOf(program.q), Tail.ANY, mark), ExclusionSet.Empty)
-            assertContains(f.configs[2].demand!!.near(program.reader, argument, f.manager.path(listOf(program.q, program.r)))
+            assertContains(f.configs[2].demand!!.near(program.reader, demandProbe(argument, listOf(program.q, program.r), mark))
                 .map { it.entry }, coarseDemand)
             val preciseDemand = Pattern(PathFact(argument, listOf(program.q, program.r, program.g, program.h), Tail.EXACT, mark),
                 ExclusionSet.Empty)
-            assertContains(f.configs[6].demand!!.near(program.reader, argument, f.manager.path(preciseDemand.fact.path))
+            assertContains(f.configs[6].demand!!.near(program.reader, preciseDemand)
                 .map { it.entry }, preciseDemand)
             val mSeven = f.results[6].analyzers.single { it.key == program.sinkMethod }
             assertTrue(f.links(7, mSeven.key).asSequence().any { link ->

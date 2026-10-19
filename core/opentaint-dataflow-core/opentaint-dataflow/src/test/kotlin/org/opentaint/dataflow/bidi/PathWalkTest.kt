@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.bidi.ap.ApManager
@@ -20,7 +22,7 @@ import kotlin.test.assertSame
 
 /** Proper-prefix callbacks from ap-impl.md 4.6, including the node where a child is missing. */
 class PathWalkTest {
-    private val manager = ApManager(Cancellation())
+    private val manager = testApManager(Cancellation())
     private val f = manager.accessors.index(FieldAccessor("Box", "f", "Box"))
     private val g = manager.accessors.index(FieldAccessor("Box", "g", "Box"))
     private val h = manager.accessors.index(FieldAccessor("Box", "h", "Box"))

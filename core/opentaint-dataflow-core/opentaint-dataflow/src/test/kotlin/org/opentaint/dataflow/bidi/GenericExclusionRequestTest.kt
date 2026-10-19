@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.bidi.ap.*
@@ -10,7 +12,7 @@ import kotlin.test.assertTrue
 
 /** Creator obligations are independent of subsequent ordinary positional admission. */
 class GenericExclusionRequestTest {
-    private val ap = ApManager(Cancellation())
+    private val ap = testApManager(Cancellation())
     private val ops = ApOps(ap)
     private val base = AccessPathBase.Argument(0)
     private val other = AccessPathBase.Argument(1)

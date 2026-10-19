@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.jvm.bidi
 
+import org.opentaint.dataflow.jvm.bidi.fixtures.jvmTestDeclarations
+import org.opentaint.dataflow.bidi.ap.MarkTable
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.access.FactAp
@@ -107,7 +109,7 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         val metadata = JIRStaticMetadataCollector(interp(rules)).collect(key(caller))
         assertEquals(setOf(cls), metadata.classPoints)
         assertTrue(metadata.wideClasses.isEmpty()); assertFalse(metadata.allStatic)
-        val ap = ApManager(Cancellation())
+        val ap = ApManager(Cancellation(), marks = MarkTable(jvmTestDeclarations()))
         val compiled = metadata.compile(ap)
         val classId = ap.accessors.index(cls)
         assertEquals(setOf(classId), compiled.classPoints)
@@ -121,7 +123,7 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
     @Test
     fun `neutral descriptors compile with a different AP ordering and do not retain numeric ids`(): Unit {
         val metadata = JIRStaticMetadataCollector(interp).collect(key(method("staticRead")))
-        val another = ApManager(Cancellation())
+        val another = ApManager(Cancellation(), marks = MarkTable(jvmTestDeclarations()))
         another.accessors.index(FieldAccessor("other.Owner", "other", "int"))
         another.accessors.index(ClassStaticAccessor("other.Owner"))
         val compiled = metadata.compile(another)
@@ -200,7 +202,7 @@ class JIRStaticMetadataTest : BidiJIRTestUtils() {
         assertTrue(metadata.abstractions.isEmpty())
         assertTrue(metadata.staticMayWrite)
         assertEquals(setOf(slot), metadata.marks.map { it.path.take(2) }.toSet())
-        val ap = ApManager(Cancellation())
+        val ap = ApManager(Cancellation(), marks = MarkTable(jvmTestDeclarations()))
         val compiled = metadata.compile(ap)
         val selected = listOf(ap.accessors.index(cls), ap.accessors.index(fld))
         assertTrue(compiled.abstractions.isEmpty())

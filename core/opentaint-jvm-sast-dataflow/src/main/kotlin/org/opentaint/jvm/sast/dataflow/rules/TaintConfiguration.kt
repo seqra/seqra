@@ -1,6 +1,7 @@
 package org.opentaint.jvm.sast.dataflow.rules
 
 import org.opentaint.dataflow.configuration.jvm.AssignMark
+import org.opentaint.dataflow.bidi.ap.RawMarkDeclarations
 import org.opentaint.dataflow.configuration.jvm.Result
 import org.opentaint.dataflow.configuration.jvm.TaintCleaner
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
@@ -18,6 +19,10 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFieldRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFunctionNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
+import org.opentaint.dataflow.configuration.jvm.serialized.SourceRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
+import org.opentaint.dataflow.configuration.jvm.serialized.UserDefinedRuleInfo
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Pattern
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Simple
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
@@ -31,8 +36,10 @@ import org.opentaint.ir.api.jvm.ext.allSuperHierarchySequence
 import org.opentaint.ir.api.jvm.ext.objectClass
 import org.opentaint.ir.impl.util.adjustEmptyList
 import org.opentaint.jvm.util.typename
+import java.util.Collections
 
 class TaintConfiguration(private val cp: JIRClasspath) {
+    private val declaredNames = linkedSetOf<String>()
     private val patternManager = PatternManager()
     private val taintMarkManager = TaintMarkManager()
     private val hierarchyInfo = JIRHierarchyInfo(cp)
@@ -50,6 +57,7 @@ class TaintConfiguration(private val cp: JIRClasspath) {
     private val staticFieldSourceConfig = TaintFieldRulesStorage<SerializedFieldRule.SerializedStaticFieldSource, TaintStaticFieldSource>()
 
     fun loadConfig(config: SerializedTaintConfig) {
+        collectDeclarations(config)
         config.entryPoint?.let { entryPointConfig.addRules(it) }
         config.source?.let { sourceConfig.addRules(it) }
         config.methodExitSource?.let { exitSourceConfig.addRules(it) }
@@ -59,6 +67,58 @@ class TaintConfiguration(private val cp: JIRClasspath) {
         config.methodExitSink?.let { methodExitSinkConfig.addRules(it) }
         config.methodEntrySink?.let { methodEntrySinkConfig.addRules(it) }
         config.staticFieldSource?.let { staticFieldSourceConfig.addRules(it) }
+    }
+
+    /** Detached names only. Ownership is completed once after all provider branches are merged. */
+    fun rawMarkDeclarations(): RawMarkDeclarations = RawMarkDeclarations(
+        names = Collections.unmodifiableSet(LinkedHashSet(declaredNames)),
+        explicitOwners = emptyMap(),
+        primitiveByOwner = emptyMap(),
+    )
+
+    private fun collectDeclarations(config: SerializedTaintConfig) {
+        config.entryPoint.orEmpty().forEach(::collectDeclarations)
+        config.source.orEmpty().forEach(::collectDeclarations)
+        config.methodExitSource.orEmpty().forEach(::collectDeclarations)
+        config.sink.orEmpty().forEach(::collectDeclarations)
+        config.passThrough.orEmpty().forEach(::collectDeclarations)
+        config.cleaner.orEmpty().forEach(::collectDeclarations)
+        config.methodExitSink.orEmpty().forEach(::collectDeclarations)
+        config.methodEntrySink.orEmpty().forEach(::collectDeclarations)
+        config.staticFieldSource.orEmpty().forEach(::collectDeclarations)
+    }
+
+    private fun collectDeclarations(item: SerializedItem) {
+        when (item) {
+            is SourceRule -> {
+                collectDeclarations(item.condition)
+                item.taint.forEach { declaredNames += it.kind }
+            }
+            is SinkRule -> {
+                collectDeclarations(item.condition)
+                // Names remain declarations; no end-action position is resolved or executed.
+                item.trackFactsReachAnalysisEnd.orEmpty().forEach { declaredNames += it.kind }
+            }
+            is SerializedRule.PassThrough -> {
+                collectDeclarations(item.condition)
+                item.copy.forEach { it.taintKind?.let(declaredNames::add) }
+            }
+            is SerializedRule.Cleaner -> {
+                collectDeclarations(item.condition)
+                item.cleans.forEach { it.taintKind?.let(declaredNames::add) }
+            }
+        }
+        (item.info as? UserDefinedRuleInfo)?.relevantTaintMarks?.forEach(declaredNames::add)
+    }
+
+    private fun collectDeclarations(condition: SerializedCondition?) {
+        when (condition) {
+            is SerializedCondition.Not -> collectDeclarations(condition.not)
+            is SerializedCondition.And -> condition.allOf.forEach(::collectDeclarations)
+            is SerializedCondition.Or -> condition.anyOf.forEach(::collectDeclarations)
+            is SerializedCondition.ContainsMark -> declaredNames += condition.tainted
+            else -> Unit
+        }
     }
 
     fun entryPointForMethod(method: JIRMethod, allRelevant: Boolean): List<TaintEntryPointSource> = entryPointConfig.configForMethod(method, allRelevant)

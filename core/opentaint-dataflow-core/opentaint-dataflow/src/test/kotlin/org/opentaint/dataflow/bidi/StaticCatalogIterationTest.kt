@@ -111,7 +111,15 @@ class StaticCatalogIterationTest {
                             universe: BoundedDenotation): ProgramRunInputs {
         val owners = p.roots + p.callee
         val demands = owners.flatMap { owner -> universe.positions.flatMap { position ->
-            config.demand?.covering(owner, position.base, f.manager.path(position.path)).orEmpty().map { owner to it }
+            // Query-specific static guidance is observed through the known FULL test universe.
+            val marks: List<MarkSlot> = if (position.base == STATIC) listOf(MarkSlot.STAR) +
+                universe.marks.filter { f.manager.marks.fullId(it) != null }.map { MarkSlot.Concrete(it) }
+                else listOf(MarkSlot.STAR)
+            marks.flatMap { mark ->
+                val initial = if (position.base == AccessPathBase.Zero) f.manager.zero
+                            else f.manager.initial(demandProbe(position.base, position.path, mark))
+                config.demand?.covering(owner, initial).orEmpty().map { owner to it }
+            }
         } }.distinct()
         val records = owners.flatMap { owner -> universe.positions.flatMap { position ->
             config.records.byEntry(owner, f.program.pattern(position.base, position.path, Tail.STAR, MarkSlot.STAR)).toList()
@@ -151,7 +159,7 @@ class StaticCatalogIterationTest {
             }
             val fresh = f.program.mark("fresh")
             val universe = BoundedDenotation(listOf(AccessPathBase.Zero, STATIC, returned, result, AccessPathBase.Argument(17)),
-                p.fields + f.program.field("fresh"), (p.marks + fresh + f.manager.marks.groupAtoms() + TaintMark.ZERO).distinct(), 3)
+                p.fields + f.program.field("fresh"), (p.marks + fresh + (p.marks + fresh).map { f.manager.marks.group(f.manager.marks.groupOf(it)) } + TaintMark.ZERO).distinct(), 3)
             f.program.freshShared(sameUnit, freshVulnerabilities = true).use { owner ->
                 val configs = ArrayList<RunConfig>()
                 val report = IterationDriver(FixedLimits(limits), owner, 20.seconds,

@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.jvm.bidi.fixtures
 
+import org.opentaint.dataflow.jvm.bidi.fixtures.jvmTestDeclarations
+import org.opentaint.dataflow.bidi.ap.MarkTable
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
@@ -21,7 +23,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRValue
 
 /** Shared real-bytecode statements and indexed geometry; expected forms are stated in the tests. */
 internal class JIRFormsTestFixtures(val cp: JIRClasspath) {
-    val manager = ApManager(Cancellation())
+    val manager = ApManager(Cancellation(), marks = MarkTable(jvmTestDeclarations()))
     val ops = ApOps(manager)
     val checker = JIRFactTypeChecker(cp)
     val typeFilters = JIRTypeFilters(checker, manager)

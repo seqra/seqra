@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
@@ -18,7 +20,7 @@ import kotlin.test.assertTrue
 /** Reduction uses a local raw decoder; packing preserves every complete annotation key. */
 class RestrictionTest {
     private val cancellation = Cancellation()
-    private val manager = ApManager(cancellation)
+    private val manager = testApManager(cancellation)
     private val ops = ApOps(manager)
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Return

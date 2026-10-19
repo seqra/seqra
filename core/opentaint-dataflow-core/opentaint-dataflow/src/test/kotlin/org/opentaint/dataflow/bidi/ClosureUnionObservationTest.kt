@@ -46,7 +46,7 @@ class ClosureUnionObservationTest {
             val result = groupedInput.copy(base = y)
             val universe = BoundedDenotation(listOf(AccessPathBase.Zero, x, y, returned,
                 AccessPathBase.Argument(7)), listOf(a, b, f.field("fresh accessor")),
-                (listOf(mark.mark, f.mark("fresh mark"), TaintMark.ZERO) + f.ap.marks.groupAtoms()).distinct(), 2)
+                (listOf(mark.mark, f.mark("fresh mark"), TaintMark.ZERO) + (listOf(mark.mark, f.mark("fresh mark"))).map { f.ap.marks.group(f.ap.marks.groupOf(it)) }).distinct(), 2)
             fun locations(fact: PathFact, exclusion: ExclusionSet): Set<TestLocation> =
                 universe.marked(Pattern(fact, exclusion))
             assertEquals(locations(input, ExclusionSet.Empty), locations(input, ea) + locations(input, eb),

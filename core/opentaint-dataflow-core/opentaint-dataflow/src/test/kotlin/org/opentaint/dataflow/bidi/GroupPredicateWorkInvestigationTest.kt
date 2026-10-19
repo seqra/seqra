@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.fixtures.StoreFixtures
@@ -15,15 +17,13 @@ class GroupPredicateWorkInvestigationTest {
     @Test fun `normalized group conditions merge aliases but retain all argument positions`() {
         for (width in listOf(3, 4)) {
             val fixture = StoreFixtures()
-            val manager = ApManager(fixture.cancellation)
             val owner = MarkGroupKey.Rule("group-predicate-work")
-            fun mark(name: String): TaintMark {
-                manager.marks.register(name, owner)
-                return manager.marks.reserveFull(name).also(manager.marks::markEligible)
-            }
-            val first = List(width) { mark("T$it") }
-            val second = List(width) { mark("U$it") }
-            manager.marks.finishOwnershipCensus()
+            val declarations = org.opentaint.dataflow.bidi.fixtures.testDeclarations(
+                *(List(width) { org.opentaint.dataflow.bidi.fixtures.TestMark("T$it", owner) } +
+                    List(width) { org.opentaint.dataflow.bidi.fixtures.TestMark("U$it", owner) }).toTypedArray())
+            val manager = testApManager(fixture.cancellation, declarations = declarations)
+            val first = List(width) { manager.marks.full("T$it") }
+            val second = List(width) { manager.marks.full("U$it") }
             val group = manager.marks.group(manager.marks.groupOf(first.first()))
             fun pattern(position: Int, mark: TaintMark) = Pattern(
                 PathFact(AccessPathBase.Argument(position), emptyList(), Tail.EXACT, MarkSlot.Concrete(mark)),

@@ -124,7 +124,7 @@ class ScheduleFuzzerTest {
                     (expected.links + actual.links).flatMap { it.premise.map { p -> p.fact.base } + it.added.fact.base } +
                     (expected.witnesses + actual.witnesses).flatMap { it.edges.flatMap { e -> e.premise.map { p -> p.fact.base } + e.facts.map { c -> c.fact.base } } }
                 val universe = BoundedDenotation((bases + listOf(AccessPathBase.Zero, x, returned)).distinct(),
-                    listOf(f.field("fresh accessor")), (listOf(t.mark, f.mark("fresh mark"), TaintMark.ZERO) + f.ap.marks.groupAtoms()).distinct(), 2)
+                    listOf(f.field("fresh accessor")), (listOf(t.mark, f.mark("fresh mark"), TaintMark.ZERO) + (listOf(t.mark, f.mark("fresh mark"))).map { f.ap.marks.group(f.ap.marks.groupOf(it)) }).distinct(), 2)
                 try { actual.assertEquivalent(expected, universe) }
                 catch (failure: AssertionError) { throw AssertionError("policy=$policy sameUnit=$sameUnit duplicate=$duplicate program=${f.describe()} trace=${schedule.trace}", failure) }
                 assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(ZERO_PATTERN),

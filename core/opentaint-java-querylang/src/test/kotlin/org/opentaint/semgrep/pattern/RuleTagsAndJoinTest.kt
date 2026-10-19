@@ -142,12 +142,52 @@ class RuleTagsAndJoinTest {
         val (result, trace) = load(sinkLib, servletSource, untrustedJoin)
         assertTrue(trace.errorMessages().isEmpty(), trace.errorMessages().toString())
         val joined = result.rulesWithMeta.single().first
+        assertEquals(mapOf(joined.ruleId to false), joined.primitiveByOwner)
         assertTrue(joined.markOwners.isNotEmpty())
         assertEquals(setOf(joined.ruleId), joined.markOwners.values.toSet())
         assertTrue(joined.markOwners.keys.any { Mark.parseMark(it).ruleId != joined.ruleId },
             "The join has marks from child conversion contexts")
         // Ownership does not rewrite the full generated name or decode it to infer the owner.
         joined.markOwners.keys.forEach { assertEquals(it, Mark.parseMark(it).taintMarkStr()) }
+    }
+
+    @Test
+    fun `normal loader carries the actual outer primitive option`() {
+        for (primitive in listOf(false, true)) {
+            val (result, trace) = load("normal.yaml" to """
+                rules:
+                  - id: normal
+                    severity: ERROR
+                    message: m
+                    languages: [java]
+                    options: { primitive-tracking: $primitive }
+                    mode: taint
+                    pattern-sources:
+                      - pattern: source()
+                    pattern-sinks:
+                      - pattern: sink(${'$'}X)
+            """.trimIndent())
+            assertTrue(trace.errorMessages().isEmpty(), trace.errorMessages().toString())
+            val rule = result.rulesWithMeta.single().first
+            assertEquals(mapOf(rule.ruleId to primitive), rule.primitiveByOwner)
+            assertTrue(rule.markOwners.isNotEmpty())
+            assertTrue(rule.markOwners.keys.all {
+                (Mark.parseMark(it).modeModifier != null) == primitive
+            })
+        }
+    }
+
+    @Test
+    fun `join loader retains its own primitive flag across child contexts`() {
+        val primitiveJoin = untrustedJoin.first to untrustedJoin.second.replace(
+            "id: ssrf", "id: ssrf\n    options: { primitive-tracking: true }")
+        val (result, trace) = load(sinkLib, servletSource, primitiveJoin)
+        assertTrue(trace.errorMessages().isEmpty(), trace.errorMessages().toString())
+        val joined = result.rulesWithMeta.single().first
+        assertEquals(mapOf(joined.ruleId to true), joined.primitiveByOwner)
+        assertEquals(setOf(joined.ruleId), joined.markOwners.values.toSet())
+        assertTrue(joined.markOwners.keys.any { Mark.parseMark(it).ruleId != joined.ruleId })
+        assertTrue(joined.markOwners.keys.all { Mark.parseMark(it).modeModifier != null })
     }
 
     @Test

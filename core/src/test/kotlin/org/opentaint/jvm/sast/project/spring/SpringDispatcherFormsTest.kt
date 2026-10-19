@@ -48,7 +48,9 @@ import org.opentaint.jvm.sast.ast.BasicTestUtils
 class SpringDispatcherFormsTest : BasicTestUtils() {
     override val sourceFileExtension = "java"
     private val cancellation by lazy { Cancellation().also { it.activate() } }
-    private val manager by lazy { ApManager(cancellation) }
+    private val manager by lazy { ApManager(cancellation, marks = MarkTable(FrozenMarkDeclarations(mapOf(
+        "T" to FullKey(encodeGroup(MarkGroupKey.Model("T"), false), "T"),
+    )))) }
     private val ops by lazy { ApOps(manager) }
     private val graph by lazy { JApplicationSingleExitGraph(JApplicationGraphImpl(cp, runBlocking { cp.usagesExt() })) }
     private val resolver by lazy { JIRCallResolver(cp, object : JIRUnitResolver {
@@ -218,8 +220,10 @@ class SpringDispatcherFormsTest : BasicTestUtils() {
         for (input in listOf(fact(AccessPathBase.ClassStatic, prefix + value),
             fact(AccessPathBase.ClassStatic, prefix, Tail.ANY),
             fact(AccessPathBase.ClassStatic, prefix, Tail.ANY_TAINT, ExclusionSet.of(value)))) {
+            // Excluded-field preservation is a later-run strong-transfer property.
+            // Run-1 has empty field exclusions and demotes affected transfers.
             val result = runSegment(method, segment, setOf(input,
-                fact(AccessPathBase.ClassStatic, listOf(other, outside))))
+                fact(AccessPathBase.ClassStatic, listOf(other, outside))), run1 = false)
             assertEquals(setOf(input), result.filter { it.fact.base == AccessPathBase.ClassStatic }.toSet())
             assertTrue(result.any { it.fact.base == AccessPathBase.LocalVar(1) })
         }
@@ -263,19 +267,22 @@ class SpringDispatcherFormsTest : BasicTestUtils() {
         }
     }
 
-    private fun runSegment(method: JIRMethod, segment: List<JIRInst>, inputs: Set<Conclusion>): Set<Conclusion> {
+    private fun runSegment(method: JIRMethod, segment: List<JIRInst>, inputs: Set<Conclusion>,
+                           run1: Boolean = true): Set<Conclusion> {
         var current = inputs
-        val reference = FormsReference(ops)
-        for (statement in segment) current = if (statement.callExpr != null) runCleanup(method, statement, current)
+        val reference = FormsReference(ops, ReferenceAlgebra(
+            ApMode(run1, Direction.FORWARD, Int.MAX_VALUE), manager = manager))
+        for (statement in segment) current = if (statement.callExpr != null) runCleanup(method, statement, current, run1)
         else current.flatMap { input -> reference.apply(FormsReference.Mode.STATEMENT,
             interpreter.statementSummary(key(method), statement), setOf(ZERO_PATTERN), input,
             Place(statement, statementEdge = true, sources = false)) }.toSet()
         return current
     }
-    private fun runCleanup(method: JIRMethod, call: JIRInst, inputs: Set<Conclusion>) =
-        runPlan(interpreter.callPlan(key(method), call, checkNotNull(call.callExpr)), call, inputs, Direction.FORWARD)
-    private fun runPlan(plan: CallPlan, call: JIRInst, inputs: Set<Conclusion>, direction: Direction): Set<Conclusion> {
-        val reference = FormsReference(ops, ReferenceAlgebra(ApMode(direction == Direction.FORWARD, direction, 1), manager = manager))
+    private fun runCleanup(method: JIRMethod, call: JIRInst, inputs: Set<Conclusion>, run1: Boolean = true) =
+        runPlan(interpreter.callPlan(key(method), call, checkNotNull(call.callExpr)), call, inputs, Direction.FORWARD, run1)
+    private fun runPlan(plan: CallPlan, call: JIRInst, inputs: Set<Conclusion>, direction: Direction,
+                        run1: Boolean = direction == Direction.FORWARD): Set<Conclusion> {
+        val reference = FormsReference(ops, ReferenceAlgebra(ApMode(run1, direction, 1), manager = manager))
         return reference.run(plan, inputs.map { input ->
             val premise = when {
                 direction == Direction.BACKWARD && input.fact != ZERO_FACT -> Pattern(input.fact, input.exclusion)
@@ -297,6 +304,7 @@ class SpringDispatcherFormsTest : BasicTestUtils() {
 }
 
 private object EmptyRules : TaintRulesProvider {
+    override val markDeclarations = RawMarkDeclarations.EMPTY
     override fun entryPointRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) = emptyList<TaintEntryPointSource>()
     override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) = emptyList<TaintMethodSource>()
     override fun exitSourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) = emptyList<TaintMethodExitSource>()

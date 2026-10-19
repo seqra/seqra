@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.bidi.ap.ReferenceRequestAction as RequestAction
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
@@ -18,7 +20,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class PrimitiveValuesTest {
-    private val m = ApManager(Cancellation())
+    private val m = testApManager(Cancellation())
     private val t = m.marks.mark("T")
     private val f = m.accessors.index(FieldAccessor("Box", "f", "Box"))
     private fun literal(base: AccessPathBase, tail: Tail = Tail.EXACT) =

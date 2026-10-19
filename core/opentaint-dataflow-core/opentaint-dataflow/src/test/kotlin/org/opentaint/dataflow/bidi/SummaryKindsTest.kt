@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
@@ -15,7 +17,7 @@ import kotlin.test.assertTrue
 
 /** Summary outputs are the union of direct concat over every locally decoded leaf pair. */
 class SummaryKindsTest {
-    private val m = ApManager(Cancellation())
+    private val m = testApManager(Cancellation())
     private val ops = ApOps(m)
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Return

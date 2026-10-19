@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.bidi.ap.ApManager
 import org.opentaint.dataflow.bidi.ap.FlowLeaf
@@ -20,7 +22,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class InternerTest {
-    private val manager = ApManager(Cancellation())
+    private val manager = testApManager(Cancellation())
     private val f = manager.accessors.index(FieldAccessor("Box", "f", "Box"))
     private val g = manager.accessors.index(FieldAccessor("Box", "g", "Box"))
     private val branchAccessors = intArrayOf(f, g).sortedArray()

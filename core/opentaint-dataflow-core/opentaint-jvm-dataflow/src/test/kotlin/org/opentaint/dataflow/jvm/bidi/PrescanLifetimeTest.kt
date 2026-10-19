@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.jvm.bidi
 
+import org.opentaint.dataflow.jvm.bidi.fixtures.jvmTestDeclarations
+import org.opentaint.dataflow.bidi.ap.MarkTable
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -182,7 +184,7 @@ class PrescanLifetimeTest : BidiJIRTestUtils() {
             f.engine.releasePrescan()
             f.cancellation.cancel()
             val newCancellation = Cancellation()
-            val newAp = ApManager(newCancellation, f.refManager)
+            val newAp = ApManager(newCancellation, f.refManager, MarkTable(jvmTestDeclarations()))
             newCancellation.activate()
             newAp.cancellation.checkpoint()
             assertNotSame(f.cancellation, newAp.cancellation)

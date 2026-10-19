@@ -5,6 +5,8 @@ data class TaintRuleFromSemgrep<R>(
     val root: Structure<R>,
     /** Creation claims captured before join branches and serialized items are flattened. */
     val markOwners: Map<String, String> = emptyMap(),
+    /** The actual outer rule option; child namespaces do not create another group. */
+    val primitiveByOwner: Map<String, Boolean> = emptyMap(),
 ) {
     val taintRules: List<TaintRuleGroup<R>> get() = root.flatten()
     val size: Int get() = taintRules.sumOf { it.size }

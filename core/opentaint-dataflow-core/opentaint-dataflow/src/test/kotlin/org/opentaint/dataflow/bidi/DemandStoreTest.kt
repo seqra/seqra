@@ -5,6 +5,7 @@ import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.fixtures.StoreFixtures
+import org.opentaint.dataflow.bidi.interp.ZERO_FACT
 import org.opentaint.dataflow.bidi.store.DemandStore
 import org.opentaint.dataflow.util.Cancellation
 import kotlin.test.Test
@@ -92,8 +93,8 @@ class DemandStoreTest {
                 (pathPrefixes(it.entry.fact.path, path) || pathPrefixes(path, it.entry.fact.path)) }.toSet() +
                 if (base == AccessPathBase.Zero) setOf(zero) else emptySet()
             val expectedCovering = stored.filter { it.entry.fact.base == base && pathPrefixes(it.entry.fact.path, path) }.toSet()
-            assertEquals(expectedNear, store.near(method, base, m.path(path)).toSet(), "near: $method, $base, $path")
-            assertEquals(expectedCovering, store.covering(method, base, m.path(path)).toSet(), "covering: $method, $base, $path")
+            assertEquals(expectedNear, store.near(method, p(path, base = base)).toSet(), "near: $method, $base, $path")
+            assertEquals(expectedCovering, store.covering(method, if (base == AccessPathBase.Zero) m.zero else m.initial(p(path, base = base))).toSet(), "covering: $method, $base, $path")
         }
     }
 
@@ -117,7 +118,7 @@ class DemandStoreTest {
         for (method in methods + missing) for (a in added) {
             val full = data[method].orEmpty() + zero
             val expected = full.mapNotNull { emit(it.entry, a) }.toSet()
-            val candidates = store.near(method, a.fact.base, m.path(a.fact.path))
+            val candidates = store.near(method, a)
             val indexed = candidates.mapNotNull { emit(it.entry, a) }.toSet()
             assertEquals(expected, indexed, "$method, added=$a")
         }
@@ -149,7 +150,7 @@ class DemandStoreTest {
         conclusions += Conclusion(m.zero.toPattern().fact, empty, false)
         for (method in methods + missing) for (initial in initials) {
             val full = data[method].orEmpty() + zero
-            val candidates = store.covering(method, initial.base, initial.path)
+            val candidates = store.covering(method, initial)
             for (conclusion in conclusions) {
                 val premise = initial.toPattern()
                 val expected = full.mapNotNull { restrict(premise, conclusion, it) }.toSet()
@@ -168,12 +169,12 @@ class DemandStoreTest {
         val store = builder.build()
         for (method in methods + missing) {
             val stored = if (method == methods[0]) setOf(storedZero) else emptySet()
-            assertEquals(stored + zero, store.near(method, AccessPathBase.Zero, null).toSet())
-            assertEquals(stored + zero, store.near(method, AccessPathBase.Zero, m.path(listOf(f))).toSet())
-            assertEquals(stored, store.covering(method, AccessPathBase.Zero, null).toSet())
-            assertEquals(setOf(m.zero.toPattern()), store.near(method, AccessPathBase.Zero, null)
+            assertEquals(stored + zero, store.near(method, m.zero.toPattern()).toSet())
+            assertEquals(stored + zero, store.near(method, Pattern(ZERO_FACT.copy(path = listOf(f)), empty)).toSet())
+            assertEquals(stored, store.covering(method, m.zero).toSet())
+            assertEquals(setOf(m.zero.toPattern()), store.near(method, m.zero.toPattern())
                 .mapNotNull { emit(it.entry, m.zero.toPattern()) }.toSet())
-            assertTrue(store.near(method, z, null).isEmpty())
+            assertTrue(store.near(method, p(base = z)).isEmpty())
         }
     }
 
@@ -201,9 +202,9 @@ class DemandStoreTest {
         }
         for (method in methods.drop(1)) assertTrue(builder.add(method, original))
         val store = builder.build()
-        assertEquals((variants + original).toSet(), store.near(methods[0], x, null).toSet())
-        for (method in methods.drop(1)) assertEquals(setOf(original), store.near(method, x, null).toSet())
-        assertTrue(store.near(missing, x, null).isEmpty())
+        assertEquals((variants + original).toSet(), store.near(methods[0], p(base = x)).toSet())
+        for (method in methods.drop(1)) assertEquals(setOf(original), store.near(method, p(base = x)).toSet())
+        assertTrue(store.near(missing, p(base = x)).isEmpty())
     }
 
     @Test
@@ -228,7 +229,7 @@ class DemandStoreTest {
                 else p(listOf(g), Tail.STAR, star, ex(h), y)
             assertTrue(builder.add(methods[0], DemandPattern(entry, exit)))
         }
-        assertEquals(3, builder.build().near(methods[0], x, null).toSet().size)
+        assertEquals(3, builder.build().near(methods[0], p(base = x)).toSet().size)
     }
 
     @Test
@@ -243,9 +244,9 @@ class DemandStoreTest {
         exitPath[0] = f
         assertFalse(builder.add(methods[0], expected))
         val store = builder.build()
-        assertEquals(setOf(expected), store.near(methods[0], x, m.path(listOf(f))).toSet())
-        assertTrue(store.near(methods[0], x, m.path(listOf(h))).isEmpty())
-        assertEquals(setOf(expected), store.covering(methods[0], x, m.path(listOf(f, g))).toSet())
+        assertEquals(setOf(expected), store.near(methods[0], p(listOf(f), base = x)).toSet())
+        assertTrue(store.near(methods[0], p(listOf(h), base = x)).isEmpty())
+        assertEquals(setOf(expected), store.covering(methods[0], m.initial(p(listOf(f, g), base = x))).toSet())
     }
 
     @Test
@@ -259,17 +260,17 @@ class DemandStoreTest {
         val old = builder.build()
         entryPath += h
         exitPath.clear()
-        assertEquals(setOf(expected), old.near(methods[0], x, null).toSet())
+        assertEquals(setOf(expected), old.near(methods[0], p(base = x)).toSet())
         val next = d(listOf(h), mark = mu)
         assertTrue(builder.add(methods[0], next))
         assertTrue(builder.add(methods[1], d(listOf(f), mark = star, exit = null)))
         val newer = builder.build()
-        assertEquals(setOf(expected), old.near(methods[0], x, null).toSet())
-        assertTrue(old.near(methods[1], x, null).isEmpty())
-        assertEquals(setOf(expected, next), newer.near(methods[0], x, null).toSet())
+        assertEquals(setOf(expected), old.near(methods[0], p(base = x)).toSet())
+        assertTrue(old.near(methods[1], p(base = x)).isEmpty())
+        assertEquals(setOf(expected, next), newer.near(methods[0], p(base = x)).toSet())
         assertTrue(builder.add(methods[0], d(listOf(g), exit = null)))
-        assertEquals(setOf(expected, next), newer.near(methods[0], x, null).toSet())
-        assertEquals(setOf(expected), old.covering(methods[0], x, m.path(listOf(f))).toSet())
+        assertEquals(setOf(expected, next), newer.near(methods[0], p(base = x)).toSet())
+        assertEquals(setOf(expected), old.covering(methods[0], m.initial(p(listOf(f), base = x))).toSet())
     }
 
     @Test
@@ -283,15 +284,15 @@ class DemandStoreTest {
             val mutable = path as? MutableList<Int> ?: return
             try { mutable[0] = h } catch (_: UnsupportedOperationException) { }
         }
-        val near = store.near(methods[0], x, m.path(listOf(f))).single()
+        val near = store.near(methods[0], p(listOf(f), base = x)).single()
         attempt(near.entry.fact.path)
         attempt(requireNotNull(near.exit).fact.path)
-        assertEquals(setOf(expected), store.near(methods[0], x, m.path(listOf(f))).toSet())
-        val covering = store.covering(methods[0], x, m.path(listOf(f, g))).single()
+        assertEquals(setOf(expected), store.near(methods[0], p(listOf(f), base = x)).toSet())
+        val covering = store.covering(methods[0], m.initial(p(listOf(f, g), base = x))).single()
         attempt(covering.entry.fact.path)
         attempt(requireNotNull(covering.exit).fact.path)
-        assertEquals(setOf(expected), store.covering(methods[0], x, m.path(listOf(f, g))).toSet())
-        assertTrue(store.near(methods[0], x, m.path(listOf(h))).isEmpty())
+        assertEquals(setOf(expected), store.covering(methods[0], m.initial(p(listOf(f, g), base = x))).toSet())
+        assertTrue(store.near(methods[0], p(listOf(h), base = x)).isEmpty())
     }
 
     @Test
@@ -304,13 +305,12 @@ class DemandStoreTest {
         assertTrue(builder.add(methods[0], root))
         assertTrue(builder.add(methods[0], deep))
         val store = builder.build()
-        val query = m.path(path)
-        assertEquals(setOf(root, deep), store.near(methods[0], x, query).toSet())
-        assertEquals(setOf(root, deep), store.covering(methods[0], x, query).toSet())
-        assertEquals(setOf(root), store.covering(methods[0], x, null).toSet())
-        assertEquals(setOf(root, deep), store.near(methods[0], x, null).toSet())
+        assertEquals(setOf(root, deep), store.near(methods[0], p(path, base = x)).toSet())
+        assertEquals(setOf(root, deep), store.covering(methods[0], m.initial(p(path, base = x))).toSet())
+        assertEquals(setOf(root), store.covering(methods[0], m.initial(p(base = x))).toSet())
+        assertEquals(setOf(root, deep), store.near(methods[0], p(base = x)).toSet())
         fixture.cancellation.cancel()
-        assertFailsWith<Cancellation.Cancelled> { store.near(methods[0], x, query) }
-        assertFailsWith<Cancellation.Cancelled> { store.covering(methods[0], x, query) }
+        assertFailsWith<Cancellation.Cancelled> { store.near(methods[0], p(path, base = x)) }
+        assertFailsWith<Cancellation.Cancelled> { store.covering(methods[0], m.initial(p(path, base = x))) }
     }
 }

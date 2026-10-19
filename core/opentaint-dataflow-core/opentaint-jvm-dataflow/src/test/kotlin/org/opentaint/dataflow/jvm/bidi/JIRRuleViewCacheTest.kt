@@ -9,7 +9,7 @@ import org.opentaint.dataflow.configuration.jvm.*
 import org.opentaint.dataflow.configuration.jvm.TaintMark as RuleMark
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.bidi.fixtures.NoTaintRules
-import org.opentaint.dataflow.jvm.bidi.interp.OwnedRulesProvider
+import org.opentaint.dataflow.jvm.bidi.interp.EffectiveBidiRulesProvider
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
@@ -19,10 +19,8 @@ import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import kotlin.test.*
 
 class JIRRuleViewCacheTest : BidiJIRTestUtils() {
+    override val fixtureMarkOwners = mapOf("T" to MarkGroupKey.Rule("joined"), "U" to MarkGroupKey.Rule("joined"))
     @Test fun `entry exit call and static source caches isolate group from full forms`(): Unit {
-        manager.marks.register("T", MarkGroupKey.Rule("joined"))
-        manager.marks.register("U", MarkGroupKey.Rule("joined"))
-        manager.marks.finishOwnershipCensus()
         val fullT = manager.marks.mark("T")
         val fullU = manager.marks.mark("U")
         val group = manager.marks.group(manager.marks.groupOf(fullT))
@@ -40,7 +38,7 @@ class JIRRuleViewCacheTest : BidiJIRTestUtils() {
             override fun sourceRulesForStaticField(field: JIRField, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) =
                 listOf(TaintStaticFieldSource(field, mkTrue(), listOf(AssignMark(RuleMark("T"), Result)), null))
         }
-        val interpreter = interp(OwnedRulesProvider(delegate, manager.marks))
+        val interpreter = interp(EffectiveBidiRulesProvider(delegate, manager.marks))
         val method = method("copy")
         val forms = interpreter.forms(key(method))
         fun sourceMarks(summary: StatementSummary) = summary.edges.filter { it.isSource }.map {

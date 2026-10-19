@@ -69,8 +69,10 @@ data class CompleteJvmRun(
     val recordCrossings: Long,
     val triggerSeeds: Long,
     val nonZeroInitials: Set<MethodKey>,
-    /** Actual ownership catalog: full name to its run-1 group atom label. */
+    /** Frozen test declaration snapshot: full name to encoded owning group. */
     val markGroups: Map<String, String> = emptyMap(),
+    /** Symbolic permission family; no runtime group enumeration is required. */
+    val outgoingStaticGroupGuidance: Boolean? = null,
 )
 data class BidiAcceptanceResult(val output: List<VulnerabilityWithTrace>,
                                val report: Report, val runs: List<CompleteJvmRun>, val frontiers: List<Frontier>,

@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
@@ -17,7 +19,7 @@ import kotlin.test.assertTrue
 
 /** Raw path sets supply the union and delta oracle. No ApOps or production enumerator decodes results. */
 class TrieMergeDeltaTest {
-    private val manager = ApManager(Cancellation())
+    private val manager = testApManager(Cancellation())
     private val taintAlg = manager.taintAlg
     private val f = manager.accessors.index(FieldAccessor("Box", "f", "Box"))
     private val g = manager.accessors.index(FieldAccessor("Box", "g", "Box"))

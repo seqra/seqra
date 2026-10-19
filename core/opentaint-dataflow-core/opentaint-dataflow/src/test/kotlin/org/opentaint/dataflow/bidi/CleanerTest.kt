@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
@@ -16,7 +18,7 @@ import kotlin.test.assertTrue
 
 /** The input list is stated independently; cleanRes supplies the expected primitive cleaner rows. */
 class CleanerTest {
-    private val manager = ApManager(Cancellation())
+    private val manager = testApManager(Cancellation())
     private val ops = ApOps(manager)
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Return

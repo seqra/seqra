@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.bidi.ap.ApManager
 import org.opentaint.dataflow.bidi.ap.MarkExclusions
 import org.opentaint.dataflow.bidi.ap.MarkGate
@@ -14,7 +16,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 
 class MarkGateTest {
-    private val manager = ApManager(Cancellation())
+    private val manager = testApManager(Cancellation())
     private val t = manager.marks.mark("T")
     private val u = manager.marks.mark("U")
     private val fresh = manager.marks.mark("fresh")

@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.bidi.ap.ReferenceRequestAction as RequestAction
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
@@ -28,7 +30,7 @@ import kotlin.test.assertTrue
 
 /** Full-mark primitive/reference regression; selected GROUP behavior has separate differential controls. */
 class RequestActionTest {
-    private val manager = ApManager(Cancellation())
+    private val manager = testApManager(Cancellation())
     private val ops = ApOps(manager)
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Return

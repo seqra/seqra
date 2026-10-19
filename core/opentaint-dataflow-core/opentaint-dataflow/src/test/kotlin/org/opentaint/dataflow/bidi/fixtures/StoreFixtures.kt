@@ -11,8 +11,9 @@ import org.opentaint.ir.api.common.cfg.*
 
 /** Common IR identity and instruction indexes for store and join tests. */
 class StoreFixtures(val cancellation: Cancellation = Cancellation(), val maxIndex: Int = 127,
-                    refManager: RefManager = RefManager()) {
-    val manager = ApManager(cancellation, refManager).also { it.marks.finishFixtureOwnershipCensus() }
+                    refManager: RefManager = RefManager(),
+                    markDeclarations: MarkDeclarations = COMMON_FIXTURE_DECLARATIONS) {
+    val manager = testApManager(cancellation, refManager, markDeclarations)
     val ops = ApOps(manager)
     data class Context(val name: String) : MethodContext
     val commonMethod = object : CommonMethod {

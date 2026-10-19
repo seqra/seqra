@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.ApManager
 import org.opentaint.dataflow.bidi.ap.ExclusionSet
@@ -19,7 +21,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class PremiseTest {
-    private val manager = ApManager(Cancellation())
+    private val manager = testApManager(Cancellation())
 
     private fun initial(argument: Int, tail: Tail = Tail.EXACT): InitialAp =
         manager.initial(AccessPathBase.Argument(argument), null, tail, ExclusionSet.Empty,

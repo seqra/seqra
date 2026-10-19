@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.jvm.bidi
 
+import org.opentaint.dataflow.jvm.bidi.fixtures.jvmTestDeclarations
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
@@ -29,7 +30,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class JIRTypeFiltersTest : BasicTestUtils() {
-    private val manager = ApManager(Cancellation())
+    private val manager = ApManager(Cancellation(), marks = MarkTable(jvmTestDeclarations()))
     private val ops = ApOps(manager)
     private val checker by lazy { JIRFactTypeChecker(cp) }
     private val filters by lazy { JIRTypeFilters(checker, manager) }
@@ -264,6 +265,40 @@ class JIRTypeFiltersTest : BasicTestUtils() {
         assertNull(ops.filter(facts(listOf(sampleField)), objectAndString))
         val valid = facts(listOf(stringField), mark = MarkSlot.Concrete(ordinary))
         assertSame(valid, ops.filter(valid, objectAndString))
+    }
+
+    @Test
+    fun `JVM primitive filters and their conjunctions commute with owning GROUP projection`(): Unit {
+        val groupMode = ApMode(true, Direction.FORWARD, 1)
+        val names = listOf("int", "boolean", "char", "java.lang.Integer", "java.lang.Character",
+            "java.lang.Object", "java.lang.String", "int[]", "int[][]", "java.lang.Integer[]",
+            "java.lang.Character[][]", "java.lang.Object[][]", "java.lang.String[][]")
+        val cases = names.map { it to filter(it) } + listOf(
+            "byte[][] AND Byte[]" to filter("byte[][]").and(filter("java.lang.Byte[]")),
+            "Object AND Integer" to filter("java.lang.Object").and(filter("java.lang.Integer")),
+            "Object AND String" to filter("java.lang.Object").and(filter("java.lang.String")),
+        )
+        val paths = (0..4).map { depth -> List<Accessor>(depth) { ElementAccessor } } +
+            listOf(listOf(boxedField), listOf(ElementAccessor, boxedField), listOf(cls))
+        for ((name, selected) in cases) for (full in listOf(ordinary, tracked)) {
+            val group = manager.marks.group(manager.marks.groupOf(full))
+            assertEquals(filters.isPrimitiveTracking(full), filters.isPrimitiveTracking(group))
+            for (depth in 0..4) assertEquals(
+                selected.markPolicy?.keeps(full, depth), selected.markPolicy?.keeps(group, depth),
+                "$name policy depth=$depth full=${manager.marks.name(full)}")
+            for (path in paths) for (layer in Layer.entries) {
+                val input = facts(path, mark = MarkSlot.Concrete(full), layer = layer)
+                val groupInput = ops.runtimeFact(input, groupMode)
+                val fullOutput = ops.filter(input, selected)
+                val expected = fullOutput?.let { ops.runtimeFact(it, groupMode) }
+                val actual = ops.filter(groupInput, selected)
+                assertEquals(expected, actual, "$name path=$path layer=$layer mark=${manager.marks.name(full)}")
+                if (actual != null) {
+                    assertEquals(Layer.DEMAND, actual.layer)
+                    assertEquals(ops.leaves(expected!!).toSet(), ops.leaves(actual).toSet())
+                }
+            }
+        }
     }
 
     @Test

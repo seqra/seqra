@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.jvm.bidi
 
+import org.opentaint.dataflow.jvm.bidi.fixtures.jvmTestDeclarations
+import org.opentaint.dataflow.bidi.ap.MarkTable
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
@@ -62,6 +64,7 @@ abstract class BidiJIRTestUtils {
     protected lateinit var epResolver: JIRMethodEntrypointResolver
     protected lateinit var interp: JIRInterpreter
     protected val entries get() = interp.entries
+    protected open val fixtureMarkOwners: Map<String, org.opentaint.dataflow.bidi.ap.MarkGroupKey> = emptyMap()
     protected open val transformStringConcat: Boolean = false
 
     @BeforeAll
@@ -83,7 +86,7 @@ abstract class BidiJIRTestUtils {
             (if (transformStringConcat) listOf(JStringConcatTransformer) else emptyList()) +
             JMethodBoundaryInstFeature
         cp = db.classpath(listOf(samplesJar.toFile()), features)
-        manager = ApManager(Cancellation().also { it.activate() })
+        manager = ApManager(Cancellation().also { it.activate() }, marks = MarkTable(jvmTestDeclarations(owners = fixtureMarkOwners)))
         ops = ApOps(manager)
         languageManager = JIRLanguageManager(cp)
         graph = JApplicationSingleExitGraph(JApplicationGraphImpl(cp, cp.usagesExt()))

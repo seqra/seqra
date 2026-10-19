@@ -8,32 +8,48 @@ import java.util.Collections
 class DemandStore private constructor(
     private val byMethod: Map<MethodKey, PathTrie<DemandPattern>>,
     private val zeroDemand: DemandPattern,
-    private val sharedStatics: SharedStaticGroupDemand?,
+    private val ap: ApManager,
+    private val staticGroupsEnabled: Boolean,
 ) {
     /** Emission tests prefixes and extensions, with the implicit zero demand on the zero base. */
-    fun near(method: MethodKey, base: AccessPathBase, path: PathNode?): List<DemandPattern> {
-        val stored = byMethod[method]?.around(base, path?.toIntArray() ?: EMPTY_PATH).orEmpty()
-        return when (base) {
+    fun near(method: MethodKey, actual: Pattern): List<DemandPattern> {
+        ap.cancellation.checkpoint()
+        val stored = byMethod[method]?.around(actual.fact.base, actual.fact.path.toIntArray()).orEmpty()
+        return when (actual.fact.base) {
             AccessPathBase.Zero -> stored + zeroDemand
-            STATIC -> stored + sharedStatics?.patterns().orEmpty()
+            STATIC -> implicitStaticPair(actual)?.let { stored + it } ?: stored
             else -> stored
         }
     }
 
     /** Whole-premise restriction needs entry prefixes only. The implicit zero has no exit. */
-    fun covering(method: MethodKey, base: AccessPathBase, path: PathNode?): List<DemandPattern> {
-        val stored = byMethod[method]?.lookupPrefixes(base, path?.toIntArray() ?: EMPTY_PATH).orEmpty()
-        return if (base == STATIC) stored + sharedStatics?.patterns().orEmpty() else stored
+    fun covering(method: MethodKey, initial: InitialAp): List<DemandPattern> {
+        ap.cancellation.checkpoint()
+        val stored = byMethod[method]?.lookupPrefixes(initial.base, initial.path?.toIntArray() ?: EMPTY_PATH).orEmpty()
+        return implicitStaticPair(initial.toPattern())?.let { stored + it } ?: stored
+    }
+
+    /** Guidance only: select the pair from this actual FULL input or entry premise. */
+    private fun implicitStaticPair(actual: Pattern): DemandPattern? {
+        ap.cancellation.checkpoint()
+        if (!staticGroupsEnabled || actual.fact.base != STATIC) return null
+        val atom = (actual.fact.mark as? MarkSlot.Concrete)?.mark ?: return null
+        if (ap.marks.fullId(atom) == null) return null
+        val group = MarkSlot.Concrete(ap.marks.group(ap.marks.groupOf(atom)))
+        return DemandPattern(
+            Pattern(PathFact(STATIC, emptyList(), Tail.ANY, group), ExclusionSet.Empty),
+            Pattern(PathFact(STATIC, emptyList(), Tail.STAR, group), ExclusionSet.Empty),
+        )
     }
 
     class Builder(private val m: ApManager) {
         private val seen = LinkedHashSet<Pair<MethodKey, DemandPattern>>()
         private val zeroDemand = ownDemand(m, DemandPattern(m.zero.toPattern(), null))
-        private var sharedStatics: SharedStaticGroupDemand? = null
+        private var staticGroupsEnabled = false
 
         /** One symbolic demand family. It stores no method-by-field product. */
         fun includeStaticGroups() {
-            sharedStatics = SharedStaticGroupDemand(m)
+            staticGroupsEnabled = true
         }
 
         /** Count only a new exact normalized pattern. Validate the typed hand-off boundary. */
@@ -73,25 +89,8 @@ class DemandStore private constructor(
                 byMethod.getOrPut(method) { PathTrie(m.cancellation) }
                     .add(demand.entry.fact.base, demand.entry.fact.path.toIntArray(), demand)
             }
-            return DemandStore(Collections.unmodifiableMap(byMethod), zeroDemand, sharedStatics)
+            return DemandStore(Collections.unmodifiableMap(byMethod), zeroDemand, m, staticGroupsEnabled)
         }
-    }
-}
-
-/** Guidance only. This view is never published as an executable summary or initial. */
-private class SharedStaticGroupDemand(private val m: ApManager) {
-    private val patternsByGroup = LinkedHashMap<TaintMark, DemandPattern>()
-
-    @Synchronized fun patterns(): List<DemandPattern> {
-        m.cancellation.checkpoint()
-        for (atom in m.marks.groupAtoms()) patternsByGroup.getOrPut(atom) {
-            val mark = MarkSlot.Concrete(atom)
-            DemandPattern(
-                Pattern(PathFact(STATIC, emptyList(), Tail.ANY, mark), ExclusionSet.Empty),
-                Pattern(PathFact(STATIC, emptyList(), Tail.STAR, mark), ExclusionSet.Empty),
-            )
-        }
-        return patternsByGroup.values.toList()
     }
 }
 

@@ -31,11 +31,9 @@ import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRAnalysisManager
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodEntrypointResolver
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.bidi.interp.JIRInterpreter
-import org.opentaint.dataflow.jvm.bidi.interp.OwnedRulesProvider
+import org.opentaint.dataflow.jvm.bidi.interp.EffectiveBidiRulesProvider
+import org.opentaint.dataflow.jvm.bidi.interp.finalizeMarkDeclarations
 import org.opentaint.dataflow.bidi.ap.MarkTable
-import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
-import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
-import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.dataflow.jvm.bidi.interp.JIRMethodEntries
 import org.opentaint.dataflow.jvm.bidi.interp.PrescanLambdas
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
@@ -78,7 +76,6 @@ class JIRBidiAnalysis internal constructor(
         val checker: JIRFactTypeChecker,
         val externalMethodTracker: ExternalMethodTracker?,
         var calls: ResolvedPrescanGraph,
-        val markNames: List<String>,
     )
 
     private var prescan: PrescanResult? = null
@@ -90,7 +87,6 @@ class JIRBidiAnalysis internal constructor(
     /** Preparation consumes the caller total budget; the caller passes its remaining budget to run. */
     override fun gather(manager: TaintAnalysisManager, startMethods: List<MethodWithContext>,
                         graph: ResolvedPrescanGraph) {
-        val setupStarted = TimeSource.Monotonic.markNow()
         val source = manager as JIRAnalysisManager
         val resolver = JIRMethodEntrypointResolver(this.graph)
         val roots = startMethods.flatMap { start ->
@@ -99,33 +95,8 @@ class JIRBidiAnalysis internal constructor(
         val ids = source.prescanRuleIds()
         val lambdas = source.prescanLambdas()
         taintConfig.selectRules(ids)
-        // Reserve complete full names without constructing group views or IR copies.
-        val census = OwnedRulesProvider(taintConfig.forBidirectionalCore(), MarkTable())
-        for (method in (graph.methods + roots.map { it.method }).distinct()) {
-            cancellation.checkpoint()
-            val jir = method as JIRMethod
-            val node = jir.instList.instructions.firstOrNull() ?: continue
-            census.censusMethod(method, node)
-            for (statement in jir.instList.instructions) {
-                // Rule application uses the declared call target, including unresolved calls.
-                // The resolved graph alone can omit this source/sink/model candidate set.
-                statement.callExpr?.let { call -> census.censusMethod(call.method.method, statement) }
-                val field = ((statement as? JIRAssignInst)?.rhv as? JIRFieldRef)
-                    ?.takeIf { it.instance == null }?.field
-                if (field != null) {
-                    census.sourceRulesForStaticField(field.field, statement, null, false)
-                    census.sourceRulesForStaticField(field.field, statement, null, true)
-                }
-            }
-        }
-        for (call in graph.calls) {
-            cancellation.checkpoint()
-            census.censusMethod(call.callee, call.statement)
-        }
         prescan = PrescanResult(ids, lambdas, roots, source.factTypeChecker,
-            source.externalMethodTracker, graph, census.observedFullNames())
-        logger.info { "Bidi rule ownership census: elapsed=${setupStarted.elapsedNow()}, " +
-            "methods=${graph.methods.size}, resolvedCalls=${graph.calls.size}, fullMarks=${census.observedFullNames().size}" }
+            source.externalMethodTracker, graph)
 
     }
 
@@ -153,21 +124,11 @@ class JIRBidiAnalysis internal constructor(
 
     /** The preparation frame exits before the driver, so temporary metadata cannot pin run-1 profiles. */
     private fun prepareShared(copied: PrescanResult): SharedObjects {
-        val ap = ApManager(cancellation, refManager)
-        val rules = OwnedRulesProvider(taintConfig.forBidirectionalCore(), ap.marks)
-        for (name in copied.markNames) ap.marks.observeModelReference(name)
-        ap.marks.finishOwnershipCensus()
-        val groups = ap.marks.groupAtoms()
-        var eligibleFull = 0L
-        var eligibleGroups = 0
-        for (group in groups) {
-            cancellation.checkpoint()
-            val members = ap.marks.eligibleMembers(ap.marks.groupOf(group)).size
-            eligibleFull += members
-            if (members != 0) eligibleGroups++
-        }
-        logger.info { "BIDI_MARK_CATALOG eligibleFull=$eligibleFull, eligibleGroups=$eligibleGroups, " +
-            "declaredGroups=${groups.size}, ownershipClaims=${rules.markOwners.size}" }
+        val declarationStarted = TimeSource.Monotonic.markNow()
+        val declarations = finalizeMarkDeclarations(taintConfig.markDeclarations, cancellation)
+        val ap = ApManager(cancellation, refManager, MarkTable(declarations))
+        val rules = EffectiveBidiRulesProvider(taintConfig.forBidirectionalCore(), ap.marks)
+        logger.info { "BIDI_MARK_DECLARATIONS elapsed=${declarationStarted.elapsedNow()}" }
         val language = JIRLanguageManager(cp)
         val callResolver = JIRCallResolver(cp, unitResolver)
         val formReferences = refManager.softRefManager("bidi-method-forms")

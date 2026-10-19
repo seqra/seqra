@@ -94,7 +94,7 @@ class PredicateClosureTest {
         return BoundedDenotation(
             listOf(AccessPathBase.Zero, STATIC, x, y, z, endBase, returned, resultBase, finalEnd, AccessPathBase.Argument(17)),
             p.fields + f.program.field("fresh"),
-            (p.marks + fresh + f.manager.marks.groupAtoms() + TaintMark.ZERO).distinct(), 2)
+            (p.marks + fresh + (p.marks + fresh).map { f.manager.marks.group(f.manager.marks.groupOf(it)) } + TaintMark.ZERO).distinct(), 2)
     }
 
     private fun compare(f: DriverFixtures, p: Program, config: RunConfig): RunObservation {
@@ -221,8 +221,7 @@ class PredicateClosureTest {
             } }.distinct()
             // Explicit emitted rows and shared static Group permission are separate.
             // Only explicit exact-deduplicated rows contribute to demandEdges.
-            for ((method, pattern) in demand) assertContains(handoff.demand.near(method, pattern.entry.fact.base,
-                f.manager.path(pattern.entry.fact.path)), pattern)
+            for ((method, pattern) in demand) assertContains(handoff.demand.near(method, pattern.entry), pattern)
             val bounded = universe(f, p)
             fun demandCells(values: List<Pair<MethodKey, DemandPattern>>) = values.groupBy { it.first to it.second.exit }
                 .mapValues { (_, rows) -> rows.flatMap { bounded.marked(it.second.entry) }.toSet() }
@@ -239,15 +238,24 @@ class PredicateClosureTest {
             // lie in this independent universe, and covering excludes the implicit zero demand.
             val observedDemand = listOf(p.root, p.callee).flatMap { method ->
                 bounded.positions.flatMap { position ->
-                    handoff.demand.covering(method, position.base, f.manager.path(position.path)).map { method to it }
-                } + handoff.demand.covering(method, STATIC, null).map { method to it }
+                    // Instantiate the symbolic family with this test's finite FULL universe.
+                    val marks: List<MarkSlot> = if (position.base == STATIC) listOf(MarkSlot.STAR) +
+                        bounded.marks.filter { f.manager.marks.fullId(it) != null }.map { MarkSlot.Concrete(it) }
+                        else listOf(MarkSlot.STAR)
+                    marks.flatMap { mark ->
+                        val initial = if (position.base == AccessPathBase.Zero) f.manager.zero
+                            else f.manager.initial(demandProbe(position.base, position.path, mark))
+                        handoff.demand.covering(method, initial).map { method to it }
+                    }
+                }
             }.distinct()
             val earlierChild = p.root to DemandPattern(f.program.pattern(y, p.fields.take(1), Tail.ANY,
                 MarkSlot.Concrete(GroupedScalarMarks(f.manager.marks).atom(p.marks[1]))), ZERO_PATTERN)
             assertContains(rawDemand, earlierChild, "The independent scalar history contains the cut Y child")
             val explicitHandoff = (demand + earlierChild).toSet()
             val sharedStatic = listOf(p.root, p.callee).flatMap { method ->
-                f.manager.marks.groupAtoms().map { atom ->
+                bounded.marks.filter { f.manager.marks.fullId(it) != null }
+                    .map { f.manager.marks.group(f.manager.marks.groupOf(it)) }.distinct().map { atom ->
                     val group = MarkSlot.Concrete(atom)
                     method to DemandPattern(Pattern(PathFact(STATIC, emptyList(), Tail.ANY, group), ExclusionSet.Empty),
                         Pattern(PathFact(STATIC, emptyList(), Tail.STAR, group), ExclusionSet.Empty))

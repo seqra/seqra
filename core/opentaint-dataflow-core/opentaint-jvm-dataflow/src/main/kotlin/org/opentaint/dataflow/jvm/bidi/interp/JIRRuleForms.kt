@@ -355,7 +355,7 @@ internal class JIRRuleForms(
         }
             .compile(normalizedSourceOrSink(cond), mayBeArray)
 
-    private fun groupConditions(): GroupRuleConditions = (rules as? OwnedRulesProvider)?.groupConditions(manager.cancellation)
+    private fun groupConditions(): GroupRuleConditions = (rules as? EffectiveBidiRulesProvider)?.groupConditions(manager.cancellation)
         ?: GroupRuleConditions(manager.marks, manager.cancellation)
 
     private fun selectedPredicate(full: RulePredicate): RulePredicate =

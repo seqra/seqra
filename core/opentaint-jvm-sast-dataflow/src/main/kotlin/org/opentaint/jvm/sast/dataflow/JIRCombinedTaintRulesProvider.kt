@@ -2,10 +2,12 @@ package org.opentaint.jvm.sast.dataflow
 
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.bidi.ap.RawMarkDeclarations
 import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSink
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.BidirectionalRulesProviderFactory
 import org.opentaint.dataflow.jvm.ap.ifds.taint.forBidirectionalCore
+import org.opentaint.dataflow.jvm.bidi.interp.mergeRawMarkDeclarations
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
@@ -16,6 +18,9 @@ class JIRCombinedTaintRulesProvider(
     private val combined: TaintRulesProvider,
     private val combinationOptions: CombinationOptions = CombinationOptions(),
 ) : TaintRulesProvider, BidirectionalRulesProviderFactory {
+    override val markDeclarations: RawMarkDeclarations
+        get() = mergeRawMarkDeclarations(listOf(base.markDeclarations, combined.markDeclarations))
+
     override val markOwners: Map<String, String> by lazy {
         buildMap {
             for (provider in listOf(base, combined)) for ((mark, owner) in provider.markOwners) {

@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
@@ -25,7 +27,7 @@ import kotlin.test.assertTrue
 /** Input leaves are stated independently. concat supplies the expected transfer, with requests kept separate. */
 /** Full-mark primitive/reference regression; selected GROUP behavior has separate differential controls. */
 class EdgeTreeEquivalenceTest {
-    private val manager = ApManager(Cancellation())
+    private val manager = testApManager(Cancellation())
     private val ops = ApOps(manager)
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Return
@@ -355,7 +357,7 @@ class EdgeTreeEquivalenceTest {
         val first = assertNotNull(e.compiled)
         check(input, e)
         assertSame(first, e.compiled)
-        val other = ApManager(Cancellation())
+        val other = testApManager(Cancellation())
         for (accessor in listOf(FieldAccessor("Box", "f", "Box"), FieldAccessor("Box", "g", "Box"),
             FieldAccessor("Box", "h", "Box"), FieldAccessor("Box", "k", "Box"))) other.accessors.index(accessor)
         val otherT = other.marks.mark("T")

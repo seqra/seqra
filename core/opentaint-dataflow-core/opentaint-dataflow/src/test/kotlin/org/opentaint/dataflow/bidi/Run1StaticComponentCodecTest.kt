@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.bidi.engine.historical.Run1Slot
 import org.opentaint.dataflow.bidi.engine.historical.Run1StaticFootprint
 
@@ -15,7 +17,7 @@ import kotlin.test.assertTrue
 
 /** Decode finite valid locations independently of the packed component codec. */
 class Run1StaticComponentCodecTest {
-    private val ap = ApManager(Cancellation())
+    private val ap = testApManager(Cancellation())
     private val ops = ApOps(ap)
     private val c = ap.accessors.index(ClassStaticAccessor("C"))
     private val d = ap.accessors.index(ClassStaticAccessor("D"))

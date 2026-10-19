@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
@@ -16,7 +18,7 @@ import kotlin.test.assertTrue
 /** Focused operation sequences keep normal and demand facts distinct, with explicit expected leaves. */
 /** Full-mark primitive/reference regression; selected GROUP behavior has separate differential controls. */
 class LayerRulesTest {
-    private val manager = ApManager(Cancellation())
+    private val manager = testApManager(Cancellation())
     private val ops = ApOps(manager)
     private val x = AccessPathBase.Argument(0)
     private val f = manager.accessors.index(FieldAccessor("Box", "f", "Box"))

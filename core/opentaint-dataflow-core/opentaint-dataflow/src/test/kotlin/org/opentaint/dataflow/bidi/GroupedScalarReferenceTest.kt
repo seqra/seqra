@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.bidi.ap.*
@@ -10,23 +12,20 @@ import kotlin.test.*
 /** Exhaustive bounded comparisons use the scalar AP geometry and explicit catalog
  * ownership, without the packed mark gate, direct service, or group NNF index. */
 class GroupedScalarReferenceTest {
-    private val m = ApManager(Cancellation())
+    private val m = testApManager(Cancellation(), declarations = org.opentaint.dataflow.bidi.fixtures.testDeclarations(
+        org.opentaint.dataflow.bidi.fixtures.TestMark("outer#left;T", MarkGroupKey.Rule("outer")),
+        org.opentaint.dataflow.bidi.fixtures.TestMark("outer#right;U", MarkGroupKey.Rule("outer")),
+        org.opentaint.dataflow.bidi.fixtures.TestMark("other;V", MarkGroupKey.Rule("other")),
+    ))
     private val ops = ApOps(m)
-    private val t = m.marks.reserveFull("outer#left;T")
-    private val u = m.marks.reserveFull("outer#right;U")
-    private val v = m.marks.reserveFull("other;V")
+    private val t = m.marks.full("outer#left;T")
+    private val u = m.marks.full("outer#right;U")
+    private val v = m.marks.full("other;V")
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Return
     private val a = m.accessors.index(FieldAccessor("Box", "a", "Box"))
     private val b = m.accessors.index(FieldAccessor("Box", "b", "Box"))
     private val mode = ApMode(true, Direction.FORWARD, 1)
-    init {
-        m.marks.register(m.marks.name(t), MarkGroupKey.Rule("outer"))
-        m.marks.register(m.marks.name(u), MarkGroupKey.Rule("outer"))
-        m.marks.register(m.marks.name(v), MarkGroupKey.Rule("other"))
-        listOf(t, u, v).forEach(m.marks::markEligible)
-        m.marks.finishOwnershipCensus()
-    }
     private val scalar = GroupedScalarMarks(m.marks)
     private fun output(facts: List<Facts>): Set<Conclusion> = facts.flatMap { value ->
         ops.leaves(value).map { Conclusion(it.fact, it.exclusion, value.layer == Layer.DEMAND) }.toList()

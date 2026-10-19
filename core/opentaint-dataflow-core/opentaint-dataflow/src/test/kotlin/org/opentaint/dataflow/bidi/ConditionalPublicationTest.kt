@@ -13,7 +13,6 @@ class ConditionalPublicationTest {
         FiniteProgramFixtures().use { f ->
             val method = f.method("writer", listOf(emptyList()), 0).key()
             val full = f.mark("T")
-            f.ap.marks.finishFixtureOwnershipCensus()
             val mark = MarkSlot.Concrete(f.ap.marks.group(f.ap.marks.groupOf(full)))
             val fact = f.fact(AccessPathBase.Return, mark = mark, layer = Layer.DEMAND)
             val publication = Publication(f.ap.zero, fact)
@@ -33,7 +32,6 @@ class ConditionalPublicationTest {
         FiniteProgramFixtures().use { f ->
             val method = f.method("writer", listOf(emptyList()), 0).key()
             val full = f.mark("T")
-            f.ap.marks.finishFixtureOwnershipCensus()
             val mark = MarkSlot.Concrete(f.ap.marks.group(f.ap.marks.groupOf(full)))
             val left = f.fact(AccessPathBase.Return, listOf(f.field("left")), mark = mark, layer = Layer.DEMAND)
             val right = f.fact(AccessPathBase.Return, listOf(f.field("right")), mark = mark, layer = Layer.DEMAND)

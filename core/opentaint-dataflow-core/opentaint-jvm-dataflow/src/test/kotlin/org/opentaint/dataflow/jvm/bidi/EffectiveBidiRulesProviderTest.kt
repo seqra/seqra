@@ -14,7 +14,8 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.forBidirectionalCore
 import org.opentaint.dataflow.jvm.bidi.fixtures.JIRRuleTestFixtures
 import org.opentaint.dataflow.jvm.bidi.fixtures.NoTaintRules
-import org.opentaint.dataflow.jvm.bidi.interp.OwnedRulesProvider
+import org.opentaint.dataflow.jvm.bidi.fixtures.jvmTestDeclarations
+import org.opentaint.dataflow.jvm.bidi.interp.EffectiveBidiRulesProvider
 import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.taint.PositionAccess
 import org.opentaint.dataflow.taint.RuleConditionRewriter.ExprOrConstant
@@ -27,7 +28,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import org.opentaint.dataflow.configuration.jvm.TaintMark as RuleMark
 
-class OwnedRulesProviderTest : BasicTestUtils() {
+class EffectiveBidiRulesProviderTest : BasicTestUtils() {
     @Test fun `every sink role keeps its full condition and ignores end actions in both directions`(): Unit {
         val fixture = JIRRuleTestFixtures(cp)
         val method = fixture.method("plain")
@@ -45,7 +46,7 @@ class OwnedRulesProviderTest : BasicTestUtils() {
             override fun sinkRulesForMethodEntry(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) = listOf(entry)
             override fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst, fact: FactAp?, initialFacts: Set<InitialFactAp>?, allRelevant: Boolean) = listOf(exit)
         }
-        val selected = OwnedRulesProvider(provider, fixture.manager.marks)
+        val selected = EffectiveBidiRulesProvider(provider, fixture.manager.marks)
         val forms = fixture.forms(selected)
         val expr = ExprOrConstant(ContainsMarkLiteral(PositionAccess.Simple(AccessPathBase.Argument(0)),
             TaintMarkAccessor("ACTIVE"), false))
@@ -72,10 +73,9 @@ class OwnedRulesProviderTest : BasicTestUtils() {
             }
         }
         assertTrue(listOf<TaintConfigurationSink>(call, entry, exit).all { it.trackFactsReachAnalysisEnd.isNotEmpty() })
-        assertEquals(listOf("ACTIVE"), selected.observedFullNames())
     }
 
-    @Test fun `ignored invalid end action and its relevance metadata cannot add an eligible mark`(): Unit {
+    @Test fun `ignored invalid end action remains declared but does not execute`(): Unit {
         val fixture = JIRRuleTestFixtures(cp)
         val method = fixture.method("plain")
         val node = method.instList.first()
@@ -91,36 +91,33 @@ class OwnedRulesProviderTest : BasicTestUtils() {
             override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) =
                 listOf(rule)
         }
-        val marks = MarkTable()
+        val marks = MarkTable(jvmTestDeclarations(owners = mapOf("ACTIVE" to MarkGroupKey.Rule("outer"), "END_ONLY" to MarkGroupKey.Rule("outer"))))
         assertSame(provider, provider.forBidirectionalCore(), "A delegated provider retains overridden roles")
-        val selected = OwnedRulesProvider(provider.forBidirectionalCore(), marks)
+        val selected = EffectiveBidiRulesProvider(provider.forBidirectionalCore(), marks)
         val owned = selected.sinkRulesForMethod(method, node, null, false).single()
         assertTrue(owned.trackFactsReachAnalysisEnd.isEmpty())
         assertSame(info, owned.info)
         assertTrue(rule.trackFactsReachAnalysisEnd.isNotEmpty())
-        assertEquals(listOf("ACTIVE"), selected.observedFullNames())
-        marks.finishOwnershipCensus()
         val active = marks.mark("ACTIVE")
-        assertEquals(listOf(active), marks.eligibleMembers(marks.groupOf(active)))
+        assertEquals(marks.groupOf(active), marks.groupOf(marks.full("END_ONLY")))
         assertTrue(fixture.forms(selected).valid(owned))
     }
 
     @Test fun `provider group view merges aliases and keeps original full leaves separate`(): Unit {
-        val marks = MarkTable()
-        marks.register("T", MarkGroupKey.Rule("joined"))
-        marks.register("U", MarkGroupKey.Rule("joined"))
-        marks.register("V", MarkGroupKey.Rule("other"))
+        val marks = MarkTable(jvmTestDeclarations(owners = mapOf(
+            "T" to MarkGroupKey.Rule("joined"), "U" to MarkGroupKey.Rule("joined"),
+            "V" to MarkGroupKey.Rule("other"),
+        )))
         val t = marks.mark("T")
         val u = marks.mark("U")
         val v = marks.mark("V")
-        marks.finishOwnershipCensus()
         val base = AccessPathBase.Argument(0)
         fun pattern(mark: org.opentaint.dataflow.bidi.ap.TaintMark) =
             Pattern(PathFact(base, emptyList(), Tail.EXACT, MarkSlot.Concrete(mark)), ExclusionSet.Empty)
         val builder = RulePredicate.Builder(Cancellation(), marks)
         val predicate = builder.build(builder.and(listOf(builder.leaf(pattern(t)), builder.leaf(pattern(u)),
             builder.leaf(pattern(v)))))
-        val provider = OwnedRulesProvider(NoTaintRules, marks)
+        val provider = EffectiveBidiRulesProvider(NoTaintRules, marks)
         val selected = provider.groupConditions(Cancellation()).select(predicate)
         val found = arrayListOf<Pattern>()
         selected.matchingLeaves(base, marks.group(marks.groupOf(t))) { _, leaf -> found += leaf }

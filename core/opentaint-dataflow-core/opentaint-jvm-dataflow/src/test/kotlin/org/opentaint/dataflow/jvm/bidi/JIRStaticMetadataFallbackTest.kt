@@ -31,7 +31,7 @@ import kotlin.test.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
-/** Historical metadata laws plus the current production ownership-census seam. */
+/** Historical metadata laws plus the current production immutable-declaration seam. */
 class JIRStaticMetadataFallbackTest : BidiJIRTestUtils() {
     private val owner = "sample.bidi.BidiStaticMetadataSample"
     private val fieldOwner = "sample.bidi.BidiStatementSample"
@@ -49,6 +49,10 @@ class JIRStaticMetadataFallbackTest : BidiJIRTestUtils() {
             "CONTRADICTION" to CommonCondition.And(listOf(unknown, CommonCondition.Not(unknown))),
             "FALSE" to CommonCondition.Atom(IsConstant(This)))
         return object : TaintRulesProvider by NoTaintRules {
+            override val markDeclarations = org.opentaint.dataflow.bidi.ap.RawMarkDeclarations(
+                setOf("OUT") + branches.flatMap { (name, _) -> listOf("SOURCE_$name", "SINK_$name") },
+                emptyMap(), emptyMap(),
+            )
             override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) =
                 if (method == target) branches.map { (name, branch) ->
                     v.source(listOf(AssignMark(TaintMark("OUT"), Result)), condition("SOURCE_$name", branch), target)
@@ -212,7 +216,7 @@ class JIRStaticMetadataFallbackTest : BidiJIRTestUtils() {
 
     @Test
     @Suppress("UNCHECKED_CAST")
-    fun `actual gather completes its ownership census with no retained prescan context`(): Unit {
+    fun `actual gather uses declarations with no retained prescan context`(): Unit {
         val m = method("aliasRule", owner)
         val rules = rules()
         JIRPrescanFixtures(cp, graph, rules, aliases = true).use { f ->
@@ -223,8 +227,7 @@ class JIRStaticMetadataFallbackTest : BidiJIRTestUtils() {
             val resolved = f.engine.prescanResolvedGraph()
             assertTrue(m in resolved.methods)
             assertTrue(f.contexts().any { it.methodEntryPoint.method == m })
-            // The completed call graph and configured full rules supply the census.
-            // No analysis context or static request profile is required.
+            // Complete provider declarations need no retained per-method context.
             val contexts = JIRAnalysisManager::class.java.getDeclaredField("contexts")
                 .also { it.isAccessible = true }.get(f.manager) as MutableCollection<JIRMethodAnalysisContext>
             contexts.removeAll { it.methodEntryPoint.method == m }
@@ -232,10 +235,9 @@ class JIRStaticMetadataFallbackTest : BidiJIRTestUtils() {
             var inspected = false
             val bidi = JIRBidiAnalysis(cp, graph, f.units, rules, f.params, FixedLimits(listOf(1, 1, 2)), f.refManager,
                 driverFactory = { policy, shared, remaining ->
-                    assertTrue(shared.ap.marks.isOwnershipCensusComplete)
                     for (name in listOf("SOURCE_POS", "SOURCE_NEG", "SINK_POS", "SINK_NEG")) {
                         val full = shared.ap.marks.mark(name)
-                        assertTrue(full in shared.ap.marks.eligibleMembers(shared.ap.marks.groupOf(full)), name)
+                        assertEquals(name, shared.ap.marks.name(full))
                     }
                     val staticOrigin = shared.ap.initial(org.opentaint.dataflow.bidi.ap.STATIC,
                         shared.ap.path(listOf(shared.ap.accessors.index(org.opentaint.dataflow.ap.ifds.ClassStaticAccessor(fieldOwner)),
@@ -250,7 +252,7 @@ class JIRStaticMetadataFallbackTest : BidiJIRTestUtils() {
             f.manager.releasePrescan()
             f.engine.releasePrescan()
             assertEquals(RunStatus.TIMEOUT, bidi.run(Duration.ZERO).end.status)
-            assertTrue(inspected, "The actual prepareShared path must consume the full ownership census")
+            assertTrue(inspected, "The actual prepareShared path must consume the frozen declarations")
         }
     }
 }

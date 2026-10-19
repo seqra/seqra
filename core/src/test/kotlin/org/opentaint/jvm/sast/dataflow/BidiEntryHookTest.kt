@@ -1,5 +1,7 @@
 package org.opentaint.jvm.sast.dataflow
 
+import org.opentaint.dataflow.bidi.ap.MarkTable
+import org.opentaint.dataflow.bidi.ap.FrozenMarkDeclarations
 import kotlinx.coroutines.runBlocking
 import org.opentaint.common.sast.dataflow.TaintAnalyzer
 import org.opentaint.common.sast.dataflow.TaintAnalyzerOptions
@@ -48,7 +50,12 @@ import kotlin.time.Duration.Companion.seconds
 /** Actual legacy prescan/entry hook; only the supplied phase-3 report is scripted. */
 class BidiEntryHookTest : BasicTestUtils() {
     override val sourceFileExtension: String = "java"
-    private val ap = ApManager(Cancellation().also { it.activate() })
+    private val ap = ApManager(Cancellation().also { it.activate() }, marks = MarkTable(FrozenMarkDeclarations(setOf(
+        "confirmed hook", "demand hook", "matching confirmed", "other demand", "unknown demand",
+        "empty confirmed", "must not output",
+    ).associateWith { name -> org.opentaint.dataflow.bidi.ap.FullKey(
+        org.opentaint.dataflow.bidi.ap.encodeGroup(org.opentaint.dataflow.bidi.ap.MarkGroupKey.Model(name), false), name)
+    })))
     private val ops = ApOps(ap)
     private val params = JIRAnalysisManager.Params(aliasAnalysisParams = JIRLocalAliasAnalysis.Params(useAliasAnalysis = false))
     private fun sample(): JIRMethod = findMethod("test.samples.AnyFieldPrimitiveSample", "sink")

@@ -30,7 +30,8 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /** Real shell services over a small, fixed common IR graph. */
-class EngineShellFixtures(val cancellation: Cancellation = Cancellation()) {
+class EngineShellFixtures(val cancellation: Cancellation = Cancellation(),
+                          markDeclarations: MarkDeclarations = COMMON_FIXTURE_DECLARATIONS) {
     data class Context(val name: String) : MethodContext
     data class Unit(val name: String) : UnitType
 
@@ -53,7 +54,7 @@ class EngineShellFixtures(val cancellation: Cancellation = Cancellation()) {
     } }
 
     val refManager = RefManager()
-    val manager = ApManager(cancellation, refManager).also { it.marks.finishFixtureOwnershipCensus() }
+    val manager = testApManager(cancellation, refManager, markDeclarations)
     val ops = ApOps(manager)
     val records = PersistentRecordStore(manager)
     val vulnerabilities = ConcurrentVulnerabilityStore(manager)

@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
@@ -21,7 +23,7 @@ import kotlin.test.assertTrue
 
 /** Decode typed trees here. These tests do not use ApOps, prepend, or merge. */
 class KindFactoryTest {
-    private val manager = ApManager(Cancellation())
+    private val manager = testApManager(Cancellation())
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Return
     private val f = manager.accessors.index(FieldAccessor("Box", "f", "Box"))

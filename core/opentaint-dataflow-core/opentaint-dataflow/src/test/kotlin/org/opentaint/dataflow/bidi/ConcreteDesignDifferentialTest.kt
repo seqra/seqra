@@ -26,7 +26,7 @@ class ConcreteDesignDifferentialTest {
     private fun actualHandOff(f: DriverFixtures, keys: List<MethodKey>, handOff: HandOff,
                               bases: List<AccessPathBase> = listOf(AccessPathBase.Zero, x, ret)): ProgramRunInputs {
         val demand = keys.flatMap { key -> bases.flatMap { base ->
-            handOff.demand.near(key, base, null).map { key to it }
+            handOff.demand.near(key, demandProbe(base)).map { key to it }
         } }.toSet().toList()
         val seeds = keys.flatMap { key -> f.program.programMethod(key).successors.indices.flatMap { index ->
             handOff.seeds.at(key, f.program.inst(key, index))

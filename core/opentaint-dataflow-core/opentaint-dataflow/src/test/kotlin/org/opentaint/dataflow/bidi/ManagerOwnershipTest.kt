@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.bidi
 
+import org.opentaint.dataflow.bidi.fixtures.testApManager
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.bidi.ap.ApManager
@@ -14,8 +16,8 @@ import kotlin.test.assertSame
 class ManagerOwnershipTest {
     @Test
     fun `foreign suffix cannot create a second key for the same path`() {
-        val first = ApManager(Cancellation())
-        val second = ApManager(Cancellation())
+        val first = testApManager(Cancellation())
+        val second = testApManager(Cancellation())
         val a = FieldAccessor("Box", "a", "Box")
         val b = FieldAccessor("Box", "b", "Box")
         val aIdx = first.accessors.index(a)
@@ -28,8 +30,8 @@ class ManagerOwnershipTest {
 
     @Test
     fun `initial rejects a foreign path instead of interning a second numeric key`() {
-        val first = ApManager(Cancellation())
-        val second = ApManager(Cancellation())
+        val first = testApManager(Cancellation())
+        val second = testApManager(Cancellation())
         val field = FieldAccessor("Box", "a", "Box")
         first.accessors.index(field)
         val foreign = second.path(intArrayOf(second.accessors.index(field)))
@@ -39,8 +41,8 @@ class ManagerOwnershipTest {
 
     @Test
     fun `union validates both managers even on the identity shortcut`() {
-        val first = ApManager(Cancellation())
-        val second = ApManager(Cancellation())
+        val first = testApManager(Cancellation())
+        val second = testApManager(Cancellation())
         assertFails { first.union(second.zero, second.zero) }
         assertFails { first.union(first.zero, second.zero) }
         assertSame(first.zero, first.union(first.zero, first.zero))

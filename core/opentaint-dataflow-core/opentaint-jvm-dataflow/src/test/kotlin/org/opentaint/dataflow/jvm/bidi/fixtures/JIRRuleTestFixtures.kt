@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.jvm.bidi.fixtures
 
+import org.opentaint.dataflow.jvm.bidi.fixtures.jvmTestDeclarations
+import org.opentaint.dataflow.bidi.ap.MarkTable
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
@@ -21,8 +23,8 @@ import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRField
 
 /** Real rule owners and indexed accessors; expected forms remain in each test. */
-internal class JIRRuleTestFixtures(val cp: JIRClasspath) {
-    val manager = ApManager(Cancellation())
+internal class JIRRuleTestFixtures(val cp: JIRClasspath, owners: Map<String, org.opentaint.dataflow.bidi.ap.MarkGroupKey> = emptyMap()) {
+    val manager = ApManager(Cancellation(), marks = MarkTable(jvmTestDeclarations(owners = owners)))
     val ops = ApOps(manager)
     val checker = JIRFactTypeChecker(cp)
     val typeFilters = JIRTypeFilters(checker, manager)
@@ -55,6 +57,7 @@ internal class JIRRuleTestFixtures(val cp: JIRClasspath) {
 }
 
 internal object NoTaintRules : TaintRulesProvider {
+    override val markDeclarations = org.opentaint.dataflow.bidi.ap.RawMarkDeclarations(emptySet(), emptyMap(), emptyMap())
     override fun entryPointRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) = emptyList<TaintEntryPointSource>()
     override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) = emptyList<TaintMethodSource>()
     override fun exitSourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) = emptyList<TaintMethodExitSource>()

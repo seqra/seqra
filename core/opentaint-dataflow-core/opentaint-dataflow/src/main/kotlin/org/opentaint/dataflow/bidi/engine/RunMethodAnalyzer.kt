@@ -110,7 +110,7 @@ class RunMethodAnalyzer(
                 val found = LinkedHashSet<DemandPattern>()
                 for (leaf in ops.leaves(added)) {
                     ap.cancellation.checkpoint()
-                    found += checkNotNull(config.demand).near(key, leaf.fact.base, ap.path(leaf.fact.path))
+                    found += checkNotNull(config.demand).near(key, leaf)
                 }
                 for (guide in found) {
                     ap.cancellation.checkpoint()
@@ -618,7 +618,7 @@ class RunMethodAnalyzer(
 
 /** Index candidates do not replace AP's complete premise and mark/location test. */
 fun restrictBy(ops: ApOps, demand: DemandStore, key: MethodKey, initial: InitialAp, facts: Facts): Sequence<Facts> =
-    demand.covering(key, initial.base, initial.path).asSequence().flatMap { pattern ->
+    demand.covering(key, initial).asSequence().flatMap { pattern ->
         ops.manager.cancellation.checkpoint()
         ops.restrict(initial, facts, pattern)
     }
