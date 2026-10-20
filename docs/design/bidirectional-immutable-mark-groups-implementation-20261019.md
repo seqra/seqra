@@ -4,6 +4,11 @@ Date: 19 October 2026. Status: implemented; the
 [validation report](../reports/bidirectional-immutable-mark-groups-validation-20261019.md)
 records the selected gate. The following sections retain the approved design;
 statements about unexecuted work describe the proposal checkpoint.
+The implementation commit is `029ee41fd6de17388c2f61d0f900cd00f6bd33f8`.
+The [fresh project report](../reports/bidirectional-immutable-mark-groups-performance-20261020.md)
+records the failed resource/finding acceptance gate and each latest reached
+iteration. The [next proposal](bidirectional-run1-redundant-work-next-iteration-20261020.md)
+contains separate, unimplemented changes.
 Use ASD-STE100 Simplified Technical English. Code names keep their meanings.
 
 Implement [Immutable mark groups and static demand guidance, revision 2.1](../../spec/run1-group-policy-and-ownership-census.md).
@@ -66,7 +71,7 @@ applies to the primitive suffix policy and its existing conjunctions.
 | [outer rule loader](../../core/opentaint-java-querylang/src/main/kotlin/org/opentaint/semgrep/pattern/SemgrepRuleLoader.kt) / [loaded rule](../../core/opentaint-java-querylang/src/main/kotlin/org/opentaint/semgrep/pattern/TaintRuleFromSemgrep.kt) | Carry the actual outer primitive flag as metadata |
 | [Semgrep provider](../../core/src/main/kotlin/org/opentaint/jvm/sast/rules/JIRSemgrepRuleProvider.kt) / [combined provider](../../core/opentaint-jvm-sast-dataflow/src/main/kotlin/org/opentaint/jvm/sast/dataflow/JIRCombinedTaintRulesProvider.kt) | Merge raw metadata without changing rule selection |
 | [JIRBidiAnalysis](../../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/bidi/JIRBidiAnalysis.kt) | Finalize declarations, inject MarkTable and delete ownership census |
-| [OwnedRulesProvider](../../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/bidi/interp/OwnedRulesProvider.kt) | Remove observation; retain the effective rule view |
+| [EffectiveBidiRulesProvider](../../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/bidi/interp/EffectiveBidiRulesProvider.kt) | Replace OwnedRulesProvider observation; retain the effective rule view |
 | [Filter](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/Filter.kt) | Remove the FULL/GROUP policy branch |
 | [DemandStore](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/store/DemandStore.kt) / [RunMethodAnalyzer](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunMethodAnalyzer.kt) | Select implicit demands from actual input/premise |
 

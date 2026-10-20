@@ -1,8 +1,11 @@
 # Immutable mark groups: implementation validation
 
 Date: 19 October 2026. The selected implementation is complete.
-The source commit is recorded in the measurement binding. Project measurements
-are the next gate. No new project result is claimed here.
+The source commit is `029ee41fd6de17388c2f61d0f900cd00f6bd33f8`.
+This report records the local gate. The
+[fresh project report](bidirectional-immutable-mark-groups-performance-20261020.md)
+records the later failed project acceptance gate, actual profiles/heaps and
+each latest reached iteration. Local test success is not project acceptance.
 
 The implementation follows [revision 2.1](../../spec/run1-group-policy-and-ownership-census.md)
 and the [implementation proposal](../design/bidirectional-immutable-mark-groups-implementation-20261019.md).
@@ -92,5 +95,5 @@ The current source hashes match the earlier checked receipt; see
 
 These are local refinement and adapter checks. They do not prove whole-JVM
 finding parity, termination, retained memory or the 60-second run-1 target.
-The fixed project study must measure those results. Every project report
-must name the latest reached, completed and accepted forward run.
+The fixed project study measures those results in the linked report. Every
+project report must name the latest reached, completed and accepted forward run.
