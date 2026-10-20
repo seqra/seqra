@@ -1,0 +1,9 @@
+rules:
+  - id: py-kwarg-structural
+    languages: [python]
+    severity: ERROR
+    message: "structural kwarg constant sink"
+    patterns:
+      - pattern: |
+          $A = source()
+          sink($A, mode="constant")

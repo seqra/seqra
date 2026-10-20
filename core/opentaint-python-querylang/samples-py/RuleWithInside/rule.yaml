@@ -1,0 +1,15 @@
+rules:
+  - id: rule-rule
+    languages: [python]
+    severity: ERROR
+    message: match taint/RuleWithInside (Python port)
+    mode: taint
+    pattern-sources:
+      - pattern: src()
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: |
+              $R = $X.get_request_dispatcher(...)
+              ...
+          - pattern-either:
+              - pattern: $R.include($FST, $SND)

@@ -1,0 +1,10 @@
+rules:
+  - id: for-loop-element-read
+    languages: [python]
+    severity: ERROR
+    message: "an element of a tainted iterable reaches a sink"
+    mode: taint
+    pattern-sources:
+      - pattern: source()
+    pattern-sinks:
+      - pattern: sink(...)

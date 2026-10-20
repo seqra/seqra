@@ -1,0 +1,12 @@
+rules:
+  - id: taint-rule-no-meta
+    languages: [python]
+    severity: ERROR
+    message: match taint/RuleNoMeta (Python port)
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: src()
+    pattern-sinks:
+      - patterns:
+          - pattern: sink(...)

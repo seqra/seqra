@@ -1,0 +1,15 @@
+rules:
+  - id: example-rulereturnnotinsideprefix
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleReturnNotInsidePrefix (Python port)
+    patterns:
+      - pattern: |
+          $S = $SOURCE.mk_type2()
+      - pattern-not-inside: |
+          ...
+          clean($S)
+      - pattern-inside: |
+          def $METHOD(..., $SOURCE, ...):
+              ...
+              return $S.mk_type3().mk_type1()

@@ -1,0 +1,12 @@
+rules:
+  - id: example-rulewithmultiplepatterns
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleWithMultiplePatterns (Python port)
+    patterns:
+      - pattern: |
+          $V2 = mk_type2($SOURCE)
+          ...
+          $V3 = mk_type3($V2)
+          ...
+          $SINK = mk_type1($V3)

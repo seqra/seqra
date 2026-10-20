@@ -1,0 +1,13 @@
+rules:
+  - id: example-rulewithrealinsidesequence
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleWithRealInsideSequence (Python port, ObjectMapper-like sequence)
+    patterns:
+      - pattern-inside: |
+          $OM = ObjectMapper(...)
+          ...
+      - pattern-inside: |
+          $OM.enable_default_typing()
+          ...
+      - pattern: $OM.read_value($JSON, ...)

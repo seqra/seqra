@@ -1,0 +1,26 @@
+rules:
+  - id: java.spring.xss-updated
+    languages: [python]
+    severity: ERROR
+    message: Return a untrusted file path
+    metadata:
+      cwe: CWE-79
+      license: MIT
+      shortDescription: Return a untrusted file path
+    patterns:
+      - pattern: |
+          ...
+          $V2 = $SOURCE.$F()
+          ...
+      - pattern: |
+          ...
+          $V3 = $V2.mk_type3()
+          ...
+      - pattern: |
+          ...
+          $SINK = CustomType1. ... .mk_type1_from_type3($V3)
+          ...
+      - pattern-inside: |
+          def $METHOD(..., $SOURCE, ...):
+              ...
+              return $SINK

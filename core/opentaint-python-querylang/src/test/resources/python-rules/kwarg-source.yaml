@@ -1,0 +1,12 @@
+rules:
+  - id: py-kwarg-source-sink
+    languages: [python]
+    mode: taint
+    message: "kwarg source to sink"
+    severity: ERROR
+    pattern-sources:
+      - patterns:
+          - pattern: "handler(payload=$X)"
+          - focus-metavariable: $X
+    pattern-sinks:
+      - pattern: "os.system($CMD)"

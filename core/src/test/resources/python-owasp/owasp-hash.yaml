@@ -1,0 +1,17 @@
+rules:
+  - id: owasp-hash
+    languages: [python]
+    severity: ERROR
+    message: "Weak/broken hash used for a security-sensitive value (CWE-328)"
+    metadata:
+      cwe: CWE-328
+    patterns:
+      - pattern-either:
+          - pattern: |
+              hashlib.new('md5')
+          - pattern: |
+              hashlib.new('sha1')
+          - pattern: |
+              hashlib.md5(...)
+          - pattern: |
+              hashlib.sha1(...)

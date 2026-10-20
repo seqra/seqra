@@ -1,0 +1,16 @@
+rules:
+  - id: example-rulereturn5
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleReturn5 (Python port, return with cleaner)
+    patterns:
+      - pattern: |
+          $X = src()
+      - pattern-inside: |
+          ...
+          return $X
+      - pattern-not-inside: |
+          ...
+          clean($X)
+          ...
+          return $X

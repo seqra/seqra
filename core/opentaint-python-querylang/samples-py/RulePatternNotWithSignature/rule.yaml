@@ -1,0 +1,16 @@
+rules:
+  - id: example-rulepatternnotwithsignature
+    languages: [python]
+    severity: ERROR
+    message: match example/RulePatternNotWithSignature (Python port)
+    patterns:
+      - pattern: |
+          def $METHOD(...):
+              ...
+              f($ARG)
+              ...
+      - pattern-not: |
+          def $METHOD(...):
+              ...
+              clean($ARG)
+              ...

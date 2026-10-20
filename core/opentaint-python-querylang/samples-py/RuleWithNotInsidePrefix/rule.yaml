@@ -1,0 +1,11 @@
+rules:
+  - id: example-rulewithnotinsideprefix
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleWithNotInsidePrefix (Python port)
+    patterns:
+      - pattern: |-
+          sink($X)
+      - pattern-not-inside: |-
+          prefix_clean($X)
+          ...

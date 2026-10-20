@@ -24,10 +24,18 @@ import org.opentaint.dataflow.configuration.python.TaintSink
 import org.opentaint.dataflow.configuration.python.TaintSinkMeta
 import org.opentaint.dataflow.configuration.python.TaintSource
 import org.opentaint.dataflow.configuration.python.Target
+import org.opentaint.dataflow.configuration.python.serialized.SerializedPythonRule
 import org.opentaint.dataflow.ifds.SingletonUnit
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.python.rules.PIRCombinedTaintRulesProvider
+import org.opentaint.dataflow.python.rules.PIRConfigTaintRulesProvider
+import org.opentaint.dataflow.python.rules.PIRTaintConfiguration
 import org.opentaint.dataflow.python.rules.PIRTaintRulesProvider
+import org.opentaint.semgrep.pattern.SemgrepLoadTrace
+import org.opentaint.semgrep.pattern.SemgrepRuleLoader
+import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
+import org.opentaint.semgrep.pattern.conversion.PythonLanguageStrategy
+import org.opentaint.semgrep.pattern.conversion.toSerializedPythonTaintConfig
 import org.opentaint.ir.api.python.PIRFunction
 import org.opentaint.ir.api.python.PIRClasspath
 import org.opentaint.ir.api.python.PIRSettings
@@ -43,6 +51,8 @@ import kotlin.io.path.createTempDirectory
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.readText
+import kotlin.io.path.relativeTo
+import kotlin.io.path.toPath
 import kotlin.io.path.walk
 import kotlin.io.path.writeText
 import kotlin.io.readText
@@ -142,6 +152,26 @@ abstract class AnalysisTest {
     }
 
     private fun shippedRules(): PIRTaintRulesProvider = loadDefaultConfig()
+
+    protected fun loadSemgrepRules(resourceDir: String): PIRConfigTaintRulesProvider {
+        val rulesRoot = javaClass.getResource(resourceDir)?.toURI()?.toPath()
+            ?: error("Missing rule dir $resourceDir")
+
+        val loader = SemgrepRuleLoader(listOf(PythonLanguageStrategy()))
+        val trace = SemgrepLoadTrace()
+        rulesRoot.walk().filter { it.extension == "yaml" || it.extension == "yml" }.forEach { rulePath ->
+            loader.registerRuleSet(rulePath.readText(), rulePath.relativeTo(rulesRoot), rulesRoot, trace)
+        }
+
+        val taintConfig = PIRTaintConfiguration()
+        loader.loadRules().rulesWithMeta.forEach { rule ->
+            @Suppress("UNCHECKED_CAST")
+            val typed = rule.first as TaintRuleFromSemgrep<SerializedPythonRule>
+            taintConfig.loadConfig(typed.toSerializedPythonTaintConfig())
+        }
+
+        return PIRConfigTaintRulesProvider(taintConfig)
+    }
 
     fun runAnalysis(
         source: TestSource,

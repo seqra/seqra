@@ -1,0 +1,10 @@
+rules:
+  - id: kwarg-constant-sink
+    languages: [python]
+    severity: ERROR
+    message: "Taint reaches $X of sink only when the keyword arg mode is the constant \"constant\""
+    mode: taint
+    pattern-sources:
+      - pattern: source()
+    pattern-sinks:
+      - pattern: sink($X, mode="constant")

@@ -1,0 +1,12 @@
+rules:
+  - id: example-allowed-specific-constant
+    languages: [python]
+    severity: ERROR
+    message: "Taint reaches sink unless the argument is exactly the allowed literal \"ok\""
+    mode: taint
+    pattern-sources:
+      - pattern: source()
+    pattern-sinks:
+      - patterns:
+          - pattern: sink($X)
+          - pattern-not: sink("ok")

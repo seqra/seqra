@@ -1,0 +1,9 @@
+rules:
+  - id: kwarg-structural-sink
+    languages: [python]
+    severity: ERROR
+    message: "structural: source flows to sink arg0 only when kwarg mode == \"constant\""
+    patterns:
+      - pattern: |
+          $A = source()
+          sink($A, mode="constant")

@@ -1,0 +1,11 @@
+rules:
+  - id: example-rulereturn1
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleReturn1 (Python port)
+    patterns:
+      - pattern: |
+          return $X
+      - pattern-inside: |
+          $X = src()
+          ...

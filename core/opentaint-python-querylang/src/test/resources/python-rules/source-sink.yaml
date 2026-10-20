@@ -1,0 +1,10 @@
+rules:
+  - id: py-source-sink-rule
+    languages: [python]
+    mode: taint
+    message: "Tainted data flows to sink"
+    severity: ERROR
+    pattern-sources:
+      - pattern: "os.environ.get(...)"
+    pattern-sinks:
+      - pattern: "$DB.execute($Q, ...)"

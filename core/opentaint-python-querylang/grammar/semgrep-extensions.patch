@@ -1,0 +1,98 @@
+--- a/PythonLexer.g4
++++ b/PythonLexer.g4
+@@ -143,6 +143,14 @@
+ NAME_OR_CASE     : 'case';  // ... identifier or a case  keyword,   depending on the source code context
+ NAME_OR_WILDCARD : '_';     // ... identifier or a wildcard symbol, depending on the source code context
+ 
++// --- Semgrep extensions ---
++LDOTS             : '<...';
++RDOTS             : '...>';
++METAVAR_ELLIPSIS  : '$...' [A-Z_] [A-Z_0-9]*;
++ANONYMOUS_METAVAR : '$_';
++METAVAR           : '$' [A-Z_] [A-Z_0-9]*;
++// --- end semgrep extensions ---
++
+ // https://docs.python.org/3.14/reference/lexical_analysis.html#identifiers
+ NAME : ID_START ID_CONTINUE*;
+ 
+--- a/PythonParser.g4
++++ b/PythonParser.g4
+@@ -36,6 +36,12 @@
+ // STARTING RULES
+ // ==============
+ 
++// Semgrep pattern entry point: a single expression, or one/more statements.
++semgrepPattern
++    : eval
++    | file_input
++    ;
++
+ file_input: statements? EOF;
+ interactive: statement_newline;
+ eval: expressions NEWLINE* EOF;
+@@ -262,11 +268,12 @@
+     ;
+ param_with_default
+     : param default_assignment ','? TYPE_COMMENT?
++    | '...' ','?
+     ;
+ param_maybe_default
+     : param default_assignment? ','? TYPE_COMMENT?
+     ;
+-param: name annotation?;
++param: name annotation? | '...';
+ param_star_annotation: name star_annotation;
+ annotation: ':' expression;
+ star_annotation: ':' star_expression;
+@@ -664,7 +671,8 @@
+     | (tuple | group | genexp)
+     | (list | listcomp)
+     | (dict | set | dictcomp | setcomp)
+-    | '...';
++    | '...'
++    | LDOTS expression RDOTS;
+ 
+ group
+     : '(' (yield_expr | named_expression) ')';
+@@ -772,7 +780,8 @@
+ 
+ double_starred_kvpair
+     : '**' bitwise_or
+-    | kvpair;
++    | kvpair
++    | '...';
+ 
+ kvpair: expression ':' expression;
+ 
+@@ -818,11 +827,13 @@
+ 
+ kwarg_or_starred
+     : name '=' expression
+-    | starred_expression;
++    | starred_expression
++    | '...';
+ 
+ kwarg_or_double_starred
+     : name '=' expression
+-    | '**' expression;
++    | '**' expression
++    | '...';
+ 
+ // ASSIGNMENT TARGETS
+ // ==================
+@@ -852,6 +863,7 @@
+ 
+ star_atom
+     : name
++    | '...'
+     | '(' target_with_star_atom ')'
+     | '(' star_targets_tuple_seq? ')'
+     | '[' star_targets_list_seq? ']';
+@@ -916,6 +928,6 @@
+     ;
+ 
+ // ***** Always use name rule instead of NAME token in this grammar *****
+-name: NAME_OR_WILDCARD | name_except_underscore;
++name: NAME_OR_WILDCARD | name_except_underscore | METAVAR | ANONYMOUS_METAVAR | METAVAR_ELLIPSIS;
+ 
+ // ========================= END OF THE GRAMMAR ===========================

@@ -1,0 +1,17 @@
+rules:
+  - id: example-rulereturnchained
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleReturnChained (Python port, chained calls)
+    patterns:
+      - pattern: |
+          $V = $SOURCE.mk_type2().mk_type3()
+          ...
+      - pattern: |
+          ...
+          $SINK = $V.mk_type1()
+          ...
+      - pattern-inside: |
+          def $METHOD(..., $SOURCE, ...):
+              ...
+              return $SINK

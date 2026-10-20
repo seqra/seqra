@@ -1,0 +1,14 @@
+rules:
+  - id: kwarg-not-cleaner
+    languages: [python]
+    severity: ERROR
+    message: "source flows to sink unless transform is called with mode=\"safe\""
+    patterns:
+      - pattern: |
+          $A = source()
+          transform($A, mode=$M)
+          sink($A)
+      - pattern-not: |
+          $A = source()
+          transform($A, mode="safe")
+          sink($A)

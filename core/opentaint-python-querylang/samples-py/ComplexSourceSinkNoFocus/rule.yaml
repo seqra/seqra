@@ -1,0 +1,17 @@
+rules:
+  - id: complex-source-sink-no-focus
+    languages: [python]
+    severity: ERROR
+    message: match taint/RuleComplexSourceSinkNoFocus (Python port)
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - focus-metavariable: $X
+          - pattern: |
+              $A = src_init()
+              $X = src($A)
+    pattern-sinks:
+      - patterns:
+          - pattern: |
+              $B = sink_init()
+              sink($B, ...)

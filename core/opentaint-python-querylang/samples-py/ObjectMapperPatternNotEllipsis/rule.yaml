@@ -1,0 +1,15 @@
+rules:
+  - id: example-objectmapperpatternnotellipsis
+    languages: [python]
+    severity: ERROR
+    message: match example/ObjectMapperPatternNotEllipsis (Python port)
+    patterns:
+      - pattern: |
+          $MAPPER = enable_default_typing($OM)
+          ...
+          foo($MAPPER)
+      - pattern-not: |
+          ...
+          enable($MAPPER)
+          ...
+          foo($MAPPER)

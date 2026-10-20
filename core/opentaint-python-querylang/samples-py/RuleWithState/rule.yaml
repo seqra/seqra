@@ -1,0 +1,9 @@
+rules:
+  - id: example-rulewithstate
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleWithState (Python port)
+    patterns:
+      - pattern: |-
+          f()
+          g()

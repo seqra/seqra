@@ -1,0 +1,14 @@
+rules:
+  - id: py-kwarg-not-cleaner
+    languages: [python]
+    severity: ERROR
+    message: "structural cleaner via pattern-not with a keyword arg"
+    patterns:
+      - pattern: |
+          $A = source()
+          transform($A, mode=$M)
+          sink($A)
+      - pattern-not: |
+          $A = source()
+          transform($A, mode="safe")
+          sink($A)

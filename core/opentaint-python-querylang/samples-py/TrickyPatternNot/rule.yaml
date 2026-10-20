@@ -1,0 +1,17 @@
+rules:
+  - id: xss
+    languages: [python]
+    severity: ERROR
+    message: Return an untrusted data from a file
+    patterns:
+      - patterns:
+          - pattern: |-
+              $SINK = src()
+          - pattern-not-inside: |-
+              $NAME = src()
+              ...
+              $SINK = clean($NAME)
+      - pattern-inside: |
+          def $METHOD(...):
+              ...
+              return $SINK

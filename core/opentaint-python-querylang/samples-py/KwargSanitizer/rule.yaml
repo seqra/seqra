@@ -1,0 +1,12 @@
+rules:
+  - id: kwarg-sanitizer
+    languages: [python]
+    mode: taint
+    severity: ERROR
+    message: "escape(value=...) sanitizes the tainted value before sink"
+    pattern-sources:
+      - pattern: source()
+    pattern-sanitizers:
+      - pattern: escape(value=$X)
+    pattern-sinks:
+      - pattern: sink($Y)

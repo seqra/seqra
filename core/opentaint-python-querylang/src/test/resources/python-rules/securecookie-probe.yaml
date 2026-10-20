@@ -1,0 +1,9 @@
+rules:
+  - id: securecookie-probe
+    languages: [python]
+    severity: ERROR
+    message: "Cookie set without Secure flag (CWE-614)"
+    metadata:
+      cwe: CWE-614
+    patterns:
+      - pattern: $RESP.set_cookie(..., secure=False, ...)

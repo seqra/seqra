@@ -1,0 +1,31 @@
+rules:
+  - id: owasp-cmdi
+    languages: [python]
+    mode: taint
+    severity: ERROR
+    message: "Tainted request data reaches a command execution (command injection / CWE-78)"
+    metadata:
+      cwe: CWE-78
+    pattern-sources:
+      - pattern: |
+          $REQ = flask.request
+          $A = $REQ.form.get(...)
+      - pattern: |
+          $REQ = flask.request
+          $A = $REQ.form.getlist(...)[...]
+      - pattern: |
+          $REQ = flask.request
+          $A = $REQ.form.keys(...)[...]
+      - pattern: |
+          $REQ = flask.request
+          $A = $REQ.headers.get(...)
+      - pattern: |
+          $REQ = flask.request
+          $A = $REQ.headers.getlist(...)[...]
+      - pattern: |
+          $REQ = flask.request
+          $A = $REQ.args.get(...)
+    pattern-sinks:
+      - patterns:
+        - pattern: subprocess.run($A, ...)
+        - focus-metavariable: $A

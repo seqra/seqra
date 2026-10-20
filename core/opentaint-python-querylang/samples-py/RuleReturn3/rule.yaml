@@ -1,0 +1,8 @@
+rules:
+  - id: example-rulereturn3
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleReturn3 (Python port)
+    patterns:
+      - pattern: return $X
+      - pattern-not: return "..."

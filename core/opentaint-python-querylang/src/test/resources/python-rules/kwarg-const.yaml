@@ -1,0 +1,28 @@
+rules:
+  - id: py-kwarg-const-sink
+    languages: [python]
+    mode: taint
+    message: "tainted cmd to shell-enabled call"
+    severity: ERROR
+    pattern-sources:
+      - pattern: "source(...)"
+    pattern-sinks:
+      - pattern: "run($CMD, shell=True)"
+  - id: py-multi-kwarg-const-sink
+    languages: [python]
+    mode: taint
+    message: "two constant kwargs"
+    severity: ERROR
+    pattern-sources:
+      - pattern: "source(...)"
+    pattern-sinks:
+      - pattern: "mrun($CMD, shell=True, check=False)"
+  - id: py-positional-const-sink
+    languages: [python]
+    mode: taint
+    message: "constant positional after ellipsis"
+    severity: ERROR
+    pattern-sources:
+      - pattern: "source(...)"
+    pattern-sinks:
+      - pattern: "prun(..., True)"

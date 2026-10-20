@@ -1,0 +1,11 @@
+rules:
+  - id: example-rulepatternnotinsidewithsignature
+    languages: [python]
+    severity: ERROR
+    message: match example/RulePatternNotInsideWithSignature (Python port)
+    patterns:
+      - pattern: |-
+          sink($ARG)
+      - pattern-not-inside: |-
+          def $METHOD($ARG):
+              ...

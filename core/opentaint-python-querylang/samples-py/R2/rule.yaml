@@ -1,0 +1,14 @@
+rules:
+  - id: example-r2
+    languages: [python]
+    severity: ERROR
+    message: match example/R2 (Python port)
+    patterns:
+      - pattern: return $X
+      - pattern-inside: |
+          $X = source()
+          ...
+      - pattern-not-inside: |
+          ...
+          clean($X)
+          ...

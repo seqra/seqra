@@ -1,0 +1,16 @@
+rules:
+  - id: example-rulereturnwithnotinsidesignaturewithpass
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleReturnWithNotInsideSignatureWithPass (Python port)
+    patterns:
+      - pattern: |
+          @entry_point
+          def $METHOD($PARAM):
+              ...
+              return $PARAM
+      - pattern-not-inside: |
+          @entry_point
+          def $METHOD($PARAM):
+              ...
+              return clean($PARAM)

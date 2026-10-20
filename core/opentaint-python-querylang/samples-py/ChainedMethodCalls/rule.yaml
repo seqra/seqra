@@ -1,0 +1,10 @@
+rules:
+  - id: chained-method-calls
+    languages: [python]
+    severity: ERROR
+    message: chained interleaved attribute reads and method calls
+    patterns:
+      - pattern: |-
+          $A = src()
+          $RES = $A.attr.call1().attr2.call2()
+          sink($RES)

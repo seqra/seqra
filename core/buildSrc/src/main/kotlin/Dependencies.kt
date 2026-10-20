@@ -20,7 +20,7 @@ object Versions {
     const val burningwave = "12.62.7"
     const val jdot = "1.0"
     const val brics_automaton = "1.11-8"
-    const val antlr = "4.9.3"
+    const val antlr = "4.13.2"
 
     // versions for jvm samples
     object Samples {

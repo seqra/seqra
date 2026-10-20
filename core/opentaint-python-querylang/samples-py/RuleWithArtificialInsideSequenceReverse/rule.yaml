@@ -1,0 +1,16 @@
+rules:
+  - id: example-rulewithartificialinsidesequencereverse
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleWithArtificialInsideSequenceReverse (Python port)
+    patterns:
+      - pattern-inside: |
+          ...
+          g($X)
+      - pattern-inside: |
+          ...
+          h($X)
+      - pattern-not-inside: |
+          ...
+          clean($X)
+      - pattern: f($X)

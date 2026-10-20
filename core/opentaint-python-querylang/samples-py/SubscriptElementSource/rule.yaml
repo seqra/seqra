@@ -1,0 +1,10 @@
+rules:
+  - id: subscript-element-source
+    languages: [python]
+    severity: ERROR
+    message: "an element read from a tainted source reaches a sink"
+    mode: taint
+    pattern-sources:
+      - pattern: source()[...]
+    pattern-sinks:
+      - pattern: sink(...)

@@ -1,0 +1,11 @@
+rules:
+  - id: example-rulewithdecoratedentrypoint
+    languages: [python]
+    severity: ERROR
+    message: a decorated entry point returns its parameter
+    patterns:
+      - pattern: |
+          @entry_point
+          def $METHOD($PARAM):
+              ...
+              return $PARAM

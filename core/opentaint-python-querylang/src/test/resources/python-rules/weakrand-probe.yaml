@@ -1,0 +1,14 @@
+rules:
+  - id: owasp-weakrand-probe
+    languages: [python]
+    severity: ERROR
+    message: "Insecure randomness (CWE-330)"
+    metadata:
+      cwe: CWE-330
+    patterns:
+      - pattern-either:
+          - pattern: random.normalvariate(...)
+          - pattern: random.randint(...)
+          - pattern: random.getrandbits(...)
+          - pattern: random.random(...)
+          - pattern: random.randbytes(...)

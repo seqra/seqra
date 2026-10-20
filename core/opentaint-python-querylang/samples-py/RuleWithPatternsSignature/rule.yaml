@@ -1,0 +1,13 @@
+rules:
+  - id: example-rulewithpatternssignature
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleWithPatternsSignature (Python port)
+    patterns:
+      - pattern: |
+          def $METHOD(..., $A, ...):
+              ...
+      - pattern: |
+          ...
+          sink($A)
+          ...

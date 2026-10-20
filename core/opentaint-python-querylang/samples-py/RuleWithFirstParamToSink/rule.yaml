@@ -1,0 +1,10 @@
+rules:
+  - id: example-rulewithfirstparamtosink
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleWithFirstParamToSink (Python port, first parameter flows to sink)
+    patterns:
+      - pattern: sink($A)
+      - pattern-inside: |
+          def $METHOD($A, ...):
+              ...

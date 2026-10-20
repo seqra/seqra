@@ -7,6 +7,7 @@ rootProject.name = "opentaint-jvm-sast"
 include("opentaint-java-querylang")
 include("opentaint-java-querylang:samples")
 include("opentaint-go-querylang")
+include("opentaint-python-querylang")
 include("samples")
 
 fun DependencySubstitutions.substituteProjects(group: String, projects: List<String>) {

@@ -1,0 +1,10 @@
+rules:
+  - id: subscript-assign-sink-probe
+    languages: [python]
+    severity: ERROR
+    message: "probe: subscript-assignment as sink"
+    patterns:
+      - pattern: |
+          $A = source(...)
+          ...
+          sess[$A] = $V

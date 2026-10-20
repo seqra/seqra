@@ -1,0 +1,10 @@
+rules:
+  - id: py-metavar-method-rule
+    languages: [python]
+    mode: taint
+    message: "tainted to sink"
+    severity: ERROR
+    pattern-sources:
+      - pattern: "requests.$METHOD(...)"
+    pattern-sinks:
+      - pattern: "os.system($CMD)"

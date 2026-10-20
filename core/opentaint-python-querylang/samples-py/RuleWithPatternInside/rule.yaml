@@ -1,0 +1,11 @@
+rules:
+  - id: example-rulewithpatterninside
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleWithPatternInside (Python port)
+    patterns:
+      - pattern-inside: |
+          $A = src()
+          ...
+      - pattern: |
+          sink($A)

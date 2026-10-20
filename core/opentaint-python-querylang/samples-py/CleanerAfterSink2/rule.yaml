@@ -1,0 +1,20 @@
+rules:
+  - id: example-cleaneraftersink2
+    languages: [python]
+    severity: ERROR
+    message: match example/CleanerAfterSink2 (Python port, two-arg sink/clean)
+    patterns:
+      - pattern: |
+          $A = src()
+          ...
+          $B = copy($A)
+          ...
+          sink($A, $B)
+      - pattern-not-inside: |
+          $A = src()
+          ...
+          $B = copy($A)
+          ...
+          sink($A, $B)
+          ...
+          clean($A, $B)

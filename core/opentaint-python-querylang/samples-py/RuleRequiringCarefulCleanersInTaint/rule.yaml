@@ -1,0 +1,12 @@
+rules:
+  - id: example-rulerequiringcarefulcleanersintaint
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleRequiringCarefulCleanersInTaint (Python port)
+    mode: taint
+    pattern-sources:
+      - pattern: get_obj_good($X)
+    pattern-sanitizers:
+      - pattern: get_obj_bad($X)
+    pattern-sinks:
+      - pattern: sink($X)

@@ -57,11 +57,30 @@ tasks.jar {
 
     from(pythonSamplesSourceSet.resources) {
         include("**/*.py")
+        exclude("ant-benchmark/**")
+        exclude("owasp-benchmark/**")
     }
 
     from(goSamplesSourceSet.resources) {
         include("**/*.go")
         include("**/*.mod")
+    }
+}
+
+// Separate JAR for Ant benchmark Python samples
+val antBenchmarkJar = tasks.register<Jar>("antBenchmarkJar") {
+    archiveBaseName.set("ant-benchmark-samples")
+    from(pythonSamplesSourceSet.resources) {
+        include("ant-benchmark/**/*.py")
+        include("ant-benchmark/benchmark-metadata.csv")
+    }
+}
+
+// Separate JAR for OWASP benchmark Python samples
+val owaspBenchmarkJar = tasks.register<Jar>("owaspBenchmarkJar") {
+    archiveBaseName.set("owasp-benchmark-samples")
+    from(pythonSamplesSourceSet.resources) {
+        include("owasp-benchmark/**/*.py")
     }
 }
 

@@ -1,0 +1,16 @@
+rules:
+  - id: example-rulereturninsidesignature2
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleReturnInsideSignature2 (Python port)
+    patterns:
+      - pattern: |
+          $X = src($F)
+          ...
+          return $X
+      - pattern-inside: |
+          def $METHOD($ARG):
+              ...
+      - pattern-inside: |
+          $F = pass_through($ARG)
+          ...

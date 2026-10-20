@@ -1,0 +1,22 @@
+rules:
+  - id: example-rulewithsimplepass
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleWithSimplePass (Python port, propagator)
+    patterns:
+      - pattern-either:
+          - pattern: |-
+              $A = src()
+              ...
+              do_pass($A, $B)
+              ...
+              sink($B)
+          - pattern: |-
+              $A = src()
+              $B = src()
+              sink($A, $B)
+          - pattern: |-
+              $A = src()
+              $B = src()
+              sink($A)
+              sink($B)

@@ -1,0 +1,10 @@
+rules:
+  - id: example-rulereturnsimple
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleReturnSimple (Python port)
+    patterns:
+      - pattern: |
+          def $METHOD(..., $SOURCE, ...):
+            ...
+            return $SOURCE

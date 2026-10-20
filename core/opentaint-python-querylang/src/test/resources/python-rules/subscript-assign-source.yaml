@@ -1,0 +1,10 @@
+rules:
+  - id: py-subscript-assign-element-source
+    languages: [python]
+    message: "Tainted element bound to a metavar flows to sink"
+    severity: ERROR
+    patterns:
+      - pattern: |
+          $A = source()[0]
+          ...
+          sink($A)

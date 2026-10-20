@@ -1,0 +1,16 @@
+rules:
+  - id: example-cleaneraftersink0
+    languages: [python]
+    severity: ERROR
+    message: match example/CleanerAfterSink0 (Python port)
+    patterns:
+      - pattern: |
+          $A = src()
+          ...
+          sink($A)
+      - pattern-not-inside: |
+          $A = src()
+          ...
+          sink($A)
+          ...
+          clean()

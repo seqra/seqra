@@ -1,0 +1,14 @@
+rules:
+  - id: example-rulewithintersection
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleWithIntersection (Python port)
+    patterns:
+      - pattern: |
+          $A = source()
+          ...
+          sink($A)
+      - pattern: |
+          $B = source()
+          ...
+          sink($B)

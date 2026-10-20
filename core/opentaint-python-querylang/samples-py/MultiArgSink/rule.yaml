@@ -1,0 +1,12 @@
+rules:
+  - id: multi-arg-sink
+    languages: [python]
+    severity: ERROR
+    message: "Taint from source reaches arg 1 ($ARG) of run; $CMD is a free temp"
+    mode: taint
+    pattern-sources:
+      - pattern: source()
+    pattern-sinks:
+      - patterns:
+          - pattern: run($CMD, $ARG)
+          - focus-metavariable: $ARG

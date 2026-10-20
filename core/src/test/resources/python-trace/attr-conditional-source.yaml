@@ -1,0 +1,10 @@
+rules:
+  - id: py-attr-conditional-source
+    languages: [python]
+    message: "Attribute read off a request object flows to sink"
+    severity: ERROR
+    patterns:
+      - pattern: |
+          $R = get_request(...)
+          ...
+          sink($R.tainted_attr)

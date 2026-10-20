@@ -1,0 +1,14 @@
+rules:
+  - id: example-rulewithellipsisinvocationandpatternnot
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleWithEllipsisInvocationAndPatternNot (Python port)
+    patterns:
+      - pattern: |-
+          $A = src()
+          $B = $A. ... .to_string()
+          sink($B)
+      - pattern-not: |-
+          $A = src()
+          $B = $A.get_obj_bad().to_string()
+          sink($B)

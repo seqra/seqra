@@ -1,0 +1,18 @@
+rules:
+  - id: example-rulewithsignature
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleWithSignature
+    patterns:
+      - pattern-either:
+          - pattern: |
+              ...
+              sink1($A)
+              ...
+          - pattern: |
+              ...
+              sink2($A)
+              ...
+      - pattern-inside: |
+          def $METHOD(..., $A, ...):
+              ...

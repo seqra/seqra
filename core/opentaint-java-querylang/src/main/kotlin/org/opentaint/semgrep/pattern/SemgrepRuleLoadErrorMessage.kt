@@ -312,6 +312,14 @@ class IgnoredMetavarConstraint(metavar: Any) : InternalWarningNonBlockingMessage
     override val message: String = "Constraint on metavariable '$metavar' could not be converted and will be ignored; matches may be broader than intended"
 }
 
+class IgnoredDecoratorArguments(decorator: String) : InternalWarningNonBlockingMessage() {
+    override val message: String = "Arguments of decorator '$decorator' could not be converted and will be ignored; the rule matches every use of the decorator"
+}
+
+class IgnoredClassConstraint : InternalWarningNonBlockingMessage() {
+    override val message: String = "Constraint on the enclosing class could not be converted and will be ignored; matches may be broader than intended"
+}
+
 class PlaceholderStringValue : InternalWarningNonBlockingMessage() {
     override val message: String = "String value could not be resolved and was substituted with a placeholder; matching precision is reduced"
 }

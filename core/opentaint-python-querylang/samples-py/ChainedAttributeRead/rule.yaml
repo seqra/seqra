@@ -1,0 +1,10 @@
+rules:
+  - id: chained-attribute-read
+    languages: [python]
+    severity: ERROR
+    message: chained attribute read / method call
+    patterns:
+      - pattern: |-
+          $A = src()
+          $RES = $A.attr1.attr2.call1()
+          sink($RES)

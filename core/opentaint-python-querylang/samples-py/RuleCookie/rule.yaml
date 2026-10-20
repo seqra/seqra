@@ -1,0 +1,14 @@
+rules:
+  - id: example-rulecookie
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleCookie (Python port)
+    patterns:
+      - pattern: |
+          $C = Cookie(..., ...)
+          ...
+          $RESP.add_cookie($C)
+      - pattern-not-inside: |
+          $C = Cookie(..., ...)
+          ...
+          $C.set_secure(True)

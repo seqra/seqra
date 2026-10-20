@@ -1,0 +1,11 @@
+rules:
+  - id: example-rulewithdotteddecorator
+    languages: [python]
+    severity: ERROR
+    message: a handler registered via an attribute decorator returns its parameter
+    patterns:
+      - pattern: |
+          @app.route
+          def $METHOD($PARAM):
+              ...
+              return $PARAM

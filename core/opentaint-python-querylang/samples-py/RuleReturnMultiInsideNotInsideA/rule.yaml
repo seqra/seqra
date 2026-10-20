@@ -1,0 +1,17 @@
+rules:
+  - id: example-rulereturnmultiinsidenotinsidea
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleReturnMultiInsideNotInsideA (Python port)
+    patterns:
+      - pattern: |
+          $V2 = $SOURCE.mk_type2()
+          ...
+          $SINK = $V2.mk_type3()
+      - pattern-not-inside: |
+          ...
+          sanitize_a($SINK)
+      - pattern-inside: |
+          def $METHOD(..., $SOURCE, ...):
+              ...
+              return $SINK

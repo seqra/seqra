@@ -1,0 +1,14 @@
+rules:
+  - id: example-ndrule
+    languages: [python]
+    severity: ERROR
+    message: match example/NDRule (Python port, two sources joined via pass)
+    patterns:
+      - pattern: |
+          $A = source()
+          ...
+          $B = source()
+          ...
+          $C = pass_through($A, $B)
+          ...
+          sink($C)

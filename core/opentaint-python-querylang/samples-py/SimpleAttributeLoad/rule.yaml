@@ -1,0 +1,12 @@
+rules:
+  - id: simple-attribute-load
+    languages: [python]
+    severity: ERROR
+    message: ...
+    patterns:
+      - pattern: |
+          $A = flask.request
+          $B = $A.form
+          $C = $B.get(...)
+          ...
+          sink($C)

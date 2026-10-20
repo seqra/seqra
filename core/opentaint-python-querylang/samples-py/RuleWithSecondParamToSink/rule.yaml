@@ -1,0 +1,10 @@
+rules:
+  - id: example-rulewithsecondparamtosink
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleWithSecondParamToSink (Python port, second parameter flows to sink)
+    patterns:
+      - pattern: sink($A)
+      - pattern-inside: |
+          def $METHOD($M, $A, ...):
+              ...

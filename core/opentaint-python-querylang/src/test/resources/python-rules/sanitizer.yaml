@@ -1,0 +1,12 @@
+rules:
+  - id: py-sanitizer-rule
+    languages: [python]
+    mode: taint
+    message: "tainted to sink"
+    severity: ERROR
+    pattern-sources:
+      - pattern: "os.environ.get(...)"
+    pattern-sanitizers:
+      - pattern: "shlex.quote($X)"
+    pattern-sinks:
+      - pattern: "os.system($CMD)"

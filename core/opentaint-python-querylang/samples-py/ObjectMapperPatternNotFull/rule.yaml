@@ -1,0 +1,18 @@
+rules:
+  - id: example-objectmapperpatternnotfull
+    languages: [python]
+    severity: ERROR
+    message: match example/ObjectMapperPatternNotFull (Python port)
+    patterns:
+      - pattern: |
+          $OM = new_object_mapper()
+          ...
+          $MAPPER = enable_default_typing($OM)
+          ...
+          foo($MAPPER)
+      - pattern-not: |
+          $OM = new_object_mapper()
+          ...
+          enable($OM)
+          ...
+          foo($MAPPER)

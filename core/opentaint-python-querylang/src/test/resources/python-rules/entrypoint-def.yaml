@@ -1,0 +1,14 @@
+rules:
+  - id: py-entrypoint-rule
+    languages: [python]
+    mode: taint
+    message: "tainted to sink"
+    severity: ERROR
+    pattern-sources:
+      - patterns:
+          - pattern: |
+              def $F($A):
+                ...
+          - focus-metavariable: $A
+    pattern-sinks:
+      - pattern: "os.system($CMD)"

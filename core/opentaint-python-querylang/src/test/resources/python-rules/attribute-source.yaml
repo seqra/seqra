@@ -1,0 +1,10 @@
+rules:
+  - id: py-attr-source-qualified
+    languages: [python]
+    mode: taint
+    message: "Tainted data read from a module attribute flows to sink"
+    severity: ERROR
+    pattern-sources:
+      - pattern: "flask.request"
+    pattern-sinks:
+      - pattern: "sink($Y)"

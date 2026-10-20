@@ -1,0 +1,16 @@
+rules:
+  - id: example-r3
+    languages: [python]
+    severity: ERROR
+    message: match example/R3 (Python port)
+    patterns:
+      - pattern: |
+          $RET = bar($X)
+          ...
+      - pattern-not: |-
+          $X = $F($ARG)
+          ...
+      - pattern-inside: |-
+          ...
+          $X = foo($ARG)
+          ...

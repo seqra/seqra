@@ -1,0 +1,12 @@
+rules:
+  - id: example-rulereturndecoratedsource
+    languages: [python]
+    severity: ERROR
+    message: a decorated handler returns a tainted value
+    patterns:
+      - pattern: |
+          @entry_point
+          def $METHOD(...):
+              $SRC = source()
+              ...
+              return $SRC

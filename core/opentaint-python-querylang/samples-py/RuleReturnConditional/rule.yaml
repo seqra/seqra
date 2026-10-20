@@ -1,0 +1,14 @@
+rules:
+  - id: example-rulereturnconditional
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleReturnConditional (Python port, recast as call-based)
+    patterns:
+      - pattern: |
+          ...
+          $RET = $SOURCE.mk_type2()
+          ...
+      - pattern-inside: |
+          def $METHOD(..., $SOURCE, ...):
+              ...
+              return $RET

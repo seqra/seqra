@@ -1,0 +1,16 @@
+rules:
+  - id: example-rule
+    languages: [python]
+    severity: ERROR
+    message: match example/Rule (Python port)
+    patterns:
+      - pattern: |
+          $A = src()
+          ...
+          sink($A)
+      - pattern-not: |
+          $A = src()
+          ...
+          clean($A)
+          ...
+          sink($A)

@@ -1,0 +1,12 @@
+rules:
+  - id: example-rulewithpatternssimple
+    languages: [python]
+    severity: ERROR
+    message: match example/RuleWithPatternsSimple (Python port)
+    patterns:
+      - pattern: |
+          $A = src()
+          ...
+      - pattern: |
+          ...
+          sink($A)

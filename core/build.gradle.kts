@@ -81,6 +81,8 @@ dependencies {
     implementation(opentaint_ir_api_python)
     implementation(opentaint_ir_core_python)
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-python-dataflow")
+
+    testImplementation(project(":opentaint-python-querylang"))
 }
 
 val testSamples by configurations.creating
@@ -100,6 +102,14 @@ tasks.withType<Test> {
         val testDependencies = resolvedTestSamples.filter { it.name != "samples.jar" }
         environment("TEST_SAMPLES_JAR", testSamplesJar.absolutePath)
         environment("TEST_DEPENDENCIES_JAR", testDependencies.joinToString(File.pathSeparator) { it.absolutePath })
+
+        // Ant benchmark samples JAR
+        val antBenchmarkJar = project("samples").tasks.named<Jar>("antBenchmarkJar").get().archiveFile.get().asFile
+        environment("ANT_BENCHMARK_SAMPLES_JAR", antBenchmarkJar.absolutePath)
+
+        // OWASP benchmark samples JAR
+        val owaspBenchmarkJar = project("samples").tasks.named<Jar>("owaspBenchmarkJar").get().archiveFile.get().asFile
+        environment("OWASP_BENCHMARK_SAMPLES_JAR", owaspBenchmarkJar.absolutePath)
 
         pirEnvironment().forEach { (key, value) -> environment(key, value) }
         goEnvironment().forEach { (key, value) -> environment(key, value) }

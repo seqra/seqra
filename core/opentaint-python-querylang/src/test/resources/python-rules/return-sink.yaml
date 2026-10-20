@@ -1,0 +1,14 @@
+rules:
+  - id: return-sink
+    languages: [python]
+    severity: ERROR
+    message: a decorated handler returns a tainted value
+    metadata:
+      cwe: [79]
+    patterns:
+      - pattern: |
+          @entry_point
+          def $METHOD(...):
+              $SRC = source()
+              ...
+              return $SRC

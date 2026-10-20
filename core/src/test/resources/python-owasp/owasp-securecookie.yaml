@@ -1,0 +1,10 @@
+rules:
+  - id: owasp-securecookie
+    languages: [python]
+    severity: ERROR
+    message: "Sensitive cookie set without the Secure flag (CWE-614)"
+    metadata:
+      cwe: CWE-614
+    patterns:
+      - pattern: |
+          $A.set_cookie(..., secure=False, ...)
