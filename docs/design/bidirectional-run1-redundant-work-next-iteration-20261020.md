@@ -1,5 +1,12 @@
 # Reduce repeated GROUP work and static matching state
 
+This earlier candidate list is superseded for next-iteration selection by
+the [final selected proposal](bidirectional-run1-next-iteration-20261020.md).
+Only its unchanged-GROUP normalization work is carried into that selection.
+The other candidates below remain unselected. The semantic boundary below
+describes this earlier proposal, not the selected enum hack and canonical
+static-answer change.
+
 Date: 20 October 2026. Status: proposal only. No runtime change in this file
 is implemented or selected by publication of this proposal.
 Use ASD-STE100 Simplified Technical English. Defined code names keep their meanings.

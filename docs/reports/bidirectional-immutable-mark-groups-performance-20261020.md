@@ -16,6 +16,11 @@ OOM in run-1. Stirling-PDF completes run-1, accepts that report, then reaches
 OOM in run-2. No project result supports an overall performance or no-FN
 acceptance claim.
 
+The [selected next-iteration proposal](../design/bidirectional-run1-next-iteration-20261020.md)
+uses this study as its before measurement. Its enum alias filter, three-set
+static requests, and GROUP normalization identities are not implemented or
+measured by this report.
+
 ## Measurement method
 
 The main reference is `f945f92c5ae554ff4f5fc7696ee5a269210478bb`.
@@ -417,6 +422,13 @@ union. Per-map occupancy and the unique complete-premise count are not in
 these tables. They do not establish that all registrations are duplicates.
 The complete histogram has no retained PremiseSet. An ND Cartesian product
 is a possible source path, but is not the retained cause shown by this capture.
+
+The [complete writer census](bidirectional-thingsboard-static-writer-census-20261020.md)
+adds the missing breakdown from the same run-1 OOM capture. FLOW accounts
+for 96.3% of actor writer keys. A repeated `36 × 36` matrix between
+`EntityType` fields accounts for 3,057,187 keys across 7,475 method owners.
+Most service delivery maps contain one entry. Whole-heap registrations total
+3,644,828; the Q33 count above covers the 3,010,244 service-owned registrations.
 
 The source pipeline is:
 

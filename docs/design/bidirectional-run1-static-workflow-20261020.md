@@ -5,6 +5,12 @@ Date: 20 October 2026. This document describes the implemented runtime at
 adds documentation only. This is an explanation, not a new semantic contract
 or an implementation proposal.
 
+The [selected next iteration](bidirectional-run1-next-iteration-20261020.md)
+combines the enum alias-target hack, three disjoint request/write sets with
+canonical field answers, and unchanged-GROUP normalization identities.
+It is not implemented. In particular, an unrequested group write will not
+broadcast a request to existing FLOW writers.
+
 The contracts are [grouped-run1-statics.md](../../spec/grouped-run1-statics.md)
 and [immutable mark groups](../../spec/run1-group-policy-and-ownership-census.md).
 The [next-iteration proposal](bidirectional-run1-redundant-work-next-iteration-20261020.md)
