@@ -111,6 +111,7 @@
               "opentaint-jvm-sast-se-api/**",
               "opentaint-go-querylang/**",
               "opentaint-java-querylang/**",
+              "opentaint-python-querylang/**",
               "opentaint-config/**",
               "opentaint-configuration-rules/**",
               "opentaint-utils/common-util/**",
