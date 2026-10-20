@@ -134,6 +134,10 @@ fun JavaExec.configureAnalyzer(analyzerRunnerClassName: String) {
 
     systemProperty("org.opentaint.ir.impl.storage.defaultBatchSize", 2000)
     systemProperty("jdk.util.jar.enableMultiRelease", false)
+    // Permanent, default-off diagnostic ablation. Gradle properties are not
+    // inherited by the analyzer JVM unless they are forwarded explicitly.
+    systemProperty("opentaint.bidi.disableRun1Statics",
+        providers.gradleProperty("opentaint.bidi.disableRun1Statics").orElse("false").get())
     jvmArgs = listOf("-Xmx8g")
 }
 

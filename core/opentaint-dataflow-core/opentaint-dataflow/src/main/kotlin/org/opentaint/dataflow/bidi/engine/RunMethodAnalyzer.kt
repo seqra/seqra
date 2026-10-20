@@ -232,6 +232,7 @@ class RunMethodAnalyzer(
         if (!config.run1) return
         val original = at.premise as? InitialAp ?: return
         if (at.facts !is FlowTree || original.mark !is MarkSlot.Star) return
+        if (dropsStaticField(original)) return
         val atom = ap.marks.runtimeAtom(mark, mode.markMode)
         if (original.base == STATIC) checkNotNull(pointResumes).request(at, GroupSet.of(ap.marks.groupOf(atom)))
         else addMarkRequest(original, atom)
@@ -242,7 +243,9 @@ class RunMethodAnalyzer(
     }
 
     internal fun emitOperationResult(at: OperationInput, operation: StaticOperation.Write?, value: Facts, sink: ResultSink) {
-        val runtime = forceRun1Layer(at.premise, value)
+        if (dropsStaticPremise(at.premise)) return
+        val admitted = withoutDisabledStaticFields(value) ?: return
+        val runtime = forceRun1Layer(at.premise, admitted)
         if (config.run1 && runtime.base == STATIC) {
             if (operation != null) {
                 summaryDelta(at.premise, runtime.withLayer(Layer.DEMAND))
@@ -259,8 +262,10 @@ class RunMethodAnalyzer(
 
     internal fun staticFacts(slice: RegionGroups): Facts = checkNotNull(runnerPort.staticService).facts(slice.region, slice.groups)
     internal fun staticSlices(facts: Facts): List<RegionGroups> = checkNotNull(runnerPort.staticService).slices(facts)
-    internal fun staticCallInterest(part: Subscription, pub: Publication, member: Int) =
-        checkNotNull(pointResumes).callInterest(part, pub, member)
+    internal fun staticCallInterest(part: Subscription, pub: Publication, member: Int) {
+        if (!dropsStaticField(pub.premise.member(member)))
+            checkNotNull(pointResumes).callInterest(part, pub, member)
+    }
     internal fun staticCallSupply(part: Subscription, pub: Publication, member: Int, supply: RegionGroups) =
         callServices.staticSupply(part, pub, member, supply)
 
@@ -297,8 +302,10 @@ class RunMethodAnalyzer(
 
     internal fun installPoint(premise: PremiseKey, value: Facts, site: ResumeSite, state: CallResumeState? = null) {
         check(config.run1)
+        if (dropsStaticPremise(premise)) return
+        val admitted = withoutDisabledStaticFields(value) ?: return
         premise.forEachMember { validateRun1Initial(it, limit) }
-        val runtime = forceRun1Layer(premise, value)
+        val runtime = forceRun1Layer(premise, admitted)
         checkKinds(premise, runtime)
         nonZeroInitial = nonZeroInitial || !premise.isZero
         resumeQueue.addLast(PointWork(premise, runtime, site, state))
@@ -507,13 +514,37 @@ class RunMethodAnalyzer(
         }
     }
 
+    internal fun dropsStaticField(fact: PathFact): Boolean =
+        config.disableRun1Statics && fact.base == STATIC && fact.path.size >= 2
+
+    internal fun dropsStaticField(initial: InitialAp): Boolean =
+        config.disableRun1Statics && initial.base == STATIC && initial.pathData.size >= 2
+
+    private fun dropsStaticPremise(premise: PremiseKey): Boolean = config.disableRun1Statics &&
+        (0 until premise.size).any { dropsStaticField(premise.member(it)) }
+
+    /** The diagnostic gate runs before summary/index/publication or writer effects.
+     * A packed STATIC tree can also contain exact global class markers. Keep them. */
+    private fun withoutDisabledStaticFields(value: Facts): Facts? {
+        if (!config.disableRun1Statics || value.base != STATIC) return value
+        var kept: Facts? = null
+        for (leaf in ops.leaves(value)) {
+            if (leaf.fact.path.size != 1 || leaf.fact.tail != Tail.EXACT) continue
+            val exact = ap.factsOf(leaf.fact, leaf.exclusion, value.layer)
+            kept = kept?.let { ap.mergeAddDelta(it, exact).first } ?: exact
+        }
+        return kept
+    }
+
     internal fun summaryDelta(premise: PremiseKey, value: Facts) {
-        if (config.run1) ops.run1Cover(forceRun1Layer(premise, value)) { covered ->
+        if (dropsStaticPremise(premise)) return
+        val admitted = withoutDisabledStaticFields(value) ?: return
+        if (config.run1) ops.run1Cover(forceRun1Layer(premise, admitted)) { covered ->
             // Early static publication bypasses the ordinary successor cut.
             // Retain the existing bounded AP result before indexing the effect.
             ops.limit(covered, limit, collect(premise, covered, ::retainSummary))
         }
-        else retainSummary(premise, value)
+        else retainSummary(premise, admitted)
     }
 
     private fun retainSummary(premise: PremiseKey, facts: Facts) {

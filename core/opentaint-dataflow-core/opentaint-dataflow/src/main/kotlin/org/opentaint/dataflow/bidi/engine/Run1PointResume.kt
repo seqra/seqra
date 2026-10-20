@@ -67,6 +67,12 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
     fun reached(summary: StatementSummary, at: OperationInput) {
         if (at.facts !is Reach || !at.premise.isZero) return
         for (operation in summary.staticOperations) {
+            if (core.config.disableRun1Statics && when (operation) {
+                    is StaticOperation.Read -> true
+                    is StaticOperation.Write -> core.dropsStaticField(operation.target.fact)
+                    is StaticOperation.MarkInput -> operation.position.fact.path.size != 1 ||
+                        (operation.position.fact.tail != Tail.EXACT && !operation.includeBase)
+                }) continue
             val key = ReadKey(at.site, operation)
             val id = readKeys.getOrPut(key) {
                 (++next).also { reads[it] = at to operation }
@@ -82,7 +88,8 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
                         // A wildcard is a field-query descriptor, never a class
                         // FLOW initial. Its empty-suffix branch is an exact
                         // global marker; BELOW cleaners omit that branch.
-                        if (!exact) core.staticBatch.reads += StaticReadRegistration(core.key, id, operation.position)
+                        if (!exact && !core.config.disableRun1Statics)
+                            core.staticBatch.reads += StaticReadRegistration(core.key, id, operation.position)
                         if (exact || operation.includeBase) {
                             val directId = directKeys.getOrPut(key) {
                                 (++next).also { direct[it] = DirectRow(key, at, GroupSet.EMPTY) }

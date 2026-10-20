@@ -16,6 +16,7 @@ class RunConfig(
     records: RecordStore,
     val seeds: SeedIndex,
     roots: List<MethodKey>,
+    disableRun1Statics: Boolean = java.lang.Boolean.getBoolean("opentaint.bidi.disableRun1Statics"),
 ) {
     init {
         require(index >= 1) { "The run index must be positive" }
@@ -24,6 +25,10 @@ class RunConfig(
         }
         require((index == 1) == (demand == null)) { "Only run 1 has no demand snapshot" }
     }
+
+    /** DIAGNOSTIC ONLY: this unsound ablation can miss flows through static fields.
+     * Exact global class markers are kept. The setting has no effect after run 1. */
+    val disableRun1Statics: Boolean = index == 1 && disableRun1Statics
 
     val records: RecordStore = records.view()
     val roots: List<MethodKey> = Collections.unmodifiableList(ArrayList(roots))

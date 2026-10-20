@@ -130,6 +130,10 @@ class RunManager<A : RunActor>(
 
     fun run(timeout: Duration): RunResult<A> {
         check(invoked.compareAndSet(false, true)) { "A run manager can run only once" }
+        if (config.run1) logger.info {
+            "Run 1: DIAGNOSTIC opentaint.bidi.disableRun1Statics=${config.disableRun1Statics}; " +
+                "true disables static FIELD flows and can miss findings; exact global markers are kept"
+        }
         deadline = Deadline(TimeSource.Monotonic.markNow(), timeout)
         var joinAttempted = false
         var joined = false

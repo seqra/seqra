@@ -289,6 +289,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         check(core.config.run1 && part.ref.premise.isZero && part.added is Reach && !part.zeroOnly)
         val initial = pub.premise.member(member)
         check(initial.base == STATIC)
+        if (core.dropsStaticField(initial)) return
         if (initial.mark is MarkSlot.Star) {
             check(pub.premise is InitialAp && pub.conclusion is FlowTree)
             val value = pub.conclusion.withLayer(Layer.DEMAND)

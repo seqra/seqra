@@ -9,6 +9,7 @@ import org.opentaint.dataflow.bidi.interp.Place
 import org.opentaint.dataflow.bidi.interp.ResumeSite
 import org.opentaint.dataflow.bidi.interp.StatementSummary
 import org.opentaint.dataflow.bidi.interp.StaticOperation
+import org.opentaint.dataflow.bidi.interp.RuleKind
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 /** All application modes use the same AP operations and source hooks. */
@@ -26,14 +27,21 @@ internal class EngineAlgebra(private val core: RunMethodAnalyzer) : FactAlgebra<
     override fun filter(c: Facts, filter: TypeFilter): Facts? = core.ops.filter(c, filter)
     override fun applyEdge(me: MicroEdge, c: Facts, premise: PremiseKey, statementEdge: Boolean,
                            out: ResultSink) {
+        if (disabledStaticEdge(me)) return
         core.ops.applyEdge(c, premise, me.edge, statementEdge, core.mode,
             core.collect(premise, c, out), may = me.may)
     }
 
     override fun applyEdgeAt(me: MicroEdge, c: Facts, premise: PremiseKey, at: Place, out: ResultSink) {
+        if (disabledStaticEdge(me)) return
         core.ops.applyEdge(c, premise, me.edge, at.statementEdge, core.mode,
             core.collect(input(at, premise, c), out), may = me.may)
     }
+
+    private fun disabledStaticEdge(me: MicroEdge): Boolean = core.config.disableRun1Statics && (
+        core.dropsStaticField(me.edge.from) || core.dropsStaticField(me.edge.to) ||
+            // A configured source on a static read emits ZERO -> lhs directly.
+            me.actionId?.occurrence?.kind == RuleKind.FIELD_SOURCE)
 
     override fun operationResult(me: MicroEdge?, premise: PremiseKey, input: Facts, result: Facts, at: Place, out: ResultSink) {
         val operationInput = input(at, premise, input)
