@@ -1,5 +1,17 @@
 # Mark groups and direct static handling
 
+The selected 20 October implementation is controlled by
+[Run-1 static request state and immutable GROUP identities](run1-static-request-state-and-group-identities.md).
+It replaces the request scheduling and answered-image retention below with
+three-set field state and canonical group answers. It also selects an
+explicit **DIRTY HACK** for enum alias targets. All other contracts below
+remain active; no other field or layer change is selected.
+The 20 October class clarification also overrides the older permissive
+grammar: an actual or initial `S.C / Group(g)` has EXACT tail only. It is
+the special global-mark carrier. No class-wide mark or class abstraction
+exists. Class ANY query metadata keeps its existing exact-plus-fields
+meaning; strict BELOW excludes the exact point.
+
 Date: 19 October 2026. Revision: **2.3, immutable groups and serialized declarations**.
 Candidate `b88c85d5b` was the revision 2.1 runtime baseline. The immutable
 group iteration now implements revision 2.3; its
@@ -183,11 +195,12 @@ ordinary flow. DEMAND means a candidate that later analysis must refine.
 | Complete binding | One compatible singleton/ND application at the same actual caller/callee port, statement, stage and layer, with every required member matched |
 | Early static effect | A reached static conclusion published as a run-1 DEMAND summary before method exit |
 
-Static scopes include exact points and symbolic descendant regions.
+Static scopes include exact points and symbolic field descendant regions.
 Compatibility requires an actual AP intersection and the correct projected
-current image. An exact class point does not supply its fields. A broad
-class region can intersect field regions. Do not expand broad regions into
-every declared field. The finite proof oracle uses certified overlap cells.
+current image. An exact class point does not supply its fields. Class ANY
+query metadata can select an exact global marker and field regions; it is
+not an actual class-wide mark fact. Strict BELOW selects fields only. Do
+not expand broad queries into every declared field. The finite proof oracle uses certified overlap cells.
 These mathematical witnesses do not require runtime support objects.
 
 The proof target is inclusion of each finite full-mark witness admitted by
@@ -315,13 +328,17 @@ Here b is an ordinary nonstatic base. It is not ZERO and is not a transient
 | S.C.f | STAR | FLOW |
 | Nonstatic base b, empty path | EXACT or STAR | Group(g) |
 | S.C.f | EXACT or STAR | Group(g) |
-| S.C | EXACT or STAR | Group(g), only for an admitted class-point/region primitive |
+| S.C | EXACT only | Group(g), the admitted exact global-mark carrier |
 
 All initial E and FLOW mark exclusions are empty. There is no ANY/MUST
 initial, abstract class initial, second field accessor, nonstatic field
 path initial, or S-root initial. An exact taint at the empty S root is not
 a legal interpreter atom. A legal broad static descriptor is a set of
 locations; it is not that exact atom and must not be stripped as control.
+There are eight current families. A current class marker also has EXACT
+tail; no STAR/ANY/MUST class mark is created. A field cannot supply the
+exact class marker. Its exact value remains unchanged at the ordinary
+propagation boundary. Explicit rule actions keep their existing semantics.
 
 The ordinary method-entry abstraction starts ZERO and nonstatic slots only.
 For an ordinary group STAR initial, its normal entry current fact has ANY
@@ -608,9 +625,11 @@ composition. It carries no supplied group by itself.
 A direct static mark condition registers a local conditional field input
 at that condition's actual stage; it can then request its declared groups.
 Bare class-point primitives have no abstract class initial. They match
-the declared groups directly against compatible class-point supply and
-emit only legal group descriptors. No broad current static data is stripped
-as synthetic control merely because its path is short.
+the declared groups directly against exact class-point supply and emit
+only exact class group descriptors. Class ANY metadata also selects actual
+field facts through the existing matcher. It does not emit a class-wide
+fact. Keep ANY/AT_AND_BELOW inclusive and BELOW strict. No valid current
+static data is stripped as synthetic control merely because its path is short.
 
 If no write exists, retain only the pending read descriptor. Do not emit
 its conditional dependency or block completion. A late write admits fresh

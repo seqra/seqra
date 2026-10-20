@@ -333,14 +333,17 @@ class RequestJoinTest {
     }
 
     @Test
-    fun `a broad static group input cannot start an ordinary request chain`(): Unit {
+    fun `a class-wide group input is rejected before it can start an ordinary request chain`(): Unit {
         for (firstRequest in listOf(true, false)) MethodAnalysisFixtures().use { f ->
             val t = mark(f, "T")
             val cls = f.manager.accessors.index(ClassStaticAccessor("State"))
             val a = f.field("a")
             val added = f.fact(static, listOf(cls), Tail.ANY_TAINT, MarkSlot.Concrete(t), ExclusionSet.of(f.field("blocked")))
             val actor = core(f)
-            arrive(f, actor, firstRequest, policy(f, static, listOf(cls, a)), RequestKind.Mark(t), caller(f), added)
+            val error = assertFailsWith<IllegalStateException> {
+                arrive(f, actor, firstRequest, policy(f, static, listOf(cls, a)), RequestKind.Mark(t), caller(f), added)
+            }
+            assertContains(error.message.orEmpty(), "global class marker is exact")
             assertTrue(actor.initials.all().isEmpty())
             assertFalse(actor.localServices.hasPendingRequests)
             assertTrue(climbs(f).isEmpty())

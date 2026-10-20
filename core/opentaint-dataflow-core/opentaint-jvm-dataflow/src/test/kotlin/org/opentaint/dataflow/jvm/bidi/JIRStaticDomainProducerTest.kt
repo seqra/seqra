@@ -6,6 +6,7 @@ import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.bidi.ap.Direction
 import org.opentaint.dataflow.bidi.interp.CallStage
 import org.opentaint.dataflow.bidi.interp.StageKind
+import org.opentaint.dataflow.bidi.interp.StaticOperation
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.aliasesPersistedThroughCall
@@ -78,14 +79,15 @@ class JIRStaticDomainProducerTest : BidiJIRTestUtils() {
     }
 
     @Test
-    fun `nested enum persisted alias and actual call plan use the declaring binary owner`(): Unit =
-        checkProducer("nestedAlias", "sample.bidi.BidiStaticMetadataSample\$Processes", "WEASYPRINT")
+    fun `nested enum persisted alias keeps its declaring owner while the call plan drops its target`(): Unit =
+        checkProducer("nestedAlias", "sample.bidi.BidiStaticMetadataSample\$Processes", "WEASYPRINT",
+            keepCallAlias = false)
 
     @Test
     fun `inherited static persisted alias and actual call plan use the declaring owner`(): Unit =
         checkProducer("inheritedAlias", "sample.bidi.BidiStaticMetadataSample\$Parent", "inherited")
 
-    private fun checkProducer(name: String, declaring: String, fieldName: String) {
+    private fun checkProducer(name: String, declaring: String, fieldName: String, keepCallAlias: Boolean = true) {
         val method = method(name, "sample.bidi.BidiStaticMetadataSample")
         val load = method.instList.instructions.filterIsInstance<JIRAssignInst>()
             .single { (it.rhv as? JIRFieldRef)?.field?.name == fieldName }
@@ -106,12 +108,18 @@ class JIRStaticDomainProducerTest : BidiJIRTestUtils() {
         assertEquals(listOf(expected), held, "Typed reference owner=${ref.field.enclosingType.typeName}")
         val metadata = JIRStaticMetadataCollector(runtime).collect(key)
         assertTrue(expected in metadata.accesses)
+        val read = runtime.forms(key).statement(Direction.FORWARD, load).staticOperations
+            .filterIsInstance<StaticOperation.Read>().single()
+        assertEquals(expected, read.transfer.from.path.map(manager.accessors::accessor),
+            "The direct static read keeps the resolved declaring owner")
         val plan = runtime.forms(key).call(Direction.FORWARD, call, assertNotNull(call.callExpr))
         val outputs = plan.stages.filterIsInstance<CallStage.Edges>()
             .filter { it.kind == StageKind.ALIASES }.flatMap { it.summary.edges }
             .filter { it.edge.to.base == AccessPathBase.ClassStatic }
             .map { it.edge.to.path.map(manager.accessors::accessor) }
-        assertTrue(expected in outputs, "Actual ALIASES output endpoints=$outputs")
+        if (keepCallAlias) assertTrue(expected in outputs, "Actual ALIASES output endpoints=$outputs")
+        else assertTrue(outputs.none { it.take(expected.size) == expected },
+            "The selected DIRTY HACK removes enum-constant alias targets and descendants: $outputs")
         assertTrue(outputs.all { it in metadata.accesses }, "Every produced static alias is in the frozen metadata domain")
     }
 }

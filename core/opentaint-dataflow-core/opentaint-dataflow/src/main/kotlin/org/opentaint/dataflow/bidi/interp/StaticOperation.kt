@@ -24,7 +24,12 @@ sealed interface StaticOperation {
         val transfer: PathEdge? = null,
         val action: ActionId? = id.action,
     ) : StaticOperation
-    data class MarkInput(override val id: OperationId, val position: Pattern) : StaticOperation
+    data class MarkInput(
+        override val id: OperationId,
+        val position: Pattern,
+        // ANY predicates include their point. A BELOW cleaner excludes it.
+        val includeBase: Boolean = true,
+    ) : StaticOperation
 }
 
 enum class CleanerPhase { INPUT, READ, CLEAN, WRITE }

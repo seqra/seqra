@@ -1,9 +1,30 @@
 # Current proof status
 
+## Selected 20 October request-state iteration
+
+The [selected contract](run1-static-request-state-and-group-identities.md)
+and [proof map](run1-static-request-state-proofs.md) control the enum alias
+**DIRTY HACK**, three-set field requests and immutable GROUP identities.
+Their semantic change ledger overrides the older scheduling and answered
+image retention below. The final local gate passes 2,139 tests. The
+168-job Lean build and the 943-declaration, five-module selected audit pass
+with 67 executable controls. The user resolved the class invariant:
+actual/initial `S.C` global-mark carriers are exact; no class abstraction or
+class STAR family exists. The current parser has eight families. Class ANY
+query metadata remains inclusive of the exact carrier and fields; strict
+BELOW excludes the exact carrier. The focused class audit passes 339
+declarations and 39 controls. The final stable-source gate includes the class
+adapter edits: 1,632 common, 436 JVM, 38 application and 33 rule tests, with
+no failures, errors or skips. Its receipt is
+`validation/gate-final-exact-class-v2/receipt.json` in the study evidence root.
+The [validation checkpoint](../docs/reports/bidirectional-run1-static-request-state-validation-20261020.md)
+records fresh main references and the missing candidate measurements.
+No other field, caller, rule, layer or run-schedule change is selected.
+
 ## Selected combined mark/static specification
 
 [Mark groups and direct static handling](grouped-run1-statics.md) is the
-single implementation contract. Start from `a80d5c580b3b4715ab39679fbf66f0f190125fa0`,
+combined contract, subject to the selected update above. Start from `a80d5c580b3b4715ab39679fbf66f0f190125fa0`,
 whose core/rules equal measured `28a123f0`. The
 [baseline manifest](baselines/pre-bottom-up-a80d5c580.json) pins the document
 and runtime trees. The selected base predates the bottom-up static runtime.
@@ -24,8 +45,9 @@ no helper-permission builder or backward writer-search graph is required.
 The constructive composition creates target permission and full positive
 replay from a finite full reference tree. It retains all guards and exact
 source leaves. The connected getter/wrapper/relay/setter control uses actual
-port/body certificates. The selected initial parser checks the nine pinned
-scalar families and rejects the historical root family. Whole JVM/AP/
+port/body certificates. The current initial parser checks eight scalar
+families and rejects the historical root and class-chain families. The
+historical counts below keep their original checkpoint scope. Whole JVM/AP/
 condition compilation and queue/record adapter correctness remain explicit
 production gates. This is not a whole-engine proof or a runtime speed claim.
 

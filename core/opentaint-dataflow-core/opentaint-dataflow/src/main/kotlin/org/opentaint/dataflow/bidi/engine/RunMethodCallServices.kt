@@ -184,7 +184,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                             val pattern = Pattern(PathFact(STATIC, step.cleaner.pathArray.asList(),
                                 if (step.cleaner.reach == CleanReach.EXACT) Tail.EXACT else Tail.ANY,
                                 MarkSlot.Concrete(checkNotNull(step.cleaner.mark))), ExclusionSet.Empty)
-                            core.reachedOperations(StatementSummary.EMPTY.withStaticOperations(listOf(StaticOperation.MarkInput(id, pattern))),
+                            core.reachedOperations(StatementSummary.EMPTY.withStaticOperations(listOf(StaticOperation.MarkInput(id, pattern, includeBase = step.cleaner.reach != CleanReach.BELOW))),
                                 at(input, stepIndex, CleanerPhase.CLEAN))
                         }
                         core.ops.clean(input.facts, input.premise, step.cleaner, core.mode,
@@ -303,6 +303,9 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         val initial = pub.premise.member(member)
         val matched = core.ops.satisfying(actual, initial, core.mode) ?: return
         for (leaf in core.ops.leaves(matched)) {
+            check(leaf.fact.path.size != 1 || leaf.fact.tail == Tail.EXACT) {
+                "A global class-marker call input must remain exact"
+            }
             val path = leaf.fact.path.take(2)
             val selected = core.ap.initial(Pattern(leaf.fact.copy(path = path,
                 tail = if (leaf.fact.tail == Tail.EXACT && leaf.fact.path.size <= 2) Tail.EXACT else Tail.STAR), ExclusionSet.Empty))

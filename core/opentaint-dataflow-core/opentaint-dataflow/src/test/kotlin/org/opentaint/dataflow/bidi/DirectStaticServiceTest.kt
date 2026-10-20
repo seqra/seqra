@@ -83,30 +83,53 @@ class DirectStaticServiceTest {
         }
     }
 
-    @Test fun `all static ND writers require every actual group in either arrival order`() {
-        for (supplyFirst in listOf(false, true)) FiniteProgramFixtures().use { f ->
+    @Test fun `static-origin FLOW writers are requested only after an output request`() {
+        for (writeFirst in listOf(false, true)) FiniteProgramFixtures().use { f ->
             val owner = f.method("writer", listOf(emptyList()), 0).key()
-            val t = f.mark("T"); val u = f.mark("U")
-            val g = f.ap.marks.groupOf(t); val h = f.ap.marks.groupOf(u)
-            val left = field(f, "left"); val right = field(f, "right")
-            val premise = f.ap.premiseOf(listOf(
-                f.ap.initial(left.copy(fact = left.fact.copy(mark = MarkSlot.Concrete(f.ap.marks.group(g))))),
-                f.ap.initial(right.copy(fact = right.fact.copy(mark = MarkSlot.Concrete(f.ap.marks.group(h)))))))
-            val writer = StaticBatch().apply { writers += StaticWriterRegistration(owner, 1, premise) }
+            val g = f.ap.marks.groupOf(f.mark("T"))
+            val input = field(f, "input"); val output = field(f, "output")
+            val writer = StaticBatch().apply {
+                writers += StaticWriterRegistration(owner, 1, f.ap.initial(input), output)
+            }
+            val supply = StaticBatch().apply { supplies += RegionGroups(output, GroupSet.of(g)) }
             val service = Run1StaticService(f.ap)
-            val first = StaticBatch().apply { supplies += RegionGroups(left, GroupSet.of(g)) }
-            if (supplyFirst) assertTrue(service.commit(first).isEmpty())
-            assertTrue(service.commit(writer).isEmpty())
-            if (!supplyFirst) assertTrue(service.commit(first).isEmpty())
-            assertTrue(service.commit(StaticBatch().apply {
-                supplies += RegionGroups(right, GroupSet.of(g))
-            }).filterIsInstance<StaticOwnerEffect.WriterReady>().isEmpty())
-            val second = StaticBatch().apply { supplies += RegionGroups(right, GroupSet.of(h)) }
-            val ready = service.commit(second).filterIsInstance<StaticOwnerEffect.WriterReady>().single()
-            assertEquals(listOf(GroupSet.of(g), GroupSet.of(h)), ready.inputs.map { it.groups })
-            assertEquals(listOf(left, right), ready.inputs.map { it.region })
-            assertTrue(service.commit(second).isEmpty())
-            assertTrue(service.commit(writer).isEmpty())
+            assertTrue(service.commit(if (writeFirst) writer else supply).isEmpty())
+            assertTrue(service.commit(if (writeFirst) supply else writer).isEmpty())
+            assertEquals(1L, service.requestStatistics().reached)
+            val ready = service.commit(StaticBatch().apply {
+                interests += StaticInterest(owner, 2, output, GroupSet.of(g))
+            })
+            assertEquals(1, ready.filterIsInstance<StaticOwnerEffect.WriterInterest>().size)
+            assertEquals(1, ready.filterIsInstance<StaticOwnerEffect.PointReady>().size)
+            assertEquals(0, service.statistics().pointSubscriptions)
+            assertEquals(0L, service.requestStatistics().reached)
+            assertEquals(1L, service.requestStatistics().processed)
+            assertEquals(1L, service.requestStatistics().writerAdmissions)
+        }
+    }
+
+    @Test fun `answered requests are released and canonical field answers merge geometry`() {
+        FiniteProgramFixtures().use { f ->
+            val owner = f.method("reader", listOf(emptyList()), 0).key()
+            val g = f.ap.marks.groupOf(f.mark("T"))
+            val h = f.ap.marks.groupOf(f.mark("U"))
+            val position = field(f, "value")
+            val service = Run1StaticService(f.ap)
+            service.commit(StaticBatch().apply {
+                interests += StaticInterest(owner, 2, position, GroupSet.of(listOf(g, h)))
+            })
+            assertEquals(2L, service.requestStatistics().pendingMemberships)
+            val first = service.commit(StaticBatch().apply {
+                supplies += RegionGroups(position.copy(fact = position.fact.copy(tail = Tail.EXACT)), GroupSet.of(g))
+            }).filterIsInstance<StaticOwnerEffect.PointReady>().single()
+            assertEquals(position, first.supply.region)
+            assertEquals(1L, service.requestStatistics().pendingMemberships)
+            assertEquals(1, service.statistics().pointSubscriptions)
+            service.commit(StaticBatch().apply { supplies += RegionGroups(position, GroupSet.of(h)) })
+            assertEquals(0L, service.requestStatistics().pendingMemberships)
+            assertEquals(0, service.statistics().pointSubscriptions)
+            assertEquals(2L, service.requestStatistics().processed)
+            assertTrue(service.commit(StaticBatch()).isEmpty())
         }
     }
 
@@ -122,7 +145,7 @@ class DirectStaticServiceTest {
             assertTrue(service.commit(if (writerFirst) writer else interest).isEmpty())
             val reply = service.commit(if (writerFirst) interest else writer)
             assertEquals(listOf(StaticOwnerEffect.WriterInterest(owner, 7, GroupSet.of(g))), reply)
-            assertTrue(reply.none { it is StaticOwnerEffect.PointReady || it is StaticOwnerEffect.WriterReady })
+            assertTrue(reply.none { it is StaticOwnerEffect.PointReady })
             assertTrue(service.commit(writer).isEmpty())
             assertTrue(service.commit(interest).isEmpty())
         }
@@ -139,4 +162,146 @@ class DirectStaticServiceTest {
             }).isEmpty())
         }
     }
+    @Test fun `first request from reach asks old writers and later writers ask processed only`() {
+        FiniteProgramFixtures().use { f ->
+            val owner = f.method("writer", listOf(emptyList()), 0).key()
+            val g = f.ap.marks.groupOf(f.mark("T")); val h = f.ap.marks.groupOf(f.mark("U"))
+            val position = field(f, "f")
+            val service = Run1StaticService(f.ap)
+            service.commit(StaticBatch().apply {
+                flowWriters += StaticFlowWriter(owner, 1, position)
+                supplies += RegionGroups(position, GroupSet.of(listOf(g, h)))
+            })
+            assertEquals(0L, service.requestStatistics().writerAdmissions)
+            val first = service.commit(StaticBatch().apply {
+                interests += StaticInterest(owner, 2, position, GroupSet.of(g))
+            })
+            assertEquals(listOf(GroupSet.of(g)), first.filterIsInstance<StaticOwnerEffect.WriterInterest>().map { it.groups })
+            val later = service.commit(StaticBatch().apply {
+                flowWriters += StaticFlowWriter(owner, 3, position)
+            })
+            assertEquals(listOf(GroupSet.of(g)), later.filterIsInstance<StaticOwnerEffect.WriterInterest>().map { it.groups })
+            assertEquals(1L, service.requestStatistics().reached)
+            assertEquals(1L, service.requestStatistics().processed)
+            assertEquals(2L, service.requestStatistics().writerAdmissions)
+        }
+    }
+
+    @Test fun `a queued answer does not consume a newly added pending group`() {
+        FiniteProgramFixtures().use { f ->
+            val owner = f.method("reader", listOf(emptyList()), 0).key()
+            val g = f.ap.marks.groupOf(f.mark("T")); val h = f.ap.marks.groupOf(f.mark("U"))
+            val position = field(f, "f"); val service = Run1StaticService(f.ap)
+            service.commit(StaticBatch().apply { interests += StaticInterest(owner, 1, position, GroupSet.of(g)) })
+            val queued = service.commit(StaticBatch().apply { supplies += RegionGroups(position, GroupSet.of(g)) })
+                .filterIsInstance<StaticOwnerEffect.PointReady>().single()
+            assertEquals(GroupSet.of(g), queued.supply.groups)
+            service.commit(StaticBatch().apply { interests += StaticInterest(owner, 1, position, GroupSet.of(h)) })
+            assertEquals(1L, service.requestStatistics().pendingMemberships)
+            val later = service.commit(StaticBatch().apply { supplies += RegionGroups(position, GroupSet.of(h)) })
+                .filterIsInstance<StaticOwnerEffect.PointReady>().single()
+            assertEquals(GroupSet.of(h), later.supply.groups)
+            assertEquals(0, service.statistics().pointSubscriptions)
+        }
+    }
+
+    @Test fun `broad supplies preserve field exclusions and exact class points do not supply fields`() {
+        for (supplyFirst in listOf(false, true)) for (blocked in listOf(false, true))
+            FiniteProgramFixtures().use { f ->
+                val owner = f.method("reader", listOf(emptyList()), 0).key()
+                val g = f.ap.marks.groupOf(f.mark("T")); val position = field(f, "f")
+                val broad = position.copy(fact = position.fact.copy(path = position.fact.path.take(1), tail = Tail.ANY_TAINT),
+                    exclusion = if (blocked) ExclusionSet.of(position.fact.path[1]) else ExclusionSet.Empty)
+                val service = Run1StaticService(f.ap)
+                val supply = StaticBatch().apply { supplies += RegionGroups(broad, GroupSet.of(g)) }
+                val interest = StaticBatch().apply { interests += StaticInterest(owner, 1, position, GroupSet.of(g)) }
+                assertTrue(service.commit(if (supplyFirst) supply else interest).isEmpty())
+                val answer = service.commit(if (supplyFirst) interest else supply)
+                    .filterIsInstance<StaticOwnerEffect.PointReady>()
+                assertEquals(!blocked, answer.isNotEmpty())
+                if (!blocked) assertEquals(position, answer.single().supply.region)
+            }
+    }
+
+    @Test fun `an exact class GROUP supply never answers a descendant field request`() {
+        for (supplyFirst in listOf(false, true)) FiniteProgramFixtures().use { f ->
+            val owner = f.method("reader", listOf(emptyList()), 0).key()
+            val g = f.ap.marks.groupOf(f.mark("T")); val position = field(f, "f")
+            val exactClass = position.copy(fact = position.fact.copy(path = position.fact.path.take(1), tail = Tail.EXACT))
+            val service = Run1StaticService(f.ap)
+            val supply = StaticBatch().apply { supplies += RegionGroups(exactClass, GroupSet.of(g)) }
+            val interest = StaticBatch().apply { interests += StaticInterest(owner, 1, position, GroupSet.of(g)) }
+            assertTrue(service.commit(if (supplyFirst) supply else interest).isEmpty())
+            assertTrue(service.commit(if (supplyFirst) interest else supply).isEmpty())
+            assertEquals(1L, service.requestStatistics().pendingMemberships)
+        }
+    }
+
+    @Test fun `canonical group answer does not broaden FLOW read admission`() {
+        for (supplyFirst in listOf(false, true)) FiniteProgramFixtures().use { f ->
+            val owner = f.method("reader", listOf(emptyList()), 0).key()
+            val g = f.ap.marks.groupOf(f.mark("T")); val position = field(f, "f")
+            val descendant = position.copy(fact = position.fact.copy(path = position.fact.path + f.field("child")))
+            val exact = position.copy(fact = position.fact.copy(tail = Tail.EXACT))
+            val service = Run1StaticService(f.ap)
+            val supply = StaticBatch().apply { supplies += RegionGroups(exact, GroupSet.of(g)) }
+            val consumers = StaticBatch().apply {
+                reads += StaticReadRegistration(owner, 1, descendant)
+                interests += StaticInterest(owner, 2, position, GroupSet.of(g))
+            }
+            assertTrue(service.commit(if (supplyFirst) supply else consumers).isEmpty())
+            val replies = service.commit(if (supplyFirst) consumers else supply)
+            assertTrue(replies.filterIsInstance<StaticOwnerEffect.ReadReady>().isEmpty())
+            assertEquals(position, replies.filterIsInstance<StaticOwnerEffect.PointReady>().single().supply.region)
+        }
+    }
+
+    @Test fun `nonstatic supplies are rejected before recording write presence`() {
+        FiniteProgramFixtures().use { f ->
+            val position = field(f, "f")
+            val g = f.ap.marks.groupOf(f.mark("T"))
+            val service = Run1StaticService(f.ap)
+            assertFailsWith<IllegalArgumentException> {
+                service.commit(StaticBatch().apply {
+                    supplies += RegionGroups(position.copy(fact = position.fact.copy(base = AccessPathBase.Argument(0))),
+                        GroupSet.of(g))
+                })
+            }
+            assertEquals(0, service.statistics().writeRegions)
+            assertEquals(0L, service.statistics().suppliedGroups)
+        }
+    }
+
+    @Test fun `the all-static writer route rejects an ordinary initial`() {
+        FiniteProgramFixtures().use { f ->
+            val owner = f.method("writer", listOf(emptyList()), 0).key()
+            val position = field(f, "f")
+            val ordinary = f.ap.initial(PathFact(AccessPathBase.Argument(0), emptyList(), Tail.STAR,
+                MarkSlot.STAR).let { Pattern(it, ExclusionSet.Empty) })
+            val service = Run1StaticService(f.ap)
+            assertFailsWith<IllegalStateException> {
+                service.commit(StaticBatch().apply {
+                    writers += StaticWriterRegistration(owner, 1, ordinary, position)
+                })
+            }
+            assertEquals(0, service.statistics().writerRows)
+        }
+    }
+
+    @Test fun `a nonstatic query is never rebased onto a static field`() {
+        for (supplyFirst in listOf(false, true)) FiniteProgramFixtures().use { f ->
+            val owner = f.method("reader", listOf(emptyList()), 0).key()
+            val position = field(f, "f")
+            val g = f.ap.marks.groupOf(f.mark("T"))
+            val nonstatic = position.copy(fact = position.fact.copy(base = AccessPathBase.Argument(0)))
+            val service = Run1StaticService(f.ap)
+            val supply = StaticBatch().apply { supplies += RegionGroups(position, GroupSet.of(g)) }
+            val interest = StaticBatch().apply { interests += StaticInterest(owner, 1, nonstatic, GroupSet.of(g)) }
+            assertTrue(service.commit(if (supplyFirst) supply else interest).isEmpty())
+            assertTrue(service.commit(if (supplyFirst) interest else supply).isEmpty())
+            assertEquals(0L, service.requestStatistics().requested)
+            assertEquals(0L, service.requestStatistics().processed)
+        }
+    }
+
 }

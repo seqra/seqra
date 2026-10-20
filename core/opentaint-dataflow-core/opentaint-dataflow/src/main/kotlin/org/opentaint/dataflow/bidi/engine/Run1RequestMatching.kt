@@ -94,8 +94,13 @@ internal fun validateRun1Initial(initial: InitialAp, fieldLimit: Int) {
             check(mark.excluded.isEmpty && initial.tail == Tail.STAR)
             check(initial.base != STATIC || path.size == 2) { "Run 1 has only abstract static-field initials" }
         }
-        is MarkSlot.Concrete -> check(initial.base != STATIC || path.isNotEmpty()) {
-            "Run 1 has no concrete empty static-root initial"
+        is MarkSlot.Concrete -> {
+            check(initial.base != STATIC || path.isNotEmpty()) {
+                "Run 1 has no concrete empty static-root initial"
+            }
+            check(initial.base != STATIC || path.size != 1 || initial.tail == Tail.EXACT) {
+                "A global class marker is exact; it has no class-wide initial"
+            }
         }
     }
 }
@@ -128,6 +133,9 @@ internal fun validateRun1Input(ap: ApManager, input: Facts) {
         ap.cancellation.checkpoint()
         check(classes[i].isClass()) { "A static input begins with its class accessor" }
         val cls = root.childData!![i]
+        if (input is TaintTree) check((cls.leaf as TaintLeaves).any.isEmpty) {
+            "A run-1 global class marker is exact; class-wide queries are descriptors"
+        }
         val fields = cls.accessorData ?: continue
         for (j in fields.indices) {
             ap.cancellation.checkpoint()

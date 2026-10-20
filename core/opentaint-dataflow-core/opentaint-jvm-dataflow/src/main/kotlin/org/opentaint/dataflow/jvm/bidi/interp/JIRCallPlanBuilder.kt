@@ -82,6 +82,7 @@ internal class JIRCallPlanBuilder(
     private val formOwner: FormOwner = FormOwner(),
     potentialUnknownAliases: Boolean = false,
     private val requireCatalogTarget: (org.opentaint.ir.api.common.CommonMethod, org.opentaint.ir.api.common.CommonMethod) -> Unit = { _, _ -> },
+    private val enumAliasTargets: EnumAliasTargets = EnumAliasTargets(s.location.method.enclosingClass.classpath),
 ) {
     private val lambdas: Map<Int, Set<JIRMethod>> = Collections.unmodifiableMap(lambdas.mapValues { (_, methods) ->
         Collections.unmodifiableSet(LinkedHashSet(methods))
@@ -312,9 +313,11 @@ internal class JIRCallPlanBuilder(
         for (e in back.edges) {
             val local = e.edge.to.base as? AccessPathBase.LocalVar ?: continue
             for (alias in persistedAliases(local, s)) {
+                val path = alias.accessors.map { it.apAccessor() }
+                if (enumAliasTargets.reject(alias.base, path)) continue
                 if (alias.base == local && alias.accessors.isEmpty()) continue
                 val transfer = starEdge(e.edge.from.base, emptyList(), alias.base,
-                    alias.accessors.map { manager.accessors.index(it.apAccessor()) })
+                    path.map(manager.accessors::index))
                 builder.edge(transfer)
                 if (alias.base == AccessPathBase.ClassStatic)
                     builder.staticOperation(StaticOperation.Write(OperationId(formKey),

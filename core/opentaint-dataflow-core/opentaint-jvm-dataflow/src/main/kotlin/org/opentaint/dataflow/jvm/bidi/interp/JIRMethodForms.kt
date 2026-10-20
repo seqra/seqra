@@ -37,7 +37,9 @@ class JIRMethodForms internal constructor(
             JIRStatementForms(interp.manager, interp.typeFilters,
                 aliasPaths = { at, base -> buildList {
                     entry.aliasAnalysis?.forEachAliasPathAtStatement(at, base) { alias, path ->
-                        add(alias to path.map(interp::idx))
+                        if (!interp.enumAliasTargets.reject(alias, path)) {
+                            add(alias to path.map(interp::idx))
+                        }
                     }
                 } },
                 readSources = { builder, at -> interp.ruleForms(view).readSources(builder, at,
@@ -58,7 +60,8 @@ class JIRMethodForms internal constructor(
                 key, s as JIRInst, call as JIRCallExpr, interp.callResolver::resolve, interp.epResolver,
                 entry.lambdas, aliasAnalysis = entry.aliasAnalysis,
                 defaultGetModel = interp.defaultGetModel, formOwner = entry.shared.formOwner,
-                requireCatalogTarget = entry.shared::requireRun1CatalogTarget).build()
+                requireCatalogTarget = entry.shared::requireRun1CatalogTarget,
+                enumAliasTargets = interp.enumAliasTargets).build()
         }, use)
 
     override fun entryRules(direction: Direction) = withEntryRules(direction) { it }

@@ -11,6 +11,7 @@ class MarkExclusions private constructor(
     internal val data: IntArray get() = atoms.data
     fun withCatalog(table: MarkTable): MarkExclusions {
         require(catalog == null || catalog === table) { "Mixed mark catalogs in FLOW exclusions" }
+        if (catalog === table) return this
         return normalized(atoms, table)
     }
     operator fun contains(mark: TaintMark): Boolean = excludes(mark, catalog)
@@ -42,9 +43,11 @@ class MarkExclusions private constructor(
         }
     }
     fun filterMarks(marks: MarkSet): MarkSet = MarkSet(marks.data.filter { TaintMark(it) !in this }.toIntArray())
-    fun projected(table: MarkTable, mode: MarkMode): MarkExclusions =
-        if (mode == MarkMode.FULL) withCatalog(table)
-        else normalized(MarkSet(atoms.data.map { table.runtimeAtom(TaintMark(it), mode).id }.toIntArray()), table)
+    fun projected(table: MarkTable, mode: MarkMode): MarkExclusions {
+        if (mode == MarkMode.FULL) return withCatalog(table)
+        if (catalog === table && atoms.data.none { table.key(TaintMark(it)) is MarkAtomKey.Full }) return this
+        return normalized(MarkSet(atoms.data.map { table.runtimeAtom(TaintMark(it), mode).id }.toIntArray()), table)
+    }
     fun forEach(visit: (TaintMark) -> Unit) = atoms.data.forEach { visit(TaintMark(it)) }
     private fun tableWith(other: MarkExclusions): MarkTable? {
         require(catalog == null || other.catalog == null || catalog === other.catalog) { "Mixed mark catalogs" }

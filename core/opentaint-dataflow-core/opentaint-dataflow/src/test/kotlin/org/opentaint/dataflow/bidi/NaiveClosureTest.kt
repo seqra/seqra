@@ -349,7 +349,8 @@ class NaiveClosureTest {
                     assertTrue(actual.initials.none { it.method == key && it.initial.fact.base == STATIC })
                 }
                 assertTrue(actual.requests.none { it.kind is RequestKind.Position })
-                assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(GroupedScalarMarks(f.ap.marks).pattern(f.pattern(STATIC, path, mark = t))),
+                // Only the current field group answer has a STAR initial; scalar controls stay unchanged.
+                assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(GroupedScalarMarks(f.ap.marks).pattern(f.pattern(STATIC, path, Tail.STAR, t))),
                     GroupedScalarMarks(f.ap.marks).conclusion(Conclusion(PathFact(y, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false))))
                 assertTrue(actual.sourceHits.isEmpty())
             }

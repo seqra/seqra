@@ -46,10 +46,18 @@ class ApManager(val cancellation: Cancellation, refManager: RefManager = RefMana
     fun intern(exclusion: ExclusionSet): ExclusionSet =
         if (exclusion == ExclusionSet.Empty) exclusion else exclusions.putIfAbsent(exclusion, exclusion) ?: exclusion
     fun markSetOf(mark: TaintMark): MarkSet = intern(MarkSet(intArrayOf(mark.id)))
-    fun runtimeMarks(set: MarkSet, mode: ApMode): MarkSet =
-        if (mode.markMode == MarkMode.FULL) set else intern(MarkSet(set.data.map {
-            marks.runtimeAtom(TaintMark(it), mode.markMode).id
-        }.toIntArray()))
+    fun runtimeMarks(set: MarkSet, mode: ApMode): MarkSet {
+        if (mode.markMode == MarkMode.FULL) return set
+        var mapped: IntArray? = null
+        for (i in set.data.indices) {
+            val old = set.data[i]
+            val id = marks.runtimeAtom(TaintMark(old), mode.markMode).id
+            if (mapped == null && id != old) mapped = set.data.copyOf()
+            mapped?.let { it[i] = id }
+        }
+        // Public input sets need not yet belong to this manager's interner.
+        return intern(mapped?.let(::MarkSet) ?: set)
+    }
 
     fun runtimeFact(f: Facts, mode: ApMode): Facts = if (mode.markMode == MarkMode.FULL) f else when (f) {
         is Reach -> f

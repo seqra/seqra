@@ -19,13 +19,17 @@ class StaticSummaryBoundTest {
             operations.forEach(::staticOperation)
         }.buildStage()
 
-    private fun pool(f: MethodAnalysisFixtures, core: RunMethodAnalyzer): List<Pattern> {
-        val service = checkNotNull(core.runnerPort.staticService)
-        val request = StaticBatch()
-        request.interests += StaticInterest(f.key, Long.MAX_VALUE,
-            Pattern(PathFact(STATIC, emptyList(), Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty),
+    private fun fieldRequest(f: MethodAnalysisFixtures, target: List<Int>): StaticBatch = StaticBatch().apply {
+        // Observe the tested field through the selected request API. S.* is
+        // not a legal run-1 marked initial or a request to enumerate the pool.
+        interests += StaticInterest(f.store.key("pool observer"), Long.MAX_VALUE,
+            Pattern(PathFact(STATIC, target, Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty),
             GroupSet.of(f.manager.marks.groupOf(f.mark("T"))))
-        return service.commit(request).filterIsInstance<StaticOwnerEffect.PointReady>()
+    }
+
+    private fun pool(f: MethodAnalysisFixtures, core: RunMethodAnalyzer, target: List<Int>): List<Pattern> {
+        val service = checkNotNull(core.runnerPort.staticService)
+        return service.commit(fieldRequest(f, target)).filterIsInstance<StaticOwnerEffect.PointReady>()
             .filter { it.id == Long.MAX_VALUE }.map { it.supply.region }
     }
 
@@ -49,7 +53,7 @@ class StaticSummaryBoundTest {
             assertEquals(setOf(target), leaves.map { it.fact.path }.toSet())
             assertEquals(setOf(Tail.ANY), leaves.map { it.fact.tail }.toSet())
             assertTrue(raw.all { it.second.layer == Layer.DEMAND })
-            val supplied = pool(f, core)
+            val supplied = pool(f, core, target)
             assertTrue(supplied.isNotEmpty())
             assertEquals(setOf(target), supplied.map { it.fact.path }.toSet())
             assertTrue(f.processed.none { it.facts.base == STATIC })
@@ -67,6 +71,9 @@ class StaticSummaryBoundTest {
             f.statement(1, summary(copy, listOf(StaticOperation.Read(op, copy),
                 StaticOperation.Write(op, Pattern(copy.to, ExclusionSet.Empty), copy))))
             val core = f.core()
+            // Start the request before the source/write. Later FLOW writers
+            // must join it, so this tests the requested copy-cycle closure.
+            checkNotNull(core.runnerPort.staticService).commit(fieldRequest(f, target))
             core.addRootZero()
             var complete = false
             for (turn in 0 until 32) {
@@ -82,7 +89,9 @@ class StaticSummaryBoundTest {
                 assertTrue(depth <= 1)
                 assertEquals(Layer.DEMAND, facts.layer)
             }
-            assertTrue(pool(f, core).all { it.fact.path == target })
+            val supplied = pool(f, core, target)
+            assertTrue(supplied.isNotEmpty())
+            assertTrue(supplied.all { it.fact.path == target })
             assertTrue(checkNotNull(core.runnerPort.staticService).statistics().ownerReplies < 32)
         }
     }

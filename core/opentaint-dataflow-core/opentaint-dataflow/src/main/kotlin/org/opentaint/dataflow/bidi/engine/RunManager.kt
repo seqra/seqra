@@ -179,7 +179,7 @@ class RunManager<A : RunActor>(
             completion.complete(RunStatus.FAILED)
         }
         val end = checkNotNull(status.get())
-        staticService?.let { logger.info { "BIDI_STATIC_STATISTICS run=${config.index} status=$end totals=${it.statistics()}" } }
+        staticService?.let { logger.info { "BIDI_STATIC_STATISTICS run=${config.index} status=$end totals=${it.statistics()} requests=${it.requestStatistics()}" } }
         val snapshot = synchronized(admission) { runners.values.toList() }
         val analyzers = if (end == RunStatus.COMPLETE) snapshot.flatMap { it.analyzers() } else emptyList()
         var failure: Throwable? = null

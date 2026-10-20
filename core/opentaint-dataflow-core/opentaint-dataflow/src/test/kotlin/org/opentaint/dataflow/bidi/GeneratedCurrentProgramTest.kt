@@ -170,7 +170,8 @@ class GeneratedCurrentProgramTest {
                 seed = seed + 100L, quantum = 1, duplicateDeliveries = true).run().also {
                 assertDirectStaticProtocol(it, f.ap.marks)
             } else compare(f, config, seed + 100L, listOf(cls) + fields, listOf(t.mark, u.mark))
-            if ((index == 1 && path.size == 2) || (index != 1 && !abstract)) assertContains(actual.rawSummaries, ObservedEdge(caller, if (index == 1) setOf(GroupedScalarMarks(f.ap.marks).pattern(f.pattern(STATIC, path.take(2), if (path.size > 2) Tail.STAR else Tail.EXACT, t))) else setOf(ZERO_PATTERN),
+            // Run-1 field group answers use a STAR premise; later ZERO premises and exact results stay unchanged.
+            if ((index == 1 && path.size == 2) || (index != 1 && !abstract)) assertContains(actual.rawSummaries, ObservedEdge(caller, if (index == 1) setOf(GroupedScalarMarks(f.ap.marks).pattern(f.pattern(STATIC, path.take(2), Tail.STAR, t))) else setOf(ZERO_PATTERN),
                 if (index == 1) GroupedScalarMarks(f.ap.marks).conclusion(Conclusion(PathFact(ret, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false))
                 else Conclusion(PathFact(ret, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false)),
                 "seed=$seed index=$index full static path=$path")

@@ -83,14 +83,15 @@ class StaticCatalogClosureTest {
                     listOf(f.pattern(returned, mark = u)), emptyList())
                 f.exit(getter, 1, ExitRules(RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY,
                     listOf(sink)), false, emptySet()))
-                val expectedReturn = selectedExpectedEdge(f.ap.marks, 1, ObservedEdge(caller, setOf(f.pattern(STATIC, path, mark = t)),
+                // The field group answer uses C.f.*; the source and result stay exact.
+                val expectedReturn = selectedExpectedEdge(f.ap.marks, 1, ObservedEdge(caller, setOf(f.pattern(STATIC, path, Tail.STAR, t)),
                     Conclusion(PathFact(result, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, false)))
                 val actual = compare(f, f.config(L = limit, roots = listOf(caller)), path, listOf(t.mark, u.mark),
                     sameUnit, policy, expectedRoot = expectedReturn)
                 assertContains(actual.rawSummaries, expectedReturn)
                 assertTrue(actual.witnesses.isNotEmpty())
                 assertTrue(actual.witnesses.all { it.rule === sink.rule && it.methodKey == getter &&
-                    it.edges.all { edge -> edge.layer == Layer.DEMAND && edge.premise == setOf(GroupedScalarMarks(f.ap.marks).pattern(f.pattern(STATIC, path, mark = t))) } })
+                    it.edges.all { edge -> edge.layer == Layer.DEMAND && edge.premise == setOf(GroupedScalarMarks(f.ap.marks).pattern(f.pattern(STATIC, path, Tail.STAR, t))) } })
                 assertTrue(actual.sourceHits.isEmpty())
             }
     }

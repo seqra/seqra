@@ -1,6 +1,14 @@
 # Next iteration: enum alias filter, static request state, and GROUP identities
 
-Date: 20 October 2026. Status: final selected proposal; not implemented.
+Date: 20 October 2026. Status: selected implementation contract.
+
+The implementation follows the narrower, current contract in
+[Run-1 static request state and immutable GROUP identities](../../spec/run1-static-request-state-and-group-identities.md).
+In particular, `S.C.$ / Group(g)` is an exact special global mark. There is
+no class-wide mark abstraction. Class wildcard predicates remain queries
+over their existing exact-marker and field domain; they are not new facts.
+See the [validation record](../reports/bidirectional-run1-static-request-state-validation-20261020.md)
+for the final local gates and the separate project-measurement status.
 Implementation baseline: `029ee41fd6de17388c2f61d0f900cd00f6bd33f8`.
 Follow [the proof guide](../../spec/proof-guide.md).
 

@@ -1,4 +1,8 @@
 /-
+  HISTORICAL static handling and initial grammar. Its classChain constructor
+  remains for old proofs. The current grouped grammar rejects that family;
+  see GroupedRun1Initials and ExactClassMarkers (20 October 2026).
+
   Local executable model for request-gated run-1 statics.
 
   This module deliberately does not change the historical F78 modules. Its

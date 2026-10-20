@@ -48,8 +48,8 @@ class OrdinaryStaticWriterTest {
             f.drain(actor, quantum = 1)
             assertTrue(f.vulnerabilities.witnessesOf(1).none(), "The actual group is excluded by the saved FLOW relation")
             assertTrue(f.events.filterIsInstance<RunEvent.StaticOwner>().any {
-                it.effect is StaticOwnerEffect.WriterReady
-            }, "The all-static summary must have joined the actual source pool input")
+                it.effect is StaticOwnerEffect.WriterInterest
+            }, "The all-static FLOW summary must receive its requested output group")
             publish(MarkExclusions.EMPTY)
             f.drain(actor, quantum = 1)
             assertTrue(f.vulnerabilities.witnessesOf(1).any { it.first.rule == sink.rule },

@@ -1,4 +1,8 @@
 /-
+  HISTORICAL comparison model. As of 20 October 2026, the CURRENT grouped
+  grammar refines this model: classChain is rejected. Only exact S.C global
+  mark carriers remain. See GroupedRun1Initials and ExactClassMarkers.
+
   Closed F78 run-1 INITIAL vocabulary, independent of current-fact vocabulary.
   There are ten shapes, not just the two normal ABSTRACT request slots.
 

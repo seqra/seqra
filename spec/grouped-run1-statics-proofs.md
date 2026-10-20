@@ -1,5 +1,10 @@
 # Mark groups and direct statics: proof dossier
 
+The [20 October proof map](run1-static-request-state-proofs.md) overrides the
+older scheduling and permissive class grammar below. Its current parser
+has eight families. Only exact `S.C` global-mark carriers remain; historical
+class-chain theorems do not authorize class abstraction.
+
 Date: 19 October 2026. Revision: **2.3, uniform immutable groups and no binding census**.
 Candidate B88 implements revision 2.1 and passes its selected local gate;
 fixed-project acceptance fails. This dossier supports
@@ -115,7 +120,7 @@ declarations as well as public theorems.
 | Uniform primitive filtering/interner, revision 2.3 | `UniformMarkGroups.uniform_group`, `nonempty_scalar_eq_group`, `Interner.intern_idempotent` | Asserted same flag per group, canonical group name, immutable owned keys; exact string/owner adapter duties remain |
 | Static guidance/declarations, revision 2.3 | `UniformMarkGroups.Guidance.emission_equivalence`, `restriction_equivalence`, `unchanged_bypass_equivalence`; `Serialized.binding_names_scanned`, `setup_scan_and_no_binding_queries` | Same successful paired-demand contributions and ordinary publication bypasses; no runtime inventory scans or bound-rule setup calls; AP/compiler adapters explicit |
 | Positive schedule | `RuleGroupSchedule.limit_positive`, `full_from_run_two`, `no_strict_growth_first_boundary` | Driver must not stop at equal run-1/run-2 limits |
-| Initial grammar, section 4 | `GroupedRun1Initials` parser; baseline `Run1InitialShapes` no-ANY/no-MUST and projection laws | Nine selected scalar families; root family removed; ordinary b excludes ZERO and cleaner temporary |
+| Initial grammar, section 4 | `GroupedRun1Initials` parser/refinement and `class_initial_is_exact`; `ExactClassMarkers` direct-preservation and separation laws | Eight current scalar families; root and historical class-chain families removed; ordinary b excludes ZERO and cleaner temporary |
 | Selective writes/empty E | `Run1StrongPreservation.definite_kill`, `exclusion_fallback`, `preservation_no_new_E`, `strong_write_survival_coverage` | Same baseline definite/may-alias classification; no generic weak-write rule |
 | Tail-preserving layer demotion | `preservation_full_payload`; `Run1DefaultSummaryApplication.ordinary_root_STAR_layer_only` | Use the layer law only; do not restore the removed executable root default |
 | Signed full literals/NNF | `RuleGroupConditions.exact_truth_implies_possible_truth`, `exact_full_literal_contradiction`, `same_group_distinct_pair_not_false` | Fixed-position NNF model; compiler keeps all actual positions and occurrence IDs |

@@ -126,11 +126,16 @@ class MarkTable(private val declarations: MarkDeclarations) {
     }
     fun runtimeAtom(atom: TaintMark, mode: MarkMode): TaintMark {
         if (atom == TaintMark.ZERO) return atom
+        val key = key(atom)
         if (mode == MarkMode.FULL) {
-            require(!isGroup(atom)) { "An executable full fact cannot contain a group selector" }
+            require(key !is MarkAtomKey.Group) { "An executable full fact cannot contain a group selector" }
             return atom
         }
-        return group(groupOf(atom))
+        return when (key) {
+            is MarkAtomKey.Group -> atom
+            is MarkAtomKey.Full -> group(key.mark.group)
+            MarkAtomKey.ControlZero -> atom
+        }
     }
     fun coversAtom(guide: TaintMark, actual: TaintMark): Boolean {
         if (guide == actual) return true

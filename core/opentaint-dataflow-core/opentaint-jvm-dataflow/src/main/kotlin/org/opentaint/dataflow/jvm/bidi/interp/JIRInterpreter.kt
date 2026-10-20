@@ -35,6 +35,7 @@ class JIRInterpreter(
 ) : Interpreter, UnresolvedCallObserver {
     internal val errors = RuleErrors()
     internal val typeFilters = JIRTypeFilters(checker, manager)
+    internal val enumAliasTargets = EnumAliasTargets(callResolver.cp)
     internal val ruleForms = JIRRuleForms(rules, manager, errors, typeFilters, statistics = entries.formStatistics)
     internal val ruleFormsAtThrow = JIRRuleForms(rules, manager, errors, typeFilters,
         resultBase = AccessPathBase.Exception, statistics = entries.formStatistics)
