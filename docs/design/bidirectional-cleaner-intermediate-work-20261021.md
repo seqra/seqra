@@ -1,8 +1,15 @@
 # Reduce run-1 cleaner work and static continuation state
 
-Date: 21 October 2026. Status: **unselected implementation proposals**.
-The eight profile readers and both OOM analyses are closed. Do not
-implement these changes in this measurement iteration.
+Date: 21 October 2026. Status: **numbered optimizations 1–5 selected for
+the next iteration**. The eight profile readers and both OOM analyses are
+closed. The analyzer implementation is unchanged by this design update.
+
+Use the [detailed implementation specification](bidirectional-cleaner-intermediate-work-implementation-20261021.md)
+for the selected patch boundaries, storage lifecycle, code and proof/test
+gates. Its narrower implementation choices control: scalar static reply
+resumption, suffix-aware schedules and run-1 completed-step deduplication.
+The separate construction follow-on, later FULL publication candidate and
+reporting fix remain unselected.
 
 Source: `5d3a706cfaa8fa5620dab5c5b268d02b1a8432e2`. Use the
 [current report](../reports/bidirectional-run1-single-premise-rules-performance-20261021.md)
