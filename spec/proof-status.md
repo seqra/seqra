@@ -5,7 +5,8 @@
 The [implementation specification](../docs/design/bidirectional-run1-origins-routing-projection-implementation-20261021.md)
 selects all contributing atomic run-1 origins, impossible exact-class/field
 routing removal and canonical GROUP projection reuse. **Runtime changes
-are implemented; fixed-project measurements are pending.** The first item is a semantic correction to the earlier
+are implemented in `d7244c08c`; fixed-project runs are closed.** The first
+item is a semantic correction to the earlier
 representative-only result; the other two preserve the corrected contract.
 ZERO requires a complete compatible all-ZERO cube. FULL ND, sink witnesses,
 field/static transfer and the run schedule retain their current behavior.
@@ -31,12 +32,27 @@ missing expected IDs. Each failing analysis completes and accepts run-9
 and stops with `POLICY`. This comparison establishes no new regression
 in these controls; it does not make the broader suite green. See the
 [closed comparison](/drive-testcomp/opentaint-go-rules/run1-origins-routing-projection-20261021/validation/application-regressions/comparison.md).
-No fresh performance result is claimed.
-
-Latest measured reference remains `51dbc4d66`: OWASP **run-6 TIMEOUT**
-(latest COMPLETE/accepted run-5); conductor **run-2 OOM** (run-1/run-1);
-ThingsBoard **run-1 OOM** (none/none); Stirling-PDF **run-2 OOM**
-(run-1/run-1). See the [closed report](../docs/reports/bidirectional-cleaner-work-performance-20261021.md).
+The [current performance report](../docs/reports/bidirectional-run1-origins-routing-projection-performance-20261021.md)
+compares this runtime with fresh main `f945f92c5`. Candidate OWASP reaches
+**run-3 TIMEOUT** (latest COMPLETE run-2; accepted run-1); conductor reaches
+**run-2 OOM** (run-1/run-1); thingsboard reaches **run-1 OOM** (none/none);
+Stirling-PDF reaches **run-2 OOM** (run-1/run-1). All four commands fail a
+resource gate; only Stirling-PDF completes run-1 within 60 engine seconds.
+Strict location inclusion passes OWASP and conductor, and fails thingsboard
+(14 omissions after run-1 OOM before report admission) and Stirling-PDF
+(two unmatched earlier-return coordinates; synthetic-exit/Simple export
+uses the last return).
+All omissions have a source review; exact missing-flow coverage is not
+proved. The current measurements do not establish overall performance or
+finding parity. Formal local proofs do not override those integration limits.
+All eight profile reads and all three live OOM heap reviews are closed.
+Thingsboard run-1 retains large static recipient/dependency stores. The
+conductor and Stirling-PDF run-2 class censuses contain no run-1 static
+service or point-resume owners; they retain FULL edge state and pending
+publications. See the report for overlapping retained-set sizes and query
+limits. The [next proposal](../docs/design/bidirectional-retained-work-next-iteration-20261021.md)
+contains no runtime change and has its own proof gates. Its layout models
+are not measured savings or a whole-engine equivalence proof.
 The representative contract below is historical. Its proofs do not replace
 the current all-origin and complete-handoff-pair obligations.
 

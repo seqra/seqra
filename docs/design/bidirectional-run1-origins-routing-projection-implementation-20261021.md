@@ -1,6 +1,6 @@
 # Run-1 origins, static routing and GROUP projection: implementation specification
 
-Date: 21 October 2026. Status: **implemented; fixed-project measurements pending**.
+Date: 21 October 2026. Status: **implemented in `d7244c08c`; fixed-project runs closed**.
 
 This document specifies the three selected items from the
 [next-iteration proposal](bidirectional-work-avoidance-next-iteration-20261021.md):
@@ -13,10 +13,10 @@ Use runtime `51dbc4d66fb1bf1b56071dbf18c90c5909e3146b` as the reference.
 The core at document revision `6b23203c0` is unchanged from that runtime.
 Follow [proof-guide.md](../../spec/proof-guide.md). Kotlin below specifies
 the implementation contract. Runtime changes now implement that contract;
-project measurements remain pending.
+the [current performance report](../reports/bidirectional-run1-origins-routing-projection-performance-20261021.md) records the closed project runs, strict comparisons and heap reviews.
 
-The [latest measurements](../reports/bidirectional-cleaner-work-performance-20261021.md)
-describe the reference, not this candidate:
+The [reference measurements](../reports/bidirectional-cleaner-work-performance-20261021.md)
+below predate this candidate. Current results are in the linked report:
 
 | Project | Latest reached | Latest COMPLETE | Accepted forward report |
 | --- | --- | --- | --- |
@@ -44,9 +44,12 @@ limitation, but each extra candidate has not been individually traced.
 
 The [gate records](/drive-testcomp/opentaint-go-rules/run1-origins-routing-projection-20261021/tests)
 and [closed application comparison](/drive-testcomp/opentaint-go-rules/run1-origins-routing-projection-20261021/validation/application-regressions/comparison.md)
-retain logs, XML, source checks and set differences. Fresh project runs
-have not started. The earlier project outcomes above remain reference
-measurements, not validation of this runtime.
+retain logs, XML, source checks and set differences. All eight fresh main
+and candidate project runs are closed. Candidate latest reached iterations
+are OWASP run-3 TIMEOUT, conductor run-2 OOM, thingsboard run-1 OOM and
+Stirling-PDF run-2 OOM. See the current report for COMPLETE/accepted runs,
+strict location failures and the limits of this comparison. The earlier
+project outcomes above remain reference measurements.
 
 ## 1. Semantic changes and preserved behavior
 
@@ -805,9 +808,10 @@ these modules prove every required engine adapter.
 Specification validation on 21 October: the focused Lean 4.33.1 build
 passes. The audit checks 26 statements and 20 executable controls, with
 only `propext` and `Quot.sound`; no classical choice, placeholder or native
-decision axiom occurs. The runtime now includes the selected changes. Production integration
-checks and their limits are recorded above; project measurements have not started. The
-formal models prove the local laws listed above, not whole-engine behavior.
+decision axiom occurs. The runtime now includes the selected changes.
+Production checks and their limits are recorded above. Project runs are
+closed; the current report records their resource failures. The formal
+models prove the local laws listed above, not whole-engine behavior.
 
 ## 8. Tests and acceptance
 

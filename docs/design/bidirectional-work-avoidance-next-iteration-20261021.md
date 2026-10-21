@@ -1,15 +1,18 @@
 # Avoid repeated analyzer work: next iteration
 
-Date: 21 October 2026. Status: **three items selected for the next iteration**.
+Date: 21 October 2026. Status: **historical selection; three items now implemented**.
 The required all-origin correction, impossible exact-class/field routing
 removal and canonical GROUP projection reuse are selected. Their complete
 [implementation specification](bidirectional-run1-origins-routing-projection-implementation-20261021.md)
-controls this iteration. The other three performance items remain future
-candidates. No change in this document is implemented. The current runtime is
-`51dbc4d66fb1bf1b56071dbf18c90c5909e3146b`.
+controls that iteration, implemented in `d7244c08c`. The current
+[performance report](../reports/bidirectional-run1-origins-routing-projection-performance-20261021.md)
+and [next proposal](bidirectional-retained-work-next-iteration-20261021.md)
+supersede this document for new measurements and priorities. The remaining
+text preserves its design-time reference runtime
+`51dbc4d66fb1bf1b56071dbf18c90c5909e3146b` and historical measurements.
 
-Use the [fresh performance report](../reports/bidirectional-cleaner-work-performance-20261021.md)
-as the measurement authority. Older candidate reports are stale. Artifacts
+The [design-time performance report](../reports/bidirectional-cleaner-work-performance-20261021.md)
+was the measurement authority for this historical proposal. Artifacts
 are in `/drive-testcomp/opentaint-go-rules/cleaner-work-20261021`.
 
 | Project | Latest reached | Latest COMPLETE | Accepted forward report |
