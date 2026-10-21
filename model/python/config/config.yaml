@@ -1,0 +1,662 @@
+language: python
+passThrough:
+- function: argparse.ArgumentParser._read_args_from_files
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(arg_strings)
+    to: result
+- function: argparse.ArgumentParser._parse_known_args
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(arg_strings)
+    to: result
+- function: argparse.ArgumentParser.parse_known_args
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(args)
+    to: result
+- function: argparse.ArgumentParser.parse_args
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(args)
+    to: result
+- function: base64.b64encode
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(s)
+    to: result
+- function: base64.b64decode
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(s)
+    to: result
+- function: base64.urlsafe_b64decode
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(s)
+    to: result
+- function: builtins.bytes.decode
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.split
+  copy:
+  - from: this
+    to:
+    - result
+    - '[*]'
+- function: builtins.str.format
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+- function: cgi.FieldStorage.getvalue
+  copy:
+  - from: this
+    to: result
+- function: cgi.FieldStorage.getlist
+  copy:
+  - from: this
+    to: result
+  - from: this
+    to:
+    - result
+    - '[*]'
+- function: cgi.FieldStorage.getfirst
+  copy:
+  - from: this
+    to: result
+- function: collections.abc.Mapping.get
+  copy:
+  - from: arg(1)
+    to: result
+  - from: kwarg(default)
+    to: result
+  - from:
+    - this
+    - '[*]'
+    to: result
+- function: contextlib.ExitStack.enter_context
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(cm)
+    to: result
+- function: copy.replace
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(x)
+    to: result
+- function: copy.deepcopy
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(x)
+    to: result
+- function: copy.copy
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(x)
+    to: result
+- function: ctypes.create_unicode_buffer
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(init)
+    to: result
+  - from: kwarg(init_or_size)
+    to: result
+- function: ctypes.create_string_buffer
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(init)
+    to: result
+  - from: kwarg(init_or_size)
+    to: result
+- function: distutils.util.change_root
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(new_root)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: kwarg(pathname)
+    to: result
+- function: email.header.Header
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(s)
+    to: result
+- function: email.utils.parseaddr
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(addr)
+    to: result
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(addr)
+    to:
+    - result
+    - '[*]'
+- function: fnmatch.filter
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+  - from:
+    - kwarg(names)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+  - from: arg(0)
+    to: result
+  - from: kwarg(names)
+    to: result
+- function: getopt.getopt
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(args)
+    to:
+    - result
+    - '[*]'
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(shortopts)
+    to:
+    - result
+    - '[*]'
+  - from: arg(2)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(longopts)
+    to:
+    - result
+    - '[*]'
+- function: gettext.gettext
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(message)
+    to: result
+- function: glob.iglob
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(pathname)
+    to: result
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(pathname)
+    to:
+    - result
+    - '[*]'
+- function: glob.glob
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(pathname)
+    to: result
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(pathname)
+    to:
+    - result
+    - '[*]'
+- function: gzip.GzipFile
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(filename)
+    to: result
+- function: html.unescape
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(s)
+    to: result
+- function: html.escape
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(s)
+    to: result
+- function: html.parser.HTMLParser.feed
+  copy:
+  - from: arg(0)
+    to: this
+  - from: kwarg(data)
+    to: this
+- function: imp.find_module
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(name)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: kwarg(path)
+    to: result
+- function: io.StringIO.write
+  copy:
+  - from: arg(0)
+    to: this
+  - from: kwarg(s)
+    to: this
+- function: io.StringIO.getvalue
+  copy:
+  - from: this
+    to: result
+- function: logging.getLevelName
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(level)
+    to: result
+- function: logging.LogRecord.getMessage
+  copy:
+  - from: this
+    to: result
+- function: mimetypes.guess_type
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(url)
+    to: result
+- function: nturl2path.pathname2url
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(p)
+    to: result
+- function: nturl2path.url2pathname
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(url)
+    to: result
+- function: optparse.OptionParser.parse_args
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(args)
+    to:
+    - result
+    - '[*]'
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(values)
+    to:
+    - result
+    - '[*]'
+- function: os.walk
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(top)
+    to: result
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(top)
+    to:
+    - result
+    - '[*]'
+- function: pathlib.Path.__enter__
+  copy:
+  - from: this
+    to: result
+- function: pathlib.PurePath.__fspath__
+  copy:
+  - from: this
+    to: result
+- function: queue.Queue.get_nowait
+  copy:
+  - from:
+    - this
+    - '[*]'
+    to: result
+  - from: this
+    to: result
+- function: queue.Queue.get
+  copy:
+  - from:
+    - this
+    - '[*]'
+    to: result
+  - from: this
+    to: result
+- function: queue.Queue.put_nowait
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - '[*]'
+  - from: kwarg(item)
+    to:
+    - this
+    - '[*]'
+  - from: arg(0)
+    to: this
+  - from: kwarg(item)
+    to: this
+- function: queue.Queue.put
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - '[*]'
+  - from: kwarg(item)
+    to:
+    - this
+    - '[*]'
+  - from: arg(0)
+    to: this
+  - from: kwarg(item)
+    to: this
+- function: random.choice
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+  - from:
+    - kwarg(seq)
+    - '[*]'
+    to: result
+  - from: arg(0)
+    to: result
+  - from: kwarg(seq)
+    to: result
+- function: random.Random.choice
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+  - from:
+    - kwarg(seq)
+    - '[*]'
+    to: result
+  - from: arg(0)
+    to: result
+  - from: kwarg(seq)
+    to: result
+- function: shlex.quote
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(s)
+    to: result
+- function: shutil.which
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(cmd)
+    to: result
+  - from: arg(2)
+    to: result
+  - from: kwarg(path)
+    to: result
+- function: subprocess.Popen
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(args)
+    to: result
+- function: tarfile.open
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(name)
+    to: result
+  - from: arg(2)
+    to: result
+  - from: kwarg(fileobj)
+    to: result
+- function: tarfile.TarFile.open
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(name)
+    to: result
+  - from: arg(2)
+    to: result
+  - from: kwarg(fileobj)
+    to: result
+- function: tempfile.mkdtemp
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(suffix)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: kwarg(prefix)
+    to: result
+  - from: arg(2)
+    to: result
+  - from: kwarg(dir)
+    to: result
+- function: tempfile.mkstemp
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(suffix)
+    to:
+    - result
+    - '[*]'
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(prefix)
+    to:
+    - result
+    - '[*]'
+  - from: arg(2)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(dir)
+    to:
+    - result
+    - '[*]'
+- function: textwrap.dedent
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(text)
+    to: result
+- function: traceback.StackSummary.from_list
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(a_list)
+    to: result
+- function: typing.cast
+  copy:
+  - from: arg(1)
+    to: result
+  - from: kwarg(val)
+    to: result
+- function: urllib.parse.parse_qs
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(qs)
+    to: result
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(qs)
+    to:
+    - result
+    - '[*]'
+- function: urllib.parse.urlparse
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(urlstring)
+    to: result
+- function: urllib.parse.quote
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(string)
+    to: result
+- function: urllib.parse.quote_plus
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(string)
+    to: result
+- function: urllib.parse.splitquery
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(url)
+    to:
+    - result
+    - '[*]'
+- function: urllib.parse.unquote
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(string)
+    to: result
+- function: urllib.parse.unquote_plus
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(string)
+    to: result
+- function: urllib.parse.urlencode
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(query)
+    to: result
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+  - from:
+    - kwarg(query)
+    - '[*]'
+    to: result
+- function: urllib.parse.urljoin
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(base)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: kwarg(url)
+    to: result
+- function: zipfile.CompleteDirs.namelist
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .filelist
+    - '[*]'
+    - .filename
+    to:
+    - result
+    - '[*]'
+- function: zipfile.ZipFile
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(file)
+    to: result
+  - from: arg(0)
+    to:
+    - result
+    - .filelist
+    - '[*]'
+    - .filename
+  - from: kwarg(file)
+    to:
+    - result
+    - .filelist
+    - '[*]'
+    - .filename
+- function: zipfile.ZipFile._extract_member
+  copy:
+  - from: arg(1)
+    to: result
+  - from: kwarg(targetpath)
+    to: result
+- function: zipfile.ZipFile.infolist
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .filelist
+    to: result
+- function: zipfile.ZipFile.namelist
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .filelist
+    - '[*]'
+    - .filename
+    to:
+    - result
+    - '[*]'
+- function: flask.render_template_string
+  copy:
+  - from: arg(0)
+    to: result
+- function: flask.stream_template_string
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'

@@ -31,6 +31,15 @@ tasks {
     }
 }
 
+val pythonSamplesSourceSet = sourceSets.create("pythonSamples") {
+    resources.setSrcDirs(listOf("src/main/python"))
+}
+
+val pythonSamples by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = false
+}
+
 val goSamplesSourceSet = sourceSets.create("goSamples") {
     resources.setSrcDirs(listOf("src/main/go"))
 }
@@ -44,6 +53,10 @@ tasks.jar {
     from(sourceSets.main.get().allSource) {
         include("**/*.java")
         include("**/*.kt")
+    }
+
+    from(pythonSamplesSourceSet.resources) {
+        include("**/*.py")
     }
 
     from(goSamplesSourceSet.resources) {

@@ -38,4 +38,10 @@ object OpentaintIrDependency : OpentaintDependency {
             group = "org.opentaint.ir",
             name = "opentaint-ir-approximations"
         )
+
+    val Project.opentaint_ir_api_python
+        get() = propertyDep(
+            group = "org.opentaint.ir.python",
+            name = "opentaint-ir-api-python"
+        )
 }

@@ -23,6 +23,7 @@ includeBuild("opentaint-configuration-rules") {
                 "configuration-rules-common",
                 "configuration-rules-jvm",
                 "configuration-rules-go",
+                "configuration-rules-python",
             )
         )
     }
@@ -35,6 +36,7 @@ includeBuild("opentaint-dataflow-core") {
             listOf(
                 "opentaint-dataflow",
                 "opentaint-jvm-dataflow",
+                "opentaint-python-dataflow",
                 "opentaint-go-dataflow",
             )
         )
@@ -52,6 +54,15 @@ includeBuild("opentaint-ir") {
             "opentaint-ir-storage",
         )
         substituteProjects("org.opentaint.ir", modules)
+
+        val pythonModules = listOf(
+            "opentaint-ir-api-python",
+            "opentaint-ir-impl-python"
+        )
+
+        for (module in pythonModules) {
+            substitute(module("org.opentaint.ir.python:$module")).using(project(":python:$module"))
+        }
 
         val goModules = listOf(
             "go-ir-api",
@@ -97,6 +108,7 @@ includeBuild("opentaint-config") {
     dependencySubstitution {
         substitute(module("org.opentaint.config:java-config")).using(project(":java-config"))
         substitute(module("org.opentaint.config:go-config")).using(project(":go-config"))
+        substitute(module("org.opentaint.config:python-config")).using(project(":python-config"))
     }
 }
 

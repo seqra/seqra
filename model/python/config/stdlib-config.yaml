@@ -1,0 +1,250 @@
+# Python stdlib pass-through rules.
+#
+# Mirrors `PythonBuiltinPassRules` in
+# `opentaint-python-dataflow/.../rules/TaintRules.kt`. Keyed by
+# fully-qualified function name to match the convention of the
+# shipped `config.yaml`.
+
+language: python
+passThrough:
+# --- String methods: receiver → result ---
+- function: builtins.str.upper
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.lower
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.capitalize
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.casefold
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.swapcase
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.title
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.strip
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.lstrip
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.rstrip
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.center
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.ljust
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.rjust
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.zfill
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.replace
+  copy:
+  - from: this
+    to: result
+- function: builtins.str.encode
+  copy:
+  - from: this
+    to: result
+- function: builtins.bytes.decode
+  copy:
+  - from: this
+    to: result
+
+# `str.join`: result taint comes from the iterable elements (arg(0)) and the separator (this).
+- function: builtins.str.join
+  copy:
+  - from: this
+    to: result
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+
+# `str.format`: result taint comes from the format string (this) and any positional argument.
+- function: builtins.str.format
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: arg(2)
+    to: result
+  - from: arg(3)
+    to: result
+  - from: arg(4)
+    to: result
+  - from: arg(5)
+    to: result
+  - from: arg(6)
+    to: result
+  - from: arg(7)
+    to: result
+  - from: arg(8)
+    to: result
+  - from: arg(9)
+    to: result
+
+# --- Constructor pass-throughs: arg(0) → result ---
+- function: builtins.str
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+- function: builtins.bytes
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+- function: builtins.list
+  copy:
+  - from: arg(0)
+    to: result
+- function: builtins.tuple
+  copy:
+  - from: arg(0)
+    to: result
+- function: builtins.set
+  copy:
+  - from: arg(0)
+    to: result
+- function: builtins.frozenset
+  copy:
+  - from: arg(0)
+    to: result
+- function: builtins.dict
+  copy:
+  - from: arg(0)
+    to: result
+
+# --- Collection mutations: arg → receiver (taint flows into the collection) ---
+- function: builtins.list.append
+  copy:
+    - from: arg(0)
+      to:
+      - this
+      - '[*]'
+- function: builtins.list.extend
+  copy:
+  - from: arg(0)
+    to: this
+- function: builtins.list.insert
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - '[*]'
+- function: builtins.set.add
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - '[*]'
+- function: builtins.set.update
+  copy:
+  - from: arg(0)
+    to: this
+- function: builtins.dict.update
+  copy:
+  - from: arg(0)
+    to: this
+- function: builtins.dict.setdefault
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - '[*]'
+  - from: arg(1)
+    to: result
+  - from:
+    - this
+    - '[*]'
+    to: result
+
+# --- Collection reads: receiver → result (tainted container → tainted read) ---
+- function: builtins.dict.get
+  copy:
+  - from:
+    - this
+    - '[*]'
+    to: result
+- function: builtins.dict.pop
+  copy:
+  - from:
+    - this
+    - '[*]'
+    to: result
+- function: builtins.dict.values
+  copy:
+  - from: this
+    to: result
+- function: builtins.dict.items
+  copy:
+  - from: this
+    to: result
+- function: builtins.dict.copy
+  copy:
+  - from: this
+    to: result
+- function: builtins.list.pop
+  copy:
+  - from:
+    - this
+    - '[*]'
+    to: result
+- function: builtins.list.copy
+  copy:
+  - from: this
+    to: result
+- function: builtins.set.pop
+  copy:
+  - from:
+    - this
+    - '[*]'
+    to: result
+- function: builtins.set.copy
+  copy:
+  - from: this
+    to: result
+- function: configparser.ConfigParser.set
+  copy:
+    - from: arg(2)
+      to:
+      - this
+      - '[*]'
+- function: configparser.ConfigParser.get
+  copy:
+    - from:
+      - this
+      - '[*]'
+      to: result

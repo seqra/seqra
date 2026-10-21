@@ -1,11 +1,14 @@
 import OpentaintConfigDependency.opentaintJavaConfig
 import OpentaintConfigDependency.opentaintGoConfig
+import OpentaintConfigDependency.opentaintPythonConfig
 import OpentaintIrDependency.opentaint_ir_api_go
 import OpentaintIrDependency.opentaint_ir_api_jvm
+import OpentaintIrDependency.opentaint_ir_api_python
 import OpentaintIrDependency.opentaint_ir_api_storage
 import OpentaintIrDependency.opentaint_ir_approximations
 import OpentaintIrDependency.opentaint_ir_core
 import OpentaintIrDependency.opentaint_ir_core_go
+import OpentaintIrDependency.opentaint_ir_core_python
 import OpentaintIrDependency.opentaint_ir_storage
 import OpentaintProjectDependency.opentaintProject
 import OpentaintUtilDependency.opentaintUtilCli
@@ -17,7 +20,9 @@ import org.opentaint.common.JunitDependencies
 import org.opentaint.common.KotlinDependency
 import org.opentaint.common.resolveIncludedProjectTask
 import org.opentaint.common.ensureGoEnvInitialized
+import org.opentaint.common.ensurePirEnvInitialized
 import org.opentaint.common.goEnvironment
+import org.opentaint.common.pirEnvironment
 import org.opentaint.common.setupOpentaintGoEnvironment
 
 plugins {
@@ -32,7 +37,9 @@ dependencies {
     implementation(opentaintProject)
     implementation(opentaintJavaConfig)
     implementation(opentaintGoConfig)
+    implementation(opentaintPythonConfig)
 
+    implementation("org.opentaint.opentaint-configuration-rules:configuration-rules-python")
     implementation("org.opentaint.opentaint-configuration-rules:configuration-rules-jvm")
     implementation("org.opentaint.opentaint-configuration-rules:configuration-rules-go")
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-jvm-dataflow")
@@ -70,6 +77,10 @@ dependencies {
     implementation(opentaint_ir_api_go)
     implementation(opentaint_ir_core_go)
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-go-dataflow")
+
+    implementation(opentaint_ir_api_python)
+    implementation(opentaint_ir_core_python)
+    implementation("org.opentaint.opentaint-dataflow-core:opentaint-python-dataflow")
 }
 
 val testSamples by configurations.creating
@@ -80,6 +91,7 @@ dependencies {
 
 tasks.withType<Test> {
     dependsOn(project("samples").tasks.withType<Jar>())
+    ensurePirEnvInitialized()
     ensureGoEnvInitialized()
 
     doFirst {
@@ -89,6 +101,7 @@ tasks.withType<Test> {
         environment("TEST_SAMPLES_JAR", testSamplesJar.absolutePath)
         environment("TEST_DEPENDENCIES_JAR", testDependencies.joinToString(File.pathSeparator) { it.absolutePath })
 
+        pirEnvironment().forEach { (key, value) -> environment(key, value) }
         goEnvironment().forEach { (key, value) -> environment(key, value) }
     }
 }

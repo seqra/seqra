@@ -8,4 +8,6 @@ object OpentaintConfigurationDependency : OpentaintDependency {
     val Project.opentaintRulesGo: String
         get() = propertyDep(group = "org.opentaint.opentaint-configuration-rules", name = "configuration-rules-go")
 
+    val Project.opentaintRulesPython: String
+        get() = propertyDep(group = "org.opentaint.opentaint-configuration-rules", name = "configuration-rules-python")
 }

@@ -7,4 +7,7 @@ object OpentaintConfigDependency : OpentaintDependency {
 
     val Project.opentaintGoConfig: String
         get() = propertyDep(group = "org.opentaint.config", name = "go-config")
+
+    val Project.opentaintPythonConfig: String
+        get() = propertyDep(group = "org.opentaint.config", name = "python-config")
 }
