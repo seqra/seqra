@@ -1,4 +1,4 @@
-package org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.python.pattern.conversion
 
 import org.opentaint.dataflow.configuration.python.serialized.SerializedPythonCleaner
 import org.opentaint.dataflow.configuration.python.serialized.SerializedPythonEntryPointSource

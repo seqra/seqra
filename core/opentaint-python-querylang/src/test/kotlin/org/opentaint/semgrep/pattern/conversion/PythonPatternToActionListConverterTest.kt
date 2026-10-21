@@ -1,8 +1,5 @@
 package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.semgrep.pattern.python.SemgrepPythonPattern
-import org.opentaint.semgrep.pattern.python.SemgrepPythonPatternParser
-import org.opentaint.semgrep.pattern.python.SemgrepPythonPatternParsingResult
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.ClassConstraint
@@ -12,6 +9,12 @@ import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.MethodSigna
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifierValue
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureName
+import org.opentaint.semgrep.python.pattern.SemgrepPythonPattern
+import org.opentaint.semgrep.python.pattern.SemgrepPythonPatternParser
+import org.opentaint.semgrep.python.pattern.SemgrepPythonPatternParsingResult
+import org.opentaint.semgrep.python.pattern.conversion.PythonLanguageStrategy
+import org.opentaint.semgrep.python.pattern.conversion.PythonPatternToActionListConverter
+import org.opentaint.semgrep.python.pattern.conversion.pythonNamed
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull

@@ -11,7 +11,7 @@ import org.opentaint.dataflow.configuration.python.serialized.SerializedPythonEx
 import org.opentaint.dataflow.configuration.python.serialized.SerializedPythonRule
 import org.opentaint.dataflow.configuration.python.serialized.SerializedPythonSink
 import org.opentaint.dataflow.configuration.python.serialized.SerializedPythonSource
-import org.opentaint.semgrep.pattern.conversion.PythonLanguageStrategy
+import org.opentaint.semgrep.python.pattern.conversion.PythonLanguageStrategy
 import kotlin.io.path.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -1,4 +1,4 @@
-package org.opentaint.semgrep.pattern.python
+package org.opentaint.semgrep.python.pattern
 
 sealed interface SemgrepPythonPattern {
     val children: List<SemgrepPythonPattern>

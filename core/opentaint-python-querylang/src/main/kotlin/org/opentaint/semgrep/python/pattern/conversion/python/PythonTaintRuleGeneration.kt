@@ -1,4 +1,4 @@
-package org.opentaint.semgrep.pattern.conversion.python
+package org.opentaint.semgrep.python.pattern.conversion.python
 
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
@@ -27,8 +27,8 @@ import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
 import org.opentaint.semgrep.pattern.conversion.ParamCondition
-import org.opentaint.semgrep.pattern.conversion.PythonConcreteType
-import org.opentaint.semgrep.pattern.conversion.PythonLanguageStrategy
+import org.opentaint.semgrep.python.pattern.conversion.PythonConcreteType
+import org.opentaint.semgrep.python.pattern.conversion.PythonLanguageStrategy
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifierValue
 import org.opentaint.semgrep.pattern.conversion.SpecificBoolValue

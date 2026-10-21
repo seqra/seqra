@@ -1,4 +1,4 @@
-package org.opentaint.semgrep.pattern.python
+package org.opentaint.semgrep.python.pattern
 
 import org.antlr.v4.runtime.BaseErrorListener
 import org.antlr.v4.runtime.CharStreams

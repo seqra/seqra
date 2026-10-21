@@ -28,8 +28,8 @@ import org.opentaint.ir.impl.python.PIRClasspathLoader
 import org.opentaint.semgrep.pattern.SemgrepLoadTrace
 import org.opentaint.semgrep.pattern.SemgrepRuleLoader
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
-import org.opentaint.semgrep.pattern.conversion.PythonLanguageStrategy
-import org.opentaint.semgrep.pattern.conversion.toSerializedPythonTaintConfig
+import org.opentaint.semgrep.python.pattern.conversion.PythonLanguageStrategy
+import org.opentaint.semgrep.python.pattern.conversion.toSerializedPythonTaintConfig
 import java.io.File
 import java.nio.file.Path
 import org.opentaint.dataflow.python.rules.PIRCombinedTaintRulesProvider

@@ -1,4 +1,4 @@
-package org.opentaint.semgrep.pattern.conversion.python
+package org.opentaint.semgrep.python.pattern.conversion.python
 
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
 import org.opentaint.dataflow.configuration.python.serialized.PIRUserDefinedRuleInfo
@@ -11,7 +11,7 @@ import org.opentaint.semgrep.pattern.UserRuleFromSemgrepInfo
 import org.opentaint.semgrep.pattern.PlaceholderMethodName
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
-import org.opentaint.semgrep.pattern.conversion.PythonConcreteType
+import org.opentaint.semgrep.python.pattern.conversion.PythonConcreteType
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureName
 import org.opentaint.semgrep.pattern.conversion.TypeConstraint
 import org.opentaint.semgrep.pattern.conversion.taint.MetaVarConstraintOrPlaceHolder

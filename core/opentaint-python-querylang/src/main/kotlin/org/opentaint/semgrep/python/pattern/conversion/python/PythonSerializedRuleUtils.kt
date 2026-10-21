@@ -1,4 +1,4 @@
-package org.opentaint.semgrep.pattern.conversion.python
+package org.opentaint.semgrep.python.pattern.conversion.python
 
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
@@ -10,7 +10,7 @@ import org.opentaint.dataflow.configuration.python.serialized.SerializedPythonCo
 import org.opentaint.dataflow.configuration.python.serialized.SerializedPythonTaintAssignAction
 import org.opentaint.dataflow.configuration.python.serialized.SerializedPythonTaintCleanAction
 import org.opentaint.semgrep.pattern.Mark.GeneratedMark
-import org.opentaint.semgrep.pattern.conversion.PythonLanguageStrategy
+import org.opentaint.semgrep.python.pattern.conversion.PythonLanguageStrategy
 
 internal const val ANY_PYTHON_FUNCTION = ".*"
 

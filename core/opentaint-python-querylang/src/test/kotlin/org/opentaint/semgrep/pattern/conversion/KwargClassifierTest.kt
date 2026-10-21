@@ -1,5 +1,6 @@
 package org.opentaint.semgrep.pattern.conversion
 
+import org.opentaint.semgrep.python.pattern.conversion.PythonLanguageStrategy
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

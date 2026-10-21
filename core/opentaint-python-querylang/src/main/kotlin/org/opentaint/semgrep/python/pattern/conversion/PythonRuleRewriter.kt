@@ -1,9 +1,10 @@
-package org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.python.pattern.conversion
 
 import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.RuleWithMetaVars
-import org.opentaint.semgrep.pattern.python.SemgrepPythonPattern
+import org.opentaint.semgrep.pattern.conversion.RuleRewriter
+import org.opentaint.semgrep.python.pattern.SemgrepPythonPattern
 
 class PythonRuleRewriter : RuleRewriter<SemgrepPythonPattern> {
     override fun rewrite(

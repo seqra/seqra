@@ -1,7 +1,7 @@
-package org.opentaint.semgrep.pattern.conversion.python
+package org.opentaint.semgrep.python.pattern.conversion.python
 
 import org.opentaint.semgrep.pattern.conversion.ParamCondition
-import org.opentaint.semgrep.pattern.conversion.PythonLanguageStrategy
+import org.opentaint.semgrep.python.pattern.conversion.PythonLanguageStrategy
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifierValue
 
 fun ParamCondition.ParamModifier.dropFieldResultModifier(

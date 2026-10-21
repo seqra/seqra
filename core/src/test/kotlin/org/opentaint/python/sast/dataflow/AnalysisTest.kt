@@ -34,8 +34,8 @@ import org.opentaint.dataflow.python.rules.PIRTaintRulesProvider
 import org.opentaint.semgrep.pattern.SemgrepLoadTrace
 import org.opentaint.semgrep.pattern.SemgrepRuleLoader
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
-import org.opentaint.semgrep.pattern.conversion.PythonLanguageStrategy
-import org.opentaint.semgrep.pattern.conversion.toSerializedPythonTaintConfig
+import org.opentaint.semgrep.python.pattern.conversion.PythonLanguageStrategy
+import org.opentaint.semgrep.python.pattern.conversion.toSerializedPythonTaintConfig
 import org.opentaint.ir.api.python.PIRFunction
 import org.opentaint.ir.api.python.PIRClasspath
 import org.opentaint.ir.api.python.PIRSettings

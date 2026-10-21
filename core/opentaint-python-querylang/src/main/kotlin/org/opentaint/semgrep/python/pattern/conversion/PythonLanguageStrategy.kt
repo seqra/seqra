@@ -1,12 +1,14 @@
-package org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.python.pattern.conversion
 
 import org.opentaint.dataflow.configuration.python.serialized.SerializedPythonRule
 import org.opentaint.semgrep.pattern.JoinRuleMetavarExpected
 import org.opentaint.semgrep.pattern.MetaVarConstraint
-import org.opentaint.semgrep.pattern.python.Metavar
-import org.opentaint.semgrep.pattern.python.SemgrepPythonPattern
-import org.opentaint.semgrep.pattern.python.SemgrepPythonPatternParser
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
+import org.opentaint.semgrep.pattern.conversion.LanguageStrategy
+import org.opentaint.semgrep.pattern.conversion.MetavarAtom
+import org.opentaint.semgrep.python.pattern.Metavar
+import org.opentaint.semgrep.python.pattern.SemgrepPythonPattern
+import org.opentaint.semgrep.python.pattern.SemgrepPythonPatternParser
 
 class PythonLanguageStrategy : LanguageStrategy<SemgrepPythonPattern, SerializedPythonRule> {
     override val language = "python"

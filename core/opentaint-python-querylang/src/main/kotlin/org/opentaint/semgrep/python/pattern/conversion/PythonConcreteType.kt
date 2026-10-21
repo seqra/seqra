@@ -1,7 +1,10 @@
-package org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.python.pattern.conversion
 
 import org.opentaint.semgrep.pattern.MetaVarConstraints
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.pattern.conversion.LanguageConcreteType
+import org.opentaint.semgrep.pattern.conversion.LanguageTypeOps
+import org.opentaint.semgrep.pattern.conversion.TypeConstraint
 
 sealed interface PythonConcreteType : LanguageConcreteType {
     data class Named(val name: String) : PythonConcreteType { override fun toString() = name }

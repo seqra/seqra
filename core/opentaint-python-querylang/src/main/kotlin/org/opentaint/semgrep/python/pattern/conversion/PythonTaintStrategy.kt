@@ -1,4 +1,4 @@
-package org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.python.pattern.conversion
 
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
 import org.opentaint.dataflow.configuration.python.serialized.PythonTarget
@@ -10,16 +10,17 @@ import org.opentaint.dataflow.configuration.python.serialized.SerializedPythonTa
 import org.opentaint.semgrep.pattern.Mark
 import org.opentaint.semgrep.pattern.TaintRuleMatchAnything
 import org.opentaint.semgrep.pattern.conversion.LanguageStrategy.SinkDiscardMode
-import org.opentaint.semgrep.pattern.conversion.python.ANY_PYTHON_FUNCTION
-import org.opentaint.semgrep.pattern.conversion.python.PythonTaintRuleGenerationCtx
-import org.opentaint.semgrep.pattern.conversion.python.emitPythonTaintRules
-import org.opentaint.semgrep.pattern.conversion.python.mkPythonAssignMark
-import org.opentaint.semgrep.pattern.conversion.python.mkPythonCleanMark
-import org.opentaint.semgrep.pattern.conversion.python.mkPythonContainsMark
-import org.opentaint.semgrep.pattern.conversion.python.mkPythonContainsMarkOnAnyAccessor
+import org.opentaint.semgrep.pattern.conversion.TaintRuleStrategy
 import org.opentaint.semgrep.pattern.conversion.taint.MarkConditionBuilder
 import org.opentaint.semgrep.pattern.conversion.taint.RuleConversionCtx
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRuleGenerationCtx
+import org.opentaint.semgrep.python.pattern.conversion.python.ANY_PYTHON_FUNCTION
+import org.opentaint.semgrep.python.pattern.conversion.python.PythonTaintRuleGenerationCtx
+import org.opentaint.semgrep.python.pattern.conversion.python.emitPythonTaintRules
+import org.opentaint.semgrep.python.pattern.conversion.python.mkPythonAssignMark
+import org.opentaint.semgrep.python.pattern.conversion.python.mkPythonCleanMark
+import org.opentaint.semgrep.python.pattern.conversion.python.mkPythonContainsMark
+import org.opentaint.semgrep.python.pattern.conversion.python.mkPythonContainsMarkOnAnyAccessor
 
 data object PythonTaintStrategy :
     TaintRuleStrategy<SerializedPythonRule, SerializedPythonCondition, SerializedPythonTaintAssignAction, SerializedPythonTaintCleanAction> {

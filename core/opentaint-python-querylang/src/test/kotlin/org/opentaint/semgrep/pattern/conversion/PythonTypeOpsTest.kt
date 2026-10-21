@@ -1,6 +1,8 @@
 package org.opentaint.semgrep.pattern.conversion
 
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.python.pattern.conversion.PythonTypeOps
+import org.opentaint.semgrep.python.pattern.conversion.pythonNamed
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
