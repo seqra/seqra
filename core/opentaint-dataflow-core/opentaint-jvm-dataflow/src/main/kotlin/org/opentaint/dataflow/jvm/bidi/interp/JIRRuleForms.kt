@@ -98,6 +98,7 @@ internal class JIRRuleForms(
     private val view: RuleView = RuleView.FULL,
 ) {
     private val fallbackFormOwner = FormOwner()
+    internal val isRun1GroupView: Boolean get() = view == RuleView.RUN1_GROUP
 
     /** A final AnyField selects a tail; it is never part of an indexed concrete path. */
     data class RulePos(val base: AccessPathBase, val path: List<AccessorIdx>, val any: Boolean) {

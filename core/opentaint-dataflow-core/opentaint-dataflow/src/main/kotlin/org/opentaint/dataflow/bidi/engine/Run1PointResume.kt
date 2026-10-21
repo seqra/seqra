@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.bidi.engine
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.interp.*
 
@@ -10,17 +11,23 @@ data class CallResumeState(val callerLayer: Layer, val identityCandidate: Boolea
 data class OperationInput(val site: ResumeSite, val premise: PremiseKey, val facts: Facts,
                           val callState: CallResumeState? = null)
 
-data class PointContinuation(val owner: MethodKey, val id: Long, val site: ResumeSite,
-                             val initial: InitialAp, val current: FlowTree,
-                             val callState: CallResumeState?)
-
 /** Actor-owned resume directory. Service replies name these rows; they never carry callbacks. */
 internal class Run1PointResume(private val core: RunMethodAnalyzer) {
     private var next = 0L
-    private data class PointKey(val site: ResumeSite, val initial: InitialAp, val image: Pattern, val layer: Layer,
+    private data class PointKey(val site: ResumeSite, val initial: InitialAp, val base: AccessPathBase,
+                                val tail: Tail, val fieldExclusion: ExclusionSet, val layer: Layer,
                                 val state: CallResumeState?)
     private val pointKeys = HashMap<PointKey, Long>()
-    private class PointRow(val key: PointKey, val payload: PointContinuation) { var waiting = GroupSet.EMPTY }
+    private class PendingFlowImages(private var root: FlowNode) {
+        fun addAll(incoming: FlowNode, ap: ApManager) {
+            root = FlowAlgebra.mergeAdd(root, incoming, ap.cancellation)
+        }
+        fun snapshotRoot(): FlowNode = root
+    }
+    private class PointRow(val id: Long, val key: PointKey) {
+        val pending = HashMap<GroupId, PendingFlowImages>()
+    }
+    private data class DetachedAnswer(val group: GroupId, val images: FlowNode)
     private val points = HashMap<Long, PointRow>()
     private data class ReadKey(val site: ResumeSite, val operation: StaticOperation)
     private val readKeys = HashMap<ReadKey, Long>()
@@ -114,17 +121,23 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
         val original = at.premise as? InitialAp ?: return
         val flow = at.facts as? FlowTree ?: return
         if (original.base != STATIC || original.mark !is MarkSlot.Star) return
-        for (image in core.ops.leaves(flow)) {
-            val key = PointKey(at.site, original, image, flow.layer, at.callState)
-            val id = pointKeys.getOrPut(key) {
-                (++next).also { points[it] = PointRow(key, PointContinuation(core.key, it, at.site, original,
-                    core.ap.factsOf(image.fact, image.exclusion, flow.layer) as FlowTree, at.callState)) }
-            }
-            val row = points.getValue(id)
-            val fresh = groups - row.waiting
-            if (fresh.isEmpty) continue
-            row.waiting += fresh
-            core.staticBatch.interests += StaticInterest(core.key, id, original.toPattern(), fresh)
+        if (groups.isEmpty) return
+        val key = PointKey(at.site, original, flow.base, flow.tail, flow.exclusion, flow.layer, at.callState)
+        val id = pointKeys.getOrPut(key) {
+            (++next).also { points[it] = PointRow(it, key) }
+        }
+        val row = points.getValue(id)
+        var subscribe = GroupSet.EMPTY
+        groups.forEach { group ->
+            core.ap.cancellation.checkpoint()
+            val images = row.pending[group]
+            if (images == null) {
+                row.pending[group] = PendingFlowImages(flow.root)
+                subscribe += group
+            } else images.addAll(flow.root, core.ap)
+        }
+        if (!subscribe.isEmpty) {
+            core.staticBatch.interests += StaticInterest(core.key, id, original.toPattern(), subscribe)
         }
         core.requestWork()
     }
@@ -231,21 +244,7 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
                     }
                     return
                 }
-                val row = checkNotNull(points[effect.id]) { "Unknown static point reply" }
-                val point = row.payload
-                row.waiting -= effect.supply.groups
-                if (row.waiting.isEmpty) { pointKeys.remove(row.key); points.remove(effect.id) }
-                val actual = core.staticFacts(effect.supply)
-                val relation = core.ap.flowTree(point.current.base, point.current.layer, point.current.exclusion,
-                    MarkExclusions.EMPTY, point.current.root, point.current.tail)
-                for (leaf in core.ops.leaves(actual)) {
-                    val premise = concreteInitial(leaf)
-                    core.ops.applySummary(core.ap.factsOf(leaf.fact, leaf.exclusion, Layer.DEMAND), point.initial, relation,
-                        core.mode, object : ApOut {
-                            override fun result(f: Facts) = core.installPoint(premise, f, point.site, point.callState)
-                            override fun markRequest(mark: TaintMark) = Unit // materialization clears mx only
-                        })
-                }
+                answerPackedPoint(effect)
             }
             is StaticOwnerEffect.WriterInterest -> {
                 val writer = checkNotNull(writers[effect.id]) { "Unknown static writer interest" }
@@ -263,6 +262,44 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
             }
         }
         core.requestWork()
+    }
+
+    private fun answerPackedPoint(effect: StaticOwnerEffect.PointReady) {
+        val row = checkNotNull(points[effect.id]) { "Unknown static point reply" }
+        effect.supply.groups.forEach { group -> check(row.pending.containsKey(group)) }
+        val detached = ArrayList<DetachedAnswer>()
+        effect.supply.groups.forEach { group ->
+            detached += DetachedAnswer(group, checkNotNull(row.pending.remove(group)).snapshotRoot())
+        }
+        // Detach every supplied group before any callback. Later requests must
+        // subscribe again; an immutable detached root cannot acquire new images.
+        if (row.pending.isEmpty()) {
+            check(pointKeys.remove(row.key) == row.id)
+            check(points.remove(row.id) === row)
+        }
+        for (answer in detached) {
+            core.ap.cancellation.checkpoint()
+            materializeScalarImages(row.key, answer.images,
+                RegionGroups(effect.supply.region, GroupSet.of(answer.group)))
+        }
+    }
+
+    private fun materializeScalarImages(key: PointKey, images: FlowNode, supply: RegionGroups) {
+        val actual = core.staticFacts(supply)
+        FlowAlgebra.forEachLeaf(images, EMPTY_PATH, core.ap.cancellation) { path, _ ->
+            val scalarRoot = FlowAlgebra.prepend(core.ap, core.ap.path(path), FlowAlgebra.LEAF_NODE)
+            val relation = core.ap.flowTree(key.base, key.layer, key.fieldExclusion,
+                MarkExclusions.EMPTY, scalarRoot, key.tail)
+            for (leaf in core.ops.leaves(actual)) {
+                core.ap.cancellation.checkpoint()
+                val premise = concreteInitial(leaf)
+                core.ops.applySummary(core.ap.factsOf(leaf.fact, leaf.exclusion, Layer.DEMAND), key.initial, relation,
+                    core.mode, object : ApOut {
+                        override fun result(f: Facts) = core.installPoint(premise, f, key.site, key.state)
+                        override fun markRequest(mark: TaintMark) = Unit // materialization clears mx only
+                    })
+            }
+        }
     }
 
     private fun publishMatched(writer: WriterKey, inputs: List<RegionGroups>) {

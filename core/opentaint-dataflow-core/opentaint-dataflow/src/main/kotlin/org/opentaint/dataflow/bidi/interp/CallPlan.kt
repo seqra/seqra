@@ -1,7 +1,9 @@
 package org.opentaint.dataflow.bidi.interp
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.bidi.ap.GroupId
 import org.opentaint.dataflow.bidi.ap.Layer
+import org.opentaint.dataflow.bidi.ap.MarkTable
 import org.opentaint.dataflow.bidi.ap.MethodKey
 import java.util.AbstractMap.SimpleImmutableEntry
 
@@ -31,6 +33,44 @@ sealed interface Guard {
     }
 }
 
+private data class ReturnGroupKey(val base: AccessPathBase, val group: GroupId)
+
+private fun returnGroupKey(step: CleanStep, marks: MarkTable): ReturnGroupKey? {
+    val cleaner = (step as? CleanStep.Clean)?.cleaner ?: return null
+    when (cleaner.base) {
+        AccessPathBase.Zero, AccessPathBase.ClassStatic -> return null
+        is AccessPathBase.CleanerTemporary -> return null
+        else -> Unit
+    }
+    val atom = cleaner.mark ?: return null
+    val group = marks.groupId(atom) ?: return null
+    return ReturnGroupKey(cleaner.base, group)
+}
+
+/** Raw indices stay stable; each invocation selects the first equal key in its own suffix. */
+internal class ReturnGroupSchedule private constructor(private val previous: IntArray) {
+    val size: Int get() = previous.size
+    fun execute(step: Int, firstStep: Int): Boolean = previous[step] < firstStep
+    fun storage(counts: FormStorageCounts) { counts.index(previous) }
+
+    companion object {
+        fun compile(raw: List<CleanStep>, marks: MarkTable): ReturnGroupSchedule? {
+            val previous = IntArray(raw.size) { -1 }
+            val last = HashMap<ReturnGroupKey, Int>()
+            var hasDuplicate = false
+            raw.forEachIndexed { index, step ->
+                val key = returnGroupKey(step, marks)
+                if (key == null) last.clear()
+                else {
+                    previous[index] = last.put(key, index) ?: -1
+                    hasDuplicate = hasDuplicate || previous[index] >= 0
+                }
+            }
+            return if (hasDuplicate) ReturnGroupSchedule(previous) else null
+        }
+    }
+}
+
 sealed interface CallStage {
     val from: CallPoint
     val to: CallPoint
@@ -56,8 +96,23 @@ sealed interface CallStage {
     }
 
     /** Cleaners and the rewriter keep one ordered, immutable action chain. */
-    class Actions(override val from: CallPoint, override val to: CallPoint, steps: List<CleanStep>) : CallStage {
-        val steps: List<CleanStep> = ownedList(steps)
+    class Actions private constructor(
+        override val from: CallPoint,
+        override val to: CallPoint,
+        val steps: List<CleanStep>,
+        internal val returnGroupSchedule: ReturnGroupSchedule?,
+    ) : CallStage {
+        constructor(from: CallPoint, to: CallPoint, steps: List<CleanStep>) :
+            this(from, to, ownedList(steps), null)
+
+        companion object {
+            /** Only forward GROUP return rewriters use this factory, after ordinary lowering. */
+            fun run1GroupReturnRewriter(steps: List<CleanStep>, marks: MarkTable): Actions {
+                val raw = ownedList(steps)
+                return Actions(CallPoint.RETURNED, CallPoint.REWRITTEN, raw,
+                    ReturnGroupSchedule.compile(raw, marks))
+            }
+        }
 
         override fun reversed(): Actions = Actions(to, from, steps.asReversed().map { it.reversed() })
 
@@ -116,6 +171,7 @@ class CallPlan(
             }
             is CallStage.Actions -> {
                 counts.include(stage.steps)
+                stage.returnGroupSchedule?.storage(counts)
                 for (step in stage.steps) when (step) {
                     is CleanStep.Clean -> Unit
                     is CleanStep.Kill -> counts.include(step.keepEdges)

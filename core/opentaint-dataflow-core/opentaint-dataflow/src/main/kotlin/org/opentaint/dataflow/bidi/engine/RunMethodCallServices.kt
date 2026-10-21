@@ -21,7 +21,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         it.ap.cancellation.checkpoint()
     }
 
-    private class PlanFact(val premise: PremiseKey, val facts: Facts, val identityCandidate: Boolean?)
+    private data class PlanFact(val premise: PremiseKey, val facts: Facts, val identityCandidate: Boolean?)
     private fun planFact(premise: PremiseKey, facts: Facts, identity: Boolean?) =
         PlanFact(premise, facts, identity)
     private class CallContext(val node: CommonInst, val call: CommonCallExpr, val plan: CallPlan, val callerLayer: Layer)
@@ -128,7 +128,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             }
             is CallStage.Actions -> for (fact in facts) {
                 core.ap.cancellation.checkpoint()
-                cleanChain(stage.steps, fact, ctx, ordinal) { out += it }
+                cleanChain(stage, fact, ctx, ordinal) { out += it }
             }
             is CallStage.Callees -> for (fact in facts) {
                 core.ap.cancellation.checkpoint()
@@ -139,10 +139,15 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         return out
     }
 
-    private fun cleanChain(steps: List<CleanStep>, fact: PlanFact, ctx: CallContext, stageOrdinal: Int,
+    private fun cleanChain(actions: CallStage.Actions, fact: PlanFact, ctx: CallContext, stageOrdinal: Int,
                            firstStep: Int = 0, firstPhase: CleanerPhase = CleanerPhase.INPUT,
                            emit: (PlanFact) -> Unit) {
         val core = active()
+        val steps = actions.steps
+        val schedule = actions.returnGroupSchedule.takeIf {
+            core.config.run1 && core.forward && core.mode.markMode == MarkMode.GROUP
+        }
+        check(schedule == null || schedule.size == steps.size)
         val node = ctx.node
         fun at(input: PlanFact, step: Int, phase: CleanerPhase) = OperationInput(
             ResumeSite.CleanerInput(core.operation(node, stageOrdinal), step, phase), input.premise, input.facts,
@@ -151,12 +156,14 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             val out = ArrayList<PlanFact>()
             val compiled = if (core.config.run1 && phase == CleanerPhase.READ && summary.staticOperations.isEmpty()) {
                 val id = core.operation(node, stageOrdinal).copy(substep = step)
-                summary.withStaticOperations(summary.edges.filter { it.edge.from.base == STATIC && it.edge.to.base != STATIC }
-                    .map { StaticOperation.Read(id, it.forward) })
+                val operations = summary.edges.filter { it.edge.from.base == STATIC && it.edge.to.base != STATIC }
+                    .map { StaticOperation.Read(id, it.forward) }
+                if (operations.isEmpty()) summary else summary.withStaticOperations(operations)
             } else if (core.config.run1 && phase == CleanerPhase.WRITE && summary.staticOperations.isEmpty()) {
                 val id = core.operation(node, stageOrdinal).copy(substep = step)
-                summary.withStaticOperations(summary.edges.filter { it.edge.to.base == STATIC && it.edge.from.base != STATIC }
-                    .map { StaticOperation.Write(id, Pattern(it.edge.to, ExclusionSet.Empty), it.forward) })
+                val operations = summary.edges.filter { it.edge.to.base == STATIC && it.edge.from.base != STATIC }
+                    .map { StaticOperation.Write(id, Pattern(it.edge.to, ExclusionSet.Empty), it.forward) }
+                if (operations.isEmpty()) summary else summary.withStaticOperations(operations)
             } else summary
             core.applier.statement(compiled, input.premise, input.facts,
                 Place(node, core.config.run1, sources = false, site = at(input, step, phase).site,
@@ -171,10 +178,13 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         }
         var current = listOf(fact)
         for (stepIndex in firstStep until steps.size) {
+            core.ap.cancellation.checkpoint()
+            if (schedule != null && !schedule.execute(stepIndex, firstStep)) continue
             val step = steps[stepIndex]
             val phase = if (stepIndex == firstStep) firstPhase else CleanerPhase.INPUT
-            core.ap.cancellation.checkpoint()
-            val next = ArrayList<PlanFact>()
+            // Finish every current-step effect before merging equal inputs to the next step.
+            val next: MutableCollection<PlanFact> =
+                if (core.config.run1) LinkedHashSet() else ArrayList()
             for (input in current) {
                 core.ap.cancellation.checkpoint()
                 when (step) {
@@ -217,7 +227,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                     }
                 }
             }
-            current = next
+            current = if (core.config.run1) next.toList() else next as ArrayList<PlanFact>
         }
         for (result in current) { core.ap.cancellation.checkpoint(); emit(result) }
     }
@@ -345,7 +355,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                 is ResumeSite.CleanerInput -> {
                     val actions = checkNotNull(stage as? CallStage.Actions)
                     val out = ArrayList<PlanFact>()
-                    cleanChain(actions.steps, input, ctx, site.operation.stageOrdinal, site.step, site.phase) { out += it }
+                    cleanChain(actions, input, ctx, site.operation.stageOrdinal, site.step, site.phase) { out += it }
                     if (out.isNotEmpty()) flow(ctx, stage.to, out, state?.pendingDemotion ?: false)
                 }
                 else -> error("Not a call resume address")

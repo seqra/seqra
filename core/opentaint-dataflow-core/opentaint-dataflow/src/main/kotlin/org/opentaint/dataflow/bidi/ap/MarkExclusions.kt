@@ -1,10 +1,13 @@
 package org.opentaint.dataflow.bidi.ap
 
+private enum class FullAtoms { UNKNOWN, ABSENT, PRESENT }
+
 /** FLOW restrictions denote either an entire owner group or an exact full
  * mark. The atom IDs are private representation, never raw set semantics. */
 class MarkExclusions private constructor(
     private val atoms: MarkSet,
     private val catalog: MarkTable?,
+    private val fullAtoms: FullAtoms,
 ) {
     val isEmpty: Boolean get() = atoms.isEmpty
     val ids: IntArray get() = atoms.ids
@@ -23,10 +26,19 @@ class MarkExclusions private constructor(
             table.isGroup(atom) && table.groupOf(atom) == table.groupOf(mark)
         }
     }
-    operator fun plus(mark: TaintMark): MarkExclusions = normalized(atoms + mark, catalog)
+    operator fun plus(mark: TaintMark): MarkExclusions {
+        val combined = atoms + mark
+        if (combined === atoms) return this
+        return normalized(combined, catalog)
+    }
     operator fun plus(other: MarkExclusions): MarkExclusions = union(other)
     operator fun plus(other: MarkSet): MarkExclusions = union(fromMarks(other))
-    fun union(other: MarkExclusions): MarkExclusions = normalized(atoms + other.atoms, tableWith(other))
+    fun union(other: MarkExclusions): MarkExclusions {
+        val table = tableWith(other)
+        val combined = atoms + other.atoms
+        if (combined === atoms && catalog === table) return this
+        return normalized(combined, table)
+    }
     fun intersect(other: MarkExclusions): MarkExclusions {
         val table = tableWith(other)
         val left = atoms.data.filter { other.excludes(TaintMark(it), table) }
@@ -45,7 +57,8 @@ class MarkExclusions private constructor(
     fun filterMarks(marks: MarkSet): MarkSet = MarkSet(marks.data.filter { TaintMark(it) !in this }.toIntArray())
     fun projected(table: MarkTable, mode: MarkMode): MarkExclusions {
         if (mode == MarkMode.FULL) return withCatalog(table)
-        if (catalog === table && atoms.data.none { table.key(TaintMark(it)) is MarkAtomKey.Full }) return this
+        if (isEmpty) return EMPTY
+        if (catalog === table && fullAtoms == FullAtoms.ABSENT) return this
         return normalized(MarkSet(atoms.data.map { table.runtimeAtom(TaintMark(it), mode).id }.toIntArray()), table)
     }
     fun forEach(visit: (TaintMark) -> Unit) = atoms.data.forEach { visit(TaintMark(it)) }
@@ -57,19 +70,36 @@ class MarkExclusions private constructor(
     override fun hashCode(): Int = atoms.hashCode()
     override fun toString(): String = atoms.toString()
     companion object {
-        val EMPTY = MarkExclusions(MarkSet.EMPTY, null)
+        val EMPTY = MarkExclusions(MarkSet.EMPTY, null, FullAtoms.ABSENT)
         fun fromMarks(marks: MarkSet, catalog: MarkTable? = null): MarkExclusions = normalized(marks, catalog)
         fun of(catalog: MarkTable, atom: TaintMark): MarkExclusions = fromMarks(MarkSet(intArrayOf(atom.id)), catalog)
         fun of(catalog: MarkTable, atoms: Iterable<TaintMark>): MarkExclusions =
             normalized(MarkSet(atoms.map { it.id }.toIntArray()), catalog)
         private fun normalized(atoms: MarkSet, catalog: MarkTable?): MarkExclusions {
             if (atoms.isEmpty) return EMPTY
-            if (catalog == null || atoms.data.none { catalog.isGroup(TaintMark(it)) }) return MarkExclusions(atoms, catalog)
-            val groups = atoms.data.filter { catalog.isGroup(TaintMark(it)) }.map { catalog.groupOf(TaintMark(it)) }.toSet()
-            return MarkExclusions(MarkSet(atoms.data.filter { id ->
-                val atom = TaintMark(id)
-                catalog.isGroup(atom) || atom == TaintMark.ZERO || catalog.groupOf(atom) !in groups
-            }.toIntArray()), catalog)
+            if (catalog == null) return MarkExclusions(atoms, null, FullAtoms.UNKNOWN)
+            var groups: MutableSet<GroupId>? = null
+            var fullAtoms = FullAtoms.ABSENT
+            for (id in atoms.data) when (val key = catalog.key(TaintMark(id))) {
+                MarkAtomKey.ControlZero -> Unit
+                is MarkAtomKey.Group -> {
+                    val present = groups ?: HashSet<GroupId>().also { groups = it }
+                    present.add(key.id)
+                }
+                is MarkAtomKey.Full -> fullAtoms = FullAtoms.PRESENT
+            }
+            val presentGroups = groups ?: return MarkExclusions(atoms, catalog, fullAtoms)
+            // Metadata describes retained atoms, not the input before GROUP shadowing.
+            var retainedFull = FullAtoms.ABSENT
+            val kept = atoms.data.filter { id ->
+                when (val key = catalog.key(TaintMark(id))) {
+                    MarkAtomKey.ControlZero, is MarkAtomKey.Group -> true
+                    is MarkAtomKey.Full -> (key.mark.group !in presentGroups).also {
+                        if (it) retainedFull = FullAtoms.PRESENT
+                    }
+                }
+            }
+            return MarkExclusions(MarkSet(kept.toIntArray()), catalog, retainedFull)
         }
     }
 }
