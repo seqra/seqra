@@ -8,7 +8,7 @@ import kotlin.test.Test
 
 /** Additive phase-3 acceptance. ExampleTest still uses its null/legacy default. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class BidiExampleTest : SampleBasedTest(bidiPolicy = FixedLimits(listOf(1, 2, 3))) {
+class BidiExampleTest : SampleBasedTest(bidiPolicy = FixedLimits(listOf(1, 1, 2))) {
     @Test
     fun `ND pass joins both source arguments at the same call through copied summaries`(): Unit =
         runTest<example.NDRule>(EXPECT_STATE_VAR)

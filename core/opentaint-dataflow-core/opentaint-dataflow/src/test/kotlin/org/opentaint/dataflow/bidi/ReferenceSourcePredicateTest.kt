@@ -235,7 +235,8 @@ class ReferenceSourcePredicateTest {
             assertTrue(first.raw.isEmpty())
             first.give(source, setOf(f.pattern(b)), inputB)
             second.give(source, setOf(f.pattern(a)), inputA)
-            val expected = setOf(first.expected(setOf(f.pattern(a), f.pattern(b)), f.pattern(ret)))
+            // Both complete inputs are required, but run 1 keeps the argument-a original.
+            val expected = setOf(first.expected(setOf(f.pattern(a)), f.pattern(ret)))
             assertEquals(expected, first.raw.toSet())
             assertEquals(expected, second.raw.toSet())
         }

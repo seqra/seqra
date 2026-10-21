@@ -13,9 +13,10 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 /** Rule joins use the method abstraction for completed mark-demand deliveries. */
 class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
     private var owner: RunMethodAnalyzer? = core
-    private var conjunctionStore: ConjunctionStore? = if (core.forward) ConjunctionStore(core.ap, core.context.shared.n2Statistics) else null
+    private val premises: PremiseCombination = if (core.config.run1) Run1Premises(core.ap) else ExactPremises(core.ap)
+    private var conjunctionStore: ConjunctionStore? = if (core.forward) ConjunctionStore(core.ap, core.context.shared.n2Statistics, premises) else null
     private var predicateStore: RulePredicateStore? =
-        if (core.forward) RulePredicateStore(core.ap, core.context.shared.formStatistics) else null
+        if (core.forward) RulePredicateStore(core.ap, core.context.shared.formStatistics, premises) else null
     override val conjunctions: ConjunctionStore? get() = conjunctionStore
     private var triggered: HashSet<Pair<CommonInst, Any>>? = HashSet()
     override val hasPendingRequests: Boolean get() = owner?.abstraction?.hasPending == true

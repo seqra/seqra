@@ -10,7 +10,8 @@ import java.util.Collections
 internal data class NdBinding(val ref: CallerRef, val linkLayer: Layer)
 
 /** Standing literal inputs for one method and run. One writer owns this store. */
-class ConjunctionStore(private val m: ApManager, private val statistics: N2Statistics? = null) {
+class ConjunctionStore(private val m: ApManager, private val statistics: N2Statistics? = null,
+                       private val premises: PremiseCombination = ExactPremises(m)) {
     /** Facts already accepted by the literal; layer is the effective contribution layer. */
     data class Input(val premise: PremiseKey, val layer: Layer, val facts: Facts? = null)
     class Combination(val premise: PremiseKey, val layer: Layer, val inputs: List<Input>)
@@ -35,14 +36,13 @@ class ConjunctionStore(private val m: ApManager, private val statistics: N2Stati
     }
 
     private fun combine(inputs: List<Input>): Combination {
-        var premise = inputs[0].premise
         var layer = Layer.NORMAL
         for (index in inputs.indices) {
             m.cancellation.checkpoint()
             val input = inputs[index]
-            if (index != 0) premise = m.union(premise, input.premise)
             if (input.layer == Layer.DEMAND) layer = Layer.DEMAND
         }
+        val premise = premises.combine(inputs.asSequence().map { it.premise }.asIterable())
         return Combination(premise, layer, inputs)
     }
 

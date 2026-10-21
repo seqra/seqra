@@ -62,6 +62,7 @@ class NaiveClosure(
     private val algebras = HashMap<MethodKey, ReferenceAlgebra>()
     private val references = HashMap<MethodKey, FormsReference>()
     private val selectedReferences = HashMap<MethodKey, SelectedFormsReference>()
+    private val run1Representative = RawRun1Representative(program.manager)
     private var invoked = false
 
     private data class Part(
@@ -626,6 +627,7 @@ class NaiveClosure(
         }
 
     private fun union(premises: List<Set<Pattern>>): Set<Pattern> {
+        if (selected && config.run1) return run1Representative.choose(premises)
         val values = premises.flatten().filterTo(LinkedHashSet()) { it.fact.base != AccessPathBase.Zero }
         return if (values.isEmpty()) zero else values
     }

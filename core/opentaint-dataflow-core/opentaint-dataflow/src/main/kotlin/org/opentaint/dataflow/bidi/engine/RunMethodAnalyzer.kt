@@ -98,6 +98,7 @@ class RunMethodAnalyzer(
     }
 
     fun addLink(ref: CallerRef, linkLayer: Layer, added: Facts) {
+        checkPremise(ref.premise)
         ap.cancellation.checkpoint()
         initialize()
         check(added.base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot enter an added link" }
@@ -271,6 +272,7 @@ class RunMethodAnalyzer(
 
     /** Apply a complete static tuple on this owner after releasing the service lock. */
     internal fun composeStaticSummary(premise: PremiseKey, value: Facts, inputs: List<RegionGroups>, emit: (Facts) -> Unit) {
+        checkPremise(premise)
         val out = object : ApOut {
             override fun result(f: Facts) {
                 if (f is TaintTree) {
@@ -302,6 +304,7 @@ class RunMethodAnalyzer(
 
     internal fun installPoint(premise: PremiseKey, value: Facts, site: ResumeSite, state: CallResumeState? = null) {
         check(config.run1)
+        checkPremise(premise)
         if (dropsStaticPremise(premise)) return
         val admitted = withoutDisabledStaticFields(value) ?: return
         premise.forEachMember { validateRun1Initial(it, limit) }
@@ -396,6 +399,7 @@ class RunMethodAnalyzer(
     }
 
     internal fun emitAfter(premise: PremiseKey, node: CommonInst, value: Facts) {
+        checkPremise(premise)
         if (config.run1 && value.base == STATIC) return // writes were retained at their logical operation output
         if (config.run1) ops.run1Cover(forceRun1Layer(premise, value)) { emitCovered(premise, node, it) }
         else emitCovered(premise, node, value)
@@ -410,6 +414,7 @@ class RunMethodAnalyzer(
     }
 
     internal fun emitUnchanged(item: EdgeDelta) {
+        checkPremise(item.premise)
         if (config.run1 && item.facts.base == STATIC) return
         exitRulesAt(item.premise, item.node, item.facts)
         context.forEachSuccessor(item.node) { successor ->
@@ -431,7 +436,12 @@ class RunMethodAnalyzer(
         requestWork()
     }
 
+    internal fun checkPremise(premise: PremiseKey) {
+        check(!config.run1 || premise is InitialAp) { "Run-1 executable edges have one original premise" }
+    }
+
     internal fun checkKinds(premise: PremiseKey, facts: Facts) {
+        checkPremise(premise)
         check((facts is FlowTree) == premise.isFlow) { "K6: the conclusion kind follows its premise" }
         check(premise !is PremiseSet || facts is TaintTree) { "A multi-premise edge must be TAINT" }
         if (config.run1) when (facts) {
@@ -537,6 +547,7 @@ class RunMethodAnalyzer(
     }
 
     internal fun summaryDelta(premise: PremiseKey, value: Facts) {
+        checkPremise(premise)
         if (dropsStaticPremise(premise)) return
         val admitted = withoutDisabledStaticFields(value) ?: return
         if (config.run1) ops.run1Cover(forceRun1Layer(premise, admitted)) { covered ->

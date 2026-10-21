@@ -273,6 +273,8 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
 
     override fun applySummary(part: Subscription, pub: Publication, member: Int) {
         val core = active()
+        core.checkPremise(part.ref.premise)
+        core.checkPremise(pub.premise)
         when (val premise = pub.premise) {
             is PremiseSet -> ndMatch(part, pub, premise, member)
             is InitialAp -> {
@@ -287,6 +289,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
     override fun applyStaticSummary(part: Subscription, pub: Publication, member: Int) {
         val core = active()
         check(core.config.run1 && part.ref.premise.isZero && part.added is Reach && !part.zeroOnly)
+        core.checkPremise(pub.premise)
         val initial = pub.premise.member(member)
         check(initial.base == STATIC)
         if (core.dropsStaticField(initial)) return
@@ -300,6 +303,8 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
 
     override fun staticSupply(part: Subscription, pub: Publication, member: Int, supply: RegionGroups) {
         val core = active()
+        core.checkPremise(part.ref.premise)
+        core.checkPremise(pub.premise)
         val actual = core.staticFacts(supply)
         val initial = pub.premise.member(member)
         val matched = core.ops.satisfying(actual, initial, core.mode) ?: return
@@ -434,7 +439,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
 
     private fun ndMatch(part: Subscription, pub: Publication, premise: PremiseSet, member: Int) {
         val core = active()
-        check(core.forward) { "Backward transfer has no conjunctive summaries" }
+        check(core.forward && !core.config.run1) { "Conjunctive summaries require a later forward run" }
         check(!part.zeroOnly && part.added !is Reach && !premise.member(member).isZero)
         val conclusion = checkNotNull(pub.conclusion as? TaintTree) { "A multi-premise publication is TAINT" }
         val matched = matches(part, pub, member, core.ops, core.mode) ?: return

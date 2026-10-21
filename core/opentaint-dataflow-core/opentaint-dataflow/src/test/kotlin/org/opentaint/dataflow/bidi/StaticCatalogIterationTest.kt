@@ -152,9 +152,11 @@ class StaticCatalogIterationTest {
                     it.conclusion.fact.mark == GroupedScalarMarks(f.manager.marks).slot(MarkSlot.Concrete(p.marks.last())) },
                     "Ignored END actions never create either Group or Full data")
                 val out = GroupedScalarMarks(f.manager.marks).conclusion(Conclusion(p.output, ExclusionSet.Empty, true))
-                assertTrue(actual.rawSummaries.any { it.method == p.callee && it.premise.size == 2 &&
-                    it.premise.all { member -> member.fact.base == STATIC } &&
-                    it.conclusion == limit(out, 1) }, "The complete static guard remains an ND summary")
+                val firstStatic = GroupedScalarMarks(f.manager.marks).pattern(f.program.pattern(STATIC,
+                    listOf(p.fields[0], p.fields[1]), Tail.STAR, mark = MarkSlot.Concrete(p.marks[0])))
+                assertTrue(actual.rawSummaries.any { it.method == p.callee && it.premise == setOf(firstStatic) &&
+                    it.conclusion == limit(out, 1) }, "A complete static guard keeps its preferred original field")
+                assertTrue(actual.rawSummaries.all { it.premise.size == 1 })
                 first = first ?: actual
             }
             val fresh = f.program.mark("fresh")

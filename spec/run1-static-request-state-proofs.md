@@ -5,6 +5,23 @@ Date: 20 October 2026. Contract:
 The comparison base is `029ee41fd6`. Apply the selected enum filter to both
 algorithms in all equivalence and inclusion claims below.
 
+## Selected 21 October premise exception
+
+The [representative update](grouped-run1-statics-proofs.md#selected-21-october-representative-update)
+overrides this map's run-1 complete-ND writer/application requirements.
+Complete local condition evidence is still required before selection;
+the emitted summary then has one original. The static pool/caller matches
+that selected initial only. Old multi-input precision and ND joining are
+kept for exact FULL runs and historical reference controls. The three-set
+request protocol, canonical field covers, exact class carriers, enum filter
+and immutable GROUP laws are not changed.
+
+The new narrow model proves local/Horn/atomic-label/projected-guide-entry
+laws. It does not prove the whole analyzer or full run-2 recovery. Use
+its adapter gates for discarded-input FULL reversal, complete sink evidence,
+fixed source targets and atomic static supply; do not report the old ND
+pipeline theorem as proof of this weakening or require equal run-1 edges.
+
 ## Proof boundary
 
 The enum target filter is a deliberate restriction. A mutable enum object
@@ -13,8 +30,8 @@ remove that flow. The constructive counterexample is part of the model.
 No theorem here establishes unrestricted no-FN behavior for this hack.
 
 Canonical field answers are DEMAND covers. The required relation is
-candidate inclusion, not equal run-1 precision. Each ordinary summary and
-ND member must still pass the existing AP matcher. A request is not evidence
+candidate inclusion, not equal run-1 precision. Each selected run-1
+ordinary initial, and every FULL ND member, must pass the existing AP matcher. A request is not evidence
 of a supplied group. ZERO activation is not such evidence either.
 
 The models separate positive group derivation, request scheduling, AP cover
@@ -43,8 +60,8 @@ or cleaner reach, ordinary field processing, or global-mark routing.
 | Canonical field cover | `canonicalWitness` constructs an executable suffix witness; `canonical_covers` covers EXACT and descendant regions, including the empty suffix |
 | FULL/group permission | `full_mark_guidance`: preserve the FULL mark's group and the covered image |
 | No source-free supply | `rootOf`, `empty_cycle_cannot_supply`: extract an actual seed from every supplied source/hop derivation |
-| Complete ND input requirement | `CompleteBinding`, `firstBindingRoot`, `empty_cycle_cannot_complete_nd`: evidence for every member, not one member chosen as sufficient |
-| Unchanged marked/GEN and ND application | Existing `Run1OrdinaryStaticSupply.staticApply_complete_arity`, `compileStatic_complete_application`, `generated_output_uses_declared_group` and `marked_output_exact_image`; the new actor must call this same complete ordinary application after collecting its inputs |
+| Complete local/ND reference input requirement | `CompleteBinding`, `firstBindingRoot`, `empty_cycle_cannot_complete_nd`: evidence for every member, not one member chosen as sufficient |
+| Inherited marked/GEN and complete application | Existing `Run1OrdinaryStaticSupply.staticApply_complete_arity`, `compileStatic_complete_application`, `generated_output_uses_declared_group` and `marked_output_exact_image`; unchanged AP/output laws remain; complete-member application is reference/FULL evidence, while run-1 uses the selected atomic adapter |
 | Actor reply lifetime | `admit_idempotent`, `consume_only_answered`, `queued_reply_preserves_new_membership`: an old reply cannot remove a different outstanding group |
 | Dormant requests | `unavailable_quiescent`: pending data without an effect is not runnable work |
 | Immutable atom projection | `ImmutableGroupNormalization.atom_list_equivalence`, `projected_list_idempotent`: typed GROUP/FULL/ZERO projection equals the reference |
@@ -87,22 +104,25 @@ lake env lean exact-class-markers-audit.lean
    depth. Replaying its final writer reduces the remaining derivation to
    its input. The source case answers from actual written membership.
    Fair owner processing and complete registration are adapter assumptions.
-3. A fixed-group conditional writer subscribes to every member of its
-   complete premise. It can publish only after all replies match. Ordinary
-   nonstatic origins and mixed caller bindings keep their existing route.
-   A canonical hypothesis cannot replace a missing group witness.
+3. A fixed-group conditional writer keeps complete local condition admission,
+   then publishes the selected atomic original. A static original joins an
+   actual matching pool input; a nonstatic original follows ordinary singleton
+   caller application. Omitted old run-1 originals are not later rematched.
+   FULL ND still requires every member. A request or canonical hypothesis
+   cannot replace an actual match of the selected required group.
 4. Replace a former field-region answer by the canonical field cover at the
    same group and DEMAND layer. Existing `startFact` changes the marked
    current tail to ANY. ANY includes the empty suffix. The ordinary matcher
    and transfer must preserve candidate inclusion under this cover. This
    AP monotonicity is a production/reference-test obligation; the suffix
    lemma alone does not prove every AP primitive.
-5. Keep the original program stage, complete call binding and original-slot
+5. Keep the original program stage, selected atomic run-1 call binding and original-slot
    request in each actor payload. Existing point repair and ordinary summary
    composition publish the intermediate nonstatic group demands. Keep the
    implicit static permission family. The existing
    [grouped static proof dossier](grouped-run1-statics-proofs.md) then supplies
-   the unchanged FULL backward handoff argument. Test the connected path
+   inherited FULL backward laws. The representative entry-guide/output
+   adapters need their own coverage check. Test the connected path
    through setter, wrappers, getter and a dead sink local at run-2.
 6. Release only answered pending memberships. A queued effect owns its
    payload until consumption. Admit new memberships before enqueue and use
@@ -130,7 +150,8 @@ fail the intended work-reduction assertions.
   GROUP ID. Existing concurrent interning tests remain active.
 - Static service tests must include the large all-static FLOW route, both
   event orders, req/reach/processed transitions, canonical answers and pending
-  release. Pipeline tests must cover source-free copies, complete ND joins,
+  release. Pipeline tests must cover source-free copies, complete local run-1 conditions,
+  atomic selected supply and later FULL ND joins,
   mark exclusions, broad/class supplies, obsolete selectors and run-2.
 - Class adapter tests must reject a class STAR initial/current fact, preserve
   exact global markers, keep field supply separate, and retain late field

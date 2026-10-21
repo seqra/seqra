@@ -35,7 +35,7 @@ class GroupedDirectStaticsEngineTest {
         ), emptyList(), BEFORE, AFTER)
     }
 
-    private fun nestedGuardedWriter(oneCompatibleCall: Boolean): Boolean {
+    private fun nestedGuardedWriter(oneCompatibleCall: Boolean, provideSecondInput: Boolean = true): Boolean {
         DriverFixtures().use { f ->
             val p = f.program
             val main = p.method("guard main", listOf(listOf(1), listOf(2), listOf(3), emptyList()), 3).key()
@@ -59,7 +59,7 @@ class GroupedDirectStaticsEngineTest {
                 ), emptyList(), BEFORE, AFTER)
             }
             p.call(main, 1, bound(relay, if (oneCompatibleCall) listOf(x to a, y to b) else listOf(x to a)))
-            p.call(main, 2, bound(relay, listOf(y to b)))
+            p.call(main, 2, bound(relay, if (provideSecondInput) listOf(y to b) else emptyList()))
             p.call(relay, 1, bound(writer, listOf(a to a, b to b)))
             val target = PathFact(STATIC, field, Tail.EXACT, MarkSlot.Concrete(u))
             val conjunction = ConjunctiveEdge(listOf(p.pattern(a, mark = MarkSlot.Concrete(g)),
@@ -76,8 +76,12 @@ class GroupedDirectStaticsEngineTest {
         }
     }
 
-    @Test fun `nested ordinary forwarding does not combine different caller guard bindings`() {
-        assertFalse(nestedGuardedWriter(oneCompatibleCall = false))
+    @Test fun `run1 nested forwarding permits a candidate after separate callers complete the local guard`() {
+        assertTrue(nestedGuardedWriter(oneCompatibleCall = false))
+    }
+
+    @Test fun `run1 nested forwarding cannot emit before its local guard is complete`() {
+        assertFalse(nestedGuardedWriter(oneCompatibleCall = false, provideSecondInput = false))
     }
 
     @Test fun `nested ordinary forwarding retains a complete same caller guard binding`() {

@@ -8,9 +8,9 @@ import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
 import org.opentaint.dataflow.bidi.interp.*
 import kotlin.test.*
 
-/** Fixed-mark singleton and ND outputs use pending complete actor bindings. */
+/** Complete local admission precedes singleton static publication and pending group supply. */
 class StaticConditionalRequestJoinTest {
-    @Test fun `fixed static joins wait for every required group and release their request state`() {
+    @Test fun `fixed static joins admit complete local guards then wait for the selected group only`() {
         for (nd in listOf(false, true)) for (supplyFirst in listOf(false, true))
             MethodAnalysisFixtures().use { f ->
                 val cls = f.manager.accessors.index(ClassStaticAccessor("C"))
@@ -21,7 +21,6 @@ class StaticConditionalRequestJoinTest {
                 val result = f.manager.marks.groupOf(v)
                 val members = listOf(f.manager.initial(f.run1Pattern(STATIC, left, Tail.STAR, t))) +
                     if (nd) listOf(f.manager.initial(f.run1Pattern(STATIC, right, Tail.STAR, u))) else emptyList()
-                val premise = f.manager.premiseOf(members)
                 val actor = f.core(localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
                 val service = checkNotNull(actor.runnerPort.staticService)
                 val observer = f.store.key("observer")
@@ -44,23 +43,36 @@ class StaticConditionalRequestJoinTest {
                 if (supplyFirst) commit(supplies(left, g))
                 val operation = OperationId(FormKey(FormOwner(), f.key.method, f.key, f.inst(1)))
                 val value = f.run1Fact(STATIC, output, Tail.EXACT, v)
-                actor.emitOperationResult(OperationInput(ResumeSite.StatementInput(operation), premise,
-                    f.run1Fact(AccessPathBase.LocalVar(0), full = v)),
-                    StaticOperation.Write(operation, Pattern(f.ops.leaves(value).single().fact, ExclusionSet.Empty)), value) { _, _ ->
-                    fail("A static conditional result must not enter successor work")
+                fun publish(premise: PremiseKey, value: Facts) {
+                    assertSame(members.first(), premise, "The left field is the preferred original")
+                    actor.emitOperationResult(OperationInput(ResumeSite.StatementInput(operation), premise,
+                        f.run1Fact(AccessPathBase.LocalVar(0), full = v)),
+                        StaticOperation.Write(operation, Pattern(f.ops.leaves(value).single().fact, ExclusionSet.Empty)), value) { _, _ ->
+                        fail("A static conditional result must not enter successor work")
+                    }
                 }
+                if (nd) {
+                    val edge = ConjunctiveEdge(members.map {
+                        it.toPattern().copy(fact = it.toPattern().fact.copy(tail = Tail.EXACT))
+                    }, f.ops.leaves(value).single().fact)
+                    actor.localServices.conjunction(edge, members[0], f.run1Fact(STATIC, left, Tail.EXACT, t),
+                        f.inst(1), ::publish)
+                    assertTrue(actor.summaries.all().none(), "One admitted local literal cannot publish a write")
+                    actor.localServices.conjunction(edge, members[1], f.run1Fact(STATIC, right, Tail.EXACT, t),
+                        f.inst(1), ::publish)
+                    assertTrue(actor.summaries.all().none(), "A wrong group cannot complete the local guard")
+                    actor.localServices.conjunction(edge, members[1], f.run1Fact(STATIC, right, Tail.EXACT, u),
+                        f.inst(1), ::publish)
+                } else publish(members.single(), value)
                 f.drain(actor)
                 if (!supplyFirst) {
                     assertTrue(answers().isEmpty())
+                    commit(supplies(left, h))
+                    assertTrue(answers().isEmpty(), "A wrong group cannot supply the selected original")
                     commit(supplies(left, g))
                 }
-                if (nd) {
-                    assertTrue(answers().isEmpty(), "One matched ND member must not publish the conclusion")
-                    commit(supplies(right, g))
-                    assertTrue(answers().isEmpty(), "A wrong group must not satisfy the remaining member")
-                    commit(supplies(right, h))
-                }
                 assertEquals(listOf(GroupSet.of(result)), answers().map { it.supply.groups })
+                assertTrue(actor.summaries.all().all { it.first === members.first() })
                 assertEquals(0, service.statistics().writerRows,
                     "Concrete conditional summaries must not retain a service writer row")
                 assertEquals(0, service.statistics().flowWriterRows)

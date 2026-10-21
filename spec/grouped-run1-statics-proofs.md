@@ -5,6 +5,73 @@ older scheduling and permissive class grammar below. Its current parser
 has eight families. Only exact `S.C` global-mark carriers remain; historical
 class-chain theorems do not authorize class abstraction.
 
+## Selected 21 October representative update
+
+The selected [implementation contract](../docs/design/bidirectional-run1-single-premise-rules-20261021.md)
+adds one semantic approximation to [the active spec](grouped-run1-statics.md#01-run-1-atomic-origin-exception-21-october)
+and [ap.md §0.4](ap.md#04-run-1-representative-premises-selected-21-october).
+After complete local condition admission, run-1 retains one original initial.
+Later FULL conditions, ND union/application, source transfer and sink evidence
+are unchanged. This changes candidate precision and downstream caller/static
+correlation; it is not equality of the previous run-1 edge relation.
+
+[Run1RepresentativePremises.lean](lean/ApSpec/Run1RepresentativePremises.lean)
+and its [narrow audit](lean/run1-representative-premises-audit.lean) pass with
+Lean 4.33.1. The 23 audited statements use only `propext` and `Quot.sound`;
+there is no `Classical.choice`, `sorryAx` or native decision axiom. The
+[final receipt](/drive-testcomp/opentaint-go-rules/run1-single-premise-design-20261021/lean-receipt-v2.json)
+pins commands, source hashes and the final constructive logs. The measured
+runtime remains `0f7feafd88d5ca84dd1ae12ef4b8a4920c3d1b48`; its latest
+ThingsBoard static-field-disabled result reached **run-1** and ended in OOM.
+No performance result for the representative implementation is claimed.
+
+| New obligation | Checked result | Scope or remaining adapter |
+| --- | --- | --- |
+| Complete local cube before selection | `emission_requires_complete_cube`, `complete_cube_emits` | Accepted literal availability for one branch; actual NNF proof/OR/repeated-leaf compatibility still uses the existing compiler/store |
+| Original member and fixed order | `preferred_kind_first`, `representative_member`, `choose_same_members` | Argument, this, other non-static, static field, class point; structural tie-break adapter must not substitute allocation IDs |
+| ZERO and caller binding | `representative_zero_iff`, `binding_keeps_member`, `binding_into_union`; executable binding controls | Local ZERO is neutral; selection need not commute with call binding, and a retained callee input can bind to caller ZERO |
+| Conservative forward dependency | `positive_horn_overapprox` | Inclusion for **fixed discovered positive Horn clauses**; not whole mutable analyzer discovery, AP transfer or negative-condition coverage |
+| No executable run-1 ND | `singleton_invariant`, `linear_label_bound` | Option-label cardinality0/1 and explicit5n+1 finite model bound; production induction must cover initial, both local producers, point/request resumes, ordinary calls and publication |
+| Handoff entry permission | `old_guide_for_each_member`, `handoff_entry_sets_equal` | Equal projected entry membership for a fixed list of corresponding outputs, including ZERO; exits, multiplicity and full run-2 closure are not equalities |
+| Per-binding selection | `complete_bindings_can_differ`, `one_per_cube_is_stricter_than_one_per_binding` | Keep every distinct completed-binding result under ordinary dedup; one result per whole cube is not selected |
+| FULL recovery caveat | `representative_only_membership_loses_support` | A hypothetical representative-only backward membership filter can lose a leaf; it is not a claim that the current entry-based query emitter does this |
+
+The static pool now applies the selected atomic summary to one actually
+matching input. A local all-static source still needs its entire condition
+before publication; its omitted originals are not rechecked at each later
+pool/caller application. A selected nonstatic original follows ordinary
+singleton caller application. This can add DEMAND candidates and cannot
+be tested against an oracle requiring the old complete-ND precision.
+A request or conditional initial still does not supply a group. Real
+source/control permission and the selected ordinary matching remain required.
+
+Production proof/test obligations remain:
+
+- Preserve every source's declared transfer family, fixed target path/tail,
+  action/occurrence ID and all condition layers. Atomic MULTI output is not
+  a new unary transfer. Keep complete sink literal facts/proof/occurrence;
+  a witness helper must not create an executable run-1 `PremiseSet`.
+- Select directly in both local complete producers, before interning. Keep
+  full literal evidence and existing local products. Assert atomic run-1
+  method/point/subscription/publication inputs; never enter E6 in run-1.
+- Match the selected ordinary/static initial with the existing AP relation
+  and apply the same computed target geometry and effective DEMAND layer.
+  Keep all-static, mixed-local, ZERO/source, late-supply and ordinary caller
+  adapters. FULL ND still requires every compatible input at the same call.
+- Connect forward output coverage to actual-query starts and entry-based
+  guide emission/publication. Reverse all original required FULL leaves,
+  including a discarded run-1 input, and retain every source identity.
+  The guide-entry lemma alone is not this complete backward proof.
+
+The complete-premise models and arguments below remain exact-reference or
+FULL evidence where they retain ND. They do not certify the new atomic
+adapter or require old/new run-1 edge equality. Initial grammar, field
+transfer, cleaner, mark, exact class, request-state and ordinary typed-AP
+laws retain their stated unchanged scope. Do not recover omitted originals
+with runtime support labels or an unbounded history store. The singleton
+label bound removes powerset premise keys; it does not bound all local
+binding tuples, facts or wall-clock time.
+
 Date: 19 October 2026. Revision: **2.3, uniform immutable groups and no binding census**.
 Candidate B88 implements revision 2.1 and passes its selected local gate;
 fixed-project acceptance fails. This dossier supports
@@ -56,9 +123,11 @@ remain enabled. End-fact-dependent paths are outside this iteration's claim.
 Earlier general models may contain GEN examples; they do not require a
 waiting GEN runtime component under the selected empty policy.
 
-The main claim is **finite reference-witness inclusion**. Start with a
-finite full-mark witness in the compiled reference semantics. Construct its
-group candidate and the full backward replay. Retain all positive guards,
+The inherited complete-premise model claims **finite reference-witness
+inclusion**. It predates the representative update and does not prove the
+changed analyzer's whole run-2 recovery. Start with a finite full-mark
+witness in that compiled reference semantics. Construct its group candidate
+and the full backward replay. Retain all positive guards,
 actual primitive relations and exact source leaves. This is stronger than
 assuming that all necessary helper guides already exist. It does not prove
 that a real JVM compiler emits the complete reference program.
@@ -131,8 +200,8 @@ declarations as well as public theorems.
 | RemoveAllMarks and real kills | `requested_input_reexecuted_through_remove_all_is_empty`; universal-carry `kill_still_kills` | Point reply reruns the operation; it cannot resume after a kill |
 | Mixed old/new exclusions | `selector_inter_denotation`, `selector_union_denotation`, `inherited_group_is_not_a_single_full_exclusion` | Typed denotation, including native/reverse record readers |
 | Merged ordinary requests | `RuleGroupRequestRepair.routeWitness`, `Handoff.survivorWitness`; initial-refinement merged join lemmas | Preserve baseline N2 actual inputs and complete ND original; no second input-history store |
-| Rooted static group supply | `Run1StaticGroupDerivation.solution_exact`, `solutionRoot`, `solution_empty_without_seed`; `Run1OrdinaryStaticSupply` | Source-backed bounded AP rules and complete ordinary bindings; requests/initials are not seeds; no runtime support syntax |
-| Connected ordinary publication and supply | `Run1OrdinaryStaticSupplyPipeline.compileConnected`, `compileNdConnected`, `compileMarkedConnected`, `compileRequestedConnected` | Computed wrapper/call/copy/group effects and scalar getter; independent finite full witness; separate reached-write admission and primitive adapters |
+| Rooted static group supply (inherited complete-premise reference) | `Run1StaticGroupDerivation.solution_exact`, `solutionRoot`, `solution_empty_without_seed`; `Run1OrdinaryStaticSupply` | Source-backed bounded AP rules and complete ordinary bindings; requests/initials are not seeds; no runtime support syntax |
+| Connected ordinary publication and supply (inherited complete-premise reference) | `Run1OrdinaryStaticSupplyPipeline.compileConnected`, `compileNdConnected`, `compileMarkedConnected`, `compileRequestedConnected` | Computed wrapper/call/copy/group effects and scalar getter; independent finite full witness; separate reached-write admission and primitive adapters |
 | JVM alias-write adapter coverage | Existing connected-publication model; `JIRStaticAliasMetadataTest` and `Run1StaticAliasEffectTest` | Preserve generated AP edges; declare local/call static alias value writes, full paths and stages; retain complete conditional premises; a descriptor creates no read or rooted group |
 | No static relay requirement | `compact_expanded_exact`, `strict_chain_saving` | Equality for the accepted identity-relay contraction scope, not old flow-sensitive context equality |
 | Write-gated reads, section 8 | `Run1StaticReadAdmission` reached-read/write join and arrival controls; composition `rooted_write_admits_read` | Actual reached FLOW/group write; certified AP overlap/image; no prescan candidate admission |
@@ -142,7 +211,7 @@ declarations as well as public theorems.
 | Static default, section 11 | `Run1UniversalStaticCarry.all_methods_same_view`, `emits_actual_full`, `every_finite_transport_path` | Implicit complete group catalog; no method-field product, no executable identity or taint creation |
 | Actual queries/current publication | composition `actual_admission_and_publication`, `primitive_pair_executes`, `compileReplay` | Retain pinned StrongQueries and full current premise authorization; a query alone computes no result |
 | ZERO wrappers/internal sinks | `Run1StaticEarlySummaryZero.runChain_result`, `nonzero_reach_no_zero_protocol`; composition `real_zero_wrapper_chain` | Actual balanced ports and local body survival; nonzero REACH cannot start unrelated ZERO discovery |
-| Finite candidate and full replay | composition `compileCoverage`, `completeFiniteWitness`, `target_tree_is_admitted` | Constructed from one full positive tree; no premise that every helper guide exists |
+| Finite candidate and full replay (inherited complete-premise reference) | composition `compileCoverage`, `completeFiniteWitness`, `target_tree_is_admitted` | Constructed from one full positive tree; no premise that every helper guide exists |
 | Exact source identity | composition `selected_source_confirms`, `collectAllSources`, `collect_visits_each_branch`, `matching_source_is_enumerated`, `source_leaf_keeps_every_occurrence` | Traverse all positive children and all matching source/action identities; retain exact full marks |
 | NORMAL record export | cleaner NORMAL-complement law plus inherited pinned ordinary record contract | Export only complete independently valid NORMAL; new typed exclusion reader/repair checks required |
 | Owner queues/completion | `Run1SemanticProgress.any_initial_trace_bound`, `no_infinite_productive_schedule`, `any_maximal_trace_quiescent` | Any represented owner/work selection; complete finite key universe and finite unchanged bursts; count children before parent release; real JVM queues/IO remain adapter checks |
@@ -162,6 +231,11 @@ checks discharge specific production seams; they are not a proof of the
 whole JVM compiler or project finding parity.
 
 ## 4. Constructive coverage argument
+
+This inherited argument is for its complete-premise compiled reference.
+Its full ND bindings are not the new run-1 runtime key invariant. Connect
+its covered outputs to the representative model and production adapters
+above before claiming coverage for the changed analyzer.
 
 First, retain the reference witness's original full mark identities and
 ordered positive children. `projectTree` maps each leaf/output to its group.
@@ -186,8 +260,8 @@ write/read orders and duplicate batches. A read cannot disappear because its
 writer arrives late. For symbolic APs, the adapter must certify the actual
 intersection and current image. It cannot use class-point equality as a
 proof of field coverage.
-The revision-2 ordinary supply model retains every unresolved caller
-original, checks complete tuple arity and all call-port components, and
+The inherited complete-premise supply model retains every unresolved caller
+original; this is reference/FULL evidence, not the new run-1 key invariant. It checks complete tuple arity and all call-port components, and
 applies all-static FLOW/GEN effects to actual supplied cells. No method-wide
 input mask can replace this binding. Writer-output interests route to known
 ordinary FLOW originals through Base P/R. Requests themselves cannot seed
@@ -311,7 +385,8 @@ flow-sensitive candidate set.
 Each region/group supply bit and continuation-region-image/group delivery
 bit grows once. No method-by-field-by-group product, reverse static request
 graph, method-entry replay wave or extra helper-permission pass is required.
-Ordinary N2/ND storage remains. AP regions, distinct complete premises and
+Ordinary N2 storage remains; FULL runs retain ND storage. Run-1 local
+condition products remain, but executable ND/E6 state is excluded. AP regions and
 ordinary work can still be large. A whole-project strict memory improvement
 and the 60-second run-1 engine target require measurement.
 The new progress proof bounds productive owner steps, not only static rule

@@ -41,7 +41,7 @@ class RulePredicateEngineTest {
     private fun sink(f: MethodAnalysisFixtures, predicate: RulePredicate, ordinal: Int = 0): SinkRule =
         SinkRule(reportRule, 0, predicate.leaves, emptyList(), id(f, RuleKind.CALL_SINK, ordinal), predicate)
 
-    @Test fun `source conjunction combines original premises and effective layers only after every leaf`() {
+    @Test fun `run1 source conjunction selects one original after every leaf and keeps fixed target`() {
         for (order in listOf(listOf(0, 1), listOf(1, 0))) MethodAnalysisFixtures().use { f ->
             val (_, services) = core(f)
             val predicate = predicate(f) { b, l -> b.and(listOf(l[0], l[1])) }
@@ -55,9 +55,44 @@ class RulePredicateEngineTest {
                 }
                 assertEquals(if (position == 0) 0 else 1, result.size)
             }
-            assertEquals(setOf(0, 1), result.single().first.members.map { (it.base as AccessPathBase.Argument).idx }.toSet())
+            assertEquals(setOf(0), result.single().first.members.map { (it.base as AccessPathBase.Argument).idx }.toSet())
+            assertIs<InitialAp>(result.single().first)
             assertEquals(Layer.DEMAND, result.single().second.layer)
             assertEquals(Tail.ANY_TAINT, f.ops.leaves(result.single().second).single().fact.tail)
+        }
+    }
+
+
+    @Test fun `later FULL source conjunction keeps all original premises`() {
+        MethodAnalysisFixtures().use { f ->
+            val predicate = predicate(f) { b, l -> b.and(listOf(l[0], l[1])) }
+            val source = source(f, predicate)
+            val action = source.actions.single()
+            val seeds = SeedIndex.of(predicate.leaves.map { Seed.Source(f.key, f.inst(2), source.transfer(it, action, multi = true).forward, action.id) })
+            val (_, services) = core(f, run = 3, seeds = seeds)
+            val results = ArrayList<Pair<PremiseKey, Facts>>()
+            for (leaf in listOf(1, 0)) {
+                val base = AccessPathBase.Argument(leaf)
+                services.sourcePredicate(source, f.manager.initial(f.pattern(base)), f.fact(base), f.inst(2), false) { pr, facts ->
+                    results += pr to facts
+                }
+            }
+            assertIs<PremiseSet>(results.single().first)
+            assertEquals(setOf(0, 1), results.single().first.members.map { (it.base as AccessPathBase.Argument).idx }.toSet())
+        }
+    }
+
+    @Test fun `run1 executable boundaries reject conjunctive origins`() {
+        MethodAnalysisFixtures().use { f ->
+            val (actor, _) = core(f)
+            val left = f.manager.initial(f.run1Pattern(AccessPathBase.Argument(0)))
+            val right = f.manager.initial(f.run1Pattern(AccessPathBase.Argument(1)))
+            val invalid = f.manager.union(left, right)
+            val value = f.run1Fact(AccessPathBase.Return)
+            assertFailsWith<IllegalStateException> { actor.summaryDelta(invalid, value) }
+            assertFailsWith<IllegalStateException> { actor.emitAfter(invalid, f.inst(1), value) }
+            assertTrue(actor.summaries.all().none())
+            assertTrue(f.publications.isEmpty())
         }
     }
 

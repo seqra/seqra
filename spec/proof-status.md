@@ -1,5 +1,34 @@
 # Current proof status
 
+## Selected 21 October run-1 representative premises
+
+The [selected implementation contract](../docs/design/bidirectional-run1-single-premise-rules-20261021.md)
+updates [ap.md §0.4](ap.md#04-run-1-representative-premises-selected-21-october)
+and [the grouped/static spec](grouped-run1-statics.md#01-run-1-atomic-origin-exception-21-october).
+A complete local binding now emits one original in run-1. All GROUP results
+stay DEMAND. Source geometry, complete sink evidence and later FULL ND
+remain unchanged. This deliberately weakens caller/static correlation;
+old exact-ND models below are reference/FULL evidence, not an equality
+oracle for the new run-1 candidates.
+
+The [new module](lean/ApSpec/Run1RepresentativePremises.lean) and
+[narrow audit](lean/run1-representative-premises-audit.lean) pass with Lean
+4.33.1: 23 audited statements, no `Classical.choice`, `sorryAx` or native
+decision axiom. Only `propext` and `Quot.sound` remain. The
+[final receipt](/drive-testcomp/opentaint-go-rules/run1-single-premise-design-20261021/lean-receipt-v2.json)
+binds the constructive source/log hashes. Checked scope: complete cube
+availability, stable member choice, fixed-clause positive-Horn inclusion,
+atomic labels and equal projected handoff entries for corresponding outputs.
+This is not whole-analyzer discovery, full backward recovery or a runtime
+bound. The [proof map](grouped-run1-statics-proofs.md#selected-21-october-representative-update)
+lists the remaining AP/producer/static/source/sink/handoff adapters.
+
+Latest relevant measured source is `0f7feafd88d5ca84dd1ae12ef4b8a4920c3d1b48`.
+ThingsBoard with `disableRun1Statics=true` reached **run-1**, OOM after
+664.799 engine seconds; no run completed or was accepted. That measurement
+predates this representative change. No fresh performance acceptance is
+claimed here. Earlier checkpoints retain their own source/test scope.
+
 ## Selected 20 October request-state iteration
 
 The [selected contract](run1-static-request-state-and-group-identities.md)

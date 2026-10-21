@@ -11,6 +11,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
  * production incremental predicate/conjunction store is used. */
 internal class GroupedSourcePredicates(private val manager: ApManager, grouped: Boolean = true) {
     private val groups = if (grouped) GroupedScalarMarks(manager.marks) else null
+    private val run1Representative = RawRun1Representative(manager)
     private data class Contribution(val premise: Set<Pattern>, val demand: Boolean)
     private data class Proof(val bindings: Map<Int, Contribution>, val order: List<Int>, val choices: List<Int>)
     private class State {
@@ -77,7 +78,8 @@ internal class GroupedSourcePredicates(private val manager: ApManager, grouped: 
             if (proof.bindings.size < 2 || !owner.emitted.add(proof)) continue
             val allPremises = proof.order.flatMap { proof.bindings.getValue(it).premise }
             val nonzero = allPremises.filter { it.fact.base != AccessPathBase.Zero }
-            val pr = if (nonzero.isEmpty()) setOf(ZERO_PATTERN) else ownedSet(nonzero)
+            val pr = if (mode.run1) run1Representative.choose(proof.order.map { proof.bindings.getValue(it).premise })
+                else if (nonzero.isEmpty()) setOf(ZERO_PATTERN) else ownedSet(nonzero)
             val demand = proof.bindings.values.any { it.demand }
             for (action in source.actions) {
                 manager.cancellation.checkpoint()

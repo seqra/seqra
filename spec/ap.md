@@ -1,5 +1,10 @@
 # Access paths and storages — specification
 
+> The selected 21 October run-1 representative rule in §0.4 overrides complete-
+> premise union, executable ND and per-member handoff requirements below **only
+> in run-1**. Later FULL runs keep the exact ND rules. This is a selected
+> semantic approximation, not an equivalent storage representation.
+
 > For the selected mark/static change, use [Mark groups and direct static handling](grouped-run1-statics.md)
 > and its pinned pre-bottom-up baseline. It overrides older proposal links
 > at the listed phase seams. Other ordinary contracts below remain in force.
@@ -136,6 +141,85 @@ fact/summary/record operations retain them. Static inputs use the explicit field
 partition and untouched frame; unrestricted raw root rows cannot bypass it. A request
 is neither concrete evidence nor confirmation. The candidate and zero-GEN caveats of
 §4.9 remain.
+
+### 0.4 Run-1 representative premises (selected 21 October)
+
+The [implementation contract](../docs/design/bidirectional-run1-single-premise-rules-20261021.md)
+selects one new run-1 approximation. The previous completed binding emitted
+`{I1, ..., Ik} -> Y`. Run-1 now emits `representative(I1, ..., Ik) -> Y`.
+The result AP, mark, tail, exclusions and effective layer stay unchanged.
+GROUP results remain DEMAND. One premise does not mean `Layer.NORMAL`.
+This rule takes precedence over the exact union in §§4.6, 7.1 and 8.9.
+All later FULL forward runs keep complete ND premises, exact unions and E6.
+Backward construction still reverses every required original FULL literal.
+
+A complete compatible branch of the existing NNF predicate is required
+before selection. Keep its proof, OR choices, repeated-leaf compatibility,
+all contribution layers and per-literal inputs. Do not expand the NNF to
+DNF. A sink still requires its whole condition and retains every checked
+literal in its witness. A witness is not an executable edge; its support
+helper must not build a run-1 `PremiseSet`.
+
+Select one **original initial**, not a checked current fact or condition
+pattern. Prefer argument, then `this`, other legal non-static base, static
+field, and exact static class point. Break ties with a fixed structural
+key: stable base value/index, decoded path, tail tag and mark/group name.
+Do not use allocation/accessor/atom IDs, identity hashes or map order.
+ZERO is neutral when any nonzero original exists; choose canonical ZERO
+only when all original inputs are ZERO. Select independently for every
+complete binding. Different bindings of one cube can retain different
+originals. Do not keep only the first binding, retract an earlier result,
+or change an emitted edge when another binding arrives.
+
+Use a run-local combination policy in the two complete local producers:
+`RulePredicateStore.combineFresh` and `ConjunctionStore.combine`. Do not
+intern a `PremiseSet` before selection. Keep `ApManager.union` unchanged
+for FULL runs. Every executable run-1 method edge, point resume, caller
+subscription and summary has an `InitialAp` premise, including ZERO.
+Unary transfers retain that original. Ordinary singleton call application
+retains the caller's atomic original. Run-1 cannot allocate E6 ND bindings
+or publish an ND summary. Local predicate/slot products and complete sink
+evidence remain; this rule does not remove their compatibility checks.
+
+Source transfer classification does not depend on the new premise count.
+A completed MULTI source still constructs its fixed target with its
+existing path/tail and permission. Preserve unary/GEN transfer, action and
+occurrence IDs. Do not reset a conditional local source to ZERO. A caller
+may nevertheless retain ZERO when the selected actual input came from a
+source. Call binding need not preserve the preference order: the retained
+caller original is ZERO or a member of the old caller support, not
+necessarily its global minimum. No omitted-origin history is added.
+
+This weakens caller correlation. A caller matching only the selected
+initial can now obtain a DEMAND candidate although the old ND summary
+required all inputs at that same call. Such candidates can enable more
+complete local bindings. Complete admission at publication does not
+preserve the old set of later candidates. Static conditional supply uses
+the selected atomic relation in [the grouped contract](grouped-run1-statics.md),
+not an additional recheck of omitted originals. Static field/class
+matching, source geometry and the existing rooted-supply requirement stay
+in force under this selected weaker relation.
+
+For each covered run-1 result, handoff emits one guide with the same result
+entry and the retained original as exit. The old per-member guides had
+the same entry. This preserves projected entry membership for corresponding
+outputs; it does not equate guide exits or prove full backward soundness.
+Keep actual-query admission, entry-based additional guide emission, current
+query publication, original FULL source reversal, internal-sink seeds and
+ZERO discovery. Run-2 must still visit every required FULL source/condition
+leaf, including discarded run-1 inputs. Do not add an exit-based veto or
+an unbounded omitted-support store to recover those inputs.
+
+[Run1RepresentativePremises.lean](lean/ApSpec/Run1RepresentativePremises.lean)
+proves complete-cube gating, member selection, order/duplicate independence,
+positive-Horn consequence inclusion for **fixed discovered clauses**, the
+atomic label invariant and the projected handoff-entry law. Its
+[narrow audit](lean/run1-representative-premises-audit.lean) is separate
+from the existing aggregate proofs. The
+[proof map](grouped-run1-statics-proofs.md#selected-21-october-representative-update)
+states the remaining AP, condition, call and backward adapter obligations.
+The singleton label domain excludes powerset `PremiseSet` keys. It does
+not bound all local tuple enumeration, AP payloads or execution time.
 
 ## 1. Terms
 
@@ -1228,6 +1312,11 @@ scope; they do not prove the new F78 protocol or the full alternating iteration.
 
 ### 4.6 Mark conjunction: ND edges
 
+**Run-1 exception:** §0.4 retains the complete local binding but replaces
+its union by one original. The ND union/application rules below define
+the exact FULL/reference path; they do not authorize run-1 executable ND.
+Source target construction and sink evidence still use the complete binding.
+
 A conjunction occurs only in a forward run. Each literal contributes one matched input with its premise set and
 contribution layer. The conclusion requires ALL contributions of the same conjunction alternative at the same
 statement. Write these contributions as `P ∧ Q` for a binary conjunction. They are parts of one joint rule, not
@@ -1850,6 +1939,11 @@ that ignore marks do not satisfy C5.
 
 ### 6.2 Run 1
 
+Use §0.4 for atomic executable origins and the current grouped/static
+contract for initial grammar, requests and static supply. The older F78
+static plan/root families below retain their historical scope; they do not
+restore removed roots, class abstraction or run-1 ND.
+
 Use F78 [run1-requests.md](run1-requests.md). Zero emits zero. Non-static input emits
 its abstract base-root initial. Static input retains the special rule-free S-root
 summary seed and supplied selected normal field abstract initials from the joined
@@ -2121,6 +2215,11 @@ without establishing those conditions.
 The concept of a conclusion is a set of path facts. The representation groups path edges into TREES.
 
 ### 7.1 Initial fact and premise key
+
+Run-1 executable keys are `InitialAp` only (§0.4). `PremiseSet` remains
+a shared representation for exact later FULL runs. A completed run-1
+condition retains its literal evidence separately and never interns its
+full original union merely to choose a representative afterward.
 
 ```kotlin
 /** The initial fact (premise): one linear path. Its mark is * or a concrete mark (never *∖X). It is also the premise
@@ -2699,14 +2798,15 @@ Historical RequestStore/AddedFactStore proofs do not establish F78 or require th
   later item can complete the combination with it. A caller-set `S` fact is stored as the input of its literal, and
   it is not dropped (§11.1).
 * On a new fact for a literal: combine it with the stored facts of the other literals of the same conjunctive micro
-  edge or sink alternative (one per literal, every combination). A result has the union of the premise sets WITHOUT
-  THE ZERO FACT, and `{zero}` if every input has `{zero}` (§4.6). For a conjunctive sink, each combination is a sink
+  edge or sink alternative (one per literal, every combination). A later FULL result has the union of the premise sets WITHOUT
+  THE ZERO FACT, and `{zero}` if every input has `{zero}` (§4.6). Run-1 selects one original only after the whole
+  binding is accepted (§0.4). For a conjunctive sink, each combination is a sink
   edge set of the vulnerability: a sink witness (§4.9, §8.10).
 * The same for a callee summary with several premises at a call statement: `(callee summary, premise index) → links`
   (the added fact with its caller edge; §4.6, event E6).
 
 CURRENT NNF STORE. The fixed-literal entries above remain the reference/manual form and the E6 callee-summary
-join is unchanged. Bound source/sink predicates use `RulePredicateStore` scoped by method key, statement and
+join is unchanged in later FULL runs and is absent from run-1. Bound source/sink predicates use `RulePredicateStore` scoped by method key, statement and
 `RuleOccurrenceId`. A canonical leaf binds one complete premise/effective-layer/fact-group header. Source state
 need not hold checked facts; sink state does. Immutable leaf/OR/AND records share subproofs; persistent maps share
 bindings and fact versions. Shared OR nodes may choose different branches through separate AND operands; only
@@ -2975,6 +3075,10 @@ See [proof-status.md](proof-status.md) for current scope and
 [proof-history.md](proof-history.md) for the historical catalog.
 
 ### 10.6 ND edges — `ND.lean`, `NDExact.lean`
+
+These exact ND models remain the FULL/reference contract. They do not
+prove equivalence of the selected run-1 representative approximation;
+its checked scope and adapter obligations are stated in §0.4.
 
 See [proof-status.md](proof-status.md) for current scope and
 [proof-history.md](proof-history.md) for the historical catalog.

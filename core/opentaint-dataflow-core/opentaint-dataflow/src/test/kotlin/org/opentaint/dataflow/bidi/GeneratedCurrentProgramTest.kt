@@ -184,7 +184,7 @@ class GeneratedCurrentProgramTest {
     }
 
     @Test
-    fun `generated literal paths and target tails preserve independent conjunctive premises at one call`(): Unit {
+    fun `generated literal paths keep fixed targets with singleton run1 and exact later premises`(): Unit {
         for (seed in 0L until 12L) for (index in listOf(1, 3)) FiniteProgramFixtures().use { f ->
             val random = Random(seed + 200)
             val fields = (0..2).map { f.field("joint$it") }
@@ -211,7 +211,11 @@ class GeneratedCurrentProgramTest {
                     callee to DemandPattern(literals[1], f.pattern(ret, out, Tail.ANY, t))),
                 seeds = listOf(Seed.Source(caller, root.inst(0), sx), Seed.Source(caller, root.inst(0), sy)))
             val actual = compare(f, config, seed + 200L, fields, listOf(t.mark, u.mark))
-            assertTrue(actual.selectedDemand.any { it.method == callee && it.premise.size == 2 })
+            if (index == 1) {
+                assertTrue(actual.selectedDemand.any { it.method == callee && it.conclusion.fact.base == ret &&
+                    it.premise.size == 1 && it.premise.single().fact.base == x })
+                assertTrue(actual.rawSummaries.all { it.premise.size == 1 }, "Run 1 has only atomic executable origins")
+            } else assertTrue(actual.selectedDemand.any { it.method == callee && it.premise.size == 2 })
             // At run1's nonstatic root policy, a below-root mark answer has a STAR initial and an ANY starting fact in DEMAND
             // layer. A root exact answer is NORMAL. Restricted exact demand entries copy exact facts.
             val targetDemand = index == 1
@@ -220,7 +224,9 @@ class GeneratedCurrentProgramTest {
             val expectedResult = limit(if (index == 1) GroupedScalarMarks(f.ap.marks).conclusion(uncut) else uncut, config.fieldLimit)
             assertContains(actual.rawSummaries, ObservedEdge(caller, setOf(ZERO_PATTERN), expectedResult),
                 "seed=$seed index=$index px=$px py=$py out=$out target=$target expectedDemand=$targetDemand")
-            assertFalse(actual.rawSummaries.any { it.method == callee && it.premise.size == 1 && it.conclusion.fact.base == ret })
+            if (index != 1) assertFalse(actual.rawSummaries.any {
+                it.method == callee && it.premise.size == 1 && it.conclusion.fact.base == ret
+            })
         }
     }
 }

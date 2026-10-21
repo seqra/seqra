@@ -288,7 +288,7 @@ class CurrentSequenceTest {
     }
 
     @Test
-    fun `CONJ backward literal branches stay demand and only the call with both inputs produces a candidate`(): Unit {
+    fun `CONJ run1 weakens caller bindings while FULL backward branches retain both requirements`(): Unit {
         for (normalReversal in listOf(false, true)) DriverFixtures().use { f ->
             val p = f.program
             p.enableGroupRuleViews()
@@ -332,15 +332,17 @@ class CurrentSequenceTest {
             assertEquals(if (normalReversal) setOf(goodSink.rule, badSink.rule) else setOf(goodSink.rule),
                 report.entries.map { it.key.rule }.toSet())
             assertTrue(report.entries.all { it.state == ReportState.DEMAND && it.run == 3 })
-            assertTrue(f.results.filter { it.direction == Direction.FORWARD }.all { result ->
-                normalReversal && result.runIndex == 3 || result.witnessesByKey().keys.none { it.rule === badSink.rule }
-            })
+            assertEquals(setOf(goodSink.rule, badSink.rule), f.results[0].witnessesByKey().keys.map { it.rule }.toSet(),
+                "The run-1 singleton summary also permits the caller with only the selected input")
+            assertEquals(if (normalReversal) setOf(goodSink.rule, badSink.rule) else setOf(goodSink.rule),
+                f.results[2].witnessesByKey().keys.map { it.rule }.toSet(),
+                "FULL forward analysis keeps the original complete condition")
             val required = setOf(p.pattern(argument, mark = t1), p.pattern(arg1, mark = t2))
             fun grouped(pattern: Pattern): Pattern = pattern.copy(fact = pattern.fact.copy(mark =
                 MarkSlot.Concrete(p.manager.marks.group(p.manager.marks.groupOf((pattern.fact.mark as MarkSlot.Concrete).mark)))))
-            val groupedRequired = required.map(::grouped).toSet()
             val groupedTarget = grouped(Pattern(nd.target, ExclusionSet.Empty)).fact
-            assertContains(raw(f, f.results[0], m), groupedRequired to Conclusion(groupedTarget, ExclusionSet.Empty, true))
+            assertContains(raw(f, f.results[0], m), setOf(grouped(required.first())) to
+                Conclusion(groupedTarget, ExclusionSet.Empty, true))
             val backward = selected(f, f.results[1], m)
             val literalRows = if (normalReversal) raw(f, f.results[1], m) else backward
             assertTrue(literalRows.any { it.second.fact == required.first().fact && it.second.demand == !normalReversal })
@@ -359,7 +361,7 @@ class CurrentSequenceTest {
             assertTrue(f.links(3, m).asSequence().any { link ->
                 link.caller.call == p.inst(root, 5) && link.addedFact == required.first() && link.linkLayer == Layer.NORMAL
             }, "The second call really supplies T1 even when the independent record bypasses callee emission")
-            assertEquals(listOf(1, 0, if (normalReversal) 2 else 1), driver.frontiers.map { it.demandVulnerabilities })
+            assertEquals(listOf(2, 0, if (normalReversal) 2 else 1), driver.frontiers.map { it.demandVulnerabilities })
         }
     }
 }

@@ -106,7 +106,7 @@ class MethodLocalServicesTest {
             var joins = 0
             service.conjunction(conjunction, premise, input, f.inst(1)) { joined, facts ->
                 joins++
-                assertEquals(f.manager.union(premise, otherPremise), joined)
+                assertEquals(premise, joined, "Run-1 retains the argument after complete literal admission")
                 assertEquals(Layer.DEMAND, facts.layer)
             }
             assertEquals(1, joins, "The cancelled input must not block the later complete literal join")

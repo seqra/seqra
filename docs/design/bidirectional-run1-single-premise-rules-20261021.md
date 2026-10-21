@@ -1,16 +1,21 @@
 # Run-1 rule results with one original premise
 
-Date: 21 October 2026. Status: design proposal; runtime unchanged.
+Date: 21 October 2026. Status: selected design, implemented. Fresh project
+measurements are required before a performance claim.
 
 Source base: `0f7feafd88d5ca84dd1ae12ef4b8a4920c3d1b48`. Documentation
 HEAD is `bb020ae0c`; its runtime still matches that source base. Latest
 measured thingsboard result with
 `disableRun1Statics=true`: **run-1, FORWARD, limit 1, OOM**, 664.799 engine
-seconds. This proposal has not been benchmarked.
+seconds. This is the historical diagnostic result, not a measurement of the new
+implementation.
 
 This proposal follows [proof-guide.md](../../spec/proof-guide.md). It adds
 one selected semantic approximation to the active grouped/static contract.
-It does not change the analyzer implementation or replace the active spec.
+The implementation follows this design. The active exceptions are in
+[ap.md §0.4](../../spec/ap.md#04-run-1-representative-premises-selected-21-october)
+and [grouped-run1-statics.md §0.1](../../spec/grouped-run1-statics.md#01-run-1-atomic-origin-exception-21-october).
+“Current” in the comparison tables means the source base above.
 
 ## Selected change
 
@@ -398,3 +403,26 @@ Source-bound audits are in
 `nd-elimination-source/run1-nd-elimination-source-boundary.md` and
 `representative-run1-backward-recovery-source.md`. The measurement basis is
 [the deep investigation](../reports/bidirectional-run1-statics-disabled-deep-investigation-20261021.md).
+
+
+## Implementation record
+
+`PremiseCombination.kt` provides the run-local policy. Both local stores
+apply it after complete admission. The exact policy remains their default
+and the policy for later FULL runs. The run-1 selector reads decoded base,
+accessor and mark values. It does not allocate a `PremiseSet` or change the
+shared manager's union operation.
+
+The method actor, point resume, summary delivery and subscription boundaries
+check atomic run-1 origins. The E6 entry rejects run-1. Source target and
+sink witness code retain their existing complete binding inputs.
+
+The selected scalar test oracle has an independent decoded-Pattern selector.
+Historical and FULL reference unions stay exact. The tests state the extra
+run-1 caller candidates explicitly. They keep the complete FULL condition
+and negative refinement controls. `RepresentativeRefinementTest` follows
+run-1, run-2 and run-3: the omitted input still reaches its real full-mark
+source in run-2, and run-3 restores a two-input summary.
+
+No field, alias, primitive, GROUP projection, static-request, cache or queue
+optimization is included in this implementation.

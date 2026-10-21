@@ -34,7 +34,7 @@ class LocalConjunctionTest {
         if (index == 1) GroupedScalarMarks(f.manager.marks).conclusion(Conclusion(fact, ExclusionSet.Empty, false))
         else Conclusion(fact, ExclusionSet.Empty, false)
 
-    @Test fun `real statement conjunction waits for both inputs in either arrival order and unions full premises`(): Unit {
+    @Test fun `run1 statement conjunction waits for both inputs and keeps one representative`(): Unit {
         for (reverse in listOf(false, true)) MethodAnalysisFixtures().use { f ->
             val t = MarkSlot.Concrete(f.mark("T"))
             val u = MarkSlot.Concrete(f.mark("U"))
@@ -51,8 +51,8 @@ class LocalConjunctionTest {
             assertTrue(core.summaries.all().none())
             core.addInitial(order[1])
             f.drain(core, quantum = 1)
-            val premise = f.manager.union(j1, j2)
-            assertEquals(setOf(j1, j2), premise.members.toSet())
+            val premise = j1
+            assertIs<InitialAp>(premise)
             assertEquals(setOf(premise to output(f, target)),
                 methodEntries(f.ops, core.summaries.all()))
             assertTrue(f.publications.flatten().all { it.premise === premise && it.layer == Layer.DEMAND })
@@ -151,11 +151,11 @@ class LocalConjunctionTest {
             core.addInitial(first)
             core.addInitial(second)
             f.drain(core)
-            val firstResult = f.manager.union(first, second) to output(f, a.target)
+            val firstResult = first to output(f, a.target)
             assertEquals(setOf(firstResult), methodEntries(f.ops, core.summaries.all()))
             core.addInitial(other)
             f.drain(core)
-            assertEquals(setOf(firstResult, f.manager.union(first, other) to output(f, b.target)),
+            assertEquals(setOf(firstResult, first to output(f, b.target)),
                 methodEntries(f.ops, core.summaries.all()))
         }
     }
@@ -180,7 +180,7 @@ class LocalConjunctionTest {
             right.addInitial(first)
             f.drain(right)
             assertTrue(left.summaries.all().none())
-            assertEquals(setOf(f.manager.union(first, second) to output(f, edge.target)),
+            assertEquals(setOf(first to output(f, edge.target)),
                 methodEntries(f.ops, right.summaries.all()))
         }
     }

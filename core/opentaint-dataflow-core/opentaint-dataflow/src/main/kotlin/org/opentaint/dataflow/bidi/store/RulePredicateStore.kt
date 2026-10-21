@@ -12,7 +12,8 @@ import java.util.Collections
 import java.util.IdentityHashMap
 
 /** Standing supported branches for one actor. Records contain no compiled predicate topology. */
-class RulePredicateStore(private val manager: ApManager, private val statistics: FormCacheStatistics? = null) {
+class RulePredicateStore(private val manager: ApManager, private val statistics: FormCacheStatistics? = null,
+                         private val premises: PremiseCombination = ExactPremises(manager)) {
     private data class Scope(val rule: RuleOccurrenceId, val statement: CommonInst)
     private data class Header(val leaf: Int, val premise: PremiseKey, val layer: Layer, val group: GroupKey?)
     private data class Choice(val node: Int, val branch: Int)
@@ -286,16 +287,15 @@ class RulePredicateStore(private val manager: ApManager, private val statistics:
         val previous = state.emitted[key]
         val inputs = if (previous == null) support.inputs else mergeInputs(previous, support.inputs) ?: return null
         state.emitted[key] = inputs
-        var premise: PremiseKey = manager.zero
         var layer = Layer.NORMAL
         val ordered = ArrayList<ConjunctionStore.Input>(key.leaves.size)
         for (leaf in key.leaves) {
             manager.cancellation.checkpoint()
             val input = checkNotNull(inputs[leaf]).input
             ordered += input
-            premise = manager.union(premise, input.premise)
             if (input.layer == Layer.DEMAND) layer = Layer.DEMAND
         }
+        val premise = premises.combine(ordered.asSequence().map { it.premise }.asIterable())
         val combination = Combination(key.proof, premise, layer, key.leaves, Collections.unmodifiableList(ordered))
         statistics?.rootOutcome(growth = previous != null)
         return combination
