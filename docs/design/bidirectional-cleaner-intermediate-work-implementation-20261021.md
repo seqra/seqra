@@ -1,7 +1,9 @@
 # Run-1 cleaner work: implementation specification
 
-Date: 21 October 2026. Status: **optimizations 1–5 selected; specification
-and local formal model only**. The analyzer implementation is unchanged.
+Date: 21 October 2026. Status: **optimizations 1–5 implemented** in
+`51dbc4d66fb1bf1b56071dbf18c90c5909e3146b`. There are 2204 executed test
+passes and three skipped environment controls. Fresh performance, heap/profile analysis and
+finding checks are [complete; resource and strict quality gates fail](../reports/bidirectional-cleaner-work-performance-20261021.md).
 
 Use runtime `5d3a706cfaa8fa5620dab5c5b268d02b1a8432e2` as the reference.
 Commit `b4948b4597120ca69261be347aa857171160b332` adds only the
@@ -10,7 +12,8 @@ and the [proposal](bidirectional-cleaner-intermediate-work-20261021.md).
 This specification gives the implementation contract for its five numbered
 optimizations. It takes precedence over schematic code in that proposal.
 
-The latest measured results are unchanged:
+The following prior measurements were inputs to this specification.
+They are not results for the new implementation:
 
 | Project | Latest reached | Latest COMPLETE | Accepted forward report |
 | --- | --- | --- | --- |
@@ -41,6 +44,11 @@ run-1 approximation and its later refinement. In particular, preserve:
 - Existing request barriers, queue ownership, cancellation policy, cache
   managers, soft-reference policy and the `1,1,2,...` limit schedule.
 - The current rule that ignores `trackFactsReachAnalysisEnd`.
+
+The semantic-preservation claim compares the five changes with runtime
+`5d3a706cf`. Earlier mark-group and static refactors have their own
+semantic contracts. Comparing this candidate with legacy main does not
+isolate these five changes.
 
 Optimizations 1–3 apply to run-1 only. Optimization 2 also requires the
 GROUP view and forward direction. Optimizations 4–5 preserve exact API
@@ -945,11 +953,13 @@ each production change. Do not build expected results with the new helper.
 | Release | Cancellation in union/drain/cleaner execution; existing freeze/clear hook; no retained row, schedule callback or actor after release |
 | Combined | Representative premises; field-overwrite guidance; static getter/writer/cleaner/sink path; source/sink complete conditions through run-1, run-2 and run-3 |
 
-Use the existing common/JVM integration fixtures where possible. Expected
-new focused suites can be named `StaticPointImagePackingTest`,
+The implementation uses the existing common/JVM integration fixtures.
+The new focused suites include `StaticPointImagePackingTest`,
 `ReturnGroupScheduleTest`, `CleanerStepDeduplicationTest`,
-`MarkExclusionsFastPathTest` and `EmptyStaticSummaryFallbackTest`. These
-are planned tests; they have not run as part of this specification task.
+`MarkExclusionsFastPathTest` and `EmptyStaticSummaryFallbackTest`.
+They ran in the completed validation gate: 2204 executed passes and
+three skipped environment controls. See the
+[performance and validation report](../reports/bidirectional-cleaner-work-performance-20261021.md).
 
 Storage controls can use synthetic headers outside the reachable run-1
 grammar, but label them as partition tests. Also keep reachable program
