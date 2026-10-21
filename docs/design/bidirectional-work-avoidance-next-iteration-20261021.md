@@ -149,17 +149,55 @@ Method-edge and summary stores retain their current delta admission.
 The ordinary HandOff and group-to-full demand matching need no new mode.
 
 ZERO stays neutral within one binding. `{ZERO,I_a}` emits only `I_a -> C`.
-An all-ZERO binding emits `ZERO -> C`. Do not add an unconditional result
-because only one required input came from ZERO.
+Emit `ZERO -> C` **only if there is a complete compatible cube whose every
+required condition can be satisfied by ZERO-premise edges**. Its action
+must also pass the existing seed permissions. An all-ZERO accepted binding
+is a witness for this rule. One ZERO input, control-flow reachability, or
+ZERO inputs collected from different cubes is not such a witness. The
+new unary projection must not introduce an extra ZERO-premise result.
 
-### Avoid origin products
+### Avoid enumerating combinations of origin labels
+
+The purpose is to avoid repeating the same result for every combination
+of origin labels. It does not change how a complete condition is admitted.
+
+```java
+Object relay(Object a, Object b) {
+    return combine(a, b); // CM(a,G) AND CM(b,G) -> AssignMark(result,G)
+}
+```
+
+```text
+One complete compatible cube; the result C and its layer are fixed:
+  CM(a,G): I1 -> a/G, I2 -> a/G
+  CM(b,G): I3 -> b/G, I4 -> b/G
+
+Enumerate bindings, then split each binding:
+  (I1,I3) -> emit I1 -> C and I3 -> C
+  (I1,I4) -> emit I1 -> C and I4 -> C
+  (I2,I3) -> emit I2 -> C and I3 -> C
+  (I2,I4) -> emit I2 -> C and I4 -> C
+  The edge store removes repeated arms after this work.
+
+Keep origin choices separately, then emit their union:
+  emit I1 -> C, I2 -> C, I3 -> C, I4 -> C
+
+Both produce the same four arms. Neither produces ZERO -> C.
+If CM(b,G) has no accepted input, neither produces any arm.
+```
+
+For independent slots with n and m choices, the first path visits n*m
+bindings. The second visits n+m memberships. With many slots, the first
+cost is a product and the second is a sum. This is the intended saving.
+It is separate from replacing one representative with all contributing
+origins, which can increase the number of stored edges.
 
 The current ConjunctionStore uses KaryJoin, and RulePredicateStore.join
 streams compatible binding products. Adding only a loop over a completed
-binding fixes the omitted arms, but does not remove those origin products.
-The run-1 result-producer path must use the factored projection below;
-do not put the new loop after an unchanged origin Cartesian join and
-claim that combinations were avoided.
+binding fixes the omitted arms, but retains this enumeration. The run-1
+result-producer path must use the factored projection below; do not put
+the new loop after an unchanged origin Cartesian join and claim that
+combinations were avoided.
 
 Do not implement this change by enumerating all ND premise sets or
 restoring Cartesian E6 bindings. For run-1 fixed-target result production,
@@ -176,36 +214,59 @@ agree. Intersect their candidate keys when the same leaf is joined, and
 reject an empty intersection. Do not substitute "each leaf is nonempty"
 for a complete compatible NNF branch or an action's seed permission.
 
-After these checks, let `choices[l]` be the compatible input choices for
-each distinct required leaf. The result payload is fixed for this action
-and effective-layer partition. Its origin projection is:
+After these checks, keep only choices that participate in a complete
+compatible binding for this cube, action and result partition. The result
+payload and its effective layer are fixed. Keep ZERO admission separate
+from the union of nonzero origins:
 
 ```kotlin
-fun publishReadyResult(partition: ReadyFixedTarget) {
-    check(partition.completeAndCompatible)
+fun publishReadyResult(cube: ReadyFixedTargetCube) {
+    check(cube.completeAndCompatible)
     val origins = LinkedHashSet<InitialAp>()
-    var allZeroPossible = true
-    for (choices in partition.requiredLeafChoices) {
+    for (choices in cube.viableLeafChoices) {
         check(choices.isNotEmpty())
-        allZeroPossible = allZeroPossible && choices.containsKey(ap.zero)
         for (initial in choices.keys) {
             cancellation.checkpoint()
             if (!initial.isZero) origins += initial
         }
     }
     for (initial in origins)
-        emitOrdinary(initial, forceRun1Layer(initial, partition.result))
-    if (allZeroPossible)
-        emitOrdinary(ap.zero, forceRun1Layer(ap.zero, partition.result))
+        emitOrdinary(initial, forceRun1Layer(initial, cube.result))
+
+    // Admit a complete binding using ZERO-premise inputs only.
+    // Preserve this cube's compatibility, layer and action/seed checks.
+    val zeroBinding = cube.completeBindingUsingOnly(ap.zero)
+    if (zeroBinding != null) {
+        check(zeroBinding.inputs.all { it.premise == ap.zero })
+        emitOrdinary(ap.zero, forceRun1Layer(ap.zero, cube.result))
+    }
 }
 ```
 
-This is a proposed result-producer interface, not an existing API. Empty
-or unconditional predicates keep their existing source/GEN path. An
-all-ZERO choice can coexist with nonzero choices in a factored partition;
-in that case retain both ZERO and nonzero arms. For example,
-`choices[0]={ZERO,I_a}, choices[1]={ZERO,I_b}` also admits the all-ZERO
-binding. Testing only whether the total nonzero set is empty would lose it.
+This is a proposed result-producer interface, not an existing API. The
+ZERO-only check returns an actual complete cube binding, not a test for
+ZERO's presence in a pooled set. It uses the existing condition and seed
+checks with the inputs restricted to ZERO-premise edges. For a fixed cube
+with independent slots, it reduces to checking that every required slot
+has a ZERO input. Shared leaves must also pass the existing agreement
+checks. Do not combine ZERO evidence across OR branches or incompatible
+headers. This check does not require enumerating nonzero origin products.
+Empty or unconditional predicates keep their existing source/GEN path.
+
+```text
+Condition: A AND B
+  A: {ZERO},    B: {I_b}       -> I_b -> C; no ZERO -> C
+  A: {ZERO},    B: {}          -> no result
+  A: {ZERO},    B: {ZERO}      -> ZERO -> C
+  A: {ZERO,I_a}, B: {ZERO,I_b} -> ZERO -> C, I_a -> C, I_b -> C
+                                ZERO is valid because (ZERO,ZERO)
+                                satisfies this complete cube.
+
+Condition: (A AND B) OR (C AND D)
+  A: {ZERO}, B: {I_b}, C: {I_c}, D: {ZERO}
+  -> I_b -> result, I_c -> result; no ZERO -> result
+     Neither cube is satisfied entirely by ZERO-premise edges.
+```
 
 On the first complete partition, offer all supported origins. A later
 origin must also get an arm even when C was already emitted for another
@@ -249,21 +310,30 @@ also prove equality of the denoted demand relation after the existing
 merge/subsumption rules. Equal meaning does not require equal physical
 rows or normalization partitions.
 
-For factored compatible choices A1,...,An and a fixed C:
+Let B_C be the finite set of complete compatible bindings for the same
+scope, cube, action and fixed result C. Then:
 
 ```text
-union over complete choices B of split(B,C)
-  = { I -> C | I != ZERO and I occurs in some compatible Aj }
-    plus ZERO -> C exactly when every Aj contains ZERO
+union over B in B_C of split(B,C)
+  = { I -> C | I != ZERO and I occurs in some B in B_C }
+    plus ZERO -> C iff some B in B_C uses only ZERO-premise inputs
 ```
 
-For the reverse inclusion, choose the named input at its leaf and the
-first compatible input at each other distinct leaf. Shared leaves use
-one agreed choice. For ZERO, choose ZERO at every leaf. These witnesses
-use finite nonempty lists; no classical choice is required. The forward
-inclusion follows by inspecting the inputs of the chosen complete binding.
-This law applies after compatibility/action partitioning, not to arbitrary
-unfiltered slot pools.
+In each direction, the same accepted binding is the witness. A nonzero
+arm names one of its inputs. A ZERO arm requires every input in that
+binding to have a ZERO premise. Conversely, a completed all-ZERO binding
+emits ZERO by the scalar emission rule. Thus the projection cannot create
+a ZERO result in the absence of an all-ZERO cube witness.
+
+For independent choices A1,...,An within one fixed compatible cube,
+B_C = A1 x ... x An. Its viable nonzero origins are the union of those
+choices, and an all-ZERO binding exists exactly when every Aj contains
+ZERO. Construct it by choosing ZERO at each slot. To witness a nonzero
+arm, choose its named input and one input at each other slot. These
+witnesses use finite nonempty lists; no classical choice is required.
+For shared leaves or other compatibility constraints, prove the viable
+choices and ZERO-only check equivalent to B_C before using the projection.
+Nonempty unfiltered slot pools alone do not prove this property.
 
 Additional required laws are complete-condition admission, atomic-origin
 closure through propagation/calls, current representative-result inclusion,
@@ -303,6 +373,9 @@ Required independent controls:
   conditions produce none. Repeated initials produce one arm.
 - All-ZERO, mixed ZERO/nonzero, and factored alternatives that allow both
   an all-ZERO binding and nonzero bindings retain exactly the required arms.
+- ZERO inputs in different OR cubes, incomplete cubes, or incompatible
+  bindings never produce a ZERO-premise result. Check ZERO admission
+  against a scalar complete-cube oracle, separately from nonzero arms.
 - Late origins, reversed arrival orders, annotation growth, OR branches,
   shared leaves and incompatible repeated-leaf headers preserve the scalar
   complete-binding projection. No unrelated branch/origin is included.
