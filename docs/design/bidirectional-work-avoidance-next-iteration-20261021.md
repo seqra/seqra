@@ -1,7 +1,9 @@
 # Avoid repeated analyzer work: next iteration
 
 Date: 21 October 2026. Status: **ranked proposal based on the closed fresh study**.
-No item in this document is implemented or selected. The current runtime is
+This revision adds the requested run-1 ND guidance correction to the next
+iteration. The five performance items remain unselected. No change in
+this document is implemented. The current runtime is
 `51dbc4d66fb1bf1b56071dbf18c90c5909e3146b`.
 
 Use the [fresh performance report](../reports/bidirectional-cleaner-work-performance-20261021.md)
@@ -15,17 +17,319 @@ are in `/drive-testcomp/opentaint-go-rules/cleaner-work-20261021`.
 | thingsboard | run-1 OOM | none | none |
 | Stirling-PDF | run-2 OOM | run-1 | run-1 |
 
-The new work must preserve analyzer semantics. No new field, mark, rule,
-static-supply or layer approximation is proposed. Keep complete premises,
-source/sink identities, witness keys, request effects and later FULL
-analysis. Work order, duplicate callback counts and progress before a
-resource limit can change. Follow [proof-guide.md](../../spec/proof-guide.md).
-Do not change the IR, reference managers or cache policy.
+**Explicit semantic correction:** run-1 rule results must retain every
+contributing initial as a separate unary origin. This replaces the current
+representative-only result and restores the omitted demand pairs. It can
+add run-1 DEMAND edges and candidates. It is not an equivalence claim
+against the representative-only runtime.
+
+The five performance items must preserve the analysis contract in which
+they operate. Keep complete condition admission, source/sink identities,
+witness keys, request effects and later FULL analysis. No other field,
+mark, rule-action, static-supply or layer change is proposed. Work order,
+duplicate callback counts and progress before a resource limit can change.
+Follow [proof-guide.md](../../spec/proof-guide.md). Do not change the IR,
+reference managers or cache policy.
+
+## Required correction: emit each contributing run-1 origin
+
+This correctness change is a prerequisite for the next iteration. Its
+priority does not come from a measured speedup. The measurements above
+still describe the representative-only runtime.
+
+### Current and new behavior
+
+Keep the complete rule check. Let `S` be the distinct nonzero canonical
+initials of one complete, compatible condition binding. Let `C` be the
+result produced by its existing action.
+
+```text
+Reference ND dependency:  {I1, I2} -> C / DEMAND
+Current run-1 result:     repr(I1, I2) -> C / DEMAND
+New run-1 results:        I1 -> C / DEMAND
+                         I2 -> C / DEMAND
+```
+
+Each new edge has one `InitialAp` premise. Do not construct a singleton
+`PremiseSet`, retain an executable ND edge, or enter the run-1 E6 join.
+Here, an ordinary edge means one premise; it does not mean Layer.NORMAL.
+GROUP results remain DEMAND.
+
+**Why:** the representative is a sound forward weakening of a completed
+conjunction, but it omits the other origin labels. The ordinary handoff
+can only export the origins that were retained. Emitting every member
+keeps the forward approximation and restores all per-member demand pairs
+of the reference ND result. More callers can apply the new unary arms;
+these extra results remain candidates for later FULL refinement.
+
+```java
+Object relay(Object a, Object b) {
+    Object r = combine(a, b); // configured source rule below
+    return r;
+}
+// One top-level rule, group G:
+// ContainsMark(arg0, (G,T)) AND ContainsMark(arg1, (G,U))
+//     -> AssignMark(result, (G,V))
+```
+
+```text
+Run-1 condition: CM(a,G) AND CM(b,G)
+Accepted facts: I_a -> a/G, I_b -> b/G
+Result C:       return/G, DEMAND
+
+Before: I_a -> return/G
+        backward guide: return/G -> I_a
+
+After:  I_a -> return/G, I_b -> return/G
+        backward guides: return/G -> I_a, return/G -> I_b
+
+Only a's condition is satisfied: no result.
+Run-2 uses full marks at limit 1 and can follow both origin demands.
+Its actual rule reversal still requires the declared T and U semantics.
+```
+
+The missing pair is a structural guidance defect. This example does not
+claim a newly reproduced project-level false negative or replace the
+required end-to-end regression test.
+
+### Emission and ownership
+
+Both active local result producers need the change:
+
+- `ConjunctionStore` for explicit conjunctive edges.
+- `RulePredicateStore` for complete source predicate bindings.
+
+Separate complete binding admission from result-origin emission. In
+run-1, neither producer may first call `Run1Premises.combine` and lose
+the other initials. Source and conjunction result callbacks emit each
+origin. Sink callbacks still receive one complete binding, with all
+checked inputs, proof choices and witness facts; do not create a partial
+sink witness for each unary arm. Later FULL stores keep ExactPremises
+and their existing ND behavior.
+
+The integration owner is RunMethodLocalServices. Replace the run-1
+single-value premise policy with origin emission at these result paths.
+Remove the representative comparator when no production caller needs it.
+Keep the shared ApManager.union and later ExactPremises unchanged; do not
+put a mutable run mode in the AP manager.
+
+The following pseudocode defines the emission for one accepted binding.
+The inputs are already canonical atomic run-1 originals.
+
+```kotlin
+fun forEachRun1Origin(inputs: List<Input>, emit: (InitialAp) -> Unit) {
+    check(inputs.isNotEmpty())
+    val nonzero = LinkedHashSet<InitialAp>()
+    for (input in inputs) {
+        cancellation.checkpoint()
+        val initial = input.premise as InitialAp
+        check(initial.manager === ap)
+        check(initial.exclusion == ExclusionSet.Empty)
+        if (!initial.isZero) nonzero += initial
+    }
+    if (nonzero.isEmpty()) emit(ap.zero)
+    else for (initial in nonzero) emit(initial)
+}
+
+onCompleteSourceOrConjunction { binding ->
+    // Keep the original MULTI/fixed-target action classification.
+    val result = existingTarget(action, binding.layer)
+    forEachRun1Origin(binding.inputs) { initial ->
+        emit(initial, forceRun1Layer(initial, result))
+    }
+}
+```
+
+Keep the complete initial: base, path, tail, mark and E. Do not choose
+by argument/static preference, merge different initials, change source
+target geometry, or run a MULTI action as a unary AP transfer. Preserve
+action/occurrence IDs, seed permissions, field processing and static
+writer/read handling. Apply the existing output policy to each arm.
+Method-edge and summary stores retain their current delta admission.
+The ordinary HandOff and group-to-full demand matching need no new mode.
+
+ZERO stays neutral within one binding. `{ZERO,I_a}` emits only `I_a -> C`.
+An all-ZERO binding emits `ZERO -> C`. Do not add an unconditional result
+because only one required input came from ZERO.
+
+### Avoid origin products
+
+The current ConjunctionStore uses KaryJoin, and RulePredicateStore.join
+streams compatible binding products. Adding only a loop over a completed
+binding fixes the omitted arms, but does not remove those origin products.
+The run-1 result-producer path must use the factored projection below;
+do not put the new loop after an unchanged origin Cartesian join and
+claim that combinations were avoided.
+
+Do not implement this change by enumerating all ND premise sets or
+restoring Cartesian E6 bindings. For run-1 fixed-target result production,
+retain origin choices in factored form. Keep the existing scope, action,
+NNF proof/branch, leaf compatibility, effective-layer and fact-group
+partitions. Within one such partition, each canonical leaf has a map
+from canonical initial to its accepted input/version. Facts from distinct
+initials must not be merged into one checked input.
+
+For independent explicit slots, the condition is complete when every
+slot has an accepted input. For an NNF proof, shared canonical leaves
+must first pass the existing header checks; their origin choices must
+agree. Intersect their candidate keys when the same leaf is joined, and
+reject an empty intersection. Do not substitute "each leaf is nonempty"
+for a complete compatible NNF branch or an action's seed permission.
+
+After these checks, let `choices[l]` be the compatible input choices for
+each distinct required leaf. The result payload is fixed for this action
+and effective-layer partition. Its origin projection is:
+
+```kotlin
+fun publishReadyResult(partition: ReadyFixedTarget) {
+    check(partition.completeAndCompatible)
+    val origins = LinkedHashSet<InitialAp>()
+    var allZeroPossible = true
+    for (choices in partition.requiredLeafChoices) {
+        check(choices.isNotEmpty())
+        allZeroPossible = allZeroPossible && choices.containsKey(ap.zero)
+        for (initial in choices.keys) {
+            cancellation.checkpoint()
+            if (!initial.isZero) origins += initial
+        }
+    }
+    for (initial in origins)
+        emitOrdinary(initial, forceRun1Layer(initial, partition.result))
+    if (allZeroPossible)
+        emitOrdinary(ap.zero, forceRun1Layer(ap.zero, partition.result))
+}
+```
+
+This is a proposed result-producer interface, not an existing API. Empty
+or unconditional predicates keep their existing source/GEN path. An
+all-ZERO choice can coexist with nonzero choices in a factored partition;
+in that case retain both ZERO and nonzero arms. For example,
+`choices[0]={ZERO,I_a}, choices[1]={ZERO,I_b}` also admits the all-ZERO
+binding. Testing only whether the total nonzero set is empty would lose it.
+
+On the first complete partition, offer all supported origins. A later
+origin must also get an arm even when C was already emitted for another
+origin. A later conclusion delta must reach all supported origins.
+Use existing local version/delta state and ordinary edge admission; do
+not add a global origin history or a shadow store of ND combinations.
+
+The factored representation removes products of origin choices for these
+result edges. It does not claim to remove every NNF proof-shape product
+or complete sink-witness combination. Keep those compatibility and witness
+contracts. The two producer adapters must prove that their factored
+projection equals emission over every compatible complete binding;
+grouping only by rule ID or group G is insufficient.
+
+### Constructive correctness laws
+
+For one completed binding B define `origins(B)` as its distinct nonzero
+initials, or `{ZERO}` if every input origin is ZERO. Define:
+
+```text
+split(B,C) = { (I,C,DEMAND) | I in origins(B) }
+
+H({I1,...,Ik} -> C) = { (demand(C), demand(Ij)) | 1 <= j <= k }
+H(split(B,C))       = the same set of complete demand pairs
+```
+
+H uses the existing leaf extraction, tail normalization and mark-exclusion
+normalization in `HandOff.toBackward`. Equality is over the full entry
+and exit pair, including the mark group. Equal guide-entry sets alone
+are insufficient. Group G at either end still permits the corresponding
+full marks of G in run-2 through existing matching.
+
+The proof is constructive: each ND member has its own unary arm, and
+each arm names a member of that completed binding. Apply the same handoff
+normalization to the same C/member pair in both directions. ZERO uses
+the existing canonical union-neutral rule. No new handoff inference or
+omitted-origin recovery assumption is needed.
+
+This is equality of the direct clause projection. For stored results,
+also prove equality of the denoted demand relation after the existing
+merge/subsumption rules. Equal meaning does not require equal physical
+rows or normalization partitions.
+
+For factored compatible choices A1,...,An and a fixed C:
+
+```text
+union over complete choices B of split(B,C)
+  = { I -> C | I != ZERO and I occurs in some compatible Aj }
+    plus ZERO -> C exactly when every Aj contains ZERO
+```
+
+For the reverse inclusion, choose the named input at its leaf and the
+first compatible input at each other distinct leaf. Shared leaves use
+one agreed choice. For ZERO, choose ZERO at every leaf. These witnesses
+use finite nonempty lists; no classical choice is required. The forward
+inclusion follows by inspecting the inputs of the chosen complete binding.
+This law applies after compatibility/action partitioning, not to arbitrary
+unfiltered slot pools.
+
+Additional required laws are complete-condition admission, atomic-origin
+closure through propagation/calls, current representative-result inclusion,
+per-member caller-binding coverage, sticky DEMAND, and unchanged full sink
+evidence. A complete reference ND caller binding supplies every arm, so
+it still produces C. Applying an arm with fewer inputs can only add a
+run-1 candidate. Later FULL conjunctions must retain all actual premises.
+
+Restore per-member guidance wherever the reference ND summary exists;
+do not describe this local equality as a proof of the whole analyzer.
+Internal sinks/dead locals still use the existing complete witnesses and
+seed path, and need integration tests. This correction alone does not
+prove termination, completed project parity or every driver adapter.
+
+### Proof and implementation gate
+
+Extend the constructive model with all-origin emission, factored-choice
+projection, ZERO alternatives and equality of complete handoff pairs.
+The existing `Run1RepresentativePremises.lean` representative membership
+and guide-entry theorem do not prove these new requirements. Keep their
+historical scope; add the new laws and audit them before implementation.
+
+A bounded design check passed 4680 independent-slot cases and 512 shared-
+leaf cases against a scalar complete-binding oracle. It includes empty
+slots and ZERO alternatives. This checks the abstract origin projection;
+it is not a Lean proof or validation of the NNF, AP or driver adapters.
+
+When this correction is implemented, update `ap.md` §0.4,
+`grouped-run1-statics.md` §0.1 and the representative-premise design's
+handoff argument. They currently specify the running implementation.
+This proposal supersedes that policy for the next iteration only; the
+normative runtime specifications are not silently changed by this edit.
+
+Required independent controls:
+
+- Two and three different initials produce every unary arm; missing
+  conditions produce none. Repeated initials produce one arm.
+- All-ZERO, mixed ZERO/nonzero, and factored alternatives that allow both
+  an all-ZERO binding and nonzero bindings retain exactly the required arms.
+- Late origins, reversed arrival orders, annotation growth, OR branches,
+  shared leaves and incompatible repeated-leaf headers preserve the scalar
+  complete-binding projection. No unrelated branch/origin is included.
+- MULTI source geometry, source action/seed identities and complete sink
+  witnesses stay intact. Keep nonstatic, static-field and exact static-class
+  originals, without applying the old representative preference.
+- HandOff pairs equal the complete-ND reference for every result leaf.
+  A run-1/2/3 trace must require the former discarded input's full mark;
+  run-2 gets its group demand and later FULL analysis restores the complete
+  conjunction. Include an internal sink with a dead local result.
+- Run-1 allocates no PremiseSet/E6 origin products. Later FULL tests keep
+  their exact ND labels and caller joins. No runtime or benchmark has been
+  changed or rerun for this proposal edit.
+
+For k distinct contributing initials and one fixed C, output can grow
+from one arm to k arms. With n_j compatible choices per independent leaf,
+the origin representation uses `O(sum n_j)` memberships instead of
+enumerating `product n_j` origin tuples. Proof-shape/witness costs remain
+separate. More unary edges can increase run-1 time and storage; this is a
+required guidance correction, not a promised memory optimization.
 
 ## Expected impact and selection order
 
-The order gives priority to the run-1 engine target, then to completion
-of later refinement. Expected effect is distinct from measured saving.
+Apply the required ND guidance correction above before accepting the
+next iteration. The following optimization order then gives priority
+to the run-1 engine target and later refinement. Expected effect is
+distinct from measured saving.
 
 | Rank | Candidate | Expected effect | Evidence and confidence |
 | --- | --- | --- | --- |
@@ -505,7 +809,11 @@ The OOM runs do not prove coverage of the two exact main paths.
 
 ## Implementation gate
 
-Select scope before implementation. First prove the stated local laws
+The ND correction explicitly changes the retained run-1 origin/demand
+relation. The five performance items preserve the corrected contract;
+they must not retain representative-only behavior as their equivalence
+reference. Select their scope before implementation. First prove the
+stated local laws
 constructively in Lean, then add independent differential controls and
 implement within the existing owners. Compare complete facts, selected
 guidance, request effects and witness identities at completed barriers.
