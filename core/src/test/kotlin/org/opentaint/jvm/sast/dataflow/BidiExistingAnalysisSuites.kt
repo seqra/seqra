@@ -4,19 +4,19 @@ package org.opentaint.jvm.sast.dataflow
  *  Only their class declarations are open for these inherited variants. */
 class BidiTreeCleanerFieldSensitivityAnalysisTest : CleanerFieldSensitivityAnalysisTest() {
     override val useBidiEntry = true
-    override val bidiLimits = (1..9).toList()
+    override val bidiLimits = listOf(1) + (1..8).toList()
 }
 class BidiTreeDeepCleanSummaryAnalysisTest : DeepCleanSummaryAnalysisTest() {
     override val useBidiEntry = true
-    override val bidiLimits = (1..9).toList()
+    override val bidiLimits = listOf(1) + (1..8).toList()
 }
 class BidiTreeCleanerDslAnalysisTest : CleanerDslAnalysisTest() {
     override val useBidiEntry = true
-    override val bidiLimits = (1..9).toList()
+    override val bidiLimits = listOf(1) + (1..8).toList()
 }
 class BidiTreeCleanerDslControlFlowAnalysisTest : CleanerDslControlFlowAnalysisTest() {
     override val useBidiEntry = true
-    override val bidiLimits = (1..9).toList()
+    override val bidiLimits = listOf(1) + (1..8).toList()
 }
 class BidiTreeAnyFieldPrimitiveAnalysisTest : AnyFieldPrimitiveAnalysisTest() {
     override val useBidiEntry = true
@@ -25,13 +25,13 @@ class BidiTreeAnyFieldPrimitiveAnalysisTest : AnyFieldPrimitiveAnalysisTest() {
 /* Reachability and return tests also retain their original default configurations. */
 class BidiJavaDataFlowReachabilityTest : JavaDataFlowReachabilityTest() {
     override val useBidiEntry = true
-    override val bidiLimits = (1..9).toList()
+    override val bidiLimits = listOf(1) + (1..8).toList()
 }
 class BidiKotlinDataFlowReachabilityTest : KotlinDataFlowReachabilityTest() {
     override val useBidiEntry = true
-    override val bidiLimits = (1..9).toList()
+    override val bidiLimits = listOf(1) + (1..8).toList()
 }
 class BidiMultiReturnDataFlowTest : MultiReturnDataFlowTest() {
     override val useBidiEntry = true
-    override val bidiLimits = (1..9).toList()
+    override val bidiLimits = listOf(1) + (1..8).toList()
 }

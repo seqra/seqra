@@ -235,10 +235,19 @@ class ReferenceSourcePredicateTest {
             assertTrue(first.raw.isEmpty())
             first.give(source, setOf(f.pattern(b)), inputB)
             second.give(source, setOf(f.pattern(a)), inputA)
-            // Both complete inputs are required, but run 1 keeps the argument-a original.
-            val expected = setOf(first.expected(setOf(f.pattern(a)), f.pattern(ret)))
+            // Complete admission remains local to one actor/statement. Each contributor then
+            // gets its own atomic arm to the same fixed target; neither partial input emits ZERO.
+            val expected = setOf(first.expected(setOf(f.pattern(a)), f.pattern(ret)),
+                first.expected(setOf(f.pattern(b)), f.pattern(ret)))
             assertEquals(expected, first.raw.toSet())
             assertEquals(expected, second.raw.toSet())
+            assertEquals(2, first.raw.size)
+            assertEquals(2, second.raw.size)
+            assertTrue(first.raw.all { it.premise.size == 1 && ZERO_PATTERN !in it.premise })
+            first.give(source, setOf(f.pattern(a)), inputA)
+            second.give(source, setOf(f.pattern(b)), inputB)
+            assertEquals(2, first.raw.size, "Duplicate accepted input does not reemit a fixed result arm")
+            assertEquals(2, second.raw.size)
         }
     }
 

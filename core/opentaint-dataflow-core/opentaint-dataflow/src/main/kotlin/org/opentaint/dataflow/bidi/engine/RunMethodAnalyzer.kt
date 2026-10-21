@@ -229,6 +229,19 @@ class RunMethodAnalyzer(
         }
     }
 
+    /** Only for the immediate callback from this actor's ops.applyEdge run1Policy.
+     * That policy already projected and covered each result with this AP manager. */
+    internal fun collectAfterRun1Policy(at: OperationInput, sink: ResultSink): ApOut {
+        return object : ApOut {
+            override fun result(f: Facts) {
+                val value = if (config.run1 && (f is TaintTree || Run1StaticService.hasStaticMember(at.premise)))
+                    f.withLayer(Layer.DEMAND) else f
+                if (config.run1) ops.run1Cover(value) { sink(at.premise, it) } else sink(at.premise, value)
+            }
+            override fun markRequest(mark: TaintMark) = needGroups(at, mark)
+        }
+    }
+
     internal fun needGroups(at: OperationInput, mark: TaintMark) {
         if (!config.run1) return
         val original = at.premise as? InitialAp ?: return

@@ -11,9 +11,9 @@ import org.opentaint.dataflow.bidi.interp.StageKind.*
 import kotlin.test.*
 import kotlin.time.Duration.Companion.seconds
 
-/** The discarded original must remain recoverable through actual FULL backward inputs. */
+/** Each run-1 original must guide recovery through actual FULL backward inputs. */
 class RepresentativeRefinementTest {
-    @Test fun `B2 recovers both FULL inputs after R1 keeps only the first argument`() {
+    @Test fun `B2 recovers both FULL inputs after R1 emits both argument origins`() {
         DriverFixtures().use { f ->
             val p = f.program
             p.enableGroupRuleViews()
@@ -54,11 +54,12 @@ class RepresentativeRefinementTest {
             val outputs = run1.analyzers.single { it.key == callee }.summaries.all().toList()
                 .filter { (_, result) -> result.base == ret && result is TaintTree }
             assertTrue(outputs.isNotEmpty(), "A complete GROUP binding emits the callee result")
-            assertTrue(outputs.all { (initial, result) -> initial is InitialAp && initial.base == a && result.layer == Layer.DEMAND })
+            assertEquals(setOf(a, b), outputs.map { it.first.members.single().base }.toSet())
+            assertTrue(outputs.all { (initial, result) -> initial is InitialAp && result.layer == Layer.DEMAND })
             val backward = f.results.single { it.runIndex == 2 }
             val recovered = backward.analyzers.flatMap { it.sourceHits?.entries()?.toList().orEmpty() }
-            assertTrue(recovered.any { it.first == main && it.third == first }, "The chosen input has its real source")
-            assertTrue(recovered.any { it.first == main && it.third == second }, "The omitted input also has its real source")
+            assertTrue(recovered.any { it.first == main && it.third == first }, "The first input has its real source")
+            assertTrue(recovered.any { it.first == main && it.third == second }, "The second input also has its real source")
             assertTrue(report.entries.any { it.key.rule == sink.rule })
             val run3 = f.results.single { it.runIndex == 3 }
             assertTrue(run3.analyzers.single { it.key == callee }.summaries.all().any { (premise, result) ->

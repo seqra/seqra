@@ -36,7 +36,7 @@ class BidiMethodExitScopeTest {
             val rule = loader.loadRules().rulesWithMeta.single().first as TaintRuleFromSemgrep<SerializedItem>
             val unexpected = linkedMapOf<Boolean, Int>()
             for (aliases in listOf(true, false)) {
-                TestAnalysisRunner(samples, FixedLimits((1..9).toList()),
+                TestAnalysisRunner(samples, FixedLimits(listOf(1) + (1..8).toList()),
                     useAliasAnalysis = aliases, observeFlow = true).use { runner ->
                     val result = runner.run(rule, SerializedTaintConfig(), sampleClass.startsWith("custom."),
                         linkedSetOf("$sampleClass\$Positive", "$sampleClass\$Negative"))

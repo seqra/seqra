@@ -1,11 +1,11 @@
 # Current proof status
 
-## Selected next iteration: all origins, routing and GROUP projection
+## Current iteration: all origins, routing and GROUP projection
 
 The [implementation specification](../docs/design/bidirectional-run1-origins-routing-projection-implementation-20261021.md)
 selects all contributing atomic run-1 origins, impossible exact-class/field
 routing removal and canonical GROUP projection reuse. **Runtime changes
-are pending.** The first item is a semantic correction to the current
+are implemented; fixed-project measurements are pending.** The first item is a semantic correction to the earlier
 representative-only result; the other two preserve the corrected contract.
 ZERO requires a complete compatible all-ZERO cube. FULL ND, sink witnesses,
 field/static transfer and the run schedule retain their current behavior.
@@ -22,20 +22,29 @@ arbitrary-length exact-class disjointness/prefix necessity and local
 projection value identities. NNF/store/actor adapters, receiving-manager
 canonical identities and the audited callback's cover closure remain
 explicit implementation gates. This is not a whole-engine or termination
-proof, and no candidate runtime test or performance result is claimed.
+proof. The common suite passes 1,713 tests; the JVM suite passes 438. Query
+controls pass 38 with three existing skips, and the consumer build passes.
+The broader application suite has 166 passes, nine existing finding-set
+failures and one skip. Its source-checked pre-iteration control has the
+same 176 outcomes and the same 27 extra cleaner candidate IDs, with no
+missing expected IDs. Each failing analysis completes and accepts run-9
+and stops with `POLICY`. This comparison establishes no new regression
+in these controls; it does not make the broader suite green. See the
+[closed comparison](/drive-testcomp/opentaint-go-rules/run1-origins-routing-projection-20261021/validation/application-regressions/comparison.md).
+No fresh performance result is claimed.
 
 Latest measured reference remains `51dbc4d66`: OWASP **run-6 TIMEOUT**
 (latest COMPLETE/accepted run-5); conductor **run-2 OOM** (run-1/run-1);
 ThingsBoard **run-1 OOM** (none/none); Stirling-PDF **run-2 OOM**
 (run-1/run-1). See the [closed report](../docs/reports/bidirectional-cleaner-work-performance-20261021.md).
-The running representative contract below remains the historical/runtime
-reference until the new iteration is implemented.
+The representative contract below is historical. Its proofs do not replace
+the current all-origin and complete-handoff-pair obligations.
 
-## Selected 21 October run-1 representative premises
+## Historical 21 October run-1 representative premises
 
 The [selected implementation contract](../docs/design/bidirectional-run1-single-premise-rules-20261021.md)
-updates [ap.md §0.4](ap.md#04-run-1-representative-premises-selected-21-october)
-and [the grouped/static spec](grouped-run1-statics.md#01-run-1-atomic-origin-exception-21-october).
+updates [ap.md §0.4](ap.md#04-run-1-all-contributing-origins-selected-21-october)
+and [the grouped/static spec](grouped-run1-statics.md#01-run-1-all-origin-exception-21-october).
 A complete local binding now emits one original in run-1. All GROUP results
 stay DEMAND. Source geometry, complete sink evidence and later FULL ND
 remain unchanged. This deliberately weakens caller/static correlation;
@@ -51,7 +60,7 @@ binds the constructive source/log hashes. Checked scope: complete cube
 availability, stable member choice, fixed-clause positive-Horn inclusion,
 atomic labels and equal projected handoff entries for corresponding outputs.
 This is not whole-analyzer discovery, full backward recovery or a runtime
-bound. The [proof map](grouped-run1-statics-proofs.md#selected-21-october-representative-update)
+bound. The [proof map](grouped-run1-statics-proofs.md#historical-21-october-representative-update)
 lists the remaining AP/producer/static/source/sink/handoff adapters.
 
 Latest relevant measured source is `0f7feafd88d5ca84dd1ae12ef4b8a4920c3d1b48`.

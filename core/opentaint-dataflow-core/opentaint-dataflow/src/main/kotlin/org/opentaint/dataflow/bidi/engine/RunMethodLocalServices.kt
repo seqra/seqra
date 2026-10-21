@@ -13,10 +13,13 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 /** Rule joins use the method abstraction for completed mark-demand deliveries. */
 class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
     private var owner: RunMethodAnalyzer? = core
-    private val premises: PremiseCombination = if (core.config.run1) Run1Premises(core.ap) else ExactPremises(core.ap)
-    private var conjunctionStore: ConjunctionStore? = if (core.forward) ConjunctionStore(core.ap, core.context.shared.n2Statistics, premises) else null
+    private var conjunctionStore: ConjunctionStore? = if (core.forward) ConjunctionStore(core.ap, core.context.shared.n2Statistics) else null
     private var predicateStore: RulePredicateStore? =
-        if (core.forward) RulePredicateStore(core.ap, core.context.shared.formStatistics, premises) else null
+        if (core.forward) RulePredicateStore(core.ap, core.context.shared.formStatistics) else null
+    private var originConjunctionStore: Run1OriginConjunctionStore? =
+        if (core.forward && core.config.run1) Run1OriginConjunctionStore(core.ap) else null
+    private var originPredicateStore: Run1OriginPredicateStore? =
+        if (core.forward && core.config.run1) Run1OriginPredicateStore(core.ap, core.context.shared.formStatistics) else null
     override val conjunctions: ConjunctionStore? get() = conjunctionStore
     private var triggered: HashSet<Pair<CommonInst, Any>>? = HashSet()
     override val hasPendingRequests: Boolean get() = owner?.abstraction?.hasPending == true
@@ -59,8 +62,17 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
                 MarkCheck.None -> Unit
                 is MarkCheck.Request -> core.needGroups(at, checked.mark)
                 is MarkCheck.Holds -> {
+                    val input = ConjunctionStore.Input(premise, checked.facts.layer, checked.facts)
+                    if (core.config.run1) {
+                        val targets = HashMap<Layer, Facts>()
+                        checkNotNull(originConjunctionStore).addOrigins(edge, node, edge.literals.size, index, input) { initial, layer ->
+                            val result = targets.getOrPut(layer) { core.ops.targetTree(edge.target, layer, core.mode) }
+                            sink(initial, core.forceRun1Layer(initial, result))
+                        }
+                        continue
+                    }
                     val combinations = store.add(edge, node, edge.literals.size, index,
-                        ConjunctionStore.Input(premise, checked.facts.layer, checked.facts))
+                        input)
                     for (combination in combinations) {
                         core.ap.cancellation.checkpoint()
                         val result = core.ops.targetTree(edge.target, combination.layer, core.mode)
@@ -89,7 +101,7 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
                 if (edge.edge.from.base != facts.base) continue
                 if (core.config.seededSources && !core.config.seeds.allowsSource(core.key, node, edge.forward, action.id)) continue
                 core.ops.applyEdge(facts, premise, edge.edge, statementEdge, core.mode,
-                    core.collect(at) { _, result ->
+                    core.collectAfterRun1Policy(at) { _, result ->
                         core.sourceHits?.add(core.key, node, edge.forward, action.id)
                         sink(premise, result)
                     }, may = edge.may)
@@ -109,7 +121,22 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
             when (val checked = core.ops.checkMark(facts, pattern, core.mode, core.unchangedStaticInitial(premise))) {
                 MarkCheck.None -> Unit
                 is MarkCheck.Request -> core.needGroups(at, checked.mark)
-                is MarkCheck.Holds -> checkNotNull(predicateStore).add(source.id, node, selected, leaf,
+                is MarkCheck.Holds -> if (core.config.run1) {
+                    checkNotNull(originPredicateStore).add(source.id, node, selected, leaf,
+                        ConjunctionStore.Input(premise, checked.facts.layer, checked.facts)) { cube ->
+                        if (allowSingle || cube.leaves.size >= 2) for (action in source.actions) {
+                            core.ap.cancellation.checkpoint()
+                            if (core.config.seededSources && cube.leaves.none { index ->
+                                core.config.seeds.allowsSource(core.key, node,
+                                    source.transfer(selected.leaves[index], action, multi = true).forward, action.id)
+                            }) continue
+                            val result = core.ops.targetTree(action.target, cube.layer, core.mode)
+                            cube.emitOrigins(action.id) { initial ->
+                                sink(initial, core.forceRun1Layer(initial, result))
+                            }
+                        }
+                    }
+                } else checkNotNull(predicateStore).add(source.id, node, selected, leaf,
                     ConjunctionStore.Input(premise, checked.facts.layer, checked.facts)) { combination ->
                     // GROUP folding can leave one accepted leaf in an original MULTI transfer.
                     if (allowSingle || combination.leaves.size >= 2) for (action in source.actions) {
@@ -165,7 +192,7 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
                         is MarkCheck.Request -> core.needGroups(at, checked.mark)
                         is MarkCheck.Holds -> {
                             parts += checked.facts
-                            checkNotNull(predicateStore).add(checkNotNull(sink.occurrenceId), node, predicate, index,
+                            checkNotNull(predicateStore).addBinding(checkNotNull(sink.occurrenceId), node, predicate, index,
                                 ConjunctionStore.Input(premise, checked.facts.layer, checked.facts)) { combination ->
                                 val edges = combination.inputs.map {
                                     SinkEdge(it.premise, it.layer, checkNotNull(it.facts))
@@ -189,7 +216,7 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
                             witness(core, sink, node, listOf(SinkEdge(premise, checked.facts.layer, checked.facts)))
                             fired += sink to checked.facts.layer
                         } else {
-                            val combinations = checkNotNull(conjunctionStore).add(sink.joinKey, node, sink.patterns.size, index,
+                            val combinations = checkNotNull(conjunctionStore).addBinding(sink.joinKey, node, sink.patterns.size, index,
                                 ConjunctionStore.Input(premise, checked.facts.layer, checked.facts))
                             for (combination in combinations) {
                                 core.ap.cancellation.checkpoint()
@@ -271,6 +298,8 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
     override fun freeze() {
         conjunctionStore = null
         predicateStore = null
+        originConjunctionStore = null
+        originPredicateStore = null
         triggered = null
         owner = null
     }

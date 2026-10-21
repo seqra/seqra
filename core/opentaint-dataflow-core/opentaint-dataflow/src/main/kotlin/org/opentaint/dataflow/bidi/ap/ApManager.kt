@@ -59,14 +59,30 @@ class ApManager(val cancellation: Cancellation, refManager: RefManager = RefMana
         return intern(mapped?.let(::MarkSet) ?: set)
     }
 
+    private fun projectedLeaf(old: TaintLeaves, mode: ApMode): TaintLeaves {
+        val exact = runtimeMarks(old.exact, mode)
+        val any = runtimeMarks(old.any, mode)
+        // Equal mark IDs do not establish ownership of the leaf payload.
+        return if (exact === old.exact && any === old.any) taintAlg.intern(old) else taintLeaves(exact, any)
+    }
+
     fun runtimeFact(f: Facts, mode: ApMode): Facts = if (mode.markMode == MarkMode.FULL) f else when (f) {
         is Reach -> f
-        is FlowTree -> flowTree(f.base, if (mode.markMode == MarkMode.GROUP && f.base == STATIC) Layer.DEMAND else f.layer,
-            f.exclusion, f.markExclusion.projected(marks, mode.markMode), f.root, f.tail)
-        is TaintTree -> taintTree(f.base, if (mode.markMode == MarkMode.GROUP) Layer.DEMAND else f.layer,
-            checkNotNull(taintAlg.mapLeaves(f.root, cancellation) {
-                taintLeaves(runtimeMarks(it.exact, mode), runtimeMarks(it.any, mode))
-            }), f.exclusion, f.anyTail)
+        is FlowTree -> {
+            val layer = if (mode.markMode == MarkMode.GROUP && f.base == STATIC) Layer.DEMAND else f.layer
+            val mx = intern(f.markExclusion.projected(marks, mode.markMode))
+            val exclusion = if (f.tail == Tail.ANY) ExclusionSet.Empty else intern(f.exclusion)
+            if (layer == f.layer && mx === f.markExclusion && exclusion === f.exclusion) f
+            else flowTree(f.base, layer, exclusion, mx, f.root, f.tail)
+        }
+        is TaintTree -> {
+            val root = checkNotNull(taintAlg.mapCanonicalLeaves(f.root, cancellation) { projectedLeaf(it, mode) })
+            val layer = if (mode.markMode == MarkMode.GROUP) Layer.DEMAND else f.layer
+            val tail = if (root.hasAny) f.anyTail else Tail.ANY_TAINT
+            val exclusion = if (tail == Tail.ANY || !root.hasAny) ExclusionSet.Empty else intern(f.exclusion)
+            if (root === f.root && layer == f.layer && tail == f.anyTail && exclusion === f.exclusion) f
+            else taintTree(f.base, layer, root, exclusion, tail)
+        }
     }
 
     fun path(accessor: AccessorIdx, next: PathNode?): PathNode {

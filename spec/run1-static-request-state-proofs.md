@@ -5,22 +5,22 @@ Date: 20 October 2026. Contract:
 The comparison base is `029ee41fd6`. Apply the selected enum filter to both
 algorithms in all equivalence and inclusion claims below.
 
-## Selected 21 October premise exception
+## Selected 21 October all-origin exception
 
-The [representative update](grouped-run1-statics-proofs.md#selected-21-october-representative-update)
+The [all-origin correction](grouped-run1-statics-proofs.md#selected-21-october-all-origin-correction)
 overrides this map's run-1 complete-ND writer/application requirements.
-Complete local condition evidence is still required before selection;
-the emitted summary then has one original. The static pool/caller matches
-that selected initial only. Old multi-input precision and ND joining are
-kept for exact FULL runs and historical reference controls. The three-set
-request protocol, canonical field covers, exact class carriers, enum filter
-and immutable GROUP laws are not changed.
+After complete compatible local admission, emit one atomic arm for every
+contributing nonzero original. ZERO needs a complete permitted all-ZERO
+binding. Each static pool/caller application matches that arm's initial.
+Keep full sink evidence, original source targets and later FULL exact ND.
+The three-set request protocol, canonical field covers, exact class carriers,
+enum filter and immutable GROUP laws do not change.
 
-The new narrow model proves local/Horn/atomic-label/projected-guide-entry
-laws. It does not prove the whole analyzer or full run-2 recovery. Use
-its adapter gates for discarded-input FULL reversal, complete sink evidence,
-fixed source targets and atomic static supply; do not report the old ND
-pipeline theorem as proof of this weakening or require equal run-1 edges.
+The new local models prove scalar/factored origin equality, exact ZERO,
+shared-leaf compatibility and full handoff pairs. Use their production
+adapter gates. They do not prove whole-engine termination or full run-2
+recovery. Old complete-ND or representative-only results remain reference
+proofs; they do not establish equality of the new run-1 edge relation.
 
 ## Proof boundary
 

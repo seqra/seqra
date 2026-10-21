@@ -1,10 +1,12 @@
 # Mark groups and direct static handling
 
 The selected 21 October update is the
-[run-1 representative-premise contract](../docs/design/bidirectional-run1-single-premise-rules-20261021.md).
-Its atomic-origin rule in §0.1 overrides the older complete-ND run-1
-requirements below. Complete local conditions and sink evidence stay
-required. Later FULL ND semantics are unchanged.
+[run-1 all-origin implementation contract](../docs/design/bidirectional-run1-origins-routing-projection-implementation-20261021.md).
+Its rule in §0.1 replaces representative selection and overrides older
+complete-ND run-1 requirements below. Emit every contributing nonzero origin
+after complete admission; emit ZERO only for a permitted complete all-ZERO
+binding. Complete local conditions and sink evidence stay required. Later
+FULL ND semantics are unchanged. This is an explicit semantic correction.
 
 The selected 20 October implementation is controlled by
 [Run-1 static request state and immutable GROUP identities](run1-static-request-state-and-group-identities.md).
@@ -82,8 +84,8 @@ spec for the current/new table, constructive proofs and implementation code.
 | Selected-mark cleaners | Can remove the exact selected mark | Request the selected position's group; retain actual group taint as DEMAND. Keep the FLOW complement and independent DEMAND repair. A group is never removed by this cleaner. |
 | Static flow | Static entry/request plans and propagation through method/call paths | Use a new run-scoped write/read/group service. Reads need a reached write; supplied groups need an actual derivation. Refine at the saved operation input. Do not relay static current facts through the run-1 CFG. |
 | Static precision | Ordinary static order and caller bindings constrain propagation | The global run-1 pool deliberately ignores static call order and caller context. These extra candidates are DEMAND. Later FULL runs use actual CFG/call transfer and strong writes. |
-| Static summaries | Ordinary return publication and W-dependent executable S defaults | Publish reached static effects early, with the selected run-1 atomic original and existing notification batching. Remove executable run-1 S defaults. After run-1, add one implicit shared static DEMAND for actual backward query permission. |
-| Run-1 combined origins | Complete unions can produce ND edges and E6 joins | After each complete local binding, keep one original; GROUP output geometry/layer and all checked evidence remain. Later FULL ND is unchanged. |
+| Static summaries | Ordinary return publication and W-dependent executable S defaults | Publish reached static effects early as atomic arms for all contributing origins, with existing notification batching. Remove executable run-1 S defaults. After run-1, add one implicit shared static DEMAND for actual backward query permission. |
+| Run-1 combined origins | Complete unions can produce ND edges and E6 joins | After each complete compatible local binding, emit each contributing nonzero original as a separate edge. Emit ZERO only for a complete permitted all-ZERO binding. GROUP geometry/layer and complete sink evidence remain. Later FULL ND is unchanged. |
 | ZERO at a call | Does not supply a static premise | Only in run-1, ZERO can activate a conditional static-premised summary while retaining that premise. It supplies no group. Later runs require the actual static fact. |
 | Requests | Full-mark Base and static requests | Reuse Base P/R with group sets. Remove static request slots/plans; use direct static interests and actual write/supply joins. Ordinary FLOW summaries still apply directly to actual caller group inputs without a Base request. |
 | Sink end-fact actions | Execute configured `trackFactsReachAnalysisEnd` actions | Treat this list as empty in every run. Keep sink conditions/seeds and ordinary source actions. This is an explicit rule-policy change beyond run-1. |
@@ -132,46 +134,51 @@ If a proof or implementation needs another major semantic change, expose
 it and obtain the intended behavior before implementing it, or retain this
 scope. Do not add a hidden helper to change the contract.
 
-### 0.1 Run-1 atomic-origin exception (21 October)
+### 0.1 Run-1 all-origin exception (21 October)
 
-Apply [ap.md §0.4](ap.md#04-run-1-representative-premises-selected-21-october).
-Every executable run-1 method edge, point resume, subscription and summary
-has one `InitialAp` original, including ZERO. After each complete compatible
-local NNF/slot binding, choose one original. Prefer argument, `this`, other
-legal non-static bases, static field, then exact static class point. Use
-a stable structural tie-break, not allocation or intern IDs. Ignore ZERO
-when any nonzero original exists. No new initial shape is introduced.
+Apply [ap.md §0.4](ap.md#04-run-1-all-contributing-origins-selected-21-october)
+and the selected implementation contract. Every executable run-1 method
+edge, point resume, subscription and summary has one `InitialAp` original.
+A complete compatible binding with distinct nonzero originals `I1,...,Ik`
+emits all arms `I1 -> C,...,Ik -> C`. The previous representative ranking
+and comparator are removed. Original AP geometry and result layers remain.
+No new initial shape is introduced.
 
-This is a semantic weakening, not equal decoded edges. A later caller or
-the static pool matches the **selected** original only. It need not supply
-an omitted member of the old ND premise. Additional GROUP results stay
-DEMAND. Complete local condition checking is unchanged but its candidate
-inputs can increase. Select independently for every complete binding;
-keep every resulting atomic edge under ordinary deduplication. Do not
-keep only one result for the whole cube or retract an earlier choice.
+A ZERO arm requires a complete compatible binding with only ZERO inputs,
+including the existing action/seed permission. A mixed `{ZERO,I}` binding
+emits `I`, never ZERO. Do not pool ZERO witnesses across OR branches or
+incompatible headers. Keep unconditional GEN and existing source permission.
 
-Keep all source/sink proof choices, repeated-leaf compatibility, checked
-facts, literal layers and occurrences. Join all contribution layers.
-A MULTI source still constructs its fixed target; one output original
-does not make its transfer unary. A sink retains its whole witness.
-These evidence objects are not executable multi-premise keys. Do not
-allocate `PremiseSet` before selection or keep omitted-origin history.
-`ApManager.union`, FULL guards, later forward ND/E6, fields, cleaners,
-mark-group policy, static routing and the run schedule are unchanged.
+This correction restores every contributing origin's demand pair. It can
+also add DEMAND candidates under partial later caller/static bindings.
+Each static arm uses the existing actual static matcher; each nonstatic arm
+uses ordinary singleton caller matching. Publication still requires the
+complete local condition. No arm creates a partial sink witness. Keep full
+sink inputs, proof, repeated-leaf compatibility and occurrence identities.
+MULTI source target geometry and unary anchors are unchanged.
 
-Run-1 call application follows the ordinary singleton path. A caller
-origin can be ZERO if the chosen actual input came from a source. The
-choice is local: parameter binding can change priority, so it need not
-be the minimum of the old caller union. Nonzero retained origins are
-members of that union; ZERO is also a permitted weakening. No run-1
-publication enters an ND summary join.
+Run-1 result stores factor origins by compatible proof/header shape. Shared
+canonical leaves require the same origin and header in each child. Keep
+separate OR proofs and explicit slots. Publish fresh origin membership;
+publish ZERO separately only after complete all-ZERO admission. Do not
+construct origin Cartesian products or executable `PremiseSet`. Full sink
+binding stores retain complete witness evidence. No new grounding label,
+field validation, root mask or global cache is permitted.
 
-Sections 9 and 11 specify selected-atomic static supply and handoff.
-Their earlier complete-ND claims remain reference/FULL evidence only.
-The [proof update](grouped-run1-statics-proofs.md#selected-21-october-representative-update)
-separates the checked local/Horn/entry laws from whole-analyzer adapter
-and run-2 coverage obligations. Singleton keys do not by themselves
-remove all local condition products or prove a time bound.
+Ordinary call application can map an input arm to caller ZERO when that
+actual input came from a source; this does not permit local mixed bindings
+to create ZERO. No run-1 publication enters E6. `ApManager.union`, later FULL
+ND, fields, cleaners, marks, request barriers, static propagation and the run
+schedule retain their current contracts. Exact-class routing removes only
+impossible effect attempts. GROUP identity reuse still normalizes with the
+receiving manager; one audited immediate callback skips duplicate projection.
+
+Sections 9 and 11 apply the all-origin relation and preserve full normalized
+handoff **pairs**, not merely their entry set. The
+[proof update](grouped-run1-statics-proofs.md#selected-21-october-all-origin-correction)
+states the checked local/factored/pair laws and production adapter gates.
+Older representative claims are historical only. Singleton keys and factored
+origins do not prove a whole-engine time bound.
 
 ## 1. Pinned implementation baseline
 
@@ -242,7 +249,7 @@ ordinary flow. DEMAND means a candidate that later analysis must refine.
 | Group(g) | Run-1 taint selector `(g, *)`; it is not FLOW |
 | Full(g,T) | Exact later mark: group plus complete old full identity |
 | Rooted supply | A finite source-backed derivation in the selected bounded run-1 AP/group relation: complete local admission, then actual matching of its emitted atomic relation; requests/hypotheses are not seeds |
-| Complete binding | Every required local condition/slot input is compatible and matched; run-1 then selects one original. Caller application matches that original at its actual port/stage/layer. FULL ND still requires every member |
+| Complete binding | Every required local condition/slot input is compatible and matched; run-1 then emits all contributing atomic origins. Caller application matches each arm at its actual port/stage/layer. FULL ND still requires every member |
 | Early static effect | A reached static conclusion published as a run-1 DEMAND summary before method exit |
 
 Static scopes include exact points and symbolic field descendant regions.
@@ -484,7 +491,7 @@ remaining positive atom cannot become unconditional merely by grouping.
 
 Every group-dependent condition/source result is DEMAND. Retain original
 FULL predicates, occurrence/action IDs and complete accepted GROUP literal
-evidence. Executable run-1 results use the selected original in §0.1.
+evidence. Executable run-1 results emit each contributing original under §0.1.
 GROUP leaf/proof ordinals are local to that view; they are not FULL ordinals.
 Diagnostic callback/proof counts can change. Semantic occurrence/report
 identities and every configured action remain.
@@ -604,7 +611,7 @@ legal geometry domain, stable full rule identities, and local read/write/
 condition descriptors. Code reads and actual static condition operands are
 consumers. An alias or write alone does not register a read or mark interest.
 Publish every reached static value effect from an existing alias/model
-write, with its selected atomic original. The lowerer must identify those
+write, with each contributing atomic original. The lowerer must identify those
 value transfers as writes. Keep their full alias paths and actual call
 stages. Do not classify keep edges, strong-preservation edges or static
 bindings as writes merely because their destination is static. A write
@@ -728,33 +735,32 @@ run-1 `S.* -> S.*` defaults. A real operation at the same field that changes
 a mark/group or other semantic relation is productive and must be retained.
 
 A source/model/boundary action must have its actual rule permission and
-ordinary accepted condition binding. Its result keeps that binding's
-selected atomic original after its complete local binding. Keep the
-original source transfer kind, target geometry, actions and occurrences.
-Do not reset a conditional local source to ZERO. The empty end-fact policy requires no waiting sink-GEN state.
+ordinary accepted complete condition binding. Its result emits each
+contributing nonzero original as an atomic arm. ZERO requires a complete
+permitted all-ZERO binding. Keep the original source transfer kind, target
+geometry, actions and occurrences. Do not reset a mixed conditional local
+source to ZERO. The empty end-fact policy requires no waiting sink-GEN state.
 
 The pool admits a computed static TAINT result only by these paths:
 
 1. A legitimate ordinary ZERO-rooted effect supplies its result directly.
    The source/control rule must actually execute under its selected view.
-2. An effect with a nonzero selected static original matches an actual
-   pool input for that initial. Apply the ordinary atomic relation at its owner.
-   A local all-static condition still needs every input before publication;
-   selection then prefers a field original over an exact class marker.
+2. A nonzero static-origin arm matches an actual pool input for that initial.
+   Apply the ordinary atomic relation at its owner. A local all-static
+   condition must still have all compatible inputs before publication.
 
-An effect with a selected nonstatic original stays conditional. Compose it
-outward through ordinary singleton caller application until its retained
-original is legitimate ZERO or an actually matched static initial. A mixed
-local cube selects a nonstatic original when one exists; no mixed executable
-premise remains. Keep the actual call/stage, CallerRef and AP matcher.
+Each nonstatic arm stays conditional. Compose it outward through ordinary
+singleton caller application until its original is legitimate ZERO or an
+actually matched static initial. A mixed local cube emits every contributing
+static and nonstatic arm independently. Keep the actual call/stage, CallerRef
+and AP matcher. No mixed executable premise remains.
 
-The old same-call multi-input correlation is deliberately weakened. Once
-`M` publishes a representative result from a complete local binding,
-`M(marked,clean)` can use it if the selected input matches, even when the
-old ND summary also needed the other input. This is a run-1 DEMAND candidate.
-It does not authorize a sink with an incomplete local condition. FULL runs
+This weakens the old same-call multi-input correlation. After `M` publishes
+all atomic arms from a complete binding, a later `M(marked,clean)` call can
+match one arm although the old ND summary needed all inputs. This is a run-1
+DEMAND candidate. It does not authorize an incomplete local sink. FULL runs
 still require the complete same-call binding. Do not add method-wide root
-bits or an omitted-support store to recreate the old run-1 dependency.
+bits or support history to recreate the old run-1 dependency.
 
 Ordinary caller application uses the actual N2 input, before callee-entry
 abstraction. A FLOW summary can therefore carry an actual group without
@@ -880,8 +886,9 @@ result: C.f FLOW -> lhs FLOW, DEMAND
 
 ZERO supplies control activation, not the static mark or a nonstatic
 premise. Group-valued conditional summaries still need an actual compatible
-supply for their selected original. Their local complete condition was
-checked before publication; omitted run-1 originals are not later rematched.
+supply for the atomic original of each applied arm. Their local complete
+condition was checked before publication; other arms need not match at the
+same later call or pool application.
 No application is a
 new ZERO source hit.
 
@@ -908,7 +915,7 @@ entry C.f/Group(g) and **explicit control-ZERO exit**, not an absent exit.
 Group demands accept every declared full mark with the same owner, not
 one representative full mark or only marks observed in run-1. Keep geometry,
 context, full literal occurrences and the original FULL condition. The
-retained run-1 original is not a replacement for those FULL leaves. Backward sink
+run-1 atomic arms do not replace those FULL leaves. Backward sink
 seeds use the original full predicates and their complete required positive
 scope. An internal sink seed is independent of a method-return summary.
 Lookup FULL forms by that original occurrence, regardless of the last cache
@@ -916,17 +923,19 @@ access or the normalized GROUP leaf count. Do not decode a GROUP leaf ordinal
 as a FULL leaf ordinal. Stable original candidate/action order precedes
 filtering; every configured action remains selectable after rebuilding.
 
-For each covered result, ordinary handoff now emits one guide with the
-same result entry and the selected original as exit. The previous guides
-for all original members shared that entry. The checked law preserves
-projected entry membership for a fixed corresponding result list, including
-ZERO; it does not equate guide exits or prove complete run-2 recovery.
-Actual-query starts and the extra concrete-guide emission must continue
-to use the result entry. Do not add an omitted-exit veto. FULL source
-reversal must visit every required original leaf and source identity,
-not only the selected run-1 origin. Complete output/AP coverage and these
-production adapters still require validation; forward Horn weakening
-alone is not a backward-guidance proof.
+For each covered reference result `{I1,...,Ik} -> C`, ordinary handoff
+emits all pairs `(demand(C), demand(Ij))`. The separate arms `Ij -> C` emit
+exactly that full pair set after the same endpoint normalization. An
+accepted all-ZERO binding retains the ordinary explicit control-ZERO exit.
+Compare the denoted pair relation after existing merge/subsumption. Equal
+entry sets alone are insufficient: every contributing exit must remain.
+
+Actual-query starts and extra concrete-guide emission still use the result
+entry. Do not add an omitted-exit veto. FULL source reversal visits every
+required original leaf and source identity. Local pair equality for fixed
+outputs and forward Horn weakening do not prove whole-analyzer discovery,
+complete run-2 recovery or convergence. Validate the actual endpoint/AP,
+call, internal-sink and source adapters with the selected controls.
 
 Install one shared implicit static demand for every eligible method key,
 including a later-created actor:
@@ -1132,14 +1141,14 @@ is not this coverage/progress proof.
 The production adapter must preserve each primitive's full mark relation,
 AP endpoint, actual method/call stage, original FULL condition and all
 complete local condition evidence and later FULL premise members. Run-1
-executable producers select an atomic original only after complete admission.
+executable producers emit all contributing atomic originals only after complete admission.
 Do not introduce runtime support labels
 to satisfy a proof adapter. New models must not change the selected scope.
 Runtime tests must check: incomplete/complete local cubes, each distinct
 complete binding, repeated leaves and OR choices; all-ZERO/mixed inputs;
-structural selection with shuffled allocation IDs; same-origin MULTI fixed
-targets; atomic run-1 stores/calls/supply and unchanged FULL ND; a discarded
-input whose FULL mark is required in run-2; the complete
+all-origin equality with shuffled allocation IDs; exact all-ZERO admission;
+same-origin MULTI fixed targets; atomic run-1 stores/calls/supply and unchanged FULL ND; a formerly discarded
+input whose FULL mark is required in run-2; full normalized handoff pairs; the complete
 getter/setter/wrapper/pass-only trace;
 a real kill; two distinct full marks in one group; selected-cleaner repair;
 conditional source/ND guard completeness; late read/write/request arrivals;

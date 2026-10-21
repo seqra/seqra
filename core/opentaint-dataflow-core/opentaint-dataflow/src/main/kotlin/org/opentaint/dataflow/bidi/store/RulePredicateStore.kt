@@ -95,9 +95,25 @@ class RulePredicateStore(private val manager: ApManager, private val statistics:
         val inputs: List<ConjunctionStore.Input>,
     )
 
-    /** Facts enter one canonical leaf. AND products are streamed when actual supports arrive. */
+    /** Complete witness inputs before a client chooses an executable premise policy. */
+    class CompletePredicateBinding(
+        val proof: ProofKey,
+        val layer: Layer,
+        val leaves: List<Int>,
+        val inputs: List<ConjunctionStore.Input>,
+    )
+
+    /** FULL results keep exact premise combination; sinks can use [addBinding] directly. */
     fun add(rule: RuleOccurrenceId, statement: CommonInst, predicate: RulePredicate, leaf: Int,
-            input: ConjunctionStore.Input, emit: (Combination) -> Unit) {
+            input: ConjunctionStore.Input, emit: (Combination) -> Unit) =
+        addBinding(rule, statement, predicate, leaf, input) { binding ->
+            val premise = premises.combine(binding.inputs.asSequence().map { it.premise }.asIterable())
+            emit(Combination(binding.proof, premise, binding.layer, binding.leaves, binding.inputs))
+        }
+
+    /** Facts enter one canonical leaf. AND products are streamed when actual supports arrive. */
+    fun addBinding(rule: RuleOccurrenceId, statement: CommonInst, predicate: RulePredicate, leaf: Int,
+                   input: ConjunctionStore.Input, emit: (CompletePredicateBinding) -> Unit) {
         manager.cancellation.checkpoint()
         require(leaf in predicate.leaves.indices)
         val state = states.getOrPut(Scope(rule, statement)) { State() }
@@ -282,7 +298,7 @@ class RulePredicateStore(private val manager: ApManager, private val statistics:
             RootKey(ProofKey(rule, leaves, flat), leaves, shape.headers, shape.headersHash)
         }
 
-    private fun combineFresh(rule: RuleOccurrenceId, state: State, support: Support): Combination? {
+    private fun combineFresh(rule: RuleOccurrenceId, state: State, support: Support): CompletePredicateBinding? {
         val key = rootKey(rule, state, support.shape)
         val previous = state.emitted[key]
         val inputs = if (previous == null) support.inputs else mergeInputs(previous, support.inputs) ?: return null
@@ -295,8 +311,7 @@ class RulePredicateStore(private val manager: ApManager, private val statistics:
             ordered += input
             if (input.layer == Layer.DEMAND) layer = Layer.DEMAND
         }
-        val premise = premises.combine(ordered.asSequence().map { it.premise }.asIterable())
-        val combination = Combination(key.proof, premise, layer, key.leaves, Collections.unmodifiableList(ordered))
+        val combination = CompletePredicateBinding(key.proof, layer, key.leaves, Collections.unmodifiableList(ordered))
         statistics?.rootOutcome(growth = previous != null)
         return combination
     }

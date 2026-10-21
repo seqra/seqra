@@ -5,11 +5,75 @@ older scheduling and permissive class grammar below. Its current parser
 has eight families. Only exact `S.C` global-mark carriers remain; historical
 class-chain theorems do not authorize class abstraction.
 
-## Selected 21 October representative update
+## Selected 21 October all-origin correction
 
-The selected [implementation contract](../docs/design/bidirectional-run1-single-premise-rules-20261021.md)
-adds one semantic approximation to [the active spec](grouped-run1-statics.md#01-run-1-atomic-origin-exception-21-october)
-and [ap.md §0.4](ap.md#04-run-1-representative-premises-selected-21-october).
+Use the [implementation contract](../docs/design/bidirectional-run1-origins-routing-projection-implementation-20261021.md),
+[ap.md §0.4](ap.md#04-run-1-all-contributing-origins-selected-21-october)
+and the [grouped contract §0.1](grouped-run1-statics.md#01-run-1-all-origin-exception-21-october).
+This selected semantic correction replaces the representative-only rule.
+After complete compatible local admission, emit every contributing nonzero
+original as a separate run-1 result. Emit ZERO **if and only if** an accepted
+complete compatible all-ZERO binding passes its existing action/seed permission.
+A mixed `{ZERO,I}` binding emits `I`, never ZERO. Preserve complete sink
+witnesses and original source transfer families. Later FULL ND stays exact.
+Routing and projection optimizations must preserve this corrected contract.
+No field, cleaner, request-barrier, initial-grammar or grounding change is selected.
+
+The constructive [origin model](lean/ApSpec/Run1AllOrigins.lean),
+[routing/projection model](lean/ApSpec/Run1RoutingProjection.lean) and
+[focused audit](lean/run1-origins-routing-projection-audit.lean) use Lean 4.33.1.
+The audit covers **26 statements and 20 executable controls**. Its audited
+statements use only `propext` and `Quot.sound`, or no axioms. They do not use
+`Classical.choice`, proof placeholders or native decision axioms. These local
+models do not certify mutable Kotlin adapters or whole-engine termination.
+Production acceptance and fixed-project measurements have separate gates.
+
+| Obligation | Checked result | Production correspondence gate |
+| --- | --- | --- |
+| Complete result admission | `nonzero_has_complete_binding`, `zero_requires_complete_binding`, `ready_iff` | Existing mark checks, compatible NNF proof/header, explicit arity and original action/seed permission |
+| Every contributing nonzero original | `some_mem_split`, `factor_nonzero_exact` | Full canonical `InitialAp` identity, unchanged target geometry and layer policy for each arm |
+| Exact ZERO | `zero_mem_split`, `zeroReady_iff`, `factor_zero_exact` | One complete compatible all-ZERO binding; no OR pooling, mixed-origin ZERO or unconditional permission shortcut |
+| Factored result domains | `factor_exact`, `shared_leaf_exact` | Independent leaves per proof/header shape; shared canonical leaf header equality and origin intersection; no origin products |
+| Full handoff relation | `handoff_pair_exact` | Both normalized entry and exit coordinates, actual leaf extraction and ordinary merge/subsumption; entry-set equality is insufficient |
+| Late and duplicate inputs | `fresh_exact`, `no_fresh_for_duplicate` | Genuine domain/fact-growth versions, stale queue suppression, target/action partition and freeze lifecycle |
+| No executable run-1 ND | Per-arm scalar construction; inherited atomic invariant remains applicable | Both local result producers, calls/point resumes, method stores/publication stay atomic; sinks retain complete separate evidence; no E6 in run-1 |
+| Exact class/field routing | `exact_class_field_disjoint`, `field_exact_class_disjoint`, `exact_match_has_prefix` | Exact class map and two-accessor field-state invariants; real Pattern/tail/E matcher and existing PathTrie prefixes |
+| Removed routing attempts | `remove_empty_effects` | Removed attempts return before mutation; retain commit ordering, read presence, three request sets and askOnce |
+| GROUP identity reuse | `leaf_projection_idempotent`, `tree_projection_idempotent`, `identity_reuse_exact` | Receiving mark/leaf/E/mx interners, uninterned and foreign input, header normalization and immutable root sharing |
+| Narrow callback projection skip | `immediate_consumer_skip` | All actual applyEdge outputs use run1Policy; cover closure, static/TAINT demotion, mark requests, source-hit callback and FULL path remain |
+
+For corresponding accepted reference outputs, the handoff theorem is:
+
+```text
+H({I1,...,Ik} -> C) = {(demand(C), demand(Ij)) | j=1..k}
+H({I1 -> C,...,Ik -> C}) = the same set of complete pairs
+```
+
+The same endpoint conversion runs for the same result and each contributing
+initial. The accepted all-ZERO case retains its explicit control-ZERO exit.
+Compare the denoted pair relation after ordinary normalization/subsumption,
+not physical row counts. Old representative proofs preserve at most a
+projected entry set for corresponding outputs; they do not prove this law.
+
+This pair equality is local to corresponding accepted results. The corrected
+arms can enable additional later caller/static candidates because one arm
+can apply without its siblings. Complete reference bindings can apply all
+arms, but fixed-clause inclusion does not prove the mutable analyzer's full
+discovery, backward recovery or convergence. Keep actual query admission,
+FULL source reversal, internal-sink/dead-local guidance and ZERO discovery.
+Require the independent scalar all-origin/ZERO oracle, NNF/header/shared-leaf
+controls, complete sink evidence, actual normalized handoff pairs, run-2
+recovery of formerly discarded FULL marks, unchanged later FULL ND, old-service
+routing effects and receiving-manager/callback projection controls from the
+implementation contract. Project finding/performance acceptance remains separate.
+
+## Historical 21 October representative update
+
+This section records the **superseded representative-only contract**. Its
+claims, adapter list and runtime receipt below are historical reference only.
+They do not specify current all-origin emission or full handoff-pair equality.
+The former [implementation contract](../docs/design/bidirectional-run1-single-premise-rules-20261021.md)
+added one semantic approximation to the then-active atomic-origin spec.
 After complete local condition admission, run-1 retains one original initial.
 Later FULL conditions, ND union/application, source transfer and sink evidence
 are unchanged. This changes candidate precision and downstream caller/static
@@ -124,7 +188,7 @@ Earlier general models may contain GEN examples; they do not require a
 waiting GEN runtime component under the selected empty policy.
 
 The inherited complete-premise model claims **finite reference-witness
-inclusion**. It predates the representative update and does not prove the
+inclusion**. It predates the atomic-origin updates and does not prove the
 changed analyzer's whole run-2 recovery. Start with a finite full-mark
 witness in that compiled reference semantics. Construct its group candidate
 and the full backward replay. Retain all positive guards,
@@ -234,8 +298,9 @@ whole JVM compiler or project finding parity.
 
 This inherited argument is for its complete-premise compiled reference.
 Its full ND bindings are not the new run-1 runtime key invariant. Connect
-its covered outputs to the representative model and production adapters
-above before claiming coverage for the changed analyzer.
+its covered outputs to the current all-origin model and production adapters
+above before claiming coverage for the changed analyzer. The superseded
+representative entry-set law does not prove full handoff-pair preservation.
 
 First, retain the reference witness's original full mark identities and
 ordered positive children. `projectTree` maps each leaf/output to its group.

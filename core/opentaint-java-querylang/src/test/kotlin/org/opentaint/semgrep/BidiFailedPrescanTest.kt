@@ -30,7 +30,7 @@ class BidiFailedPrescanTest {
             @Suppress("UNCHECKED_CAST")
             val rule = loader.loadRules().rulesWithMeta.single().first as TaintRuleFromSemgrep<SerializedItem>
             val positive = "example.Rule\$PositiveSimple"
-            val policy = FixedLimits((1..9).toList())
+            val policy = FixedLimits(listOf(1) + (1..8).toList())
             TestAnalysisRunner(samples, policy).use { control ->
                 val result = control.run(rule, SerializedTaintConfig(), false, setOf(positive))
                 assertTrue(result.getValue(positive).isNotEmpty(), "The complete-prescan control must find its sink")

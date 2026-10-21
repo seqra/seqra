@@ -15,11 +15,20 @@ class ConjunctionStore(private val m: ApManager, private val statistics: N2Stati
     /** Facts already accepted by the literal; layer is the effective contribution layer. */
     data class Input(val premise: PremiseKey, val layer: Layer, val facts: Facts? = null)
     class Combination(val premise: PremiseKey, val layer: Layer, val inputs: List<Input>)
+    class CompleteBinding(val layer: Layer, val inputs: List<Input>)
 
     private val joins = HashMap<Pair<Any, CommonInst>, KaryJoin<Input>>()
 
     /** Rule alternatives and statements have separate joins; repeated literals retain separate slots. */
     fun add(rule: Any, statement: CommonInst, arity: Int, literal: Int, input: Input): List<Combination> {
+        return addBinding(rule, statement, arity, literal, input).map { binding ->
+            Combination(premises.combine(binding.inputs.asSequence().map { it.premise }.asIterable()),
+                binding.layer, binding.inputs)
+        }
+    }
+
+    /** Witness consumers keep the entire checked binding without constructing an executable premise. */
+    fun addBinding(rule: Any, statement: CommonInst, arity: Int, literal: Int, input: Input): List<CompleteBinding> {
         m.cancellation.checkpoint()
         require(arity >= 2) { "A conjunction needs at least two literals" }
         require(literal in 0 until arity) { "A literal index must be within the conjunction's arity" }
@@ -27,7 +36,7 @@ class ConjunctionStore(private val m: ApManager, private val statistics: N2Stati
         val join = joins[key]
         require(join == null || join.arity == arity) { "A rule at a statement has one fixed arity" }
         val inputs = (join ?: KaryJoin<Input>(arity, m.cancellation).also { joins[key] = it }).add(literal, input)
-        val out = ArrayList<Combination>(inputs.size)
+        val out = ArrayList<CompleteBinding>(inputs.size)
         for (combination in inputs) {
             m.cancellation.checkpoint()
             out += combine(combination)
@@ -35,15 +44,14 @@ class ConjunctionStore(private val m: ApManager, private val statistics: N2Stati
         return out
     }
 
-    private fun combine(inputs: List<Input>): Combination {
+    private fun combine(inputs: List<Input>): CompleteBinding {
         var layer = Layer.NORMAL
         for (index in inputs.indices) {
             m.cancellation.checkpoint()
             val input = inputs[index]
             if (input.layer == Layer.DEMAND) layer = Layer.DEMAND
         }
-        val premise = premises.combine(inputs.asSequence().map { it.premise }.asIterable())
-        return Combination(premise, layer, inputs)
+        return CompleteBinding(layer, inputs)
     }
 
     /** An E6 join belongs to one callee context, premise set, publication layer and caller call. */

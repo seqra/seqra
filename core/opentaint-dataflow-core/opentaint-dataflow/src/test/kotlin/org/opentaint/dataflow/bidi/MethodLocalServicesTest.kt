@@ -103,13 +103,14 @@ class MethodLocalServicesTest {
             f.drain(actor, quantum = 1)
             assertEquals(setOf(policy, premise), actor.initials.all().toSet(),
                 "A later real interest must still replay the already admitted supplier")
-            var joins = 0
+            val joins = ArrayList<PremiseKey>()
             service.conjunction(conjunction, premise, input, f.inst(1)) { joined, facts ->
-                joins++
-                assertEquals(premise, joined, "Run-1 retains the argument after complete literal admission")
+                joins += joined
                 assertEquals(Layer.DEMAND, facts.layer)
             }
-            assertEquals(1, joins, "The cancelled input must not block the later complete literal join")
+            assertEquals(setOf(premise, otherPremise), joins.toSet(),
+                "The cancelled input must not block either origin of the later complete literal join")
+            assertEquals(2, joins.size)
             assertEquals(listOf(sink to Layer.DEMAND), service.checkSinks(premise, f.inst(1), input, listOf(sink)).fired)
             assertEquals(1, f.vulnerabilities.witnessesOf(1).count(),
                 "A cancelled sink check must not poison the later actual witness")

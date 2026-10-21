@@ -50,6 +50,7 @@ class Run1StaticService(private val ap: ApManager) {
         private var index = org.opentaint.dataflow.bidi.store.PathTrie<V>(ap.cancellation)
         fun add(p: Pattern, value: V) = index.add(p.fact.base, p.fact.path.toIntArray(), value)
         fun around(p: Pattern): List<V> = index.around(p.fact.base, p.fact.path.toIntArray()).distinct()
+        fun prefixes(p: Pattern): List<V> = index.lookupPrefixes(p.fact.base, p.fact.path.toIntArray()).distinct()
         fun clear() { index = org.opentaint.dataflow.bidi.store.PathTrie(ap.cancellation) }
     }
     private class ReadRow(val registration: StaticReadRegistration) { val delivered = HashSet<Pattern>() }
@@ -79,6 +80,9 @@ class Run1StaticService(private val ap: ApManager) {
     private var candidateVisits = 0L
     private var replies = 0L
 
+    private fun isExactClassPoint(p: Pattern): Boolean =
+        p.fact.base == STATIC && p.fact.path.size == 1 && p.fact.tail == Tail.EXACT
+
     private fun fieldKey(p: Pattern): FieldKey? = p.fact.path
         .takeIf { p.fact.base == STATIC && it.size >= 2 }
         ?.let { FieldKey(it[0], it[1]) }
@@ -90,8 +94,11 @@ class Run1StaticService(private val ap: ApManager) {
                 MarkSlot.STAR), ExclusionSet.Empty)
             FieldState(canonical).also { state ->
                 fieldIndex.add(canonical, key)
-                for ((position, groups) in broadGroups)
-                    if (intersect(canonical, position) != null) state.reach += groups
+                for ((position, groups) in broadGroups) {
+                    ap.cancellation.checkpoint()
+                    if (!isExactClassPoint(position) && intersect(canonical, position) != null)
+                        state.reach += groups
+                }
             }
         }
     }
@@ -133,18 +140,23 @@ class Run1StaticService(private val ap: ApManager) {
                 val fresh = supply.groups - old
                 if (fresh.isEmpty) continue
                 broadGroups[position] = old + fresh
-                for (key in fieldIndex.around(position)) {
-                    val state = fields.getValue(key)
-                    if (intersect(state.region, position) != null) groupWrite(state, fresh, out)
+                if (!isExactClassPoint(position)) {
+                    for (key in fieldIndex.around(position)) {
+                        val state = fields.getValue(key)
+                        if (intersect(state.region, position) != null) groupWrite(state, fresh, out)
+                    }
                 }
             }
             // Exact class points never supply fields. Keep the old broad AP
             // boundary and pending-only class continuations.
-            val iterator = classInterests.iterator()
-            while (iterator.hasNext()) {
-                val row = iterator.next().value
-                answerClass(row, position, supply.groups, out)
-                if (row.wanted.isEmpty) iterator.remove()
+            if (fieldKey(position) == null) {
+                val iterator = classInterests.iterator()
+                while (iterator.hasNext()) {
+                    ap.cancellation.checkpoint()
+                    val row = iterator.next().value
+                    answerClass(row, position, supply.groups, out)
+                    if (row.wanted.isEmpty) iterator.remove()
+                }
             }
         }
         replies += out.size
@@ -206,8 +218,10 @@ class Run1StaticService(private val ap: ApManager) {
             val state = fields.getValue(field)
             if (requestMatches(row.region, state.region)) wanted += state.req + state.processed
         }
-        for ((region, groups) in classRequested)
-            if (requestMatches(row.region, region)) wanted += groups
+        if (fieldKey(row.region) == null) {
+            for ((region, groups) in classRequested)
+                if (requestMatches(row.region, region)) wanted += groups
+        }
         askOnce(row, wanted, out)
     }
 
@@ -235,9 +249,8 @@ class Run1StaticService(private val ap: ApManager) {
         val requested = region(interest.region).copy(exclusion = ExclusionSet.Empty)
         classRequested[requested] = (classRequested[requested] ?: GroupSet.EMPTY) + interest.wanted
         for ((position, supplied) in broadGroups) answerClass(row, position, supplied, out)
-        for (state in fields.values) answerClass(row, state.region, state.reach + state.processed, out)
         if (row.wanted.isEmpty) classInterests.remove(key)
-        for (writer in flowWriterIndex.around(interest.region)) {
+        for (writer in flowWriterIndex.prefixes(interest.region)) {
             val w = flowWriters.getValue(writer)
             if (requestMatches(w.region, interest.region)) askOnce(w, interest.wanted, out)
         }

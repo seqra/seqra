@@ -41,7 +41,7 @@ class RulePredicateEngineTest {
     private fun sink(f: MethodAnalysisFixtures, predicate: RulePredicate, ordinal: Int = 0): SinkRule =
         SinkRule(reportRule, 0, predicate.leaves, emptyList(), id(f, RuleKind.CALL_SINK, ordinal), predicate)
 
-    @Test fun `run1 source conjunction selects one original after every leaf and keeps fixed target`() {
+    @Test fun `run1 source conjunction emits each original only after complete admission and keeps fixed target`() {
         for (order in listOf(listOf(0, 1), listOf(1, 0))) MethodAnalysisFixtures().use { f ->
             val (_, services) = core(f)
             val predicate = predicate(f) { b, l -> b.and(listOf(l[0], l[1])) }
@@ -53,12 +53,26 @@ class RulePredicateEngineTest {
                     f.fact(base, layer = if (leaf == 1) Layer.DEMAND else Layer.NORMAL), f.inst(2), false) { pr, facts ->
                     result += pr to facts
                 }
-                assertEquals(if (position == 0) 0 else 1, result.size)
+                assertEquals(if (position == 0) 0 else 2, result.size)
             }
-            assertEquals(setOf(0), result.single().first.members.map { (it.base as AccessPathBase.Argument).idx }.toSet())
-            assertIs<InitialAp>(result.single().first)
-            assertEquals(Layer.DEMAND, result.single().second.layer)
-            assertEquals(Tail.ANY_TAINT, f.ops.leaves(result.single().second).single().fact.tail)
+            assertEquals(setOf(0, 1), result.map { ((it.first as InitialAp).base as AccessPathBase.Argument).idx }.toSet())
+            for ((premise, conclusion) in result) {
+                assertIs<InitialAp>(premise)
+                assertFalse(premise.isZero)
+                assertEquals(Layer.DEMAND, conclusion.layer)
+                val target = f.ops.leaves(conclusion).single().fact
+                assertEquals(AccessPathBase.Return, target.base)
+                assertEquals(Tail.ANY_TAINT, target.tail)
+            }
+            assertEquals(1, result.map { it.second }.toSet().size, "All origins share the original fixed target")
+            for (leaf in order) {
+                val base = AccessPathBase.Argument(leaf)
+                services.sourcePredicate(source, f.manager.initial(f.pattern(base)),
+                    f.fact(base, layer = if (leaf == 1) Layer.DEMAND else Layer.NORMAL), f.inst(2), false) { pr, facts ->
+                    result += pr to facts
+                }
+            }
+            assertEquals(2, result.size, "Repeated checked facts do not reemit completed origin arms")
         }
     }
 

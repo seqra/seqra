@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.bidi
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.*
 import org.opentaint.dataflow.bidi.engine.*
@@ -53,6 +54,28 @@ class HandOffTest {
         rows.flatMap { (premise, facts) ->
             ops.leaves(facts).map { premise to Conclusion(it.fact, it.exclusion, facts.layer == Layer.DEMAND) }
         }.toSet()
+
+    @Test
+    fun `all run1 atomic local and static origins retain their complete backward pair`(): Unit {
+        HandOffFixtures().use { f ->
+            val key = f.key()
+            val group = MarkSlot.Concrete(f.manager.marks.groupOf(f.mark("T")).let(f.manager.marks::group))
+            val local = f.initial(x, mark = group)
+            val cls = f.manager.accessors.index(ClassStaticAccessor("Owner"))
+            val static = f.initial(STATIC, listOf(cls, f.field("shared")), Tail.STAR, group)
+            val target = f.pattern(returned, tail = Tail.ANY, mark = group)
+            val fact = f.fact(returned, tail = Tail.ANY, mark = group, layer = Layer.DEMAND)
+            for (origin in listOf(local, static)) {
+                f.raw(key, origin, fact)
+                f.selected(key, origin, fact)
+            }
+            val handOff = HandOff.of(f.config, f.result(), f.report, f.shared)
+            val normalizedStatic = static.toPattern().let { it.copy(fact = it.fact.copy(tail = Tail.STAR)) }
+            val expected = setOf(DemandPattern(target, local.toPattern()), DemandPattern(target, normalizedStatic))
+            assertEquals(expected, explicit(f, handOff, key))
+            assertEquals(mapOf(key to 2), handOff.demandEdges)
+        }
+    }
 
     @Test
     fun `forward handoff reads selected demand pieces and leaves normal singleton records and raw summaries separate`(): Unit {

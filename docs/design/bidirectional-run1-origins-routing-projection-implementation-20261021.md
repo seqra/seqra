@@ -1,6 +1,6 @@
 # Run-1 origins, static routing and GROUP projection: implementation specification
 
-Date: 21 October 2026. Status: **selected; runtime implementation pending**.
+Date: 21 October 2026. Status: **implemented; fixed-project measurements pending**.
 
 This document specifies the three selected items from the
 [next-iteration proposal](bidirectional-work-avoidance-next-iteration-20261021.md):
@@ -12,7 +12,8 @@ This document specifies the three selected items from the
 Use runtime `51dbc4d66fb1bf1b56071dbf18c90c5909e3146b` as the reference.
 The core at document revision `6b23203c0` is unchanged from that runtime.
 Follow [proof-guide.md](../../spec/proof-guide.md). Kotlin below specifies
-the proposed implementation; it is not code already present in the engine.
+the implementation contract. Runtime changes now implement that contract;
+project measurements remain pending.
 
 The [latest measurements](../reports/bidirectional-cleaner-work-performance-20261021.md)
 describe the reference, not this candidate:
@@ -23,6 +24,29 @@ describe the reference, not this candidate:
 | conductor | run-2 OOM | run-1 | run-1 |
 | thingsboard | run-1 OOM | none | none |
 | Stirling-PDF | run-2 OOM | run-1 | run-1 |
+
+## Implementation validation
+
+The selected runtime changes are implemented. The common suite passes all
+1,713 tests. The JVM suite passes all 438 tests. The query controls pass
+38 tests, with three existing skips. The analyzer consumer build passes.
+The focused Lean build and audit pass with the scope stated in section 7.
+
+The broader application suite runs 176 tests: 166 pass, nine fail and one
+is skipped. A source-checked pre-iteration control at `746573357` uses the
+same corrected test schedules. All 176 test outcomes match. All nine
+failing expected/actual rule-ID sets match: both versions have 27 extra
+cleaner candidates and no missing expected IDs. Each failing analysis
+reaches, completes and accepts run-9, then stops with `POLICY`. This is no
+regression in these controls; it is not a claim that the broader suite
+passes. The existing exact-cleaner DEMAND residual explains a related
+limitation, but each extra candidate has not been individually traced.
+
+The [gate records](/drive-testcomp/opentaint-go-rules/run1-origins-routing-projection-20261021/tests)
+and [closed application comparison](/drive-testcomp/opentaint-go-rules/run1-origins-routing-projection-20261021/validation/application-regressions/comparison.md)
+retain logs, XML, source checks and set differences. Fresh project runs
+have not started. The earlier project outcomes above remain reference
+measurements, not validation of this runtime.
 
 ## 1. Semantic changes and preserved behavior
 
@@ -84,6 +108,7 @@ New helper names below are proposed private/internal APIs.
 | `bidi/ap/PremiseCombination.kt` | Remove `Run1Premises` and its representative comparator when callers are migrated; retain `ExactPremises` |
 | `bidi/engine/Run1StaticService.kt` | Six local routing changes; expose existing trie prefix lookup through `Regions` |
 | `bidi/ap/ApManager.kt` | Reuse normalized FLOW/TAINT wrappers and receiving-manager leaf payloads |
+| `bidi/ap/TrieOps.kt` | Add the internal projection-only `mapCanonicalLeaves` traversal; keep generic `mapLeaves` and `withLeaf` unchanged |
 | `bidi/engine/RunMethodAnalyzer.kt` | Add the narrowly scoped consumer for an immediate `run1Policy` result |
 | Tests and the referenced specs/proof map | Add the independent controls and update the selected premise policy |
 
@@ -586,7 +611,7 @@ fun runtimeFact(f: Facts, mode: ApMode): Facts {
             else flowTree(f.base, layer, E, mx, f.root, f.tail)
         }
         is TaintTree -> {
-            val root = checkNotNull(taintAlg.mapLeaves(f.root, cancellation) { projectedLeaf(it, mode) })
+            val root = checkNotNull(taintAlg.mapCanonicalLeaves(f.root, cancellation) { projectedLeaf(it, mode) })
             val layer = Layer.DEMAND // current GROUP projection rule
             val tail = if (root.hasAny) f.anyTail else Tail.ANY_TAINT
             val E = if (tail == Tail.ANY || !root.hasAny) ExclusionSet.Empty else intern(f.exclusion)
@@ -598,9 +623,28 @@ fun runtimeFact(f: Facts, mode: ApMode): Facts {
 ```
 
 The receiving leaf interner may return another representative even when
-the mark-set references are unchanged. `mapLeaves` must then rebuild the
-affected path as today. Its existing unchanged-node identity reuse is
-sufficient; do not change trie algebra or add a second cache.
+the mark-set references are unchanged. The focused foreign/raw-leaf controls
+found that generic `mapLeaves` does not retain that representative:
+`withLeaf` reuses an old leaf by value equality. Use one internal
+projection-only traversal to retain the normalized leaf identity:
+
+```kotlin
+internal fun TaintAlgebra.mapCanonicalLeaves(
+    n: TaintNode, cancellation: Cancellation?, f: (TaintLeaves) -> TaintLeaves,
+): TaintNode? = walkNodes(n, cancellation) { current, memo ->
+    val leaf = intern(f(current.leaf))
+    val result = mapChildren(current, leaf, cancellation) { _, child -> memo.getValue(child) }
+    if (result != null && result.leaf !== leaf)
+        node(leaf, result.accessorData, result.childData)
+    else result
+}
+```
+
+This corrects the earlier assumption that generic unchanged-node reuse was
+sufficient. It is part of receiving-manager normalization and does not
+change fact denotation. Keep generic `mapLeaves`, `withLeaf` and their
+callers unchanged. The helper uses the existing one-pass DAG walker and
+interners. Add no flag, token or second cache. Only `runtimeFact` uses it.
 
 ```text
 Same-manager canonical GROUP leaf, DEMAND, normalized header:
@@ -761,8 +805,9 @@ these modules prove every required engine adapter.
 Specification validation on 21 October: the focused Lean 4.33.1 build
 passes. The audit checks 26 statements and 20 executable controls, with
 only `propext` and `Quot.sound`; no classical choice, placeholder or native
-decision axiom occurs. Production tests and project measurements have not
-been run for this document-only iteration. Runtime code is unchanged.
+decision axiom occurs. The runtime now includes the selected changes. Production integration
+checks and their limits are recorded above; project measurements have not started. The
+formal models prove the local laws listed above, not whole-engine behavior.
 
 ## 8. Tests and acceptance
 
@@ -836,6 +881,11 @@ fall. No new public diagnostic API is needed to test internal visits.
   generic/custom FULL constants and requests, gives the same values and
   source-hit observations with one fewer projection. Direct generic
   collect callers continue to project. Later FULL behavior is equal.
+
+Application validation also repairs stale test-only limit lists. The inherited
+fixtures used `1,2,3,...`; they now use the existing `1,1,2,...` schedule.
+The nine-run fixtures use `listOf(1) + (1..8)`. The three-run entry control
+uses `listOf(1,1,2)`. No production schedule or field transfer changes.
 
 ### 8.4 Project gates and measurement
 

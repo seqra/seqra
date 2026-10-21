@@ -71,7 +71,7 @@ class JIRTaintBidiEntryTest : BasicTestUtils() {
         }
         for (bidi in listOf(false, true)) {
             val analyzer = JIRTaintAnalyzer(cp, rules(), projects, TaintAnalyzerOptions(20.seconds, ApMode.Tree),
-                analysisUnit = units(root), bidiPolicy = if (bidi) FixedLimits(listOf(1, 2, 3)) else null)
+                analysisUnit = units(root), bidiPolicy = if (bidi) FixedLimits(listOf(1, 1, 2)) else null)
             analyzer.use {
                 val hook = analyzer.bidiEntry()
                 if (bidi) {

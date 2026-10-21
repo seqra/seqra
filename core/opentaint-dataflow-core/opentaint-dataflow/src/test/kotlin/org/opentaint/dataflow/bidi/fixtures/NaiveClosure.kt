@@ -62,7 +62,7 @@ class NaiveClosure(
     private val algebras = HashMap<MethodKey, ReferenceAlgebra>()
     private val references = HashMap<MethodKey, FormsReference>()
     private val selectedReferences = HashMap<MethodKey, SelectedFormsReference>()
-    private val run1Representative = RawRun1Representative(program.manager)
+    private val run1Origins = RawRun1Origins()
     private var invoked = false
 
     private data class Part(
@@ -111,9 +111,9 @@ class NaiveClosure(
                         null -> Unit
                         else -> for (combination in literal(method, node, edge, edge.literals.size, index,
                             LiteralInput(premise, checked))) {
-                            val pr = union(combination.map { it.premise })
                             val demand = combination.any { it.conclusion.demand }
-                            sink(pr, normalize(edge.target, ExclusionSet.Empty, demand))
+                            val result = normalize(edge.target, ExclusionSet.Empty, demand)
+                            for (pr in resultPremises(combination.map { it.premise })) sink(pr, result)
                         }
                     }
                 }
@@ -367,10 +367,10 @@ class NaiveClosure(
                 satisfies(member, Pattern(candidate.added.fact, candidate.added.exclusion), config.restricted)
         } }
         for (parts in product(choices)) if (joined.add(Joined(pub, part.call, parts))) {
-            val pr = union(parts.map { it.premise })
             val demand = pub.conclusion.demand || parts.any { it.added.demand }
             val result = normalize(pub.conclusion.fact, pub.conclusion.exclusion, demand)
-            resume(parts.first(), listOf(PlanItem(pr, result, false)))
+            for (pr in resultPremises(parts.map { it.premise }))
+                resume(parts.first(), listOf(PlanItem(pr, result, false)))
         }
     }
 
@@ -514,9 +514,11 @@ class NaiveClosure(
                 check(forward)
                 for ((index, literal) in edge.literals.withIndex()) {
                     val checked = checkLiteral(method, premise, conclusion, literal) ?: continue
-                    for (combination in literal(method, node, edge, edge.literals.size, index, LiteralInput(premise, checked)))
-                        sink(union(combination.map { it.premise }), normalize(edge.target, ExclusionSet.Empty,
-                            combination.any { it.conclusion.demand }))
+                    for (combination in literal(method, node, edge, edge.literals.size, index, LiteralInput(premise, checked))) {
+                        val result = normalize(edge.target, ExclusionSet.Empty,
+                            combination.any { it.conclusion.demand })
+                        for (pr in resultPremises(combination.map { it.premise })) sink(pr, result)
+                    }
                 }
             })
         SelectedFormsReference(program.ops, algebra)
@@ -626,10 +628,10 @@ class NaiveClosure(
             zero to limit(normalize(it.fact, ExclusionSet.Empty, false), config.fieldLimit)
         }
 
-    private fun union(premises: List<Set<Pattern>>): Set<Pattern> {
-        if (selected && config.run1) return run1Representative.choose(premises)
+    private fun resultPremises(premises: List<Set<Pattern>>): List<Set<Pattern>> {
+        if (selected && config.run1) return run1Origins.split(premises)
         val values = premises.flatten().filterTo(LinkedHashSet()) { it.fact.base != AccessPathBase.Zero }
-        return if (values.isEmpty()) zero else values
+        return listOf(if (values.isEmpty()) zero else values)
     }
 
     private fun <T> product(slots: List<List<T>>): List<List<T>> {

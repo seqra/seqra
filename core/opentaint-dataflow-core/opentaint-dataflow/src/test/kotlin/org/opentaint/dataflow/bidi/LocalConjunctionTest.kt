@@ -34,7 +34,7 @@ class LocalConjunctionTest {
         if (index == 1) GroupedScalarMarks(f.manager.marks).conclusion(Conclusion(fact, ExclusionSet.Empty, false))
         else Conclusion(fact, ExclusionSet.Empty, false)
 
-    @Test fun `run1 statement conjunction waits for both inputs and keeps one representative`(): Unit {
+    @Test fun `run1 statement conjunction waits for both inputs and emits every origin`(): Unit {
         for (reverse in listOf(false, true)) MethodAnalysisFixtures().use { f ->
             val t = MarkSlot.Concrete(f.mark("T"))
             val u = MarkSlot.Concrete(f.mark("U"))
@@ -51,11 +51,9 @@ class LocalConjunctionTest {
             assertTrue(core.summaries.all().none())
             core.addInitial(order[1])
             f.drain(core, quantum = 1)
-            val premise = j1
-            assertIs<InitialAp>(premise)
-            assertEquals(setOf(premise to output(f, target)),
+            assertEquals(setOf(j1 to output(f, target), j2 to output(f, target)),
                 methodEntries(f.ops, core.summaries.all()))
-            assertTrue(f.publications.flatten().all { it.premise === premise && it.layer == Layer.DEMAND })
+            assertTrue(f.publications.flatten().all { it.premise in setOf(j1, j2) && it.layer == Layer.DEMAND })
             assertNotNull((core.localServices as RunMethodLocalServices).conjunctions)
             assertTrue(core.demandLayerEdges > 0L)
             assertTrue(f.events.isEmpty())
@@ -151,11 +149,11 @@ class LocalConjunctionTest {
             core.addInitial(first)
             core.addInitial(second)
             f.drain(core)
-            val firstResult = first to output(f, a.target)
-            assertEquals(setOf(firstResult), methodEntries(f.ops, core.summaries.all()))
+            val firstResults = setOf(first to output(f, a.target), second to output(f, a.target))
+            assertEquals(firstResults, methodEntries(f.ops, core.summaries.all()))
             core.addInitial(other)
             f.drain(core)
-            assertEquals(setOf(firstResult, first to output(f, b.target)),
+            assertEquals(firstResults + setOf(first to output(f, b.target), other to output(f, b.target)),
                 methodEntries(f.ops, core.summaries.all()))
         }
     }
@@ -180,7 +178,7 @@ class LocalConjunctionTest {
             right.addInitial(first)
             f.drain(right)
             assertTrue(left.summaries.all().none())
-            assertEquals(setOf(first to output(f, edge.target)),
+            assertEquals(setOf(first to output(f, edge.target), second to output(f, edge.target)),
                 methodEntries(f.ops, right.summaries.all()))
         }
     }

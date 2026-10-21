@@ -266,6 +266,16 @@ fun <P : TrieLeaf> LeafAlgebra<P>.mapLeaves(
     mapChildren(current, intern(f(current.leaf)), cancellation) { _, child -> memo.getValue(child) }
 }
 
+/** Projection must retain the receiving algebra's leaf representative even
+ * when the generic value-based withLeaf helper can reuse an equal old leaf. */
+internal fun TaintAlgebra.mapCanonicalLeaves(
+    n: TaintNode, cancellation: Cancellation?, f: (TaintLeaves) -> TaintLeaves,
+): TaintNode? = walkNodes(n, cancellation) { current, memo ->
+    val leaf = intern(f(current.leaf))
+    val result = mapChildren(current, leaf, cancellation) { _, child -> memo.getValue(child) }
+    if (result != null && result.leaf !== leaf) node(leaf, result.accessorData, result.childData) else result
+}
+
 /** Cached folds skip complete subtrees and do not expand shared DAGs. */
 fun <P : TrieLeaf> LeafAlgebra<P>.foldAll(n: TrieNode<P>, cancellation: Cancellation? = null): P {
     val stack = ArrayDeque<NodeFrame<P>>()

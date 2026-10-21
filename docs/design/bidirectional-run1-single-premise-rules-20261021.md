@@ -1,5 +1,7 @@
 # Run-1 rule results with one original premise
 
+> Historical representative policy. The [all-origin implementation contract](bidirectional-run1-origins-routing-projection-implementation-20261021.md) replaces representative selection. Run-1 now emits each contributing nonzero original after complete admission. ZERO requires a complete permitted all-ZERO binding.
+
 Date: 21 October 2026. Status: selected design, implemented. Fresh project
 measurements are required before a performance claim.
 
@@ -13,8 +15,8 @@ implementation.
 This proposal follows [proof-guide.md](../../spec/proof-guide.md). It adds
 one selected semantic approximation to the active grouped/static contract.
 The implementation follows this design. The active exceptions are in
-[ap.md §0.4](../../spec/ap.md#04-run-1-representative-premises-selected-21-october)
-and [grouped-run1-statics.md §0.1](../../spec/grouped-run1-statics.md#01-run-1-atomic-origin-exception-21-october).
+[ap.md §0.4](../../spec/ap.md#04-run-1-all-contributing-origins-selected-21-october)
+and [grouped-run1-statics.md §0.1](../../spec/grouped-run1-statics.md#01-run-1-all-origin-exception-21-october).
 “Current” in the comparison tables means the source base above.
 
 ## Selected change

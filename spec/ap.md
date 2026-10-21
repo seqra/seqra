@@ -1,9 +1,10 @@
 # Access paths and storages — specification
 
-> The selected 21 October run-1 representative rule in §0.4 overrides complete-
-> premise union, executable ND and per-member handoff requirements below **only
-> in run-1**. Later FULL runs keep the exact ND rules. This is a selected
-> semantic approximation, not an equivalent storage representation.
+> The selected 21 October all-origin rule in §0.4 replaces the earlier
+> representative rule. After a complete compatible run-1 binding, emit each
+> contributing nonzero origin as a separate atomic edge. Emit ZERO only for a
+> complete permitted all-ZERO binding. Later FULL runs keep exact ND rules.
+> This is a semantic correction; routing/projection edits preserve its behavior.
 
 > For the selected mark/static change, use [Mark groups and direct static handling](grouped-run1-statics.md)
 > and its pinned pre-bottom-up baseline. It overrides older proposal links
@@ -142,84 +143,93 @@ partition and untouched frame; unrestricted raw root rows cannot bypass it. A re
 is neither concrete evidence nor confirmation. The candidate and zero-GEN caveats of
 §4.9 remain.
 
-### 0.4 Run-1 representative premises (selected 21 October)
+### 0.4 Run-1 all contributing origins (selected 21 October)
 
-The [implementation contract](../docs/design/bidirectional-run1-single-premise-rules-20261021.md)
-selects one new run-1 approximation. The previous completed binding emitted
-`{I1, ..., Ik} -> Y`. Run-1 now emits `representative(I1, ..., Ik) -> Y`.
-The result AP, mark, tail, exclusions and effective layer stay unchanged.
-GROUP results remain DEMAND. One premise does not mean `Layer.NORMAL`.
-This rule takes precedence over the exact union in §§4.6, 7.1 and 8.9.
-All later FULL forward runs keep complete ND premises, exact unions and E6.
-Backward construction still reverses every required original FULL literal.
+The [implementation contract](../docs/design/bidirectional-run1-origins-routing-projection-implementation-20261021.md)
+replaces representative selection. For each accepted complete binding with
+reference ND result `{I1, ..., Ik} -> Y`, emit `Ij -> Y` for every distinct
+nonzero contributing original `Ij`. The result AP, mark, tail, exclusions
+and effective layer stay unchanged. GROUP results remain DEMAND. An ordinary
+atomic edge does not imply `Layer.NORMAL`. This rule takes precedence over
+exact union in §§4.6, 7.1 and 8.9 **only in run-1**. Later FULL forward runs
+keep complete ND premises, exact unions and E6.
 
-A complete compatible branch of the existing NNF predicate is required
-before selection. Keep its proof, OR choices, repeated-leaf compatibility,
-all contribution layers and per-literal inputs. Do not expand the NNF to
-DNF. A sink still requires its whole condition and retains every checked
-literal in its witness. A witness is not an executable edge; its support
-helper must not build a run-1 `PremiseSet`.
+This correction changes the representative runtime's semantic candidates
+and demand relation. It can add caller/static candidates. It is not an
+allocation-only optimization. Routing and projection optimizations must be
+equivalent to this corrected all-origin reference, not the old representative
+runtime. Field transfer, mark policy, cleaners, request barriers and the run
+schedule do not change.
 
-Select one **original initial**, not a checked current fact or condition
-pattern. Prefer argument, then `this`, other legal non-static base, static
-field, and exact static class point. Break ties with a fixed structural
-key: stable base value/index, decoded path, tail tag and mark/group name.
-Do not use allocation/accessor/atom IDs, identity hashes or map order.
-ZERO is neutral when any nonzero original exists; choose canonical ZERO
-only when all original inputs are ZERO. Select independently for every
-complete binding. Different bindings of one cube can retain different
-originals. Do not keep only the first binding, retract an earlier result,
-or change an emitted edge when another binding arrives.
+Require a complete compatible branch of the existing NNF predicate before
+emission. Keep its proof, OR choices, repeated-leaf compatibility, all
+contribution layers and the existing action/seed permission. A sink still
+requires its whole condition and retains all checked literal inputs and
+its proof. Never turn these into partial per-origin sink witnesses.
 
-Use a run-local combination policy in the two complete local producers:
-`RulePredicateStore.combineFresh` and `ConjunctionStore.combine`. Do not
-intern a `PremiseSet` before selection. Keep `ApManager.union` unchanged
-for FULL runs. Every executable run-1 method edge, point resume, caller
-subscription and summary has an `InitialAp` premise, including ZERO.
-Unary transfers retain that original. Ordinary singleton call application
-retains the caller's atomic original. Run-1 cannot allocate E6 ND bindings
-or publish an ND summary. Local predicate/slot products and complete sink
-evidence remain; this rule does not remove their compatibility checks.
+ZERO is precise. Emit a ZERO arm **if and only if** at least one accepted
+complete compatible binding uses ZERO for every required input and passes
+its existing action/seed permission. `{ZERO,I} -> Y` emits `I -> Y` and no
+ZERO arm. ZERO choices pooled across different OR branches or incompatible
+headers cannot admit a ZERO result. Keep the existing unconditional GEN
+path. A request alone cannot satisfy a literal or create a ZERO source.
 
-Source transfer classification does not depend on the new premise count.
-A completed MULTI source still constructs its fixed target with its
-existing path/tail and permission. Preserve unary/GEN transfer, action and
-occurrence IDs. Do not reset a conditional local source to ZERO. A caller
-may nevertheless retain ZERO when the selected actual input came from a
-source. Call binding need not preserve the preference order: the retained
-caller original is ZERO or a member of the old caller support, not
-necessarily its global minimum. No omitted-origin history is added.
+Each executable run-1 method edge, point resume, subscription and summary
+still has one canonical `InitialAp` premise, including canonical ZERO. Use
+the original initial, not the checked current fact or condition pattern.
+Do not build a `PremiseSet` before splitting. Unary transfers retain their
+original. Ordinary singleton call application retains its caller original.
+Run-1 never enters E6 or publishes executable ND. Keep `ApManager.union`
+and later FULL exact union unchanged.
 
-This weakens caller correlation. A caller matching only the selected
-initial can now obtain a DEMAND candidate although the old ND summary
-required all inputs at that same call. Such candidates can enable more
-complete local bindings. Complete admission at publication does not
-preserve the old set of later candidates. Static conditional supply uses
-the selected atomic relation in [the grouped contract](grouped-run1-statics.md),
-not an additional recheck of omitted originals. Static field/class
-matching, source geometry and the existing rooted-supply requirement stay
-in force under this selected weaker relation.
+The two local **result** stores factor accepted origin domains by proof and
+compatible full facts header. Keep explicit conjunction slots distinct.
+At shared canonical NNF leaves, require the same header and intersect origin
+domains. Keep OR proof choices distinct. Do not expand NNF to cubes or
+construct Cartesian origin products. A root publishes newly contributing
+nonzero origins and independently publishes a newly permitted all-ZERO arm.
+Same-header fact growth retains the existing union operation. Versions change
+only for genuine growth; duplicate/stale visits emit no new arm. Freeze
+releases the method-local state. Full sink binding evidence uses its separate
+complete-binding path. The implementation contract states the store adapters.
 
-For each covered run-1 result, handoff emits one guide with the same result
-entry and the retained original as exit. The old per-member guides had
-the same entry. This preserves projected entry membership for corresponding
-outputs; it does not equate guide exits or prove full backward soundness.
-Keep actual-query admission, entry-based additional guide emission, current
-query publication, original FULL source reversal, internal-sink seeds and
-ZERO discovery. Run-2 must still visit every required FULL source/condition
-leaf, including discarded run-1 inputs. Do not add an exit-based veto or
-an unbounded omitted-support store to recover those inputs.
+Source transfer classification is unchanged. A completed MULTI source still
+constructs its fixed target and uses its existing permission even when it
+emits one atomic arm. Preserve unary/GEN geometry, action/occurrence IDs and
+original source anchors/Facts. Do not reset a conditional source to ZERO.
+Each nonstatic arm follows ordinary call matching. Each static arm follows
+the existing actual pool matcher independently. A later caller can match
+one arm without the other origins; added candidates stay under the existing
+DEMAND policy. A complete reference caller binding can match every arm.
+No omitted-support history or new grounding mechanism is added.
 
-[Run1RepresentativePremises.lean](lean/ApSpec/Run1RepresentativePremises.lean)
-proves complete-cube gating, member selection, order/duplicate independence,
-positive-Horn consequence inclusion for **fixed discovered clauses**, the
-atomic label invariant and the projected handoff-entry law. Its
-[narrow audit](lean/run1-representative-premises-audit.lean) is separate
-from the existing aggregate proofs. The
-[proof map](grouped-run1-statics-proofs.md#selected-21-october-representative-update)
-states the remaining AP, condition, call and backward adapter obligations.
-The singleton label domain excludes powerset `PremiseSet` keys. It does
-not bound all local tuple enumeration, AP payloads or execution time.
+Handoff retains **full demand pairs**, including both entry and exit. For a
+fixed accepted result with nonzero origins:
+
+```text
+H({I1,...,Ik} -> Y) = {(demand(Y), demand(Ij)) | j=1..k}
+H({I1 -> Y,...,Ik -> Y}) = the same set of full pairs
+```
+
+The canonical all-ZERO result retains its ordinary explicit control-ZERO
+exit. Both sides use the same conclusion/initial normalization and existing
+merge/subsumption. Equal entry sets alone do not prove this law. Keep actual
+query admission, entry-based additional guide emission, original FULL source
+reversal, internal-sink seeds and ZERO discovery. Full pairs for corresponding
+outputs do not by themselves prove whole-analyzer discovery or convergence.
+
+[Run1AllOrigins.lean](lean/ApSpec/Run1AllOrigins.lean) proves exact scalar
+origin/ZERO admission, factored independent-domain equality, repeated-leaf
+intersection, complete handoff-pair equality and fresh-origin deltas.
+[Run1RoutingProjection.lean](lean/ApSpec/Run1RoutingProjection.lean) proves
+exact-class/descendant disjointness, prefix completeness, removed empty
+effects and projection value idempotence. Their
+[focused audit](lean/run1-origins-routing-projection-audit.lean) has 26
+statements and 20 executable controls. The
+[proof map](grouped-run1-statics-proofs.md#selected-21-october-all-origin-correction)
+separates these local laws from production adapter and whole-engine claims.
+Historical representative-only laws prove neither all-origin emission nor
+full handoff-pair preservation. Atomic keys do not bound all AP work or time.
 
 ## 1. Terms
 
@@ -1313,7 +1323,8 @@ scope; they do not prove the new F78 protocol or the full alternating iteration.
 ### 4.6 Mark conjunction: ND edges
 
 **Run-1 exception:** §0.4 retains the complete local binding but replaces
-its union by one original. The ND union/application rules below define
+its union by one atomic arm for each contributing original, with the exact
+all-ZERO admission rule. The ND union/application rules below define
 the exact FULL/reference path; they do not authorize run-1 executable ND.
 Source target construction and sink evidence still use the complete binding.
 
@@ -2219,7 +2230,7 @@ The concept of a conclusion is a set of path facts. The representation groups pa
 Run-1 executable keys are `InitialAp` only (§0.4). `PremiseSet` remains
 a shared representation for exact later FULL runs. A completed run-1
 condition retains its literal evidence separately and never interns its
-full original union merely to choose a representative afterward.
+full original union before publishing its contributing atomic arms.
 
 ```kotlin
 /** The initial fact (premise): one linear path. Its mark is * or a concrete mark (never *∖X). It is also the premise
@@ -2799,8 +2810,8 @@ Historical RequestStore/AddedFactStore proofs do not establish F78 or require th
   it is not dropped (§11.1).
 * On a new fact for a literal: combine it with the stored facts of the other literals of the same conjunctive micro
   edge or sink alternative (one per literal, every combination). A later FULL result has the union of the premise sets WITHOUT
-  THE ZERO FACT, and `{zero}` if every input has `{zero}` (§4.6). Run-1 selects one original only after the whole
-  binding is accepted (§0.4). For a conjunctive sink, each combination is a sink
+  THE ZERO FACT, and `{zero}` if every input has `{zero}` (§4.6). Run-1 emits each contributing
+  nonzero original after complete admission, and ZERO only for a permitted all-ZERO binding (§0.4). For a conjunctive sink, each combination is a sink
   edge set of the vulnerability: a sink witness (§4.9, §8.10).
 * The same for a callee summary with several premises at a call statement: `(callee summary, premise index) → links`
   (the added fact with its caller edge; §4.6, event E6).
@@ -3077,7 +3088,7 @@ See [proof-status.md](proof-status.md) for current scope and
 ### 10.6 ND edges — `ND.lean`, `NDExact.lean`
 
 These exact ND models remain the FULL/reference contract. They do not
-prove equivalence of the selected run-1 representative approximation;
+prove equivalence of the selected run-1 all-origin approximation;
 its checked scope and adapter obligations are stated in §0.4.
 
 See [proof-status.md](proof-status.md) for current scope and
