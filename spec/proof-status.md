@@ -1,5 +1,36 @@
 # Current proof status
 
+## Selected next iteration: all origins, routing and GROUP projection
+
+The [implementation specification](../docs/design/bidirectional-run1-origins-routing-projection-implementation-20261021.md)
+selects all contributing atomic run-1 origins, impossible exact-class/field
+routing removal and canonical GROUP projection reuse. **Runtime changes
+are pending.** The first item is a semantic correction to the current
+representative-only result; the other two preserve the corrected contract.
+ZERO requires a complete compatible all-ZERO cube. FULL ND, sink witnesses,
+field/static transfer and the run schedule retain their current behavior.
+
+[Run1AllOrigins.lean](lean/ApSpec/Run1AllOrigins.lean) and
+[Run1RoutingProjection.lean](lean/ApSpec/Run1RoutingProjection.lean) pass the
+focused Lean 4.33.1 build. Their
+[audit](lean/run1-origins-routing-projection-audit.lean) covers 26 statements
+and 20 executable controls. Only `propext` and `Quot.sound` remain; there
+is no classical choice, placeholder or native decision axiom. Checked
+scope: scalar/factored independent origins, exact ZERO, shared-leaf origin
+and header agreement, complete handoff coordinates, fresh memberships,
+arbitrary-length exact-class disjointness/prefix necessity and local
+projection value identities. NNF/store/actor adapters, receiving-manager
+canonical identities and the audited callback's cover closure remain
+explicit implementation gates. This is not a whole-engine or termination
+proof, and no candidate runtime test or performance result is claimed.
+
+Latest measured reference remains `51dbc4d66`: OWASP **run-6 TIMEOUT**
+(latest COMPLETE/accepted run-5); conductor **run-2 OOM** (run-1/run-1);
+ThingsBoard **run-1 OOM** (none/none); Stirling-PDF **run-2 OOM**
+(run-1/run-1). See the [closed report](../docs/reports/bidirectional-cleaner-work-performance-20261021.md).
+The running representative contract below remains the historical/runtime
+reference until the new iteration is implemented.
+
 ## Selected 21 October run-1 representative premises
 
 The [selected implementation contract](../docs/design/bidirectional-run1-single-premise-rules-20261021.md)

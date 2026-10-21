@@ -1,9 +1,11 @@
 # Avoid repeated analyzer work: next iteration
 
-Date: 21 October 2026. Status: **ranked proposal based on the closed fresh study**.
-This revision adds the requested run-1 ND guidance correction to the next
-iteration. The five performance items remain unselected. No change in
-this document is implemented. The current runtime is
+Date: 21 October 2026. Status: **three items selected for the next iteration**.
+The required all-origin correction, impossible exact-class/field routing
+removal and canonical GROUP projection reuse are selected. Their complete
+[implementation specification](bidirectional-run1-origins-routing-projection-implementation-20261021.md)
+controls this iteration. The other three performance items remain future
+candidates. No change in this document is implemented. The current runtime is
 `51dbc4d66fb1bf1b56071dbf18c90c5909e3146b`.
 
 Use the [fresh performance report](../reports/bidirectional-cleaner-work-performance-20261021.md)
