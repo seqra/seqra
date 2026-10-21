@@ -1,0 +1,26 @@
+import ApSpec.Run1RepresentativePremises
+
+/- Narrow audit only. No aggregate imports are changed. -/
+#print axioms Run1RepresentativePremises.code_injective
+#print axioms Run1RepresentativePremises.preferred_kind_first
+#print axioms Run1RepresentativePremises.choose_member
+#print axioms Run1RepresentativePremises.choose_permutation
+#print axioms Run1RepresentativePremises.choose_same_members
+#print axioms Run1RepresentativePremises.representative_member
+#print axioms Run1RepresentativePremises.representative_zero_iff
+#print axioms Run1RepresentativePremises.emission_requires_complete_cube
+#print axioms Run1RepresentativePremises.complete_cube_emits
+#print axioms Run1RepresentativePremises.positive_horn_overapprox
+#print axioms Run1RepresentativePremises.binding_keeps_member
+#print axioms Run1RepresentativePremises.binding_into_union
+#print axioms Run1RepresentativePremises.singleton_invariant
+#print axioms Run1RepresentativePremises.every_label_in_universe
+#print axioms Run1RepresentativePremises.linear_label_bound
+#print axioms Run1RepresentativePremises.old_guide_for_each_member
+#print axioms Run1RepresentativePremises.handoff_entry_sets_equal
+#print axioms Run1RepresentativePremises.Counterexamples.partial_cube_emits_nothing
+#print axioms Run1RepresentativePremises.Counterexamples.complete_bindings_can_differ
+#print axioms Run1RepresentativePremises.Counterexamples.minimum_does_not_commute_with_binding
+#print axioms Run1RepresentativePremises.Counterexamples.selected_member_can_bind_to_zero
+#print axioms Run1RepresentativePremises.Counterexamples.representative_only_membership_loses_support
+#print axioms Run1RepresentativePremises.Counterexamples.one_per_cube_is_stricter_than_one_per_binding
