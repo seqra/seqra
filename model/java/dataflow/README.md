@@ -1,23 +1,23 @@
-# Builtin dataflow approximations
+# Built-in dataflow approximations
 
-Code-based models of how taint moves through methods the analyzer cannot see into. Each
-directory here is an independent Gradle module compiled against **its own pinned
-dependencies**, so a model may reference the library type it models, and modules whose
-libraries conflict — javax against jakarta, two majors of one artifact — coexist without
-ever sharing a classpath.
+These code models describe how taint moves through methods that the analyzer cannot inspect.
+Each directory is an independent Gradle module. Each module has its own pinned dependencies.
+A model can reference the library that it models. Modules with conflicting libraries do not
+share a class path.
 
 | Module   | Models                                | Pins                             |
 |----------|---------------------------------------|----------------------------------|
-| `core`   | `OpentaintNdUtil`, `ArgumentTypeContext` — the support types every other module uses | none |
+| `core`   | `OpentaintNdUtil` and `ArgumentTypeContext`, which support the other modules | none |
 | `stdlib` | JDK types (`Stream`, `Optional`, `CompletableFuture`, executors, `Thread`) | none |
 | `kotlin` | Kotlin coroutine builders             | kotlin-stdlib, kotlinx-coroutines |
 
-The compiled classes of every module are merged into `opentaint-dataflow-approximations/`
-inside the analyzer jar, which `DataFlowApproximationLoader` unpacks at analysis time.
+The build puts the compiled classes from each module in
+`opentaint-dataflow-approximations/` in the analyzer JAR. The analysis loader extracts these
+classes before analysis.
 
 ## Adding a module
 
-1. Create a directory named for the library (`guava`, `jakarta-servlet`, …) with a
+1. Create a directory for the library, such as `guava` or `jakarta-servlet`. Add a
    `build.gradle.kts`:
 
    ```kotlin
@@ -30,27 +30,29 @@ inside the analyzer jar, which `DataFlowApproximationLoader` unpacks at analysis
    }
    ```
 
-   The convention plugin
-   (`core/opentaint-jvm-sast-dataflow/buildSrc/src/main/kotlin/dataflow-approximation-module.gradle.kts`)
-   supplies Java 8 compatibility, the `@Approximate` annotations and the `core` module. Pin
-   exact versions — this classpath is the model's compile environment and nothing else
-   influences it.
+   The convention plugin is at
+   `core/opentaint-jvm-sast-dataflow/buildSrc/src/main/kotlin/dataflow-approximation-module.gradle.kts`.
+   It supplies Java 8 compatibility, the name-patch annotations, and the `core` module. Pin
+   exact dependency versions. These dependencies form the model compile class path.
 
-2. Put the models under
-   `src/main/java/org/opentaint/jvm/dataflow/approximations/<module>/`. The per-module
-   package keeps approximation class names globally unique: an approximation FQCN maps to
-   exactly one target class, and a collision between two modules fails the build during
-   `processResources`.
+2. Put each model under `src/main/java/opentaint/<target-package>/`. Add `opentaint.` before
+   the exact target class name. For example, `opentaint.java.util.Optional` models
+   `java.util.Optional`. Each target can have only one model. A duplicate model makes the
+   `processResources` task fail.
 
-Nothing else needs editing — `core/opentaint-jvm-sast-dataflow/settings.gradle.kts`
-discovers every directory here that has a `build.gradle.kts`.
+You do not need to edit another build file. The
+`core/opentaint-jvm-sast-dataflow/settings.gradle.kts` file finds each directory that has a
+`build.gradle.kts` file.
 
 ## Writing a model
 
-Same form as a custom model, so the reference in `skills/create-dataflow-approximation`
-applies here too. In short: `@Approximate(TargetClass.class)` on one class per target,
-reach the real receiver with `(TargetClass) (Object) this`, put functional-interface
-parameters behind `@ArgumentTypeContext`, branch with `OpentaintNdUtil.nextBool()`, and
-never leave a body empty. Approximation bodies are analyzed, never executed, and must not
-introduce synthetic classes (lambdas, anonymous subclasses) — their constructors surface as
-dropped methods and carry no taint.
+Use the same form for built-in and custom models. See
+`skills/create-dataflow-approximation` for the full instructions. Use the `opentaint.`
+prefix to address the target. Use `@ApproximatedClassName` when Java cannot express the
+target JVM class name. Cast `(TargetClass) (Object) this` to access the real receiver. Add
+`@ArgumentTypeContext` to functional-interface parameters. Use
+`OpentaintNdUtil.nextBool()` when the analyzer must follow two paths. Do not use an empty
+body.
+
+OpenTaint analyzes model bodies. It does not run them. Do not add lambdas or anonymous
+subclasses. Their constructors appear as dropped methods and do not carry taint.

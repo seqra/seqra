@@ -125,6 +125,11 @@ def strip_quotes(s):
 def fqn_base(s):
     """The method fqn without its signature/params — `a.b.C#m`."""
     s = strip_quotes(s)
+    # A Go method starts with its receiver, for example
+    # `(*example.com/lib.Type).Method`. The first parenthesis is part of
+    # the name, not an appended signature.
+    if s.startswith("("):
+        return s
     i = s.find("(")
     return (s[:i] if i != -1 else s).strip()
 
@@ -146,11 +151,25 @@ def member_key(item):
 
 
 def class_of(fqn):
-    return fqn_base(fqn).split("#", 1)[0].strip()
+    base = fqn_base(fqn)
+    if "#" in base:
+        return base.split("#", 1)[0].strip()
+    if base.startswith("("):
+        end = base.find(").")
+        if end != -1:
+            return base[1:end].lstrip("*").strip()
+    # A Go package function has the form `import/path.Function`.
+    if "/" in base and "." in base:
+        return base.rsplit(".", 1)[0]
+    return base.strip()
 
 
 def package_of(fqn):
     cls = class_of(fqn)
+    if fqn_base(fqn).startswith("("):
+        return cls.rsplit(".", 1)[0] if "." in cls else cls
+    if "/" in cls:
+        return cls
     return cls.rsplit(".", 1)[0] if "." in cls else ""
 
 

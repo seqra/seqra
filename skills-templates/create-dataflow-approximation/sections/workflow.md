@@ -4,7 +4,7 @@ Find and read each dataflow method's real source: take methods not yet in `build
 
 ### 2. Write the approximation
 
-Reproduce that propagation in the language-specific code form in the batch's approximation project at `.opentaint/dataflow/<batch>`, following the language reference's artifact layout. The project pins the libraries the models are written against at the same versions the test project takes, because a model references the library type it models. Scaffold it if it doesn't exist yet (the language reference has the command). Cover every assigned callable variant, repair an explicitly handed callable in the existing source, and add new ones there rather than rewriting the file. The engine is field-sensitive — taint is tracked per field — so route data field-to-field exactly as the source does rather than tainting the whole object. The test project's negative samples (if present) verify this by storing taint in one field and reading another, so an over-broad model makes them fire. The concrete constructs and patterns are in the language reference.
+Write the propagation in the language-specific code form in the batch approximation project at `.opentaint/dataflow/<batch>`, following the language reference's artifact layout. Pin each library at the version that the test project uses. Scaffold the project if it does not exist. Cover each assigned callable variant. Change only the requested existing callables. Add new ones to the existing source rather than rewriting it. The engine tracks taint for each field. Route data through the same fields as the source. The negative samples check this behavior. See the language reference for the concrete constructs and code patterns.
 
 ### 3. Test against the test project
 
