@@ -36,6 +36,28 @@ finite controls do not override the failed project gates. The
 [next proposal](../docs/design/bidirectional-local-static-writers-aliases-next-iteration-20261022.md)
 does not authorize another runtime change.
 
+## Proposed: Thingsboard run-1 static GROUP protocol removal
+
+The [revised next proposal](../docs/design/bidirectional-local-static-writers-aliases-next-iteration-20261022.md)
+focuses on Thingsboard run-1. It proposes removing repeated call/supply
+requests for already-processed static GROUP originals. Runtime is unchanged.
+The ZERO exit restriction and Spring rewrite are withdrawn/deferred;
+controller annotation-based exit selection remains in place.
+
+[Run1StaticPremiseAvailability.lean](lean/ApSpec/Run1StaticPremiseAvailability.lean)
+passes the focused Lean 4.33.1 check and 24 executable controls. Its
+owned-module audit checks 533 declarations with no unexpected axioms.
+It constructively derives prior supplied/processed provenance from the
+modeled production seams, preserves original identity, checks first and
+repeated writer-request effects, and excludes unseeded GROUP cycles.
+It assumes no new exit/GEN eligibility restriction. Canonical AP
+self-application, packed suffix additivity, actual producer correspondence
+and complete method demand handoff remain implementation proof gates.
+There is no whole-engine equivalence or measured speedup claim. The
+[focused investigation](../docs/reports/bidirectional-thingsboard-run1-workload-investigation-20261022.md)
+uses the existing Thingsboard run-1 OOM capture: latest completed and
+accepted iteration are both none. No new project run has been performed.
+
 ## Current iteration: all origins, routing and GROUP projection
 
 The [implementation specification](../docs/design/bidirectional-run1-origins-routing-projection-implementation-20261021.md)

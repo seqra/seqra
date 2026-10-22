@@ -625,11 +625,15 @@ repair is included in this implementation or silently assumed by its
 proofs.
 
 The [next proposal](../design/bidirectional-local-static-writers-aliases-next-iteration-20261022.md)
-ranks expected impact, readiness and proof obligations separately. It
-includes the scope correction as an unresolved semantic design, immediate
-projection removal, first full-query authorization and lazy unused
-containers. It also states the remaining static-consumer evidence gap.
-No further runtime optimization has been implemented.
+was revised after user review. Performance work now focuses on Thingsboard
+run-1 and algorithmic removal of repeated static GROUP handshakes and
+unary supply joins. The ZERO exit restriction and Spring rewrite are
+withdrawn/deferred; controller annotation-based checks remain. See the
+[focused source investigation](bidirectional-thingsboard-run1-workload-investigation-20261022.md)
+for the new local model and the still-open AP/packed-suffix proof gates.
+The former projection, container and later-run replay ideas are deferred.
+These revisions do not change the measurements above. No further runtime
+optimization has been implemented.
 
 All eight command/profile reviews, four strict finding reviews and three
 live-heap owner reviews are closed. The postprocessing terminal receipt
