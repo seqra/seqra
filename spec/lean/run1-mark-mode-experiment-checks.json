@@ -7,10 +7,10 @@
   "sha256": {
     "spec/lean/ApSpec/Run1MarkModeExperiment.lean": "0ac87c7fe567d1d11e0377078068c81096a79346d0c52455eabc32f7dde15512",
     "spec/lean/run1-mark-mode-experiment-audit.lean": "30610e5b7be58d30c2fd2383750560392e697de2e9e8286a34a4bfe904d62738",
-    "spec/run1-static-summary-erasure.md": "a8929c0cc64eb5863857066f89d6c0eea49baba337e42da5ecc136a5c09b9940",
-    "spec/run1-static-summary-erasure-proofs.md": "f9050402b5fd52bd3ceb901ef5d9c2568992c2497ef670af92da6ea850b446a5",
+    "spec/run1-static-summary-erasure.md": "ded16d102f65633dc1c10dea973d07153fb8cffde8ca194aa53a4924f4a18856",
+    "spec/run1-static-summary-erasure-proofs.md": "03badd45c6b4150e92719254177183aed274651257e8835a207a964efe03b707",
     "spec/proof-status.md": "a6c841d260462b1f087e0d7b5c343cb2357ee6955837488666670b921c5b6fa8",
-    "docs/design/bidirectional-static-protocol-removal-next-iteration-20261022.md": "ddd146968fe763e3ea9f7f91d91e717fb7e33b1ea0aec4e537cef84e01a52e5f"
+    "docs/design/bidirectional-static-protocol-removal-next-iteration-20261022.md": "037edcb180e5cdb25813917b95ed764cae418e518e7da2aac2a28d266be01eb7"
   },
   "status": "design extension; no runtime implementation or project experiments",
   "toolchain": "leanprover/lean4:v4.33.1",
@@ -83,5 +83,25 @@
   ],
   "experiment_scope": "Same implemented binary and fixed four-project cohort; fresh JVM serial pairs; at least three alternating-order pairs; engine-time/allocation/work/precision metrics and latest iteration labels",
   "no_new_measurements": true,
-  "old_group_receipt": "Frozen; its document hashes bind the original contract commit; its unchanged four models remain GROUP-scoped evidence."
+  "old_group_receipt": "Frozen; its document hashes bind the original contract commit; its unchanged four models remain GROUP-scoped evidence.",
+  "documentation_clarifications": [
+    {
+      "updated_utc": "2026-10-22T19:23:34.638338+00:00",
+      "base_commit": "2a9c4059b1c7ef8745c952e0119e72211d5035b1",
+      "reason": "Highlight existing run-1 no-S-to-S caller propagation: no publication, delivery, caller application or promotion; producer effects and first ordinary bindings retained.",
+      "semantic_change": false,
+      "formal_sources_changed": false,
+      "audit_rerun": false,
+      "prior_document_sha256": {
+        "spec/run1-static-summary-erasure.md": "a8929c0cc64eb5863857066f89d6c0eea49baba337e42da5ecc136a5c09b9940",
+        "spec/run1-static-summary-erasure-proofs.md": "f9050402b5fd52bd3ceb901ef5d9c2568992c2497ef670af92da6ea850b446a5",
+        "docs/design/bidirectional-static-protocol-removal-next-iteration-20261022.md": "ddd146968fe763e3ea9f7f91d91e717fb7e33b1ea0aec4e537cef84e01a52e5f"
+      },
+      "current_document_sha256": {
+        "spec/run1-static-summary-erasure.md": "ded16d102f65633dc1c10dea973d07153fb8cffde8ca194aa53a4924f4a18856",
+        "spec/run1-static-summary-erasure-proofs.md": "03badd45c6b4150e92719254177183aed274651257e8835a207a964efe03b707",
+        "docs/design/bidirectional-static-protocol-removal-next-iteration-20261022.md": "037edcb180e5cdb25813917b95ed764cae418e518e7da2aac2a28d266be01eb7"
+      }
+    }
+  ]
 }

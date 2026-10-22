@@ -142,6 +142,11 @@ In current Kotlin, the static-output call branch goes directly to
 promotion. It does not execute a caller suffix. A static-to-nonstatic
 summary is different and remains published.
 
+Thus the new run-1 procedure needs no S-to-S callee-summary publication,
+delivery, caller application or promotion. Erase it at its producer after
+securing effects. The following construction proves coverage without
+those caller steps; it does not require a caller to receive the erased row.
+
 `localWriterWitness` extracts the local producer.
 `inputBindings` extracts its exact ordinary call bindings.
 `replayInput` executes those bindings in their proper direction.

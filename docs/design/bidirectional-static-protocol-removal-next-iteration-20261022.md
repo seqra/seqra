@@ -67,6 +67,13 @@ do not build the possible shared exact-pair directory described below.
 The design remains unimplemented. The measurements below still refer to
 runtime `30c1b8460` and retain their stated limits.
 
+**Run-1 S-to-S summaries are not propagated to callers.** No publication,
+delivery, caller application or caller promotion remains for those rows.
+Keep producer effects and first ordinary bindings before erasure. Keep
+ZERO-to-static, mixed/nonstatic-to-static and static-to-nonstatic summaries.
+This applies in both GROUP and FULL experiments. See the
+[explicit caller rule](../../spec/run1-static-summary-erasure.md#41-no-s-to-s-summary-propagation-to-callers).
+
 The actual run-2 incoming guidance has 5,890,526 static/static physical
 pairs, **84.68%** of its DemandPattern population. The whole incoming
 store retains 2.683 GB across 73,608 method keys. These measurements

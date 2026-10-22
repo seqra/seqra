@@ -161,8 +161,8 @@ predicate also states the correct reusable contract for a complete
 premise. It does not introduce new run-1 ND objects.
 
 Erase FLOW and concrete rows in either configured mark mode, same-group
-and changed-group rows, identity
-rows, named-field rows and exact class-marker rows. Do not limit the
+and changed-group rows, identity rows, named-field rows and exact
+class-marker rows. Do not limit the
 test to canonical STAR field initials. Do not erase a mixed dependency
 merely because one member is static.
 
@@ -179,6 +179,27 @@ ZERO is not a static input. An erased row must not enter the raw summary
 store, selected demand store, publication index, pending publication
 batch, handoff pair list, or persisted native records. Do not recreate
 those rows as a permanent global relation directory.
+
+### 4.1 No S-to-S summary propagation to callers
+
+**Do not propagate S-to-S method summaries to callers in run-1.** Do not
+publish or deliver those rows, enqueue caller summary applications for
+them, or promote them into caller summary storage. This applies to FLOW,
+GROUP and FULL marks, including identity and changed-group relations.
+
+Keep required effects at the producer before erasure: reached writes,
+local FLOW writers, computed supplies and pending refinement. The static
+service delivers those effects to consumers without a summary relay
+through the call chain. Query completion supplies the run-2 guidance.
+
+Keep ordinary call subscriptions for retained relations: ZERO-to-static,
+nonstatic/mixed-to-static and static-to-nonstatic. Applying a retained
+nonstatic-to-static summary can create a new S-to-S result in a caller.
+Secure that first binding's computed effects, then discard the result;
+do not propagate it to the caller's callers. Section 5.3 gives the example.
+
+Run-2 and later still produce and apply real S-to-S summaries with actual
+matching static inputs.
 
 ## 5. Producer effects before erasure
 
@@ -294,9 +315,10 @@ subscription. Applying it can create the first actual
 erase that caller row. Do not create a caller write point. Do not replace
 its original by ZERO.
 
-By contrast, applying an already-static callee summary with a static
-output only promotes the result. It does not run a caller suffix. After
-erasure there is no such publication to relay. The local writer or first
+In the reference runtime, applying an already-static callee summary with
+a static output only promotes the result. It does not run a caller suffix.
+The new run-1 procedure removes that publication, caller application and
+promotion entirely. The local writer or first
 ordinary binding remains the producer. The scalar AP projection proof
 must show that repeated canonical relay cannot create a new scalar
 region/group effect beyond that producer (including changed groups and
