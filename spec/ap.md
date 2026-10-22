@@ -1,5 +1,12 @@
 # Access paths and storages — specification
 
+> The selected 22 October
+> [local-writer and summary-alias contract](run1-static-writers-and-summary-aliases.md)
+> overrides run-1 static writer registration and forward alias admission
+> below. Call summaries promote without new writer registration. Computed
+> supplies remain. The scalar no-memory-effect rule has no DEMAND bypass.
+> Other AP, field, source, demand and later-run contracts do not change.
+
 > The selected 21 October all-origin rule in §0.4 replaces the earlier
 > representative rule. After a complete compatible run-1 binding, emit each
 > contributing nonzero origin as a separate atomic edge. Emit ZERO only for a

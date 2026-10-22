@@ -586,6 +586,14 @@ and of an exit sink (§4.4); an unconditional sink (an entry sink, for example) 
 needs only the zero fact. The analyzer makes these seeds from the forms of the sink (`SinkRule.patterns`), not from
 the `SeedIndex`, so A4 holds. Argued: the model has no end facts (§4.5; [proof-status.md](proof-status.md)).
 
+SELECTED RUN-1 EXCEPTION: use
+[Run-1 local static writers and summary alias admission](run1-static-writers-and-summary-aliases.md).
+Its local-only writer admission and immutable writer lifetime replace
+static registration from every summary. Its raw summary classifier and
+no-DEMAND-bypass guard replace the run-1 rule in the next paragraph.
+Keep computed group supplies, ordinary summary/demand publication and
+later FULL/native/reversed behavior.
+
 THE ALIAS GUARD (`Guard.MemoryEffect`; `interpreter.md` §3.8 AC3, AC4). Each forward result carries
 `identityCandidate: Boolean?`. The flag is null before a stage classifies the result. The default identity of the
 unresolved stage and the constructor stage set it to true. Sources, end facts and nonidentity pass rules set it to

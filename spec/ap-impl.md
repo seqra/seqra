@@ -4574,6 +4574,13 @@ sealed interface CallStage {
 }
 ```
 
+The selected run-1 override is
+[local static writers and summary alias admission](run1-static-writers-and-summary-aliases.md).
+Its structural scalar partition and layer-independent no-effect admission
+replace the run-1 guard example above. Keep the old FULL/native guard and
+the reversed unguarded walk. The historical theorem in the next paragraph
+proves the older guard, not the selected run-1 rule.
+
 Each `Facts` group has one layer. The engine passes that layer to `MemoryEffect.admits`; the per-path walk passes
 the layer of its `Conclusion`. `CurrentAliasGuard.selection_iff` checks this guard: every demand result passes,
 and a normal candidate identity is skipped. `CurrentSimplifications.Analyzer.origin_quotient` and `update_commutes`

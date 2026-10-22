@@ -1,5 +1,14 @@
 # Mark groups and direct static handling
 
+The selected 22 October update is
+[Run-1 local static writers and summary alias admission](run1-static-writers-and-summary-aliases.md).
+It replaces static write-point registration from caller summary copies
+with registration from executed local transfers only. Keep computed group
+supplies and ordinary summary/demand publication. It also replaces the
+run-1 alias classifier and DEMAND bypass with the specified no-memory-effect
+rule. Its explicit scope overrides older text below; other contracts stay
+unchanged. This is specification work; the runtime is unchanged.
+
 The selected 21 October update is the
 [run-1 all-origin implementation contract](../docs/design/bidirectional-run1-origins-routing-projection-implementation-20261021.md).
 Its rule in §0.1 replaces representative selection and overrides older

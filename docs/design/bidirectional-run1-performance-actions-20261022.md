@@ -6,6 +6,11 @@ The [closed investigation](../reports/bidirectional-run1-causal-performance-2026
 contains the 16 configurations, 13 controls and source/heap/profile bindings.
 No analyzer code changes are part of this document.
 
+The complete selected contract is
+[Run-1 local static writers and summary alias admission](../../spec/run1-static-writers-and-summary-aliases.md).
+Use that specification and its proof dossier for implementation. This
+document records the investigation and proposal context.
+
 The selected scope is now: register static write points only for local
 transfer results, then correct run-1 summary alias admission. Sharing
 identical static FLOW relations globally is deferred until we measure the

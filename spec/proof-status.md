@@ -1,5 +1,31 @@
 # Current proof status
 
+## Selected 22 October specification: local writers and summary aliases
+
+The [complete specification](run1-static-writers-and-summary-aliases.md)
+selects local-transfer-only static writer registration and the run-1
+no-memory-effect alias rule. Keep caller summary/demand publication and
+computed ZERO/all-static group supplies. Local FLOW writers own their
+immutable bounded relations. The selected alias rule has no DEMAND bypass
+and ignores TAINT tails; it is not equality with the old alias closure.
+No FULL/native/reversed, field, source or mark-policy change is selected.
+**Runtime remains `d7244c08c`; these changes are not implemented.**
+
+The two constructive models pass the focused Lean 4.33.1 build and the
+aggregate 171-job build. Their [audit](lean/run1-static-writers-and-summary-aliases-audit.lean)
+passes 1,490 owned declarations and 46 executable controls with only
+`propext` and `Quot.sound` dependencies. The
+[proof dossier](run1-static-writers-and-summary-aliases-proofs.md) records
+finite caller-job replay, rooted supply, independent local admission,
+immutable coverage, exact packed selection and saved call-state laws.
+AP/trie, actual Base/point-route extraction, local producer and demand
+adapters remain implementation gates. There is no whole-engine no-FN,
+termination or performance theorem. No new project run was made. The
+latest causal measurements reach run-1 on all four projects; three
+complete/accept run-1, while Thingsboard fails with run-1 OOM before
+completion or acceptance. See the
+[closed causal report](../docs/reports/bidirectional-run1-causal-performance-20261021.md).
+
 ## Current iteration: all origins, routing and GROUP projection
 
 The [implementation specification](../docs/design/bidirectional-run1-origins-routing-projection-implementation-20261021.md)

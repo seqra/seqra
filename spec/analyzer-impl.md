@@ -984,6 +984,14 @@ observer does not select transfers. Release its delta cache with the service.
 
 ### 4.6 The results of the callees stage (`analyzer-core.md` §4.2 `applySummary`, `applyRecord`)
 
+The selected run-1 override is
+[local static writers and summary alias admission](run1-static-writers-and-summary-aliases.md).
+Promote static call results without write-point registration; keep computed
+group supplies. Use its structural no-memory-effect partition before caller
+binding and preserve the flag through resumes. The older identity/guard
+examples below remain FULL/native reference code, not the selected run-1
+implementation target.
+
 One callee result adapter handles summaries, records, transient record views and E6 combinations. `matches`
 already selected satisfying added leaves. The backward zero-only return copies the published conclusion directly.
 A FLOW added fact cannot satisfy a concrete summary premise and does not raise a caller-side request.

@@ -564,6 +564,15 @@ facts).
 
 ### 3.8 Aliases on call results
 
+For run-1, the selected
+[local-writer and summary-alias specification](run1-static-writers-and-summary-aliases.md#6-scalar-summary-no-memory-effect-rule)
+overrides AC3--AC5's forward admission below: equal base/chain and FLOW
+STAR/STAR or equal TAINT marks define no memory effect, independently of
+layer; TAINT tails do not affect this test. Partition packed results before
+binding and skip only their ALIASES branch. Keep source/default stage
+classification and later FULL/native/backward behavior as specified there.
+The older rules below remain the later-run reference.
+
 | Rule | Text |
 |---|---|
 | AC1 | JVM: for each caller local `x` that a binding back writes (`r`, `o`, `ai`), the alias paths `(b, q)` of `x` that hold BOTH before and after the call (`forEachAliasAfterCallStatement`; constant bases skipped). Go: the heap aliases at the statement (`forEachHeapAliasAtStatement`). |
