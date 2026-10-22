@@ -36,11 +36,15 @@ finite controls do not override the failed project gates. The
 [next proposal](../docs/design/bidirectional-local-static-writers-aliases-next-iteration-20261022.md)
 does not authorize another runtime change.
 
-## Proposed: Thingsboard run-1 static GROUP protocol removal
+## Specified: Thingsboard run-1 static GROUP protocol removal
 
-The [revised next proposal](../docs/design/bidirectional-local-static-writers-aliases-next-iteration-20261022.md)
-focuses on Thingsboard run-1. It proposes removing repeated call/supply
-requests for already-processed static GROUP originals. Runtime is unchanged.
+The [complete specification](run1-static-group-protocol-removal.md) and
+[proof dossier](run1-static-group-protocol-removal-proofs.md) select removal
+of repeated call/supply requests for already-processed static GROUP originals.
+Keep the same local scalar AP reducers and scalar caller suffixes. Packed
+suffix execution and the other candidates in the
+[next proposal](../docs/design/bidirectional-local-static-writers-aliases-next-iteration-20261022.md)
+remain unselected. Runtime is unchanged.
 The ZERO exit restriction and Spring rewrite are withdrawn/deferred;
 controller annotation-based exit selection remains in place.
 
@@ -50,9 +54,18 @@ owned-module audit checks 533 declarations with no unexpected axioms.
 It constructively derives prior supplied/processed provenance from the
 modeled production seams, preserves original identity, checks first and
 repeated writer-request effects, and excludes unseeded GROUP cycles.
-It assumes no new exit/GEN eligibility restriction. Canonical AP
-self-application, packed suffix additivity, actual producer correspondence
-and complete method demand handoff remain implementation proof gates.
+It assumes no new exit/GEN eligibility restriction. The new
+[protocol model](lean/ApSpec/Run1StaticGroupProtocolRemoval.lean) reuses the
+same reducer and canonical input. It proves finite method-owned demand
+pair/seed equality, transports explicit/implicit run-2 guidance, proves
+empty-E selector persistence and preserves finite positive supply/effect
+closure. The proof dossier records the source correspondence and focused
+check receipt: Lean 4.33.1 passes 1,441 owned declarations and 66 executable
+controls, with no unexpected axioms. Duplicate call offers can change
+physical suffix counts; the model proves semantic membership preservation,
+not equality of scheduler callback counts. Raw-output AP identity and packed suffix additivity are
+not needed by this selected contract. Actual edited Kotlin adapters must
+still pass the specified production controls after implementation.
 There is no whole-engine equivalence or measured speedup claim. The
 [focused investigation](../docs/reports/bidirectional-thingsboard-run1-workload-investigation-20261022.md)
 uses the existing Thingsboard run-1 OOM capture: latest completed and

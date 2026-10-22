@@ -5,6 +5,15 @@ Measured runtime: `a4bf789866f912ebefc54bca42d809c89beea2d4`.
 The later `0a55060ec` commit changes documentation only.
 Follow [proof-guide.md](../../spec/proof-guide.md).
 
+The first two items now have a
+[complete specification](../../spec/run1-static-group-protocol-removal.md)
+and [proof dossier](../../spec/run1-static-group-protocol-removal-proofs.md).
+Those documents define their implementation contract. They select protocol
+removal with the existing local AP reducer and scalar caller suffix.
+The raw-output and packed-suffix shortcuts discussed below remain further
+work; they are not part of the selected two-change specification. Items 3
+and 4 also remain unselected. Runtime implementation is unchanged.
+
 This revision follows the latest decisions:
 
 - Focus performance work on **Thingsboard run-1**.
