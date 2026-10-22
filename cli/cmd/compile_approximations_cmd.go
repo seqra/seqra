@@ -29,7 +29,7 @@ needed to compile ahead of time or to see compilation errors on their own.`,
 		if !approximation.IsProject(projectPath) {
 			out.Fatalf("%s is not an approximation project: it has no build.gradle.kts declaring the "+
 				"dependencies its models are written against.\nCreate one with 'opentaint approximation init %s "+
-				"--dependency <group:artifact:version>'", projectPath, args[0])
+				"--language java --dependency <group:artifact:version>'", projectPath, args[0])
 		}
 
 		outputPath := compileApproximationsOutput

@@ -57,6 +57,10 @@ var supportedLanguages = []LanguageMarkers{
 			"gradlew.bat",
 		},
 	},
+	{
+		Name:    "Go",
+		Markers: []string{"go.mod", "go.work"},
+	},
 }
 
 // markerToLanguage builds a lookup from marker name to language name.
@@ -185,4 +189,15 @@ func ValidateSourceProject(absProjectRoot string) error {
 // always operates on source directories.
 func ValidateSourceProjectForCompile(absProjectRoot string) error {
 	return validateSourceDir(absProjectRoot, false)
+}
+
+// IsGoSourceProject reports whether the root is a Go module or workspace.
+func IsGoSourceProject(absProjectRoot string) bool {
+	for _, marker := range []string{"go.mod", "go.work"} {
+		info, err := os.Stat(filepath.Join(absProjectRoot, marker))
+		if err == nil && !info.IsDir() {
+			return true
+		}
+	}
+	return false
 }

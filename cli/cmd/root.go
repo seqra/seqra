@@ -35,7 +35,7 @@ var updateHintCh = make(chan string, 1)
 var rootCmd = &cobra.Command{
 	Use:           "opentaint",
 	Short:         "OpenTaint Analyzer",
-	Long:          `OpenTaint is a CLI tool that analyzes Java and Kotlin projects to find vulnerabilities`,
+	Long:          `OpenTaint is a CLI tool that analyzes Java, Kotlin, and Go projects to find vulnerabilities`,
 	SilenceErrors: true,
 	SilenceUsage:  true,
 
@@ -124,6 +124,10 @@ func init() {
 	_ = rootCmd.PersistentFlags().MarkHidden("autobuilder-version")
 	_ = viper.BindPFlag("autobuilder.version", rootCmd.PersistentFlags().Lookup("autobuilder-version"))
 
+	rootCmd.PersistentFlags().StringVar(&globals.Config.GoServer.Version, "go-server-version", globals.GoServerBindVersion, "Version of opentaint Go server")
+	_ = rootCmd.PersistentFlags().MarkHidden("go-server-version")
+	_ = viper.BindPFlag("go_server.version", rootCmd.PersistentFlags().Lookup("go-server-version"))
+
 	rootCmd.PersistentFlags().StringVar(&globals.Config.Rules.Version, "rules-version", globals.RulesBindVersion, "Version of opentaint rules")
 	_ = rootCmd.PersistentFlags().MarkHidden("rules-version")
 	_ = viper.BindPFlag("rules.version", rootCmd.PersistentFlags().Lookup("rules-version"))
@@ -153,6 +157,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&globals.Config.Autobuilder.JarPath, "autobuilder-jar", "", "Path to autobuilder JAR (dev override, skips download)")
 	_ = rootCmd.PersistentFlags().MarkHidden("autobuilder-jar")
 	_ = viper.BindPFlag("autobuilder.jar_path", rootCmd.PersistentFlags().Lookup("autobuilder-jar"))
+
+	rootCmd.PersistentFlags().StringVar(&globals.Config.GoServer.BinaryPath, "go-server-binary", "", "Path to Go server binary (dev override, skips download)")
+	_ = rootCmd.PersistentFlags().MarkHidden("go-server-binary")
+	_ = viper.BindPFlag("go_server.binary_path", rootCmd.PersistentFlags().Lookup("go-server-binary"))
 }
 
 func initConfig(cmd *cobra.Command) {

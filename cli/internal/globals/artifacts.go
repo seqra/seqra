@@ -1,6 +1,9 @@
 package globals
 
-import "strings"
+import (
+	"runtime"
+	"strings"
+)
 
 // ArtifactDef declaratively describes a downloadable artifact.
 type ArtifactDef struct {
@@ -14,6 +17,7 @@ type ArtifactDef struct {
 	Version     string // user-configured version
 	Override    string
 	Unpack      bool // unpack tar.gz; also implies dir-based cache entry
+	Executable  bool
 }
 
 // CacheName returns the cache filename/dirname for this artifact version.
@@ -64,6 +68,18 @@ func Artifacts() []ArtifactDef {
 			Override:    Config.Analyzer.JarPath,
 		},
 		{
+			Name:        "Go server",
+			RepoName:    Config.Repo,
+			AssetName:   goServerReleaseAssetName(),
+			LibSubpath:  goServerBinaryName(),
+			CachePrefix: "go_server_",
+			CacheSuffix: goServerBinarySuffix(),
+			BindVersion: GoServerBindVersion,
+			Version:     Config.GoServer.Version,
+			Override:    Config.GoServer.BinaryPath,
+			Executable:  true,
+		},
+		{
 			Name:        "Rules",
 			RepoName:    Config.Repo,
 			AssetName:   RulesAssetName,
@@ -75,6 +91,21 @@ func Artifacts() []ArtifactDef {
 			Unpack:      true,
 		},
 	}
+}
+
+func goServerBinaryName() string {
+	return "go-ssa-server" + goServerBinarySuffix()
+}
+
+func goServerBinarySuffix() string {
+	if runtime.GOOS == "windows" {
+		return ".exe"
+	}
+	return ""
+}
+
+func goServerReleaseAssetName() string {
+	return "go-ssa-server_" + runtime.GOOS + "_" + runtime.GOARCH + goServerBinarySuffix()
 }
 
 // ArtifactByKind returns the ArtifactDef matching the given kind (lowercase name).

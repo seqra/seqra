@@ -178,6 +178,18 @@ func TestValidateSourceProject_ValidProject(t *testing.T) {
 	}
 }
 
+func TestValidateSourceProject_GoModule(t *testing.T) {
+	dir := t.TempDir()
+	createFile(t, filepath.Join(dir, "go.mod"))
+
+	if err := ValidateSourceProject(dir); err != nil {
+		t.Errorf("unexpected error for Go module: %v", err)
+	}
+	if !IsGoSourceProject(dir) {
+		t.Error("Go module was not identified as a Go source project")
+	}
+}
+
 func TestValidateSourceProject_NestedMarker(t *testing.T) {
 	dir := t.TempDir()
 	createFile(t, filepath.Join(dir, "services", "api", "pom.xml"))

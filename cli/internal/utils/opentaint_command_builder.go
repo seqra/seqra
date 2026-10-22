@@ -199,6 +199,15 @@ func (cb *OpentaintCommandBuilder) WithDataflowApproximations(paths []string) *O
 	return cb
 }
 
+func (cb *OpentaintCommandBuilder) WithGoModels(paths []string) *OpentaintCommandBuilder {
+	for _, p := range paths {
+		if p != "" {
+			cb.arrayFlags["go-models"] = append(cb.arrayFlags["go-models"], p)
+		}
+	}
+	return cb
+}
+
 func (cb *OpentaintCommandBuilder) WithTrackExternalMethods(enabled bool) *OpentaintCommandBuilder {
 	if enabled {
 		cb.boolFlags["track-external-methods"] = true
@@ -334,7 +343,7 @@ func BuildCompileCommandWithDocker(base *OpentaintCommandBuilder, projectPath, o
 // BuildScanCommandWithDocker builds a docker run command string for scanning a project
 // using the opentaint Docker image. The base builder carries all user-specified scan flags
 // (timeout, semgrep-compatibility, etc.) so that new flags added to the builder factory
-// are automatically included. Path-based flags (output, ruleset) are remapped to container paths.
+// are automatically included. Path-based flags are remapped to container paths.
 func BuildScanCommandWithDocker(base *OpentaintCommandBuilder, projectPath, sarifReportPath string, rulesetPaths []string) string {
 	absProjectPath, _ := filepath.Abs(projectPath)
 	absSarifReportPath, _ := filepath.Abs(sarifReportPath)
@@ -372,10 +381,34 @@ func BuildScanCommandWithDocker(base *OpentaintCommandBuilder, projectPath, sari
 	scanCmd := NewScanCommand("/project").
 		CopyFlagsFrom(base).
 		WithOutput("/output/" + sarifName).
-		WithRuleset(containerRulesets).
-		Build()
+		WithRuleset(containerRulesets)
+	mapDockerInputPaths(scanCmd, base, "dataflow-approximations", "/dataflow-approximations", &volumes)
+	mapDockerInputPaths(scanCmd, base, "go-models", "/go-models", &volumes)
+	mapDockerInputPaths(scanCmd, base, "passthrough-approximations", "/passthrough-approximations", &volumes)
 
-	return fmt.Sprintf("docker run --rm %s ghcr.io/seqra/opentaint:latest %s", volumes, scanCmd)
+	return fmt.Sprintf("docker run --rm %s ghcr.io/seqra/opentaint:latest %s", volumes, scanCmd.Build())
+}
+
+func mapDockerInputPaths(
+	command *OpentaintCommandBuilder,
+	source *OpentaintCommandBuilder,
+	flag string,
+	containerRoot string,
+	volumes *string,
+) {
+	paths := source.arrayFlags[flag]
+	if len(paths) == 0 {
+		return
+	}
+
+	mapped := make([]string, 0, len(paths))
+	for index, path := range paths {
+		absPath, _ := filepath.Abs(path)
+		containerPath := fmt.Sprintf("%s/input%d", containerRoot, index)
+		*volumes += fmt.Sprintf(" -v %s:%s", absPath, containerPath)
+		mapped = append(mapped, containerPath)
+	}
+	command.arrayFlags[flag] = mapped
 }
 
 // BuildScanCommandFromCompile builds a scan command string for use after compile,

@@ -3,6 +3,8 @@ package cmd
 import (
 	"reflect"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestHasNestedKey(t *testing.T) {
@@ -60,6 +62,30 @@ func TestAppendVerbosityFlagPreservesExistingFlags(t *testing.T) {
 	want := []string{"--project", "foo.yaml", "--verbosity=debug"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("appendVerbosityFlag did not preserve prior flags: got %v, want %v", got, want)
+	}
+}
+
+func TestAnalyzerBuildNativeCommandRoutesGoModels(t *testing.T) {
+	cmd := NewAnalyzerBuilder().
+		SetProject("/project/project.yaml").
+		SetOutputDir("/output").
+		AddGoModel("/models/stdlib").
+		BuildNativeCommand()
+
+	if !containsFlagPair(cmd, "--go-models", "/models/stdlib") {
+		t.Fatalf("Go model path not passed to analyzer; command was %v", cmd)
+	}
+}
+
+func TestGoModelsAvailableOnTestCommands(t *testing.T) {
+	commands := map[string]*cobra.Command{
+		"rule tests":          testRuleRunCmd,
+		"approximation tests": testApproximationRunCmd,
+	}
+	for name, command := range commands {
+		if command.Flags().Lookup("go-models") == nil {
+			t.Errorf("%s do not expose --go-models", name)
+		}
 	}
 }
 

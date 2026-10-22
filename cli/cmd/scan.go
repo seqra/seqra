@@ -36,6 +36,7 @@ type ScanConfig struct {
 	RuleID                    []string
 	PassthroughApproximations []string
 	DataflowApproximations    []string
+	GoModels                  []string
 	TrackExternalMethods      bool
 
 	DebugFactReachabilitySarif            bool
@@ -144,6 +145,7 @@ func addScanFlags(cmd *cobra.Command) {
 	cmd.Flags().StringArrayVar(&scanFlags.PassthroughApproximations, "passthrough-approximations", nil, "Pass-through approximation YAML file or directory (repeatable)")
 
 	cmd.Flags().StringArrayVar(&scanFlags.DataflowApproximations, "dataflow-approximations", nil, "Dataflow approximation project, build output, or class directory (repeatable)")
+	cmd.Flags().StringArrayVar(&scanFlags.GoModels, "go-models", nil, "Go model source directory using opentaint/<target-package> package paths, with each target package in only one directory (repeatable)")
 
 	cmd.Flags().BoolVar(&scanFlags.TrackExternalMethods, "track-external-methods", false, "Write external-method coverage files next to the SARIF report")
 }
@@ -158,6 +160,7 @@ func currentScanBuilder(cfg ScanConfig, sourcePath string) *utils.OpentaintComma
 		WithRuleID(cfg.RuleID).
 		WithPassthroughApproximations(cfg.PassthroughApproximations).
 		WithDataflowApproximations(cfg.DataflowApproximations).
+		WithGoModels(cfg.GoModels).
 		WithTrackExternalMethods(cfg.TrackExternalMethods)
 	if !isDefaultSeverity(cfg.Severity) {
 		b.WithSeverity(cfg.Severity)
@@ -301,14 +304,19 @@ func runScan(cmd *cobra.Command, cfg ScanConfig) {
 	}
 
 	if plan.needsCompilation {
-		autobuilderJarPath, err := ensureAutobuilderAvailable()
-		if err != nil {
-			out.Fatalf("Native compile preparation failed: %s", err)
-		}
+		var autobuilderJarPath string
+		var compileJavaRunner java.JavaRunner
+		if !validation.IsGoSourceProject(absUserProjectRoot) {
+			var err error
+			autobuilderJarPath, err = ensureAutobuilderAvailable()
+			if err != nil {
+				out.Fatalf("Native compile preparation failed: %s", err)
+			}
 
-		compileJavaRunner := newAutobuilderJavaRunner()
-		if _, err := compileJavaRunner.EnsureJava(); err != nil {
-			out.Fatalf("Failed to resolve Java for compilation: %s", err)
+			compileJavaRunner = newAutobuilderJavaRunner()
+			if _, err := compileJavaRunner.EnsureJava(); err != nil {
+				out.Fatalf("Failed to resolve Java for compilation: %s", err)
+			}
 		}
 
 		// Wipe any residue from a prior crashed compile before writing new output.
@@ -402,8 +410,21 @@ func runScan(cmd *cobra.Command, cfg ScanConfig) {
 	nativeBuilder.SetJarPath(analyzerJarPath)
 
 	addDataflowApproximations(nativeBuilder, cfg.DataflowApproximations, analyzerJarPath)
+	addGoModels(nativeBuilder, cfg.GoModels)
 
-	analyzerJavaRunner := newAnalyzerJavaRunner()
+	projectConfig, err := project.LoadConfig(absProjectModelPath)
+	if err != nil {
+		out.Fatalf("Failed to read the project model: %s", err)
+	}
+	goServerPath := ""
+	if len(projectConfig.GoProjects) > 0 {
+		goServerPath, err = ensureGoServerAvailable()
+		if err != nil {
+			out.Fatalf("Go scan preparation failed: %s", err)
+		}
+	}
+
+	analyzerJavaRunner := newAnalyzerJavaRunner(goServerPath)
 	if _, err := analyzerJavaRunner.EnsureJava(); err != nil {
 		out.Fatalf("Failed to resolve Java for analyzer: %s", err)
 	}

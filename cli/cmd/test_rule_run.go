@@ -9,6 +9,7 @@ import (
 	"github.com/seqra/opentaint/internal/analyzer"
 	"github.com/seqra/opentaint/internal/utils"
 	"github.com/seqra/opentaint/internal/utils/log"
+	projectutil "github.com/seqra/opentaint/internal/utils/project"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +20,7 @@ var (
 	testRulesMaxMemory   string
 	testRulesRuleID      []string
 	testRulesDataflow    []string
+	testRulesGoModels    []string
 	testRulesPassthrough []string
 )
 
@@ -40,6 +42,7 @@ compiled project model.
 			maxMemory:           testRulesMaxMemory,
 			ruleIDs:             testRulesRuleID,
 			dataflowApprox:      testRulesDataflow,
+			goModels:            testRulesGoModels,
 			passthroughApprox:   testRulesPassthrough,
 			includeBuiltinRules: true,
 		})
@@ -55,6 +58,7 @@ type testProjectOptions struct {
 	maxMemory           string
 	ruleIDs             []string
 	dataflowApprox      []string
+	goModels            []string
 	passthroughApprox   []string
 	includeBuiltinRules bool
 }
@@ -129,9 +133,22 @@ func runTestProject(projectModelArg string, opts testProjectOptions) {
 	builder.SetJarPath(analyzerJarPath)
 
 	addDataflowApproximations(builder, opts.dataflowApprox, analyzerJarPath)
+	addGoModels(builder, opts.goModels)
 	addPassthroughApproximations(builder, opts.passthroughApprox)
 
-	javaRunner := newAnalyzerJavaRunner()
+	projectConfig, err := projectutil.LoadConfig(projectPath)
+	if err != nil {
+		out.Fatalf("Failed to read the project model: %s", err)
+	}
+	goServerPath := ""
+	if len(projectConfig.GoProjects) > 0 {
+		goServerPath, err = ensureGoServerAvailable()
+		if err != nil {
+			out.Fatalf("Failed to resolve the Go server: %s", err)
+		}
+	}
+
+	javaRunner := newAnalyzerJavaRunner(goServerPath)
 	if _, err := javaRunner.EnsureJava(); err != nil {
 		out.Fatalf("Failed to resolve Java for analyzer: %s", err)
 	}
@@ -171,7 +188,14 @@ func init() {
 	testRuleCmd.AddCommand(testRuleRunCmd)
 
 	testRuleRunCmd.Flags().StringArrayVar(&testRulesRuleset, "ruleset", nil, "Ruleset file or directory to test (repeatable)")
-	addTestRunFlags(testRuleRunCmd, &testRulesOutputDir, &testRulesTimeout, &testRulesMaxMemory, &testRulesDataflow)
+	addTestRunFlags(
+		testRuleRunCmd,
+		&testRulesOutputDir,
+		&testRulesTimeout,
+		&testRulesMaxMemory,
+		&testRulesDataflow,
+		&testRulesGoModels,
+	)
 	testRuleRunCmd.Flags().StringArrayVar(&testRulesRuleID, "rule-id", nil, "Run only rules with this ID (repeatable)")
 	testRuleRunCmd.Flags().StringArrayVar(&testRulesPassthrough, "passthrough-approximations", nil, "Pass-through approximation YAML file or directory (repeatable)")
 }

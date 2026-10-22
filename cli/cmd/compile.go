@@ -12,6 +12,7 @@ import (
 	"github.com/seqra/opentaint/internal/utils"
 	"github.com/seqra/opentaint/internal/utils/java"
 	"github.com/seqra/opentaint/internal/utils/log"
+	projectutil "github.com/seqra/opentaint/internal/utils/project"
 
 	"github.com/seqra/opentaint/internal/output"
 )
@@ -40,9 +41,9 @@ func dockerCompileSuggestion() output.Suggestion {
 // compileCmd represents the compile command
 var compileCmd = &cobra.Command{
 	Use:   "compile project",
-	Short: "Compile your Java or Kotlin project",
+	Short: "Compile your Java, Kotlin, or Go project",
 	Args:  cobra.ExactArgs(1), // require exactly one argument
-	Long: `This command takes a required path to the project, automatically detects Java/Kotlin build system, modules and dependencies and compiles project model.
+	Long: `This command takes a required path to the project. It detects a Java, Kotlin, or Go project and compiles a project model.
 
 Arguments:
   project  - Path to a project to compile (required)
@@ -72,9 +73,13 @@ Arguments:
 			sb.Line()
 		}
 		sb.FieldNode("Project", absProjectRoot).
-			FieldNode("Output project model", absOutputProjectModelPath).
-			FieldNode("Autobuilder", utils.ArtifactVersionWithPath(globals.ArtifactByKind("autobuilder"))).
-			Render()
+			FieldNode("Output project model", absOutputProjectModelPath)
+		if validation.IsGoSourceProject(absProjectRoot) {
+			sb.FieldNode("Language", "Go")
+		} else {
+			sb.FieldNode("Autobuilder", utils.ArtifactVersionWithPath(globals.ArtifactByKind("autobuilder")))
+		}
+		sb.Render()
 
 		if DryRunCompile {
 			out.Blank()
@@ -83,14 +88,19 @@ Arguments:
 			return
 		}
 
-		autobuilderJarPath, err := ensureAutobuilderAvailable()
-		if err != nil {
-			out.Fatalf("Native compile preparation failed: %s", err)
-		}
+		var autobuilderJarPath string
+		var compileJavaRunner java.JavaRunner
+		if !validation.IsGoSourceProject(absProjectRoot) {
+			var err error
+			autobuilderJarPath, err = ensureAutobuilderAvailable()
+			if err != nil {
+				out.Fatalf("Native compile preparation failed: %s", err)
+			}
 
-		compileJavaRunner := newAutobuilderJavaRunner()
-		if _, err := compileJavaRunner.EnsureJava(); err != nil {
-			out.Fatalf("Failed to resolve Java for compilation: %s", err)
+			compileJavaRunner = newAutobuilderJavaRunner()
+			if _, err := compileJavaRunner.EnsureJava(); err != nil {
+				out.Fatalf("Failed to resolve Java for compilation: %s", err)
+			}
 		}
 
 		if err := out.RunWithSpinner("Compiling project model", func() error {
@@ -124,8 +134,14 @@ func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath strin
 		return err
 	}
 
-	if err := compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath, javaRunner); err != nil {
-		return err
+	if validation.IsGoSourceProject(absProjectRoot) {
+		if err := projectutil.WriteGoProjectModel(absProjectRoot, absOutputProjectModelPath); err != nil {
+			return err
+		}
+	} else {
+		if err := compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath, javaRunner); err != nil {
+			return err
+		}
 	}
 
 	if _, err := validation.ValidateProjectModelOutput(absOutputProjectModelPath); err != nil {

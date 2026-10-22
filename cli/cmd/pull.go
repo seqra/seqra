@@ -21,6 +21,7 @@ var pullCmd = &cobra.Command{
 	Long: `Download all necessary binaries and assets:
 - OpenTaint autobuilder JAR
 - OpenTaint analyzer JAR
+- OpenTaint Go server
 - OpenTaint rules archive
 - Java runtime (Temurin JRE)
 
@@ -30,6 +31,7 @@ When bundled artifacts are present (from a release archive), they will be used d
 		out.Section("OpenTaint Pull").
 			Field("Autobuilder", globals.Config.Autobuilder.Version).
 			Field("Analyzer", globals.Config.Analyzer.Version).
+			Field("Go server", globals.Config.GoServer.Version).
 			Field("Rules", globals.Config.Rules.Version).
 			Field("Java", globals.Config.Java.Version).
 			Render()
@@ -113,6 +115,11 @@ func downloadArtifact(spec globals.ArtifactDef, installNextToBinary, installCurr
 		}
 		if err := download(t.Path); err != nil {
 			return node, err
+		}
+		if spec.Executable {
+			if err := os.Chmod(t.Path, 0o755); err != nil {
+				return node, fmt.Errorf("make %s executable: %w", spec.Kind(), err)
+			}
 		}
 		node.Child(fmt.Sprintf("Downloaded to %s", t.Path))
 		return node, nil

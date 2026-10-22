@@ -24,6 +24,7 @@ const (
 
 	stampFileName   = "stamp.json"
 	gradleBuildFile = "build.gradle.kts"
+	goModuleFile    = "go.mod"
 )
 
 // opentaintDirName contains the local build output.
@@ -41,6 +42,11 @@ var skippedDirs = map[string]bool{
 // IsProject reports whether dir is a model project root.
 func IsProject(dir string) bool {
 	return isFile(filepath.Join(dir, gradleBuildFile))
+}
+
+// IsGoProject reports whether dir is a Go model project root.
+func IsGoProject(dir string) bool {
+	return isFile(filepath.Join(dir, goModuleFile))
 }
 
 // isBuiltOutput reports whether dir contains a model build.
