@@ -1,6 +1,7 @@
 # Run-1 local static writers and summary alias admission
 
-Date: 22 October 2026. Status: implemented; project measurements in progress.
+Date: 22 October 2026. Status: implemented; project measurements closed
+with resource and finding-comparison failures.
 Document base: `ef000dea24c33c46ca950545291390707071a0eb`.
 Runtime comparison base: `d7244c08cdaefbb157f42e4d89731d301b97e48f`.
 See the [implementation validation](../docs/reports/bidirectional-local-static-writers-aliases-validation-20261022.md).
@@ -41,6 +42,12 @@ old selected alias rule: a same-path, same-mark TAINT result can skip aliases
 when its tail differs. Do not claim equality with the old engine's larger
 alias-generated candidate set. The reference for alias equivalence is the
 new scalar rule. Prove the optimized partition against that rule.
+
+Read **Current** in the table as the pinned runtime comparison base, before
+these two changes. The implementation status at the top does not change
+that comparison. Writer admission changes the internal protocol. Alias
+admission changes which candidate alias transfers execute. Both changes
+must keep ordinary summary output and the selected run-2 guidance.
 
 Keep these mechanisms unchanged:
 
@@ -103,6 +110,10 @@ class STAR, nonstatic field-path or S-root initial is added. Only ZERO and
 nonstatic initials enter the method-entry abstraction. Static descriptors
 resume at admitted operations. Refinement does not apply entry abstraction
 again. A current fact can have a tail that its initial cannot have.
+In particular, a concrete GROUP initial can have STAR, but a concrete
+GROUP conclusion cannot have STAR. Use EXACT, ANY or the existing legal
+MUST case for that conclusion. The scalar classifier can accept a wider
+test domain; this does not add legal runtime shapes.
 
 The implementation reuses these operations with their current contracts:
 
@@ -189,6 +200,30 @@ local source/conjunction callback can have `MicroEdge == null` after it
 has completed its action. Do not reject that producer solely because the
 wrapper callback has no micro-edge object. Keep complete rule admission.
 No reached descriptor or prescan write candidate is sufficient by itself.
+
+Match the producer descriptor as follows. These are invocation arguments,
+not new labels on stored facts or edges:
+
+```kotlin
+fun matchesProducer(write: StaticOperation.Write, me: MicroEdge?, at: Place): Boolean =
+    if (me != null) {
+        (write.transfer != null &&
+            (write.transfer == me.forward || write.transfer == me.edge)) ||
+        (write.action != null && write.action == me.actionId)
+    } else when {
+        at.completedAction != null -> write.action == at.completedAction
+        at.completedConjunction != null ->
+            write.action == null && write.transfer == null &&
+                write.target.fact == at.completedConjunction.target
+        else -> false
+    }
+```
+
+The completed conjunction can use only its unattributed descriptor. A
+different action or transfer with the same target cannot authorize it.
+Target equality identifies that descriptor; the actual accepted result
+still determines the output fields. Apply this test after the unchanged
+action permission, condition binding and result filters have succeeded.
 
 A direct `CleanStep.Clean` primitive callback is not a micro-edge write.
 It must not fabricate one. Preserve its actual result, mark requests,
@@ -396,6 +431,7 @@ Do not call `startFact` to change an initial tail before classification.
 
 ```kotlin
 fun hasNoMemoryEffect(initial: PathFact, result: PathFact): Boolean {
+    if (initial.base == ZERO) return false
     if (initial.base != result.base || initial.path != result.path) return false
     return when {
         initial.mark is MarkSlot.Star && result.mark is MarkSlot.Star ->
@@ -423,14 +459,14 @@ one member for classification.
 
 | Raw initial -> result | No memory effect |
 | --- | --- |
-| `p.f/*/FLOW -> p.f/*/FLOW`, either layer | Yes |
-| `p.f/*/FLOW -> p.f/[any]/FLOW` | No |
+| `p/*/FLOW -> p/*/FLOW`, either layer | Yes |
+| `p/*/FLOW -> p/[any]/FLOW` | No |
 | `p/*/G -> p/./G` | Yes |
 | `p/./G -> p/[any]/G` | Yes; keep the actual broader result |
-| `p.f/*/G -> p.g/*/G` | No |
-| `p/*/G -> p/*/H` | No |
+| `p/*/G -> p.f/./G` | No |
+| `p/*/G -> p/./H` | No |
 | `arg0/*/FLOW -> return/*/FLOW` | No |
-| `ZERO -> p/*/G` | No |
+| `ZERO -> p/./G` | No |
 
 If binding maps arg0 and return to the same caller local, the last
 nonzero example remains an effect. Classification precedes binding.
@@ -447,7 +483,7 @@ Retain the actual tail, E, mx, layer and mark in each part.
 fun run1SummaryParts(initial: InitialAp, result: Facts): Parts {
     if (initial.isZero) return Parts(effect = result)
     return structuralPartition(result) { leaf ->
-        hasNoMemoryEffect(initial.fact, leaf.fact)
+        hasNoMemoryEffect(initial.toPattern().fact, leaf.fact)
     }
 }
 ```
@@ -455,7 +491,7 @@ fun run1SummaryParts(initial: InitialAp, result: Facts): Parts {
 ```text
 initial p/*/G; outputs:
     p/./G, p/[any]/G -> no-effect part
-    p.f/*/G, p/*/H   -> effect part
+    p.f/./G, p/./H   -> effect part
 ```
 
 Do not classify a whole tree by its first leaf or full header. Do not use
@@ -552,6 +588,14 @@ alias-generated false candidates. Report/source/sink identities and rule
 occurrences remain semantic observations; batch-dependent diagnostic
 callback counts can differ, as already selected.
 
+For each method boundary on a replacement writer route, retain its
+ordinary summary and selected method demand pair, or use the existing
+implicit static permission where that contract applies. Preserve the
+atomic initial, bounded output, group and layer. Keep local sink witnesses
+and source occurrences even when a local value has no return summary.
+Use the existing publication and handoff paths. Group-closure equivalence
+alone does not prove this production correspondence.
+
 ## 9. Implementation map and proof-first order
 
 | Component | Required change |
@@ -613,7 +657,10 @@ Use the approved OWASP, conductor, Thingsboard and Stirling-PDF settings.
 Report run-1 engine seconds, allocation/retained memory and latest reached,
 completed and accepted run separately. The goal is run-1 engine completion
 within 60 seconds. No new performance measurement is part of this spec.
-The latest closed causal measurements use runtime `d7244c08c`: all four
-reach run-1; OWASP, conductor and Stirling-PDF complete/accept run-1;
-Thingsboard reaches run-1 and fails with OOM before completion/acceptance.
-See the [closed report](../docs/reports/bidirectional-run1-causal-performance-20261021.md).
+The subsequent measurements use committed runtime `a4bf78986`.
+OWASP reaches run-8 TIMEOUT, after completing and accepting run-7;
+conductor and Stirling-PDF reach run-2 OOM, after completing and accepting
+run-1; Thingsboard reaches run-1 OOM, with no completed iteration or
+accepted report. Only conductor and Stirling-PDF meet the run-1 target.
+These results do not establish project no-FN or performance acceptance.
+See the [performance report](../docs/reports/bidirectional-local-static-writers-aliases-performance-20261022.md).

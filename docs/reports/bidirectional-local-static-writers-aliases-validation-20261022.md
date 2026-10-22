@@ -1,7 +1,8 @@
 # Local static writers and summary aliases: implementation validation
 
-Date: 22 October 2026. Status: implementation validated with existing
-precision failures. Combined project measurements are not yet complete.
+Date: 22 October 2026. Status: implementation checks closed with existing
+precision failures; project measurements closed with resource failures.
+Implementation: `a4bf789866f912ebefc54bca42d809c89beea2d4`.
 Base: `24ed1ca51c65321a1661ea8f39cfdf4c2c75a385`; its runtime is
 `d7244c08cdaefbb157f42e4d89731d301b97e48f`.
 Contract: [selected specification](../../spec/run1-static-writers-and-summary-aliases.md).
@@ -93,7 +94,27 @@ with **run-2 OOM**. Latest reached/completed/accepted are therefore
 The earlier writer-only control is superseded by the producer-identity
 correction and is not the final control authority.
 
-Combined project results are pending. These module and finite controls
-do not establish project no-FN acceptance or the 60-second run-1 target
-for all four projects. The performance report and next proposal must use
-the committed implementation and the approved project settings.
+All four combined commands are closed under the approved settings:
+
+| Project | Latest reached | Latest completed | Accepted forward report | Run-1 engine, s |
+| --- | --- | --- | --- | ---: |
+| OWASP | run-8 TIMEOUT | run-7 | run-7 | 172.096 |
+| conductor | run-2 OOM | run-1 | run-1 | 18.134 |
+| thingsboard | run-1 OOM | none | none | 260.838, OOM |
+| Stirling-PDF | run-2 OOM | run-1 | run-1 | 25.089 |
+
+Strict finding inclusion fails: Thingsboard has 14 missing reference
+locations after OOM before its first report; PDF has two unmatched
+earlier-return coordinates under Simple exit export. OWASP preserves
+all 4,112 reference identities but fails the exact CI occurrence count
+(9,179 versus 4,112). Conductor preserves all seven reference identities,
+with 1,253 added candidates. These are not project acceptance passes.
+Only conductor and PDF meet the 60-second run-1 engine target.
+
+The [performance report](bidirectional-local-static-writers-aliases-performance-20261022.md)
+records every iteration, missing-location source reviews, profiles, OOM
+owners and coverage limits. The
+[next proposal](../design/bidirectional-local-static-writers-aliases-next-iteration-20261022.md)
+keeps all further runtime changes unimplemented. The final 342 small
+source/input/control checks pass; they do not repeat the large
+model/dependency-tree byte census.

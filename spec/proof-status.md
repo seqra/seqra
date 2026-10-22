@@ -24,10 +24,17 @@ replay, local producer admission and demand handoff. The common suite
 passes 1,737 tests; the JVM suite passes 438. All five new JVM acceptance
 tests pass. Existing cleaner and exit-scope precision failures remain
 explicit failed gates in the validation. There is no whole-engine no-FN,
-termination or performance theorem. The latest writer-only conductor
-measurement reaches run-2 OOM, after it completes and accepts run-1.
-Combined project measurements are in progress; the older causal report
-does not certify this implementation.
+termination or performance theorem. The
+[closed performance report](../docs/reports/bidirectional-local-static-writers-aliases-performance-20261022.md)
+uses committed runtime `a4bf78986` and fresh main `f945f92c5`. OWASP reaches
+run-8 TIMEOUT (latest complete/accepted run-7); conductor and Stirling-PDF
+reach run-2 OOM (run-1/run-1); Thingsboard reaches run-1 OOM (none/none).
+Only conductor and PDF meet 60 engine seconds in run-1. Strict finding
+inclusion fails for Thingsboard and PDF. OWASP location parity does not
+pass its exact occurrence-count CI assertion. These local proofs and
+finite controls do not override the failed project gates. The
+[next proposal](../docs/design/bidirectional-local-static-writers-aliases-next-iteration-20261022.md)
+does not authorize another runtime change.
 
 ## Current iteration: all origins, routing and GROUP projection
 

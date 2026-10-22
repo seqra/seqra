@@ -62,9 +62,11 @@ final summaries and local writers.
 
 ### P2. Construct a replacement for a caller writer job
 
-Take one finite old job for output field f and group g. Follow the job's
-ordinary summary derivation to the local FLOW operation that writes f.
-Record the actual caller-to-callee Base bindings on this route.
+Take one successful finite old supply derivation for output field f and
+group g. Follow its ordinary summary derivation to the local FLOW operation
+that writes f. Record the actual caller-to-callee Base bindings on this
+route. An unanswered old job has no supply to preserve. Its request can
+remain dormant under the existing protocol.
 
 Construct the new work as follows:
 
@@ -218,6 +220,19 @@ ordinary scalar results and demands while applying exactly the selected
 alias rule. Their composition therefore preserves that selected handoff
 contract, subject to the stated AP/request/producer correspondence gates.
 
+Group closure alone does not prove this handoff claim. The production
+adapter must also preserve the ordinary method summary/demand pairs at
+each caller on a replacement route, and preserve the sink witness from
+which run-2 starts. Retain the complete original, output AP, group and
+selected layer before the existing handoff normalization. If a sink uses a
+local value that never becomes a return summary, keep its ordinary witness
+and the existing implicit static demand permission. Do not invent a
+return summary or a new point-addressed demand store for that case.
+
+These are A4/A8 obligations. The finite FLOW network has no program-point
+or handoff transition and does not discharge them. The alias comparison
+still uses the selected scalar contract when it checks these obligations.
+
 This is not a proof that every old alias-generated false candidate remains.
 The existing implicit static permission still applies to actual run-2
 inputs. FULL marks match their run-1 group demands. No new run-1 S-root
@@ -296,14 +311,14 @@ not part of this specification-only delivery.
 
 | Gate | Required production evidence |
 | --- | --- |
-| A1: local production | A completed permitted micro-edge/local action and actual filtered bounded field result; no promotion, direct cleaner or reached-only descriptor may register |
+| A1: local production | A completed permitted micro-edge/local action and actual filtered bounded field result; a completed conjunction matches only an unattributed descriptor with its exact target; no promotion, direct cleaner or reached-only descriptor may register |
 | A2: independent admission | A promoted summary arriving first cannot suppress local writer admission; exact writer-key dedup remains separate |
 | A3: immutable relation | Composition uses the complete original bounded relation after summary subsumption; no cumulative root retention or lost mx check |
 | A4: request/input replay | Construct the actual Base route or static saved-point route for old call-writer work, including all arrival orders and multiple callers |
 | A5: computed supply | Preserve ZERO and complete all-static group joins; a Base/group hypothesis or request alone supplies nothing |
 | A6: structural partition | Decode optimized trie parts to exactly the scalar payload partition; retain every path/mark/tail/header and producing flag |
 | A7: guard lifetime | Preserve raw classification through bindings, cleaners, rewriter, cuts and replies; source outputs use separate effect flags |
-| A8: publication/handoff | Keep all ordinary early summaries, selected demands, source/sink identities and run-2 group matching under the selected contract |
+| A8: publication/handoff | Keep each replacement route's ordinary method summary/demand pairs, local sink witnesses, implicit static permission, source/sink identities and run-2 group matching under the selected contract |
 | A9: unchanged scope | Existing FULL/native/reversed, field, rule, exact-class and ablation gates remain valid |
 
 No production gate passes merely because its abstract counterpart compiled.
