@@ -24,6 +24,7 @@ class ReferenceAlgebra(
     private val onHit = sourceHit
     private val join = conjunction
     private val sourcePredicates = ReferenceSourcePredicates(manager)
+    internal val run1: Boolean get() = mode.run1
 
     override fun base(c: Conclusion) = c.fact.base
 
@@ -89,6 +90,7 @@ class FormsReference(
     private val ops: ApOps,
     algebra: ReferenceAlgebra = ReferenceAlgebra(ApMode(run1 = true, Direction.FORWARD, fieldLimit = Int.MAX_VALUE),
         manager = ops.manager),
+    private val run1AliasAdmission: Boolean = algebra.run1,
 ) {
     val applier = FormApplier(algebra)
     private val zeroPremise = setOf(ZERO_PATTERN)
@@ -124,7 +126,7 @@ class FormsReference(
         fun finish(i: PlanItem): PlanItem {
             val result = if (!pendingDemotion) i else {
                 check(i.c.fact.mark is MarkSlot.Concrete && i.c.fact.tail != Tail.STAR)
-                i.copy(c = i.c.copy(demand = true), identityCandidate = false)
+                i.copy(c = i.c.copy(demand = true), identityCandidate = if (run1AliasAdmission) i.identityCandidate else false)
             }
             return hooks.exit(result)
         }
@@ -145,7 +147,7 @@ class FormsReference(
         val work = ArrayDeque<Pair<CallPoint, List<PlanItem>>>()
         val start = ArrayList<PlanItem>()
         for (input in inputs) {
-            val i = if (pendingDemotion) input.copy(identityCandidate = false) else input
+            val i = if (pendingDemotion && !run1AliasAdmission) input.copy(identityCandidate = false) else input
             when {
                 from != plan.entry -> start += i
                 i.c.fact.base == AccessPathBase.Zero -> { seen += plan.exit to finish(i); start += i }
@@ -174,7 +176,7 @@ class FormsReference(
                                 }
                             else -> {
                                 for (i in items) {
-                                    if (guard == Guard.MemoryEffect && !Guard.MemoryEffect.admits(checkNotNull(i.identityCandidate),
+                                    if (guard == Guard.MemoryEffect && !Guard.MemoryEffect.admits(run1AliasAdmission, i.identityCandidate,
                                         if (i.c.demand) Layer.DEMAND else Layer.NORMAL)) continue
                                     applier.stage(st.summary, i.premise, i.c, place) { pr, x, me ->
                                         out += PlanItem(pr, x, st.kind.identityCandidateOf(me, i.identityCandidate)) }

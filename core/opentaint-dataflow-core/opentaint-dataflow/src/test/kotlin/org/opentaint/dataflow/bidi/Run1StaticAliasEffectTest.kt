@@ -70,13 +70,13 @@ class Run1StaticAliasEffectTest {
             }.build())
             fun summary(vararg edges: PathEdge) = MicroEdgeBuilder().apply { edges.forEach(::edge) }.buildStage()
             val bind = summary(ZERO_KEEP, starEdge(local, emptyList(), AccessPathBase.This, emptyList()))
-            val back = summary(ZERO_KEEP, starEdge(AccessPathBase.This, emptyList(), local, emptyList()))
-            val edge = starEdge(AccessPathBase.This, emptyList(), STATIC, target)
+            val back = summary(ZERO_KEEP, starEdge(AccessPathBase.Return, emptyList(), local, emptyList()))
+            val edge = starEdge(AccessPathBase.Return, emptyList(), STATIC, target)
             val stages = listOf(
                 CallStage.Edges(CallPoint.BEFORE, CallPoint.BOUND, StageKind.BIND_IN, bind),
                 CallStage.Actions(CallPoint.BOUND, CallPoint.ADDED, emptyList()),
                 CallStage.Edges(CallPoint.ADDED, CallPoint.RETURNED, StageKind.UNRESOLVED,
-                    summary(ZERO_KEEP, keepEdge(AccessPathBase.This))),
+                    summary(ZERO_KEEP, starEdge(AccessPathBase.This, emptyList(), AccessPathBase.Return, emptyList()))),
                 CallStage.Actions(CallPoint.RETURNED, CallPoint.REWRITTEN, emptyList()),
                 CallStage.Edges(CallPoint.REWRITTEN, CallPoint.AFTER, StageKind.BIND_BACK, back),
                 CallStage.Edges(CallPoint.REWRITTEN, CallPoint.AFTER, StageKind.ALIASES,

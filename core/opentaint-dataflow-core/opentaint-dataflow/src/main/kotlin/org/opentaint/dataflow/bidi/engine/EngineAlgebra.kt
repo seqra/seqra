@@ -48,7 +48,12 @@ internal class EngineAlgebra(private val core: RunMethodAnalyzer) : FactAlgebra<
         val write = at.staticOperations.filterIsInstance<StaticOperation.Write>().firstOrNull {
             if (me != null) (it.transfer != null && (it.transfer == me.forward || it.transfer == me.edge)) ||
                 (it.action != null && it.action == me.actionId)
-            else result.base == STATIC && core.ops.leaves(result).any { leaf -> Run1StaticService.intersect(leaf, it.target) != null }
+            else when {
+                at.completedAction != null -> it.action == at.completedAction
+                at.completedConjunction != null -> it.action == null && it.transfer == null &&
+                    it.target.fact == at.completedConjunction.target
+                else -> false
+            }
         }
         core.emitOperationResult(operationInput, write, result, out)
     }
@@ -68,6 +73,10 @@ internal class EngineAlgebra(private val core: RunMethodAnalyzer) : FactAlgebra<
 
     override fun sourcePredicateAt(source: SourceRuleOccurrence, premise: PremiseKey, c: Facts, at: Place, out: ResultSink) =
         core.localServices.sourcePredicateAt(source, premise, c, at.node, at.statementEdge, input(at, premise, c), out)
+
+    override fun sourcePredicateActionsAt(source: SourceRuleOccurrence, premise: PremiseKey, c: Facts, at: Place,
+                                          out: (PremiseKey, Facts, org.opentaint.dataflow.bidi.interp.ActionId?) -> Unit) =
+        core.localServices.sourcePredicateActionsAt(source, premise, c, at.node, at.statementEdge, input(at, premise, c), out)
 
     override fun allowsSource(node: CommonInst, me: MicroEdge): Boolean =
         !core.config.seededSources || core.config.seeds.allowsSource(core.key, node, me.forward, me.actionId)

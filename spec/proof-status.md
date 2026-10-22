@@ -9,7 +9,8 @@ computed ZERO/all-static group supplies. Local FLOW writers own their
 immutable bounded relations. The selected alias rule has no DEMAND bypass
 and ignores TAINT tails; it is not equality with the old alias closure.
 No FULL/native/reversed, field, source or mark-policy change is selected.
-**Runtime remains `d7244c08c`; these changes are not implemented.**
+**The selected changes are implemented.** See the
+[implementation validation](../docs/reports/bidirectional-local-static-writers-aliases-validation-20261022.md).
 
 The two constructive models pass the focused Lean 4.33.1 build and the
 aggregate 171-job build. Their [audit](lean/run1-static-writers-and-summary-aliases-audit.lean)
@@ -18,13 +19,15 @@ passes 1,490 owned declarations and 46 executable controls with only
 [proof dossier](run1-static-writers-and-summary-aliases-proofs.md) records
 finite caller-job replay, rooted supply, independent local admission,
 immutable coverage, exact packed selection and saved call-state laws.
-AP/trie, actual Base/point-route extraction, local producer and demand
-adapters remain implementation gates. There is no whole-engine no-FN,
-termination or performance theorem. No new project run was made. The
-latest causal measurements reach run-1 on all four projects; three
-complete/accept run-1, while Thingsboard fails with run-1 OOM before
-completion or acceptance. See the
-[closed causal report](../docs/reports/bidirectional-run1-causal-performance-20261021.md).
+The production controls now cover AP/trie selection, actual Base and point
+replay, local producer admission and demand handoff. The common suite
+passes 1,737 tests; the JVM suite passes 438. All five new JVM acceptance
+tests pass. Existing cleaner and exit-scope precision failures remain
+explicit failed gates in the validation. There is no whole-engine no-FN,
+termination or performance theorem. The latest writer-only conductor
+measurement reaches run-2 OOM, after it completes and accepts run-1.
+Combined project measurements are in progress; the older causal report
+does not certify this implementation.
 
 ## Current iteration: all origins, routing and GROUP projection
 

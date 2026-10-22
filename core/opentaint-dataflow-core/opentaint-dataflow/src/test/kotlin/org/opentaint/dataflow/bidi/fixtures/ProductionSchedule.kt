@@ -51,6 +51,8 @@ class ProductionSchedule(
             )
     }
     private val staticService = if (config.run1) Run1StaticService(shared.ap) else null
+    var completedStaticStatistics: Run1StaticService.Statistics? = null
+        private set
     private val units = LinkedHashMap<Any, UnitPort>()
     private val storages = LinkedHashMap<MethodKey, SummaryStorage>()
     private val deferred = object : ProtocolSteps {
@@ -200,6 +202,7 @@ class ProductionSchedule(
                 item.action()
             }
             closed = true
+            completedStaticStatistics = staticService?.statistics()
             return snapshot()
         } catch (failure: Throwable) {
             throw AssertionError("Production schedule failed: seed=$seed policy=$policy sameUnit=$sameUnit " +

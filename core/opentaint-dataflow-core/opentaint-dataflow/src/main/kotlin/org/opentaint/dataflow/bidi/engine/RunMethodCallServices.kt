@@ -80,12 +80,13 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             val stages = ctx.plan.stagesAt(frame.point)
             if (frame.next >= stages.size) { stack.removeLast(); continue }
             val stage = stages[frame.next++]
-            val out = applyStage(ctx, stage, frame.facts, frame.triggers)
+            val out = applyStage(ctx, stage, frame.facts, frame.triggers, frame.pendingDemotion)
             if (out.isNotEmpty()) stack.addLast(Frame(stage.to, out, frame.pendingDemotion))
         }
     }
 
-    private fun applyStage(ctx: CallContext, stage: CallStage, facts: List<PlanFact>, triggers: Triggers): List<PlanFact> {
+    private fun applyStage(ctx: CallContext, stage: CallStage, facts: List<PlanFact>, triggers: Triggers,
+                           pendingDemotion: Boolean = false): List<PlanFact> {
         val core = active()
         val out = ArrayList<PlanFact>()
         val ordinal = ctx.plan.stages.indexOf(stage)
@@ -107,12 +108,12 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                     for (fact in facts) {
                         core.ap.cancellation.checkpoint()
                         if (guard == Guard.MemoryEffect && !Guard.MemoryEffect.admits(
-                                checkNotNull(fact.identityCandidate), fact.facts.layer)) continue
+                                core.config.run1, fact.identityCandidate, fact.facts.layer)) continue
                         val input = fact.facts
                         val place = Place(ctx.node, core.config.run1 && stage.kind.statementEdges,
                             sources = stage.kind == StageKind.SOURCES,
                             site = ResumeSite.CallStageInput(core.operation(ctx.node, ordinal)),
-                            callerLayer = ctx.callerLayer, identityCandidate = fact.identityCandidate)
+                            callerLayer = ctx.callerLayer, identityCandidate = fact.identityCandidate, pendingDemotion = pendingDemotion)
                         core.applier.stage(stage.summary, fact.premise, input, place) { premise, result, edge ->
                             core.ap.cancellation.checkpoint()
                             out += planFact(premise, result, stage.kind.identityCandidateOf(edge, fact.identityCandidate))
@@ -128,7 +129,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             }
             is CallStage.Actions -> for (fact in facts) {
                 core.ap.cancellation.checkpoint()
-                cleanChain(stage, fact, ctx, ordinal) { out += it }
+                cleanChain(stage, fact, ctx, ordinal, pendingDemotion = pendingDemotion) { out += it }
             }
             is CallStage.Callees -> for (fact in facts) {
                 core.ap.cancellation.checkpoint()
@@ -141,7 +142,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
 
     private fun cleanChain(actions: CallStage.Actions, fact: PlanFact, ctx: CallContext, stageOrdinal: Int,
                            firstStep: Int = 0, firstPhase: CleanerPhase = CleanerPhase.INPUT,
-                           emit: (PlanFact) -> Unit) {
+                           pendingDemotion: Boolean = false, emit: (PlanFact) -> Unit) {
         val core = active()
         val steps = actions.steps
         val schedule = actions.returnGroupSchedule.takeIf {
@@ -151,7 +152,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         val node = ctx.node
         fun at(input: PlanFact, step: Int, phase: CleanerPhase) = OperationInput(
             ResumeSite.CleanerInput(core.operation(node, stageOrdinal), step, phase), input.premise, input.facts,
-            CallResumeState(ctx.callerLayer, input.identityCandidate))
+            CallResumeState(ctx.callerLayer, input.identityCandidate, pendingDemotion))
         fun statement(summary: StatementSummary, input: PlanFact, step: Int, phase: CleanerPhase): List<PlanFact> {
             val out = ArrayList<PlanFact>()
             val compiled = if (core.config.run1 && phase == CleanerPhase.READ && summary.staticOperations.isEmpty()) {
@@ -167,7 +168,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             } else summary
             core.applier.statement(compiled, input.premise, input.facts,
                 Place(node, core.config.run1, sources = false, site = at(input, step, phase).site,
-                    callerLayer = ctx.callerLayer, identityCandidate = input.identityCandidate),
+                    callerLayer = ctx.callerLayer, identityCandidate = input.identityCandidate, pendingDemotion = pendingDemotion),
                 sink = { premise, result ->
                     core.cut(Cut.STATEMENT, premise, result) { cutPremise, cut ->
                         core.ap.cancellation.checkpoint()
@@ -200,17 +201,14 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                         core.ops.clean(input.facts, input.premise, step.cleaner, core.mode,
                         core.collect(at(input, stepIndex, CleanerPhase.CLEAN)) { premise, result ->
                             if (core.config.run1 && result.base == STATIC) {
-                                val operation = core.operation(node, stageOrdinal).copy(substep = stepIndex)
-                                val target = Pattern(PathFact(STATIC, step.cleaner.pathArray.asList(),
-                                    if (step.cleaner.reach == CleanReach.EXACT) Tail.EXACT else Tail.ANY, MarkSlot.STAR), ExclusionSet.Empty)
-                                val write = if (core.ops.leaves(result).any { Run1StaticService.intersect(it, target) != null })
-                                    StaticOperation.Write(operation, target) else null
-                                core.emitOperationResult(at(input, stepIndex, CleanerPhase.CLEAN), write, result) { _, _ -> }
+                                core.promoteStaticSummary(premise, result)
                             } else next += planFact(premise, result, input.identityCandidate)
                         })
                     }
                     is CleanStep.Kill -> core.applier.statement(step.keepEdges, input.premise, input.facts,
-                        Place(node, core.config.run1, sources = false, site = at(input, stepIndex, CleanerPhase.INPUT).site),
+                        Place(node, core.config.run1, sources = false, site = at(input, stepIndex, CleanerPhase.INPUT).site,
+                            callerLayer = ctx.callerLayer, identityCandidate = input.identityCandidate,
+                            pendingDemotion = pendingDemotion),
                         sink = { premise, result -> next += planFact(premise, result, input.identityCandidate) })
                     is CleanStep.Field -> for (read in if (phase == CleanerPhase.CLEAN || phase == CleanerPhase.WRITE) listOf(input)
                             else statement(step.read, input, stepIndex, CleanerPhase.READ)) {
@@ -289,7 +287,11 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             is PremiseSet -> ndMatch(part, pub, premise, member)
             is InitialAp -> {
                 val results = ArrayList<PlanFact>()
-                if (part.zeroOnly) results += planFact(part.ref.premise, pub.conclusion, false)
+                if (part.zeroOnly) {
+                    if (core.config.run1 && pub.conclusion.base == STATIC)
+                        core.promoteStaticSummary(part.ref.premise, pub.conclusion)
+                    else results += planFact(part.ref.premise, pub.conclusion, false)
+                }
                 else applyParts(part, premise, pub.conclusion, results)
                 resumeCallees(part.ref, results)
             }
@@ -306,7 +308,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         if (initial.mark is MarkSlot.Star) {
             check(pub.premise is InitialAp && pub.conclusion is FlowTree)
             val value = pub.conclusion.withLayer(Layer.DEMAND)
-            if (value.base == STATIC) retainStaticCallEffect(part.ref, initial, value)
+            if (value.base == STATIC) core.promoteStaticSummary(initial, value)
             else resumeCallees(part.ref, listOf(planFact(initial, value, false)))
         } else core.staticCallInterest(part, pub, member)
     }
@@ -349,13 +351,14 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                     val triggers = if (core.forward && stage.from == CallPoint.BOUND)
                         core.localServices.checkSinksAt(premise, node, facts, plan.sinks,
                             OperationInput(site, premise, facts, state)) else Triggers.NONE
-                    val out = applyStage(ctx, stage, listOf(input), triggers)
+                    val out = applyStage(ctx, stage, listOf(input), triggers, state?.pendingDemotion ?: false)
                     if (out.isNotEmpty()) flow(ctx, stage.to, out, state?.pendingDemotion ?: false)
                 }
                 is ResumeSite.CleanerInput -> {
                     val actions = checkNotNull(stage as? CallStage.Actions)
                     val out = ArrayList<PlanFact>()
-                    cleanChain(actions, input, ctx, site.operation.stageOrdinal, site.step, site.phase) { out += it }
+                    cleanChain(actions, input, ctx, site.operation.stageOrdinal, site.step, site.phase,
+                        state?.pendingDemotion ?: false) { out += it }
                     if (out.isNotEmpty()) flow(ctx, stage.to, out, state?.pendingDemotion ?: false)
                 }
                 else -> error("Not a call resume address")
@@ -363,27 +366,18 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         }
     }
 
-    private fun retainStaticCallEffect(ref: CallerRef, premise: PremiseKey, result: Facts) {
-        val core = active()
-        val id = core.operation(ref.call, ref.stageOrdinal)
-        val target = core.ops.leaves(result).first()
-        val site = ResumeSite.CallStageInput(id)
-        core.emitOperationResult(OperationInput(site, premise, result),
-            StaticOperation.Write(id, target), result) { _, _ -> error("A static effect does not resume the CFG") }
-    }
-
     override fun applyRecord(part: Subscription, record: Record) {
         val core = active()
         val premise = record.premise
         val native = ArrayList<PlanFact>()
         val pending = ArrayList<PlanFact>()
-        if (premise.tail != Tail.ANY_TAINT) applyParts(part, premise, record.conclusion, native)
+        if (premise.tail != Tail.ANY_TAINT) applyParts(part, premise, record.conclusion, native, run1Summary = false)
         else {
             check(core.forward) { "A native must record is only forward" }
             val inside = core.ops.satisfying(part.added, premise, core.mode)
-            if (inside != null) applyParts(part.copy(added = inside), premise, record.conclusion, native)
+            if (inside != null) applyParts(part.copy(added = inside), premise, record.conclusion, native, run1Summary = false)
             val only = if (inside == null) part.added else core.ops.without(part.added, inside)
-            if (only != null) applyParts(part.copy(added = only), premise, record.conclusion, pending)
+            if (only != null) applyParts(part.copy(added = only), premise, record.conclusion, pending, run1Summary = false)
         }
         if (native.isNotEmpty() || pending.isNotEmpty()) core.countRecordCrossing()
         resumeCallees(part.ref, native)
@@ -424,21 +418,23 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         }
     }
 
-    private fun applyParts(part: Subscription, premise: InitialAp, conclusion: Facts, results: MutableList<PlanFact>) {
+    private fun applyParts(part: Subscription, premise: InitialAp, conclusion: Facts, results: MutableList<PlanFact>,
+                           run1Summary: Boolean = true) {
         val core = active()
-        for ((group, identity) in summaryParts(premise, conclusion)) {
+        for ((group, identity) in summaryParts(premise, conclusion, run1Summary)) {
             core.ap.cancellation.checkpoint()
             val at = OperationInput(ResumeSite.CallStageInput(core.operation(part.ref.call, part.ref.stageOrdinal)),
-                part.ref.premise, part.added, CallResumeState(part.ref.callerLayer))
+                part.ref.premise, part.added, CallResumeState(part.ref.callerLayer, identity))
             core.ops.applySummary(part.added, premise, group, core.mode, core.collect(at) { pr, result ->
-                if (core.config.run1 && result.base == STATIC) retainStaticCallEffect(part.ref, pr, result)
+                if (core.config.run1 && result.base == STATIC) core.promoteStaticSummary(pr, result)
                 else results += planFact(pr, result, identity)
             })
         }
     }
 
-    private fun summaryParts(premise: InitialAp, conclusion: Facts): List<Pair<Facts, Boolean>> {
+    private fun summaryParts(premise: InitialAp, conclusion: Facts, run1Summary: Boolean): List<Pair<Facts, Boolean>> {
         val core = active()
+        if (core.config.run1 && run1Summary) return core.ap.run1SummaryParts(premise, conclusion)
         val start = core.ops.startFact(premise)
         if (premise.isZero || conclusion.layer != Layer.NORMAL || conclusion.groupKey != start.groupKey)
             return listOf(conclusion to false)
@@ -482,7 +478,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         val at = OperationInput(ResumeSite.CallStageInput(core.operation(ref.call, ref.stageOrdinal)), union, conclusion,
             CallResumeState(ref.callerLayer))
         core.ops.applyMatchedCombination(layers, conclusion, core.collect(at) { pr, result ->
-            if (core.config.run1 && result.base == STATIC) retainStaticCallEffect(ref, pr, result)
+            if (core.config.run1 && result.base == STATIC) core.promoteStaticSummary(pr, result)
             else results += planFact(pr, result, false)
         })
         resumeCallees(ref, results)

@@ -199,7 +199,8 @@ class CumulativeSubscriptionEquivalenceTest {
             if (actor.mode.run1) expectedRequests += header to RequestKind.Mark(checkNotNull(groups).atom(u))
             val reference = SelectedFormsReference(f.ops, SelectedReferenceAlgebra(actor.mode,
                 request = { pr, kind -> expectedRequests += pr to kind }, allows = { _, _ -> true },
-                hit = { _, _ -> }, manager = f.manager, join = { _, _, _, _, _ -> error("No ND in this control") }))
+                hit = { _, _ -> }, manager = f.manager, join = { _, _, _, _, _ -> error("No ND in this control") }),
+                run1AliasAdmission = actor.mode.run1)
             val expected = ArrayList<Conclusion>()
             for (leaf in accepted.filter { oracle.selects(j.toPattern(), it, actor.mode.restricted) }) {
                 val outcome = oracle.transfer(j.toPattern(), target, leaf, actor.mode.restricted, run1 = actor.mode.run1)

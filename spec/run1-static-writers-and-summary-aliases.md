@@ -1,8 +1,9 @@
 # Run-1 local static writers and summary alias admission
 
-Date: 22 October 2026. Status: selected specification; runtime unchanged.
+Date: 22 October 2026. Status: implemented; project measurements in progress.
 Document base: `ef000dea24c33c46ca950545291390707071a0eb`.
 Runtime comparison base: `d7244c08cdaefbb157f42e4d89731d301b97e48f`.
+See the [implementation validation](../docs/reports/bidirectional-local-static-writers-aliases-validation-20261022.md).
 Language: ASD-STE100 Simplified Technical English. Code names and defined
 technical terms keep their stated meanings. Follow [proof-guide.md](proof-guide.md).
 
@@ -569,7 +570,8 @@ callback counts can differ, as already selected.
 First check the constructive models and the
 [proof dossier](run1-static-writers-and-summary-aliases-proofs.md). Then add
 the focused integration controls below before changing runtime behavior.
-No runtime implementation is part of this specification delivery.
+The original specification delivery made no runtime change. The linked
+validation records the subsequent implementation and its limits.
 
 1. Separate local production, summary retention and computed group supply.
    Prove independent local admission and immutable writer validity.

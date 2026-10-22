@@ -262,7 +262,12 @@ class RunMethodAnalyzer(
         val runtime = forceRun1Layer(at.premise, admitted)
         if (config.run1 && runtime.base == STATIC) {
             if (operation != null) {
-                summaryDelta(at.premise, runtime.withLayer(Layer.DEMAND))
+                boundedSummaryResult(at.premise, runtime) { premise, bounded ->
+                    retainSummary(premise, bounded)
+                    // A promoted equal summary can already occupy this key.
+                    // Local admission must not depend on its insertion delta.
+                    checkNotNull(pointResumes).localWrite(premise, bounded)
+                }
             }
             return
         }
@@ -559,16 +564,29 @@ class RunMethodAnalyzer(
         return kept
     }
 
-    internal fun summaryDelta(premise: PremiseKey, value: Facts) {
+    internal fun promoteStaticSummary(premise: PremiseKey, value: Facts) {
+        check(config.run1 && value.base == STATIC) { "Static promotion is a run-1 static-result boundary" }
+        boundedSummaryResult(premise, value, ::retainSummary)
+    }
+
+    internal fun summaryDelta(premise: PremiseKey, value: Facts) =
+        boundedSummaryResult(premise, value, ::retainSummary)
+
+    private fun boundedSummaryResult(premise: PremiseKey, value: Facts, sink: ResultSink) {
         checkPremise(premise)
         if (dropsStaticPremise(premise)) return
         val admitted = withoutDisabledStaticFields(value) ?: return
-        if (config.run1) ops.run1Cover(forceRun1Layer(premise, admitted)) { covered ->
+        val runtime = if (config.run1) forceRun1Layer(premise, admitted).let {
+            // A nonstatic FLOW original does not itself force a static result
+            // to DEMAND. Preserve the explicit static boundary assignment.
+            if (it.base == STATIC) it.withLayer(Layer.DEMAND) else it
+        } else admitted
+        if (config.run1) ops.run1Cover(runtime) { covered ->
             // Early static publication bypasses the ordinary successor cut.
             // Retain the existing bounded AP result before indexing the effect.
-            ops.limit(covered, limit, collect(premise, covered, ::retainSummary))
+            ops.limit(covered, limit, collect(premise, covered, sink))
         }
-        else retainSummary(premise, admitted)
+        else sink(premise, admitted)
     }
 
     private fun retainSummary(premise: PremiseKey, facts: Facts) {
@@ -578,7 +596,7 @@ class RunMethodAnalyzer(
         if (delta == null) return
         edgeDeltas++
         if (delta.layer == Layer.DEMAND) demandLayerEdges++
-        if (config.run1 && delta.base == STATIC) checkNotNull(pointResumes).summary(premise, delta)
+        if (config.run1 && delta.base == STATIC) checkNotNull(pointResumes).computedGroups(premise, delta)
         queuePublications(premise, delta)
     }
 

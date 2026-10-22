@@ -80,7 +80,7 @@ class CallPlanTest {
         val algebra = SelectedReferenceAlgebra(mode, { _, _ -> }, { _, _ -> true }, { _, _ -> },
             f.manager) { _, _, _, _, _ -> error("No conjunction in these call plans") }
         val value = if (index == 1) GroupedScalarMarks(f.manager.marks).conclusion(input) else input
-        return SelectedFormsReference(f.ops, algebra)
+        return SelectedFormsReference(f.ops, algebra, run1AliasAdmission = mode.run1)
             .run(directed, listOf(PlanItem(setOf(premise.toPattern()), value, null)),
                 Place(f.inst(1), index == 1, false), hooks).filter { it.first == directed.exit }
             .map { it.second.premise to it.second.c }.toSet()
@@ -166,7 +166,7 @@ class CallPlanTest {
         }
     }
 
-    @Test fun `forward alias guard distinguishes normal identities demand identities and normal effects`(): Unit {
+    @Test fun `forward aliases reject run1 identities in both layers and retain the later DEMAND policy`(): Unit {
         for (index in listOf(1, 3)) for (layer in Layer.entries) for (effect in listOf(false, true)) MethodAnalysisFixtures().use { f ->
             val t = MarkSlot.Concrete(f.mark("T"))
             val u = MarkSlot.Concrete(f.mark("U"))
@@ -180,7 +180,8 @@ class CallPlanTest {
             val (core, calls) = service(f, index)
             process(f, calls, EdgeDelta(initial, f.inst(1), f.fact(x, path, mark = t, layer = layer)), index)
             assertEquals(expected(f, plan, initial, input, index), stored(f, core, index))
-            assertEquals(index == 1 || effect || layer == Layer.DEMAND, stored(f, core, index).any { it.second.fact.base == alias })
+            assertEquals(effect || (index != 1 && layer == Layer.DEMAND),
+                stored(f, core, index).any { it.second.fact.base == alias })
         }
     }
 
@@ -326,8 +327,8 @@ class CallPlanTest {
         }
     }
 
-    @Test fun `constructor pass bypasses returned actions and grouped identities remain demanded for aliases`(): Unit {
-        MethodAnalysisFixtures().use { f ->
+    @Test fun `constructor pass skips returned actions and keeps run1 identity alias rejection across layers`(): Unit {
+        for (index in listOf(1, 3)) for (layer in Layer.entries) MethodAnalysisFixtures().use { f ->
             val mark = MarkSlot.Concrete(f.mark("T"))
             val plan = CallPlan(setOf(x), listOf(
                 CallStage.Edges(BEFORE, BOUND, BIND_IN, summary(keepEdge(x))),
@@ -340,13 +341,15 @@ class CallPlanTest {
                     summary(starEdge(x, emptyList(), alias, emptyList())), Guard.MemoryEffect),
             ), emptyList(), BEFORE, AFTER)
             f.call(1, plan)
-            val initial = initial(f,f.pattern(x, mark = mark))
-            val input = Conclusion(PathFact(x, emptyList(), Tail.EXACT, mark), ExclusionSet.Empty, false)
-            val (core, calls) = service(f)
-            process(f, calls, EdgeDelta(initial, f.inst(1), f.fact(x, mark = mark)))
-            assertEquals(expected(f, plan, initial, input), stored(f, core))
-            assertEquals(setOf(x, alias), stored(f, core).map { it.second.fact.base }.toSet())
-            assertEquals(listOf(Cut.CALL, Cut.CALL), f.cuts.map { it.first })
+            val initial = initial(f,f.pattern(x, mark = mark), index)
+            val input = Conclusion(PathFact(x, emptyList(), Tail.EXACT, mark), ExclusionSet.Empty, layer == Layer.DEMAND)
+            val (core, calls) = service(f, index)
+            process(f, calls, EdgeDelta(initial, f.inst(1), f.fact(x, mark = mark, layer = layer)), index)
+            assertEquals(expected(f, plan, initial, input, index), stored(f, core, index))
+            val hasAlias = index != 1 && layer == Layer.DEMAND
+            assertEquals(if (hasAlias) setOf(x, alias) else setOf(x),
+                stored(f, core, index).map { it.second.fact.base }.toSet())
+            assertEquals(List(if (hasAlias) 2 else 1) { Cut.CALL }, f.cuts.map { it.first })
         }
     }
 

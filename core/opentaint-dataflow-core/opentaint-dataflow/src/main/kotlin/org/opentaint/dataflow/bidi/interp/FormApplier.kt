@@ -10,7 +10,9 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 data class Place(val node: CommonInst, val statementEdge: Boolean, val sources: Boolean,
                  val site: ResumeSite? = null, val staticOperations: List<StaticOperation> = emptyList(),
                  val callerLayer: Layer? = null, val identityCandidate: Boolean? = null,
-                 val pendingDemotion: Boolean = false)
+                 val pendingDemotion: Boolean = false,
+                 val completedAction: ActionId? = null,
+                 val completedConjunction: ConjunctiveEdge? = null)
 
 /** One implementation of form application for tree and per-path fact algebras. */
 interface FactAlgebra<P, F> {
@@ -31,6 +33,11 @@ interface FactAlgebra<P, F> {
     }
     fun sourcePredicateAt(source: SourceRuleOccurrence, premise: P, c: F, at: Place, out: (P, F) -> Unit) =
         sourcePredicate(source, premise, c, at.node, at.statementEdge, out)
+    /** Invocation-only action identity survives the result filter. Legacy
+     * algebras keep their existing source callback and operation behavior. */
+    fun sourcePredicateActionsAt(source: SourceRuleOccurrence, premise: P, c: F, at: Place,
+                                 out: (P, F, ActionId?) -> Unit) =
+        sourcePredicateAt(source, premise, c, at) { pr, result -> out(pr, result, null) }
     fun allowsSource(node: CommonInst, me: MicroEdge): Boolean
     fun sourceHit(node: CommonInst, me: MicroEdge)
 }
@@ -75,16 +82,18 @@ class FormApplier<P, F>(private val alg: FactAlgebra<P, F>) {
                             at: Place, sink: (P, F) -> Unit) {
         alg.conjunctionAt(cj, premise, c, at.copy(staticOperations = s.staticOperations)) { pr, result ->
             filterBy(s.resultFilters, pr, result)?.let { filtered ->
-                alg.operationResult(null, pr, c, filtered, at.copy(staticOperations = s.staticOperations), sink)
+                alg.operationResult(null, pr, c, filtered,
+                    at.copy(staticOperations = s.staticOperations, completedConjunction = cj), sink)
             }
         }
     }
 
     private fun source(s: StatementSummary, source: SourceRuleOccurrence, premise: P, c: F,
                        at: Place, sink: (P, F) -> Unit) {
-        alg.sourcePredicateAt(source, premise, c, at.copy(staticOperations = s.staticOperations)) { pr, result ->
+        alg.sourcePredicateActionsAt(source, premise, c, at.copy(staticOperations = s.staticOperations)) { pr, result, action ->
             filterBy(s.resultFilters, pr, result)?.let { filtered ->
-                alg.operationResult(null, pr, c, filtered, at.copy(staticOperations = s.staticOperations), sink)
+                alg.operationResult(null, pr, c, filtered,
+                    at.copy(staticOperations = s.staticOperations, completedAction = action), sink)
             }
         }
     }

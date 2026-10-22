@@ -3,7 +3,9 @@
 Date: 22 October 2026. Contract:
 [Run-1 local static writers and summary alias admission](run1-static-writers-and-summary-aliases.md).
 Runtime base: `d7244c08cdaefbb157f42e4d89731d301b97e48f`.
-Runtime implementation is unchanged. Follow [proof-guide.md](proof-guide.md).
+The original proof delivery made no runtime change. See the subsequent
+[implementation validation](../docs/reports/bidirectional-local-static-writers-aliases-validation-20261022.md).
+Follow [proof-guide.md](proof-guide.md).
 
 ## 1. Proof boundary
 

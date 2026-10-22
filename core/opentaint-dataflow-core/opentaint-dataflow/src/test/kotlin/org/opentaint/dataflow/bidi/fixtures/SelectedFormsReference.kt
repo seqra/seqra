@@ -45,6 +45,7 @@ internal class SelectedReferenceAlgebra(
 internal class SelectedFormsReference(
     private val ops: ApOps,
     algebra: FactAlgebra<Set<Pattern>, Conclusion>,
+    private val run1AliasAdmission: Boolean = true,
 ) {
     val applier = FormApplier(algebra)
     private val zeroPremise = setOf(ZERO_PATTERN)
@@ -80,7 +81,7 @@ internal class SelectedFormsReference(
         fun finish(i: PlanItem): PlanItem {
             val result = if (!pendingDemotion) i else {
                 check(i.c.fact.mark is MarkSlot.Concrete && i.c.fact.tail != Tail.STAR)
-                i.copy(c = i.c.copy(demand = true), identityCandidate = false)
+                i.copy(c = i.c.copy(demand = true), identityCandidate = if (run1AliasAdmission) i.identityCandidate else false)
             }
             return hooks.exit(result)
         }
@@ -101,7 +102,7 @@ internal class SelectedFormsReference(
         val work = ArrayDeque<Pair<CallPoint, List<PlanItem>>>()
         val start = ArrayList<PlanItem>()
         for (input in inputs) {
-            val i = if (pendingDemotion) input.copy(identityCandidate = false) else input
+            val i = if (pendingDemotion && !run1AliasAdmission) input.copy(identityCandidate = false) else input
             when {
                 from != plan.entry -> start += i
                 i.c.fact.base == AccessPathBase.Zero -> { seen += plan.exit to finish(i); start += i }
@@ -131,7 +132,7 @@ internal class SelectedFormsReference(
                                 }
                             else -> {
                                 for (i in items) {
-                                    if (guard == Guard.MemoryEffect && !Guard.MemoryEffect.admits(checkNotNull(i.identityCandidate),
+                                    if (guard == Guard.MemoryEffect && !Guard.MemoryEffect.admits(run1AliasAdmission, i.identityCandidate,
                                         if (i.c.demand) Layer.DEMAND else Layer.NORMAL)) continue
                                     applier.stage(st.summary, i.premise, i.c, place) { pr, x, me ->
                                         out += PlanItem(pr, x, st.kind.identityCandidateOf(me, i.identityCandidate)) }

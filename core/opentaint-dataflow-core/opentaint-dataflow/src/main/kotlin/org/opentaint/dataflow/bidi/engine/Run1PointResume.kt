@@ -142,24 +142,36 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
         core.requestWork()
     }
 
-    /** Register only a fresh bounded delta already retained by the ordinary summary owner. */
-    fun summary(premise: PremiseKey, delta: Facts) {
-        check(delta.base == STATIC)
-        for (leaf in core.ops.leaves(delta)) {
+    /** Only an executed local producer reaches this boundary. Its bounded
+     * scalar relation belongs to the writer, independently of summary deltas. */
+    fun localWrite(premise: PremiseKey, value: Facts) {
+        check(value.base == STATIC)
+        for (leaf in core.ops.leaves(value)) {
+            if (leaf.fact.path.size < 2) continue // exact class carriers keep their computed-supply route
             val region = Run1StaticService.region(leaf)
             core.staticBatch.writes += region
-            if (premise.isZero) continue
-            val key = WriterKey(premise, leaf, delta.layer)
-            if (delta is FlowTree) {
-                if (key in writerKeys) continue
-                val id = ++next
-                writerKeys[key] = id
-                writers[id] = key
-                check(premise is InitialAp && premise.mark is MarkSlot.Star)
-                if (premise.base == STATIC)
-                    core.staticBatch.writers += StaticWriterRegistration(core.key, id, premise, region)
-                else core.staticBatch.flowWriters += StaticFlowWriter(core.key, id, region)
-            } else if ((0 until premise.size).all { premise.member(it).base == STATIC }) {
+            if (value !is FlowTree) continue
+            check(premise is InitialAp && !premise.isZero && premise.mark is MarkSlot.Star)
+            val key = WriterKey(premise, leaf, value.layer)
+            if (key in writerKeys) continue
+            val id = ++next
+            writerKeys[key] = id
+            writers[id] = key
+            if (premise.base == STATIC)
+                core.staticBatch.writers += StaticWriterRegistration(core.key, id, premise, region)
+            else core.staticBatch.flowWriters += StaticFlowWriter(core.key, id, region)
+        }
+        core.requestWork()
+    }
+
+    /** Any retained summary can produce a computed group supply. Promotion
+     * never admits a new write point or FLOW writer. */
+    fun computedGroups(premise: PremiseKey, delta: Facts) {
+        check(delta.base == STATIC)
+        if (delta !is TaintTree) return
+        if (!premise.isZero && (0 until premise.size).all { premise.member(it).base == STATIC }) {
+            for (leaf in core.ops.leaves(delta)) {
+                val key = WriterKey(premise, leaf, delta.layer)
                 // A fixed-group conditional is a pending complete binding, not a
                 // permanent group-valued writer or a service-side Cartesian join.
                 val joinId = ++next
@@ -174,7 +186,7 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
                 }
             }
         }
-        if (premise.isZero && delta is TaintTree)
+        if (premise.isZero)
             core.staticBatch.supplies += core.staticSlices(delta)
         core.requestWork()
     }
@@ -250,7 +262,6 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
                 val writer = checkNotNull(writers[effect.id]) { "Unknown static writer interest" }
                 val original = writer.premise as? InitialAp ?: return
                 check(!original.isZero && original.mark is MarkSlot.Star && writer.output.fact.mark is MarkSlot.Star)
-                if (currentValues(writer).none()) return
                 if (original.base == STATIC) {
                     val inputId = ++next
                     writerInputs[inputId] = WriterInput(writer, effect.groups)
@@ -303,7 +314,12 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
     }
 
     private fun publishMatched(writer: WriterKey, inputs: List<RegionGroups>) {
-        for (current in currentValues(writer)) {
+        // Local FLOW writers own this immutable bounded scalar relation. A
+        // merged summary can subsume its exact selector without invalidating it.
+        val values = if (writer.output.fact.mark is MarkSlot.Star)
+            sequenceOf(core.ap.factsOf(writer.output.fact, writer.output.exclusion, writer.layer))
+        else currentValues(writer) // Keep complete fixed-group supply behavior.
+        for (current in values) {
             core.composeStaticSummary(writer.premise, current, inputs) { value ->
                 core.staticBatch.supplies += core.staticSlices(value)
             }

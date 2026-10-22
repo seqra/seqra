@@ -121,7 +121,7 @@ class NaiveClosure(
     }
 
     private fun reference(method: MethodKey): FormsReference = references.getOrPut(method) {
-        FormsReference(program.ops, algebra(method))
+        FormsReference(program.ops, algebra(method), run1AliasAdmission = selected && config.run1)
     }
 
     private fun addInitial(method: MethodKey, offered: Pattern) {
@@ -397,8 +397,21 @@ class NaiveClosure(
             restricted = config.restricted)
         check(outcome !is EdgeOutcome.Request && outcome !is EdgeOutcome.PositionRequest)
         if (outcome !is EdgeOutcome.Fact) return null
-        val identity = premise.fact.base != AccessPathBase.Zero && !conclusion.demand && conclusion == startFact(premise)
+        val identity = if (selected && config.run1) scalarSummaryNoEffect(premise.fact, conclusion.fact)
+            else premise.fact.base != AccessPathBase.Zero && !conclusion.demand && conclusion == startFact(premise)
         return PlanItem(part.premise, outcome.conclusion, identity)
+    }
+
+    /** Direct scalar contract; independent of the packed production partition. */
+    private fun scalarSummaryNoEffect(initial: PathFact, result: PathFact): Boolean {
+        if (initial.base == AccessPathBase.Zero || initial.base != result.base || initial.path != result.path) return false
+        val first = initial.mark
+        val second = result.mark
+        return when {
+            first is MarkSlot.Star && second is MarkSlot.Star -> initial.tail == Tail.STAR && result.tail == Tail.STAR
+            first is MarkSlot.Concrete && second is MarkSlot.Concrete -> first.mark == second.mark
+            else -> false
+        }
     }
 
     private fun resume(part: Part, items: List<PlanItem>, pendingDemotion: Boolean = false) {
@@ -521,7 +534,7 @@ class NaiveClosure(
                     }
                 }
             })
-        SelectedFormsReference(program.ops, algebra)
+        SelectedFormsReference(program.ops, algebra, run1AliasAdmission = config.run1)
     }
     private fun applier(method: MethodKey): FormApplier<Set<Pattern>, Conclusion> =
         if (selected) selectedReference(method).applier else reference(method).applier

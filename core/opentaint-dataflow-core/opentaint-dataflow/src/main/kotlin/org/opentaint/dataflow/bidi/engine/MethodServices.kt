@@ -4,6 +4,7 @@ import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.interp.SinkRule
 import org.opentaint.dataflow.bidi.interp.SourceRuleOccurrence
 import org.opentaint.dataflow.bidi.interp.ResumeSite
+import org.opentaint.dataflow.bidi.interp.ActionId
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.ConjunctionStore
 import org.opentaint.dataflow.bidi.store.RequestMarkSet
@@ -48,6 +49,10 @@ interface MethodLocalServices {
     fun sourcePredicateAt(source: SourceRuleOccurrence, premise: PremiseKey, facts: Facts, node: CommonInst,
                           statementEdge: Boolean, at: OperationInput,
                           sink: (PremiseKey, Facts) -> Unit) = sourcePredicate(source, premise, facts, node, statementEdge, sink)
+    fun sourcePredicateActionsAt(source: SourceRuleOccurrence, premise: PremiseKey, facts: Facts, node: CommonInst,
+                                statementEdge: Boolean, at: OperationInput,
+                                sink: (PremiseKey, Facts, ActionId?) -> Unit) =
+        sourcePredicateAt(source, premise, facts, node, statementEdge, at) { pr, result -> sink(pr, result, null) }
     fun checkSinks(premise: PremiseKey, node: CommonInst, facts: Facts, sinks: List<SinkRule>): Triggers
     fun checkSinksAt(premise: PremiseKey, node: CommonInst, facts: Facts, sinks: List<SinkRule>, at: OperationInput): Triggers =
         checkSinks(premise, node, facts, sinks)

@@ -7,6 +7,7 @@ import org.opentaint.dataflow.bidi.interp.ProofKey
 import org.opentaint.dataflow.bidi.interp.SourceRuleOccurrence
 import org.opentaint.dataflow.bidi.interp.RulePredicate
 import org.opentaint.dataflow.bidi.interp.ResumeSite
+import org.opentaint.dataflow.bidi.interp.ActionId
 import org.opentaint.dataflow.bidi.store.*
 import org.opentaint.ir.api.common.cfg.CommonInst
 
@@ -90,7 +91,12 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
             OperationInput(ResumeSite.StatementInput(activeCore().operation(node)), premise, facts), sink)
 
     override fun sourcePredicateAt(source: SourceRuleOccurrence, premise: PremiseKey, facts: Facts, node: CommonInst,
-                                   statementEdge: Boolean, at: OperationInput, sink: (PremiseKey, Facts) -> Unit) {
+                                   statementEdge: Boolean, at: OperationInput, sink: (PremiseKey, Facts) -> Unit) =
+        sourcePredicateActionsAt(source, premise, facts, node, statementEdge, at) { pr, result, _ -> sink(pr, result) }
+
+    override fun sourcePredicateActionsAt(source: SourceRuleOccurrence, premise: PremiseKey, facts: Facts, node: CommonInst,
+                                          statementEdge: Boolean, at: OperationInput,
+                                          sink: (PremiseKey, Facts, ActionId?) -> Unit) {
         val core = activeCore()
         if (source.actions.isEmpty()) return
         val predicate = source.predicate
@@ -103,7 +109,7 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
                 core.ops.applyEdge(facts, premise, edge.edge, statementEdge, core.mode,
                     core.collectAfterRun1Policy(at) { _, result ->
                         core.sourceHits?.add(core.key, node, edge.forward, action.id)
-                        sink(premise, result)
+                        sink(premise, result, action.id)
                     }, may = edge.may)
             }
         }
@@ -132,7 +138,7 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
                             }) continue
                             val result = core.ops.targetTree(action.target, cube.layer, core.mode)
                             cube.emitOrigins(action.id) { initial ->
-                                sink(initial, core.forceRun1Layer(initial, result))
+                                sink(initial, core.forceRun1Layer(initial, result), action.id)
                             }
                         }
                     }
@@ -146,7 +152,7 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
                                 source.transfer(selected.leaves[index], action, multi = true).forward, action.id)
                         }) continue
                         val result = core.ops.targetTree(action.target, combination.layer, core.mode)
-                        sink(combination.premise, core.forceRun1Layer(combination.premise, result))
+                        sink(combination.premise, core.forceRun1Layer(combination.premise, result), action.id)
                     }
                 }
             }

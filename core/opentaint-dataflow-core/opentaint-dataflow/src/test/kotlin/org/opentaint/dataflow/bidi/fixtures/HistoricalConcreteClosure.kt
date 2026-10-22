@@ -101,7 +101,7 @@ class HistoricalConcreteClosure(private val program: FiniteProgramFixtures, priv
     }
 
     private fun reference(method: MethodKey): FormsReference = references.getOrPut(method) {
-        FormsReference(program.ops, algebra(method))
+        FormsReference(program.ops, algebra(method), run1AliasAdmission = false)
     }
 
     private fun addInitial(method: MethodKey, initial: Pattern) {

@@ -30,6 +30,11 @@ sealed interface Guard {
 
     data object MemoryEffect : Guard {
         fun admits(identityCandidate: Boolean, layer: Layer): Boolean = layer == Layer.DEMAND || !identityCandidate
+
+        /** Run-1 NoMemoryEffect has no DEMAND bypass. Unknown is conservative.
+         * Later FULL/native calls keep their existing classifier and guard. */
+        fun admits(run1: Boolean, noEffect: Boolean?, layer: Layer): Boolean =
+            if (run1) noEffect != true else admits(checkNotNull(noEffect), layer)
     }
 }
 
