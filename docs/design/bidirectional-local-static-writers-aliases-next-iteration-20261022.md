@@ -108,6 +108,26 @@ by the current engine, including its existing GEN rules.
 
 ## 3. Remove the repeated static call handshake
 
+### Which subscriptions remain
+
+This change does not restrict all subscriptions to static read micro-edges.
+It removes a pool subscription made while applying an already-published
+static GROUP summary. Keep these distinct mechanisms:
+
+| Mechanism | New behavior |
+| --- | --- |
+| Local static read/write-presence registration | Keep the reached operation's existing registration and read activation |
+| First group refinement at a condition or cleaner, or a FLOW writer's input request | Keep it; a FLOW original does not prove that the requested group is available |
+| Ordinary caller subscription to callee summaries | Keep it, including wrappers with no local static read |
+| Extra pool interest for the concrete static premise of a published GROUP summary | Remove it for the proved shapes; that premise's request has already been answered |
+
+For example, `use() { checkG(get()); }` can need its first C.f/G
+refinement at `checkG`, even if only `get` contains `return C.f`.
+That first request stays. Once a concrete static GROUP summary is
+published, each wrapper applies it without asking the pool again.
+The criterion is the published GROUP premise and its producer invariant,
+not whether the caller contains a static read micro-edge.
+
 ```java
 void set() { C.f = source(); }
 Object get() { return C.f; }
@@ -226,15 +246,93 @@ change rule evaluation semantics to obtain a batching factor.
 
 ## 4. Remove unary static GROUP supply joins
 
+### Showcase: copy a resolved group to another static field
+
 ```java
-void copy() { C.g = C.f; }
+void copy() {
+    Object x = C.f;
+    checkG(x);
+    C.g = x;
+}
 ```
 
-Suppose analysis produces `C.f/*/G -> C.g/./G, DEMAND`.
-Current `computedGroups` allocates a ConditionalJoin and JoinInput per
-output leaf, requests C.f/G again, waits for the known reply, then borrows
-and recomposes the output before offering C.g/G. The run-1 singleton
-original makes this a unary join.
+`checkG` has the configured condition `ContainsMark(arg0, G)` and keeps
+its argument unchanged. Assume C.f has a permitted G write. Its first
+refinement request at the check has completed. C.g has no G supply or
+request yet. The relevant state is:
+
+```text
+pool C.f: req={}, reach={}, processed={G}
+pool C.g: req={}, reach={}, processed={}
+
+j = C.f/*/G                       original; E is empty
+j -> x/[any]/G, DEMAND            resumed current fact at the check
+j -> C.g/[any]/G, DEMAND          result of C.g = x
+```
+
+`[any]` here is the current fact's tail. The initial remains `C.f/*/G`.
+All displayed GROUP edges are DEMAND. The static write retains a fresh
+summary delta `d = C.g/[any]/G` under j. The following trace starts at
+`computedGroups(j, d)`; the real read, first G request and write transfer
+are common to both versions.
+
+### Current operation trace
+
+```text
+1. Retain the fresh method summary j -> d.
+2. computedGroups(j, d):
+     allocate ConditionalJoin q with one input slot
+     allocate JoinInput r = (q, member=0)
+     append StaticInterest(copy, r, C.f/*/G, {G})
+3. At the method barrier, commit that input interest.
+     C.f/G is already processed.
+     create PointReady(copy, r, canonical C.f input with G).
+     No fresh writer/group admission is needed at C.f.
+4. Deliver PointReady to the method actor.
+     remove r; fill q's only input; remove q
+     publishMatched: borrow the retained output d
+     materialize C.f/[any]/G, DEMAND
+     match it against j
+     apply the summary to that same canonical input: result = d
+     append staticSlices(d) to the output supply batch
+5. At the next output commit, offer C.g/G to the pool.
+     C.g had no request: reach={G}, req={}, processed={}.
+```
+
+The join in step 2 is unary because run-1 has one executable original.
+Steps 2 through 4 discover no new input membership. The already-answered
+input request is being repeated merely to publish the output.
+
+### Proposed operation trace
+
+```text
+1. Retain the same fresh method summary j -> d.
+2. computedGroups(j, d):
+     the static GROUP producer invariant proves C.f/G is processed
+     append staticSlices(d) directly to the output supply batch
+3. At the output commit, offer C.g/G through the same service path.
+     C.g had no request: reach={G}, req={}, processed={}.
+```
+
+There is no ConditionalJoin, JoinInput, repeated C.f interest, PointReady,
+input materialization or AP self-composition. Keep j, d, its ordinary
+summary publication and all selected demand coordinates. The output can
+be offered at an earlier barrier; complete semantic closure stays the
+same, subject to the stated AP and protocol proof gates.
+
+| Observation after the supply settles | Current | Proposed |
+| --- | --- | --- |
+| Method summary | `j -> C.g/[any]/G, DEMAND` | Same |
+| C.f group state | `processed={G}` | Same |
+| C.g group state | `reach={G}` | Same |
+| Extra input joins / interests / replies | One of each | Zero |
+
+If a C.g/G request arrives later, both versions move it from `reach` to
+`processed`, answer it and admit any required FLOW writer interests.
+That first output-field request remains necessary. The optimization
+removes the repeated input-field request, not that request or its effects.
+
+### Implementation sketch
 
 New: the processed-original invariant and canonical self-apply identity
 permit output supply through the existing batch:
