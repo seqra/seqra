@@ -6,7 +6,7 @@ Our current goal: implement optimization and repeat major testing on real projec
 Always cleanup memory snapshot/profiles from the previous runs.
 
 # Optimization:
-Implement optimization wrt the [bidirectional-run1-origins-routing-projection-implementation-20261021.md](docs/design/bidirectional-run1-origins-routing-projection-implementation-20261021.md) 
+Implement optimization wrt the [run1-static-writers-and-summary-aliases.md](spec/run1-static-writers-and-summary-aliases.md) 
 Commit after implementation.  
 Avoid changes in the analyzer core, that were not proposed and designed.
 If you have an optimization idea, write a proposal. Then we will include it into the next iteration.
