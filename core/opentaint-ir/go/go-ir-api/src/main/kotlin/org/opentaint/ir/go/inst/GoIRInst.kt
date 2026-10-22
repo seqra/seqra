@@ -214,9 +214,10 @@ data class GoIRIndexStore(
 
 data class GoIRGlobalStore(
     override val location: GoInstLocation,
-    val global: GoIRGlobal,
+    val lookup: org.opentaint.ir.go.api.GoIRGlobalReference,
     val value: GoIRValue,
 ) : GoIRInst {
+    val global get() = lookup.global
     override val operands: List<GoIRValue> get() = listOf(value)
     override fun <T> accept(visitor: GoIRInstVisitor<T>): T = visitor.visitGlobalStore(this)
     override fun toString(): String = "global ${global.fullName} = $value"

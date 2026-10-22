@@ -147,7 +147,19 @@ class Approximations(
                                 clazz.getCompressed<Long>("nameId") to annotationValue.getCompressedBlob<Long>("classSymbolId")
                             }
 
-                        namedApprox + classApprox
+                        val explicitMappings = (namedApprox + classApprox).toList()
+                        val explicitlyMappedClasses = explicitMappings.mapTo(hashSetOf()) { it.first }
+                        val prefixMappings = context.txn.all("Class").mapNotNull { clazz ->
+                            val approximationNameId = clazz.getCompressed<Long>("nameId")
+                                ?: return@mapNotNull null
+                            if (approximationNameId in explicitlyMappedClasses) return@mapNotNull null
+                            val originalName = prefixAddressedTarget(persistence.findSymbolName(approximationNameId))
+                                ?: return@mapNotNull null
+
+                            approximationNameId to persistence.findSymbolId(originalName)
+                        }
+
+                        explicitMappings.asSequence() + prefixMappings
                     }
                 ).forEach { (approximation, original) ->
                     val approximationClassName = persistence.findSymbolName(approximation!!).toApproximationName()
@@ -361,19 +373,28 @@ private class ApproximationIndexer(
     }
 
     override fun index(classNode: ClassNode) {
-        val annotations = classNode.visibleAnnotations ?: return
+        val approximationClassName = classNode.name.className
+        val prefixTarget = prefixAddressedTarget(approximationClassName)
+        val approximationAnnotations = classNode.visibleAnnotations.orEmpty().filter {
+            approximationAnnotationClassName in it.desc.className ||
+                approximationByNameAnnotationClassName in it.desc.className
+        }
+        if (prefixTarget == null && approximationAnnotations.isEmpty()) return
+        if (approximationAnnotations.size > 1) {
+            logger.error { "Approximation $approximationClassName has more than one class-address annotation" }
+            return
+        }
+        val approximationAnnotation = approximationAnnotations.singleOrNull()
 
-        // Check whether the classNode contains an approximation related annotation
-        val approximationAnnotation = annotations.singleOrNull {
-            approximationAnnotationClassName in it.desc.className || approximationByNameAnnotationClassName in it.desc.className
-        } ?: return
-
-        if (!checkVersion(approximationAnnotation))
+        if (approximationAnnotation != null && !checkVersion(approximationAnnotation))
             return
 
         val originalClassName = when {
+            approximationAnnotation == null -> prefixTarget!!.toOriginalName()
+
             approximationByNameAnnotationClassName in approximationAnnotation.desc.className -> {
-                val target = approximationAnnotation.values[1] as String
+                val target = annotationStringValueByName(approximationAnnotation.values, "value")
+                    ?: error("unable to find `value` in @$approximationByNameAnnotationClassName")
                 target.toOriginalName()
             }
 
@@ -386,12 +407,12 @@ private class ApproximationIndexer(
             else -> error("Impossible")
         }
 
-        val approximationClassName = classNode.name.className.toApproximationName()
+        val typedApproximationClassName = approximationClassName.toApproximationName()
 
         // Ensure that each approximation has one and only one
-        if (originalToApproximation.getOrDefault(originalClassName, approximationClassName) != approximationClassName) {
+        if (originalToApproximation.getOrDefault(originalClassName, typedApproximationClassName) != typedApproximationClassName) {
             logger.error {
-                "An error occurred during approximations indexing: you tried to add `$approximationClassName` " +
+                "An error occurred during approximations indexing: you tried to add `$typedApproximationClassName` " +
                         "as an approximation for `$originalClassName`, but the target class is already " +
                         "associated with approximation `${originalToApproximation[originalClassName]}`. " +
                         "Only bijection between classes is allowed."
@@ -399,18 +420,18 @@ private class ApproximationIndexer(
             return
         }
 
-        if (approximationToOriginal.getOrDefault(approximationClassName, originalClassName) != originalClassName) {
+        if (approximationToOriginal.getOrDefault(typedApproximationClassName, originalClassName) != originalClassName) {
             logger.error {
-                "An error occurred during approximations indexing: you tried to add `$approximationClassName` " +
+                "An error occurred during approximations indexing: you tried to add `$typedApproximationClassName` " +
                         "as an approximation for `$originalClassName`, but this approximation is already used for " +
-                        "`${approximationToOriginal[approximationClassName]}`. " +
+                        "`${approximationToOriginal[typedApproximationClassName]}`. " +
                         "Only bijection between classes is allowed."
             }
             return
         }
 
-        originalToApproximation[originalClassName] = approximationClassName
-        approximationToOriginal[approximationClassName] = originalClassName
+        originalToApproximation[originalClassName] = typedApproximationClassName
+        approximationToOriginal[typedApproximationClassName] = originalClassName
     }
 
     override fun flush(context: StorageContext) {
@@ -427,6 +448,12 @@ private val approximationByNameAnnotationClassName = ApproximateByName::class.qu
 private val approximatedMethodName = ApproximatedMethodName::class.qualifiedName!!
 private val approximatedFieldName = ApproximatedFieldName::class.qualifiedName!!
 private val versionAnnotationClassName = Version::class.qualifiedName!!
+
+private const val approximationPackagePrefix = "opentaint."
+
+private fun prefixAddressedTarget(approximationClassName: String): String? =
+    approximationClassName.takeIf { it.startsWith(approximationPackagePrefix) }
+        ?.removePrefix(approximationPackagePrefix)?.takeIf { it.isNotEmpty() }
 
 @JvmInline
 value class ApproximationClassName(val className: String) {

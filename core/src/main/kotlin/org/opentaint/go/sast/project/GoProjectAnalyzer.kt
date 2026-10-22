@@ -30,9 +30,12 @@ class GoProjectAnalyzer(
     results,
     goOptions.common
 ) {
+    private val modelPaths = goOptions.modelPaths
+    private val useDefaultModels = goOptions.useDefaultModels
+
     override fun initializeProjectAnalysisContext(): AnalysisCtx {
         val client = GoIRClient()
-        return AnalysisCtx(project, client)
+        return AnalysisCtx(project, client, modelPaths, useDefaultModels)
     }
 
     override fun AnalysisCtx.selectProjectEntryPoints(): List<GoIRFunction> {

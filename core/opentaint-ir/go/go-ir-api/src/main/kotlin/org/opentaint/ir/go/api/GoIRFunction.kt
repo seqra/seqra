@@ -42,6 +42,8 @@ interface GoIRFunction: CommonMethod {
 
     // Generics
     val typeParams: List<GoIRTypeParamDecl>
+    val originFullName: String? get() = null
+    val typeArgs: List<GoIRType> get() = emptyList()
 
     override val parameters: List<CommonMethodParameter> get() =
         if (freeVars.isEmpty()) params

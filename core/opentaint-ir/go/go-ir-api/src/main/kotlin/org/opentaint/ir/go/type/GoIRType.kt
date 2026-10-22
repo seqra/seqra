@@ -64,7 +64,7 @@ data class NamedTypeRef(
     val fullRefName: String get() = "$refTypePkg.$refTypeName"
 
     val namedType: GoIRNamedType
-        get() = program.findPackage(refTypePkg)?.findNamedType(refTypeName)
+        get() = program.lookup.namedType(this)
             ?: error("Can't find namedType for $fullRefName")
 
     override fun toString(): String = "ref($fullRefName)"

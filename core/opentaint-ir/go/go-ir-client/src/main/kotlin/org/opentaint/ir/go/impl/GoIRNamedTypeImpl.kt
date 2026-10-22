@@ -17,7 +17,9 @@ class GoIRNamedTypeImpl(
     override val underlying: GoIRType,
     override val kind: GoIRNamedTypeKind,
     override val position: GoIRPosition?,
+    override val typeParams: List<GoIRTypeParamDecl> = emptyList(),
 ) : GoIRNamedType {
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is GoIRNamedType) return false
@@ -37,7 +39,5 @@ class GoIRNamedTypeImpl(
     override val pointerMethods: List<GoIRFunction> get() = _pointerMethods
     override val interfaceMethods: List<GoIRInterfaceMethod> get() = _interfaceMethods
     override val embeddedInterfaces: List<GoIRNamedType> get() = _embeddedInterfaces
-    override val typeParams: List<GoIRTypeParamDecl> = emptyList()
-
     override fun toString(): String = "GoIRNamedType($fullName)"
 }

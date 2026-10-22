@@ -90,18 +90,81 @@ func (s *goSSAServer) BuildProgram(req *pb.BuildProgramRequest, stream pb.GoSSAS
 			return err
 		}
 	}
-
 	if err := stream.Send(&pb.BuildProgramResponse{Payload: &pb.BuildProgramResponse_Program{Program: program}}); err != nil {
 		return fmt.Errorf("streaming program: %w", err)
 	}
 
+	for _, modelDir := range req.ModelDirs {
+		workspacePath, cleanupWorkspace, workspaceErr := createModelWorkspace(
+			modelDir, info, projectModulePaths,
+		)
+		if workspaceErr != nil {
+			return stream.Send(&pb.BuildProgramResponse{Payload: &pb.BuildProgramResponse_Error{Error: &pb.ProtoError{
+				Message: fmt.Sprintf("loading Go model %s: %v", modelDir, workspaceErr),
+				Fatal:   true,
+			}}})
+		}
+		modelReq := &pb.BuildProgramRequest{
+			Patterns:            []string{"./..."},
+			InstantiateGenerics: req.InstantiateGenerics,
+			SanityCheck:         req.SanityCheck,
+			Gopath:              req.Gopath,
+			Goroot:              req.Goroot,
+			BuildTags:           req.BuildTags,
+			WorkingDir:          modelDir,
+			Mode:                pb.LoadMode_LOAD_MODE_PROJECT,
+		}
+		modelProg, modelPkgs, modelInfo, modelErr := buildSSAWithPackageErrorsAndEnv(
+			modelReq, true, []string{"GOWORK=" + workspacePath},
+		)
+		cleanupWorkspace()
+		if modelErr != nil {
+			return stream.Send(&pb.BuildProgramResponse{Payload: &pb.BuildProgramResponse_Error{Error: &pb.ProtoError{
+				Message: fmt.Sprintf("loading Go model %s: %v", modelDir, modelErr),
+				Fatal:   true,
+			}}})
+		}
+		modelSerializer := newSerializerForModelBuild(
+			modelProg, modelPkgs, modelInfo, modelModulePaths(modelDir, modelInfo),
+		)
+		modelProgram, modelSerializeErrors := modelSerializer.serializeProgram()
+		for _, modelSerializeErr := range modelSerializeErrors {
+			if err := stream.Send(&pb.BuildProgramResponse{Payload: &pb.BuildProgramResponse_Error{Error: modelSerializeErr}}); err != nil {
+				return err
+			}
+		}
+		if err := stream.Send(&pb.BuildProgramResponse{Payload: &pb.BuildProgramResponse_ModelProgram{
+			ModelProgram: &pb.ProtoModelProgram{Source: modelDir, Program: modelProgram},
+		}}); err != nil {
+			return fmt.Errorf("streaming Go model %s: %w", modelDir, err)
+		}
+	}
+
 	return stream.Send(&pb.BuildProgramResponse{
 		Payload: &pb.BuildProgramResponse_Summary{Summary: &pb.ProtoBuildSummary{
-			PackageCount:     int32(ser.stats.packageCount),
-			FunctionCount:    int32(ser.stats.functionCount),
-			TypeCount:        int32(ser.stats.typeCount),
-			InstructionCount: int32(ser.stats.instructionCount),
+			PackageCount:     int32(len(program.Packages)),
+			FunctionCount:    countProgramFunctions(program),
+			TypeCount:        int32(len(program.Types)),
+			InstructionCount: countProgramInstructions(program),
 			BuildTimeMs:      time.Since(startTime).Milliseconds(),
 		}},
 	})
+}
+
+func countProgramFunctions(program *pb.ProtoProgram) int32 {
+	var count int32
+	for _, pkg := range program.Packages {
+		count += int32(len(pkg.Functions))
+	}
+	return count
+}
+
+func countProgramInstructions(program *pb.ProtoProgram) int32 {
+	var count int32
+	for _, body := range program.FunctionBodies {
+		for _, block := range body.Blocks {
+			count += int32(len(block.Instructions))
+		}
+	}
+	return count
 }

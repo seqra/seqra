@@ -1,17 +1,16 @@
-package org.opentaint.ir.approximations.approx
+package opentaint.org.opentaint.ir.approximations.target
 
-import org.opentaint.ir.approximation.annotation.Approximate
+import opentaint.java.lang.Integer as IntegerModel
 import org.opentaint.ir.approximations.target.ClassForField
-import org.opentaint.ir.approximations.target.KotlinClass
+import org.opentaint.ir.approximations.target.KotlinClass as TargetKotlinClass
 import org.jetbrains.annotations.NotNull
 
-@Approximate(KotlinClass::class)
-class KotlinClassApprox {
+class KotlinClass {
     @NotNull
     private val artificialField: ClassForField = ClassForField()
     private val fieldToReplace: Int = 3
-    private val sameApproximation: KotlinClassApprox? = null
-    private val anotherApproximation: IntegerApprox? = null
+    private val sameApproximation: KotlinClass? = null
+    private val anotherApproximation: IntegerModel? = null
 
     fun replaceBehaviour(value: Int): Int = 42
 
@@ -25,7 +24,7 @@ class KotlinClassApprox {
         return 0
     }
 
-    fun useSameApproximationTarget(kotlinClass: KotlinClass): Int {
+    fun useSameApproximationTarget(kotlinClass: TargetKotlinClass): Int {
         if (sameApproximation == null) return 0
 
         if (kotlinClass.methodWithoutApproximation() == sameApproximation.artificialMethod()) {

@@ -3,6 +3,9 @@ package org.opentaint.ir.go.client
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
+import org.opentaint.ir.go.api.GoIRFunction
+import org.opentaint.ir.go.api.GoIRGlobalReference
+import org.opentaint.ir.go.api.reference
 import org.opentaint.ir.go.api.GoIRField
 import org.opentaint.ir.go.api.GoIRFreeVar
 import org.opentaint.ir.go.api.GoIRInterfaceMethod
@@ -10,6 +13,7 @@ import org.opentaint.ir.go.api.GoIRPackage
 import org.opentaint.ir.go.api.GoIRParameter
 import org.opentaint.ir.go.api.GoIRPosition
 import org.opentaint.ir.go.api.GoIRProgram
+import org.opentaint.ir.go.api.GoIRTypeParamDecl
 import org.opentaint.ir.go.api.GoIrFunctionReference
 import org.opentaint.ir.go.cfg.GoIRCallInfo
 import org.opentaint.ir.go.cfg.GoIRCallTarget
@@ -81,6 +85,7 @@ import org.opentaint.ir.go.proto.ProtoConstValue
 import org.opentaint.ir.go.proto.ProtoFunction
 import org.opentaint.ir.go.proto.ProtoFunctionBody
 import org.opentaint.ir.go.proto.ProtoInstruction
+import org.opentaint.ir.go.proto.ProtoModelProgram
 import org.opentaint.ir.go.proto.ProtoNamedType
 import org.opentaint.ir.go.proto.ProtoNamedTypeKind
 import org.opentaint.ir.go.proto.ProtoPackage
@@ -134,13 +139,16 @@ class GoIRDeserializer {
     var serverBuildTimeMs: Long = 0L
         private set
 
-    fun deserialize(responses: Iterator<BuildProgramResponse>): GoIRProgram {
+    internal fun deserialize(responses: Iterator<BuildProgramResponse>): DeserializedGoIRBuild {
         var program: ProtoProgram? = null
+        val models = mutableListOf<ProtoModelProgram>()
         for (r in responses) {
             when (r.payloadCase) {
                 BuildProgramResponse.PayloadCase.PROGRAM -> {
                     program = r.program
                 }
+
+                BuildProgramResponse.PayloadCase.MODEL_PROGRAM -> models += r.modelProgram
 
                 BuildProgramResponse.PayloadCase.SUMMARY -> serverBuildTimeMs = r.summary.buildTimeMs
                 BuildProgramResponse.PayloadCase.ERROR -> handleError(r.error.message, r.error.fatal)
@@ -152,24 +160,42 @@ class GoIRDeserializer {
         }
 
         check(program != null) { "Unexpected IR build issue" }
+        return DeserializedGoIRBuild(deserializeProgram(program), models)
+    }
+
+    internal data class DeserializedGoIRBuild(
+        val program: GoIRProgram,
+        val models: List<ProtoModelProgram>,
+    )
+
+    internal fun deserializeProgram(
+        serializedProgram: ProtoProgram,
+    ): GoIRProgram {
 
         val resultPackages = hashMapOf<String, GoIRPackage>()
         val anonymousInterfaces = Int2ObjectOpenHashMap<GoIRAnonymousInterfaceType>()
         val result = GoIRProgramImpl(resultPackages, anonymousInterfaces)
+        programView = result
 
-        val pkgInfo = deserializePackages(program.packagesList)
-        packages.filterNotNull().forEach {
-            resultPackages[it.importPath] = it
+        val pkgInfo = deserializePackages(serializedProgram.packagesList)
+        serializedProgram.packagesList.forEach { serializedPackage ->
+            val deserializedPackage = getPackage(serializedPackage.id)
+            val importPath = deserializedPackage.importPath
+            resultPackages.putIfAbsent(importPath, deserializedPackage)
         }
 
-        TypeDeserializationCtx(result, program.typesList, pkgInfo, anonymousInterfaces)
+        TypeDeserializationCtx(result, serializedProgram.typesList, pkgInfo, anonymousInterfaces)
             .deserializeTypes()
 
         FunctionDeserializationCtx(pkgInfo, result)
             .deserializeFunctions()
 
-        program.packagesList.forEach { deserializePackageMembers(it) }
-        program.functionBodiesList.forEach { deserializeFunctionBody(it) }
+        serializedProgram.packagesList.forEach { deserializePackageMembers(it) }
+        serializedProgram.functionBodiesList.forEach { body ->
+            getFunction(body.functionId).setBodyReader { owner, context ->
+                deserializeFunctionBody(body, owner, context)
+            }
+        }
         pkgInfo.namedTypes.forEach { resolveNamedTypeBindings(it) }
 
         return result
@@ -189,8 +215,11 @@ class GoIRDeserializer {
         val functionPkgId: Int2IntOpenHashMap,
     )
 
-    private fun deserializePackages(packagesList: List<ProtoPackage>): PackageInfo {
-        val deserialized = arrayOfNulls<GoIRPackageImpl?>(packagesList.size + 1).also {
+    private fun deserializePackages(
+        packagesList: List<ProtoPackage>,
+    ): PackageInfo {
+        val maxPackageId = packagesList.maxOfOrNull { it.id } ?: 0
+        val deserialized = arrayOfNulls<GoIRPackageImpl?>(maxPackageId + 1).also {
             packages = it
         }
 
@@ -351,6 +380,13 @@ class GoIRDeserializer {
             underlying = resolveType(nt.underlyingTypeId),
             kind = namedTypeKindFromProto(nt.kind),
             position = positionFromProto(nt.position),
+            typeParams = nt.typeParamsList.map { typeParam ->
+                GoIRTypeParamDecl(
+                    typeParam.name,
+                    typeParam.index,
+                    resolveType(typeParam.constraintTypeId),
+                )
+            },
         )
 
         for (fd in nt.fieldsList) {
@@ -551,6 +587,18 @@ class GoIRDeserializer {
                 declaredHasBody = pf.hasBody,
                 parent = parentFunction,
                 anonymousFunctions = anonymousFunctions,
+                typeParams = pf.typeParamsList.map { typeParam ->
+                    GoIRTypeParamDecl(
+                        typeParam.name,
+                        typeParam.index,
+                        getType(typeParam.constraintTypeId),
+                    )
+                },
+                originFullName = pf.originFunctionId.takeIf { it != 0 }
+                    ?.let { originId ->
+                        functions.getOrNull(originId)?.fullName
+                    },
+                typeArgs = pf.typeArgIdsList.map(::getType),
             )
         }
     }
@@ -624,8 +672,11 @@ class GoIRDeserializer {
 
     // ─── Function Bodies ────────────────────────────────────────────
 
-    private fun deserializeFunctionBody(fb: ProtoFunctionBody) {
-        val fn = getFunction(fb.functionId)
+    private fun deserializeFunctionBody(
+        fb: ProtoFunctionBody,
+        fn: GoIRFunction,
+        context: GoIRBodyContext,
+    ): GoIRBodyImpl {
 
         val phiEdgeSyntheticLoads = collectPhiEdgeSyntheticLoads(fb, fn.fullName)
         val phiEdgeSyntheticLoadsByPred = phiEdgeSyntheticLoads.groupBy { it.predInstProtoIndex }
@@ -667,7 +718,7 @@ class GoIRDeserializer {
             block.instructionsList.forEach { pi ->
                 if (pi.valueId <= 0) return@forEach
                 val newIdx = protoToNew.get(pi.index)
-                val reg = GoIRRegister(getType(pi.typeId), newIdx, pi.name)
+                val reg = GoIRRegister(context.type(getType(pi.typeId)), newIdx, pi.name)
                 lazyValueMap.register(pi.valueId, reg)
             }
         }
@@ -677,7 +728,7 @@ class GoIRDeserializer {
         for (load in phiEdgeSyntheticLoads) {
             val predBlockIndex = protoInstBlockIndices[load.predInstProtoIndex]
                 ?: error("No predecessor block for phi edge pred inst ${load.predInstProtoIndex} in ${fn.fullName}")
-            val (reg, inst) = createSyntheticLoad(load.value, body, predBlockIndex, load.index)
+            val (reg, inst) = createSyntheticLoad(load.value, body, predBlockIndex, load.index, context)
             phiEdgeSyntheticValues[load.key] = reg
             phiEdgeSyntheticInstructions[load.key] = inst
         }
@@ -685,7 +736,7 @@ class GoIRDeserializer {
         val ctx = InstContext(body, blockIdx = 0, fn = fn, valueMap = lazyValueMap,
                               instructions = mutableListOf(), protoToNew = protoToNew,
                               blockStartProtoToNew = blockStartProtoToNew,
-                              phiEdgeSyntheticValues = phiEdgeSyntheticValues)
+                              phiEdgeSyntheticValues = phiEdgeSyntheticValues, context = context)
         for ((blockIdx, pb) in fb.blocksList.withIndex()) {
             val block = blocks[blockIdx]
             ctx.blockIdx = blockIdx
@@ -714,7 +765,7 @@ class GoIRDeserializer {
         }
 
         specializeStores(blocks)
-        fn.setBody(body)
+        return body
     }
 
     /**
@@ -759,7 +810,7 @@ class GoIRDeserializer {
         pi: ProtoInstruction,
     ): GoIRInst {
         fun ref(vr: ProtoValueRef): GoIRValue = valueRefFromProto(vr, this)
-        fun type(id: Int): GoIRType = getType(id)
+        fun type(id: Int): GoIRType = context.type(getType(id))
         fun translate(protoIdx: Int): GoIRInstRef = GoIRInstRef(
             protoToNew.get(protoIdx)
         )
@@ -807,7 +858,11 @@ class GoIRDeserializer {
             )
             ProtoInstruction.InstCase.MAKE_CLOSURE -> {
                 val closureFn = getFunction(pi.makeClosure.fnId)
-                assign(GoIRMakeClosureExpr(exprType(), closureFn, pi.makeClosure.bindingsList.map { ref(it) }))
+                assign(GoIRMakeClosureExpr(
+                    exprType(),
+                    context.function(functionReference(closureFn)),
+                    pi.makeClosure.bindingsList.map { ref(it) },
+                ))
             }
             ProtoInstruction.InstCase.MAKE_MAP -> assign(
                 GoIRMakeMapExpr(exprType(), if (pi.makeMap.hasReserve) ref(pi.makeMap.reserve) else null)
@@ -819,10 +874,18 @@ class GoIRDeserializer {
                 GoIRMakeSliceExpr(exprType(), ref(pi.makeSlice.len), ref(pi.makeSlice.cap))
             )
             ProtoInstruction.InstCase.FIELD_ADDR -> assign(
-                GoIRFieldAddrExpr(exprType(), ref(pi.fieldAddr.x), pi.fieldAddr.fieldIndex, pi.fieldAddr.fieldName)
+                GoIRFieldAddrExpr(
+                    exprType(), ref(pi.fieldAddr.x),
+                    context.fieldIndex(type(pi.fieldAddr.x.typeId), pi.fieldAddr.fieldIndex, pi.fieldAddr.fieldName),
+                    pi.fieldAddr.fieldName,
+                )
             )
             ProtoInstruction.InstCase.FIELD -> assign(
-                GoIRFieldExpr(exprType(), ref(pi.field.x), pi.field.fieldIndex, pi.field.fieldName)
+                GoIRFieldExpr(
+                    exprType(), ref(pi.field.x),
+                    context.fieldIndex(type(pi.field.x.typeId), pi.field.fieldIndex, pi.field.fieldName),
+                    pi.field.fieldName,
+                )
             )
             ProtoInstruction.InstCase.INDEX_ADDR -> assign(
                 GoIRIndexAddrExpr(exprType(), ref(pi.indexAddr.x), ref(pi.indexAddr.index))
@@ -922,7 +985,7 @@ class GoIRDeserializer {
                 when (addr.refCase) {
                     ProtoValueRef.RefCase.GLOBAL_ID -> GoIRGlobalStore(
                         loc,
-                        resolveGlobal(addr.globalId),
+                        context.global(globalReference(addr.globalId)),
                         ref(pi.store.`val`),
                     )
                     ProtoValueRef.RefCase.FUNCTION_ID,
@@ -962,7 +1025,7 @@ class GoIRDeserializer {
     // ─── Value references ───────────────────────────────────────────
 
     private fun valueRefFromProto(vr: ProtoValueRef, ctx: InstContext): GoIRValue {
-        val type = getType(vr.typeId)
+        val type = ctx.context.type(getType(vr.typeId))
         return when (vr.refCase) {
             ProtoValueRef.RefCase.INST_VALUE_ID ->
                 ctx.valueMap[vr.instValueId]
@@ -991,15 +1054,15 @@ class GoIRDeserializer {
             receiver = if (ci.hasReceiver()) valueRefFromProto(ci.receiver, ctx) else null,
             methodName = ci.methodName.ifEmpty { null },
             args = ci.argsList.map { valueRefFromProto(it, ctx) },
-            resultType = getType(ci.resultTypeId),
+            resultType = ctx.context.type(getType(ci.resultTypeId)),
         )
     }
 
     private fun callTargetFromProto(vr: ProtoValueRef, ctx: InstContext): GoIRCallTarget {
-        val type = getType(vr.typeId)
+        val type = ctx.context.type(getType(vr.typeId))
         return when (vr.refCase) {
             ProtoValueRef.RefCase.FUNCTION_ID ->
-                GoIRCallTarget.Function(getFunction(vr.functionId))
+                GoIRCallTarget.Function(ctx.context.function(functionReference(getFunction(vr.functionId))))
             ProtoValueRef.RefCase.BUILTIN_NAME ->
                 GoIRCallTarget.Builtin(vr.builtinName, type)
             ProtoValueRef.RefCase.GLOBAL_ID ->
@@ -1009,34 +1072,42 @@ class GoIRDeserializer {
         }
     }
 
+    private fun functionReference(function: GoIRFunction): GoIrFunctionReference =
+        function.reference().also { it.program = programView }
+
+    private fun globalReference(id: Int): GoIRGlobalReference =
+        resolveGlobal(id).reference().also { it.program = programView }
+
+    private lateinit var programView: GoIRProgram
+
     private fun resolveGlobal(globalId: Int): GoIRGlobalImpl =
         globalsById.get(globalId)
             ?: error("Global was not found for $globalId")
 
     private fun synthLoadGlobal(globalId: Int, typeId: Int, ctx: InstContext): GoIRRegister {
         val idx = ctx.take()
-        val (reg, inst) = createSyntheticLoadGlobal(globalId, typeId, ctx.body, ctx.blockIdx, idx)
+        val (reg, inst) = createSyntheticLoadGlobal(globalId, typeId, ctx.body, ctx.blockIdx, idx, ctx.context)
         ctx.instructions.add(inst)
         return reg
     }
 
     private fun synthLoadFunction(functionId: Int, typeId: Int, ctx: InstContext): GoIRRegister {
         val idx = ctx.take()
-        val (reg, inst) = createSyntheticLoadFunction(functionId, typeId, ctx.body, ctx.blockIdx, idx)
+        val (reg, inst) = createSyntheticLoadFunction(functionId, typeId, ctx.body, ctx.blockIdx, idx, ctx.context)
         ctx.instructions.add(inst)
         return reg
     }
 
     private fun synthLoadBuiltin(name: String, typeId: Int, ctx: InstContext): GoIRRegister {
         val idx = ctx.take()
-        val (reg, inst) = createSyntheticLoadBuiltin(name, typeId, ctx.body, ctx.blockIdx, idx)
+        val (reg, inst) = createSyntheticLoadBuiltin(name, typeId, ctx.body, ctx.blockIdx, idx, ctx.context)
         ctx.instructions.add(inst)
         return reg
     }
 
     private fun synthLoadFreeVar(freeVarIndex: Int, typeId: Int, ctx: InstContext): GoIRRegister {
         val idx = ctx.take()
-        val (reg, inst) = createSyntheticLoadFreeVar(freeVarIndex, typeId, ctx.body, ctx.blockIdx, idx)
+        val (reg, inst) = createSyntheticLoadFreeVar(freeVarIndex, typeId, ctx.body, ctx.blockIdx, idx, ctx.context)
         ctx.instructions.add(inst)
         return reg
     }
@@ -1046,11 +1117,12 @@ class GoIRDeserializer {
         body: GoIRBodyImpl,
         blockIndex: Int,
         index: Int,
+        context: GoIRBodyContext,
     ): Pair<GoIRRegister, GoIRAssignInst> = when (vr.refCase) {
-        ProtoValueRef.RefCase.GLOBAL_ID -> createSyntheticLoadGlobal(vr.globalId, vr.typeId, body, blockIndex, index)
-        ProtoValueRef.RefCase.FUNCTION_ID -> createSyntheticLoadFunction(vr.functionId, vr.typeId, body, blockIndex, index)
-        ProtoValueRef.RefCase.BUILTIN_NAME -> createSyntheticLoadBuiltin(vr.builtinName, vr.typeId, body, blockIndex, index)
-        ProtoValueRef.RefCase.FREE_VAR_INDEX -> createSyntheticLoadFreeVar(vr.freeVarIndex, vr.typeId, body, blockIndex, index)
+        ProtoValueRef.RefCase.GLOBAL_ID -> createSyntheticLoadGlobal(vr.globalId, vr.typeId, body, blockIndex, index, context)
+        ProtoValueRef.RefCase.FUNCTION_ID -> createSyntheticLoadFunction(vr.functionId, vr.typeId, body, blockIndex, index, context)
+        ProtoValueRef.RefCase.BUILTIN_NAME -> createSyntheticLoadBuiltin(vr.builtinName, vr.typeId, body, blockIndex, index, context)
+        ProtoValueRef.RefCase.FREE_VAR_INDEX -> createSyntheticLoadFreeVar(vr.freeVarIndex, vr.typeId, body, blockIndex, index, context)
         else -> error("${vr.refCase} is not a synthetic-load ref")
     }
 
@@ -1060,9 +1132,10 @@ class GoIRDeserializer {
         body: GoIRBodyImpl,
         blockIndex: Int,
         index: Int,
+        context: GoIRBodyContext,
     ): Pair<GoIRRegister, GoIRAssignInst> {
-        val type = getType(typeId)
-        val global = resolveGlobal(globalId)
+        val type = context.type(getType(typeId))
+        val global = context.global(globalReference(globalId))
         val reg = GoIRRegister(type, index, "_g$index")
         val expr = GoIRGlobalValueExpr(type, global)
         val loc = GoInstLocation(body, index, blockIndex, null)
@@ -1075,9 +1148,10 @@ class GoIRDeserializer {
         body: GoIRBodyImpl,
         blockIndex: Int,
         index: Int,
+        context: GoIRBodyContext,
     ): Pair<GoIRRegister, GoIRAssignInst> {
-        val type = getType(typeId)
-        val func = getFunction(functionId)
+        val type = context.type(getType(typeId))
+        val func = context.function(functionReference(getFunction(functionId)))
         val reg = GoIRRegister(type, index, "_f$index")
         val expr = GoIRFunctionValueExpr(type, func)
         val loc = GoInstLocation(body, index, blockIndex, null)
@@ -1090,8 +1164,9 @@ class GoIRDeserializer {
         body: GoIRBodyImpl,
         blockIndex: Int,
         index: Int,
+        context: GoIRBodyContext,
     ): Pair<GoIRRegister, GoIRAssignInst> {
-        val type = getType(typeId)
+        val type = context.type(getType(typeId))
         val reg = GoIRRegister(type, index, "_b$index")
         val expr = GoIRBuiltinValueExpr(type, name)
         val loc = GoInstLocation(body, index, blockIndex, null)
@@ -1104,8 +1179,9 @@ class GoIRDeserializer {
         body: GoIRBodyImpl,
         blockIndex: Int,
         index: Int,
+        context: GoIRBodyContext,
     ): Pair<GoIRRegister, GoIRAssignInst> {
-        val type = getType(typeId)
+        val type = context.type(getType(typeId))
         val freeVarName = body.function.freeVars[freeVarIndex].name
         val reg = GoIRRegister(type, index, "_v$index")
         val expr = GoIRFreeVarValueExpr(type, freeVarIndex, freeVarName)
@@ -1360,12 +1436,13 @@ private data class PhiEdgeSyntheticLoad(
 private class InstContext(
     val body: GoIRBodyImpl,
     var blockIdx: Int,
-    val fn: GoIRFunctionImpl,
+    val fn: GoIRFunction,
     val valueMap: ValueMap,
     var instructions: MutableList<GoIRInst>,
     val protoToNew: Int2IntOpenHashMap,
     val blockStartProtoToNew: Int2IntOpenHashMap,
     val phiEdgeSyntheticValues: Map<PhiEdgeSyntheticLoadKey, GoIRRegister>,
+    val context: GoIRBodyContext,
 ) {
     var nextIndex: Int = 0
     fun take(): Int = nextIndex++

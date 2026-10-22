@@ -61,6 +61,13 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
         .directory()
         .multiple()
 
+    private val goModels: List<Path> by option(help = "Directory containing opentaint/<target-package> Go model sources")
+        .directory()
+        .multiple()
+
+    private val disableDefaultGoModels: Boolean by option(help = "Disable bundled Go models")
+        .flag(default = false)
+
     private val semgrepRuleLoadTrace: Path? by option(help = "Output file for Semgrep rules loader trace")
         .newFile()
 
@@ -125,7 +132,11 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
         ),
     )
 
-    override fun goOptions() = GoProjectAnalysisOptions(common = commonOptions)
+    override fun goOptions() = GoProjectAnalysisOptions(
+        common = commonOptions,
+        modelPaths = goModels,
+        useDefaultModels = !disableDefaultGoModels,
+    )
 
     private fun collectYamlConfigs(path: Path): List<Path> = path.walk()
         .filter { it.extension in arrayOf("yaml", "yml") }

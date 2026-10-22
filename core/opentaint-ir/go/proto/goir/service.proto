@@ -36,6 +36,7 @@ message BuildProgramRequest {
     string working_dir = 8;
     LoadMode mode = 11;
     repeated string project_module_paths = 12;
+    repeated string model_dirs = 13;
 }
 
 message BuildProgramResponse {
@@ -46,6 +47,7 @@ message BuildProgramResponse {
         ProtoBuildSummary summary = 4;
         ProtoError error = 5;
         ProtoProgram program = 6;
+        ProtoModelProgram model_program = 7;
     }
 }
 
@@ -73,6 +75,12 @@ message ProtoProgram {
     repeated ProtoTypeDefinition types = 1;
     repeated ProtoPackage packages = 2;
     repeated ProtoFunctionBody function_bodies = 3;
+}
+
+// A model program is loaded by the Go server and resolved by the Kotlin client.
+message ProtoModelProgram {
+    string source = 1;
+    ProtoProgram program = 2;
 }
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -262,6 +270,7 @@ message ProtoTypeParamDecl {
     string name = 1;
     int32 index = 2;
     int32 constraint_type_id = 3;
+    int32 type_id = 4;
 }
 
 message ProtoFunction {
@@ -283,6 +292,8 @@ message ProtoFunction {
     repeated ProtoTypeParamDecl type_params = 16;
     bool has_body = 17;
     ProtoPosition position = 18;
+    int32 origin_function_id = 19;
+    repeated int32 type_arg_ids = 20;
 }
 
 message ProtoParam {

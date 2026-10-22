@@ -1,6 +1,6 @@
 package org.opentaint.ir.go.cfg
 
-import org.opentaint.ir.go.api.GoIRFunction
+import org.opentaint.ir.go.api.GoIrFunctionReference
 import org.opentaint.ir.go.api.GoIRPosition
 import org.opentaint.ir.go.type.GoIRCallMode
 import org.opentaint.ir.go.type.GoIRChanDirection
@@ -11,8 +11,9 @@ sealed interface GoIRCallTarget {
     val type: GoIRType
     val displayName: String
 
-    data class Function(val function: GoIRFunction) : GoIRCallTarget {
-        override val type: GoIRType get() = function.signature
+    data class Function(val lookup: GoIrFunctionReference) : GoIRCallTarget {
+        val function get() = lookup.function
+        override val type: GoIRType get() = lookup.signature
         override val displayName: String get() = function.fullName
     }
 

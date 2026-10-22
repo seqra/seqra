@@ -12,6 +12,7 @@ class GoIRGlobalImpl(
     override val isExported: Boolean,
     override val position: GoIRPosition?,
 ) : GoIRGlobal {
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is GoIRGlobal) return false
@@ -30,6 +31,7 @@ class GoIRConstImpl(
     override val isExported: Boolean,
     override val position: GoIRPosition?,
 ) : GoIRConst {
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is GoIRConst) return false

@@ -41,6 +41,7 @@ class GoIRClient : AutoCloseable {
             .addAllProjectModulePaths(config.projectModules)
             .setInstantiateGenerics(config.instantiateGenerics)
             .setSanityCheck(config.sanityCheck)
+            .addAllModelDirs(config.modelDirs.map { it.toAbsolutePath().toString() })
             .build()
 
         val totalStart = System.nanoTime()
@@ -48,7 +49,7 @@ class GoIRClient : AutoCloseable {
         val deserializeStart = System.nanoTime()
         val program = try {
             val responses = stub.buildProgram(request)
-            deserializer.deserialize(responses)
+            GoIRModelLoader.apply(deserializer.deserialize(responses))
         } catch (e: StatusRuntimeException) {
             // gRPC only says e.g. "UNAVAILABLE: Network closed" when the server
             // process dies mid-stream. Attach the server's exit state and stderr
