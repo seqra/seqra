@@ -23,8 +23,8 @@ class GoIRFunctionImpl(
     override val isMethod: Boolean,
     override val isPointerReceiver: Boolean,
     override val isExported: Boolean,
-    isSynthetic: Boolean,
-    syntheticKind: String?,
+    override val isSynthetic: Boolean,
+    override val syntheticKind: String?,
     private val declaredHasBody: Boolean = false,
     override val parent: GoIrFunctionReference?,
     override val anonymousFunctions: List<GoIrFunctionReference>,
@@ -33,17 +33,7 @@ class GoIRFunctionImpl(
     override val typeArgs: List<GoIRType> = emptyList(),
 ) : GoIRFunction {
     private var owner = pkg
-    private var synthetic = isSynthetic
-    private var kind = syntheticKind
-
-    override val isSynthetic: Boolean get() = synthetic
-    override val syntheticKind: String? get() = kind
     override val pkg: GoIRPackage? get() = owner
-
-    internal fun markAsModel(kind: String) {
-        synthetic = true
-        this.kind = kind
-    }
 
     internal fun rebindPackage(pkg: GoIRPackage) {
         owner = pkg

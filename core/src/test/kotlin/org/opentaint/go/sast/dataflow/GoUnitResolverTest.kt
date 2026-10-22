@@ -2,6 +2,8 @@ package org.opentaint.go.sast.dataflow
 
 import org.junit.jupiter.api.Test
 import org.opentaint.dataflow.ifds.UnknownUnit
+import org.opentaint.ir.go.api.GoIRModelFunction
+import org.opentaint.ir.go.api.GoIRApproximatedFunction
 import org.opentaint.ir.go.api.GoIRConst
 import org.opentaint.ir.go.api.GoIRFreeVar
 import org.opentaint.ir.go.api.GoIRFunction
@@ -40,6 +42,19 @@ class GoUnitResolverTest {
         val resolver = GoUnitResolver()
         val fn = fakeFunction(pkg = null)
         assertEquals(UnknownUnit, resolver.resolve(fn))
+    }
+
+    @Test
+    fun `typed models are analyzed in dependency and standard library packages`() {
+        val resolver = GoUnitResolver()
+        val dependency = fakeFunction(fakePackage("example.com/lib", isStdlib = false, isDependency = true))
+        val helper = object : GoIRModelFunction, GoIRFunction by dependency {}
+        assertEquals(GoUnitResolver.GoPackageUnit("example.com/lib"), resolver.resolve(helper))
+        val stdlib = fakeFunction(fakePackage("strings", isStdlib = true, isDependency = false))
+        val approximation = object : GoIRApproximatedFunction, GoIRFunction by stdlib {
+            override val original = stdlib
+        }
+        assertEquals(GoUnitResolver.GoPackageUnit("strings"), resolver.resolve(approximation))
     }
 
     private fun fakePackage(importPath: String, isStdlib: Boolean, isDependency: Boolean): GoIRPackage =

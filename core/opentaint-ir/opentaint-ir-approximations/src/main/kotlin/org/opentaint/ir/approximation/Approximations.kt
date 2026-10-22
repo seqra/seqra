@@ -24,7 +24,6 @@ import org.opentaint.ir.api.storage.ers.EntityIterable
 import org.opentaint.ir.api.storage.ers.compressed
 import org.opentaint.ir.approximation.annotation.Approximate
 import org.opentaint.ir.approximation.annotation.ApproximateByName
-import org.opentaint.ir.approximation.annotation.ApproximatedClassName
 import org.opentaint.ir.approximation.annotation.ApproximatedFieldName
 import org.opentaint.ir.approximation.annotation.ApproximatedMethodName
 import org.opentaint.ir.approximation.annotation.Version
@@ -99,7 +98,6 @@ class Approximations(
             val persistence = signal.jIRdb.persistence
             val approxSymbolClass = persistence.findSymbolId(approximationAnnotationClassName)
             val approxSymbolName = persistence.findSymbolId(approximationByNameAnnotationClassName)
-            val patchedClassSymbolName = persistence.findSymbolId(approximatedClassName)
             persistence.read { context ->
                 context.execute(
                     sqlAction = {
@@ -149,24 +147,7 @@ class Approximations(
                                 clazz.getCompressed<Long>("nameId") to annotationValue.getCompressedBlob<Long>("classSymbolId")
                             }
 
-                        val patchedClassApprox = context.txn.find("Annotation", "nameId", patchedClassSymbolName.compressed)
-                            .filter { it.getCompressedBlob<Int>("refKind") == RefKind.CLASS.ordinal }
-                            .mapNotNull { annotation ->
-                                matchAnnotationVersions(persistence, annotation, versionsId, versionSymbol, targetId, fromVersionId, toVersionId)
-                            }.mapNotNull { (annotation, values) ->
-                                val clazz = annotation.getLink("ref")
-                                val approximationNameId = clazz.getCompressed<Long>("nameId")
-                                    ?: return@mapNotNull null
-                                val approximationName = persistence.findSymbolName(approximationNameId)
-                                val patchedName = values.annotationStringValueByName(persistence, valueId)
-                                    ?: return@mapNotNull null
-                                val originalName = prefixAddressedTarget(approximationName, patchedName)
-                                    ?: error("@$approximatedClassName requires an $approximationPackagePrefix package")
-
-                                approximationNameId to persistence.findSymbolId(originalName)
-                            }
-
-                        val explicitMappings = (namedApprox + classApprox + patchedClassApprox).toList()
+                        val explicitMappings = (namedApprox + classApprox).toList()
                         val explicitlyMappedClasses = explicitMappings.mapTo(hashSetOf()) { it.first }
                         val prefixMappings = context.txn.all("Class").mapNotNull { clazz ->
                             val approximationNameId = clazz.getCompressed<Long>("nameId")
@@ -396,8 +377,7 @@ private class ApproximationIndexer(
         val prefixTarget = prefixAddressedTarget(approximationClassName)
         val approximationAnnotations = classNode.visibleAnnotations.orEmpty().filter {
             approximationAnnotationClassName in it.desc.className ||
-                approximationByNameAnnotationClassName in it.desc.className ||
-                approximatedClassName in it.desc.className
+                approximationByNameAnnotationClassName in it.desc.className
         }
         if (prefixTarget == null && approximationAnnotations.isEmpty()) return
         if (approximationAnnotations.size > 1) {
@@ -411,17 +391,6 @@ private class ApproximationIndexer(
 
         val originalClassName = when {
             approximationAnnotation == null -> prefixTarget!!.toOriginalName()
-
-            approximatedClassName in approximationAnnotation.desc.className -> {
-                val patchedName = annotationStringValueByName(approximationAnnotation.values, "value")
-                    ?: error("unable to find `value` in @$approximatedClassName")
-                val target = prefixAddressedTarget(approximationClassName, patchedName)
-                if (target == null) {
-                    logger.error { "@$approximatedClassName on $approximationClassName requires an $approximationPackagePrefix package" }
-                    return
-                }
-                target.toOriginalName()
-            }
 
             approximationByNameAnnotationClassName in approximationAnnotation.desc.className -> {
                 val target = annotationStringValueByName(approximationAnnotation.values, "value")
@@ -476,24 +445,15 @@ private class ApproximationIndexer(
 
 private val approximationAnnotationClassName = Approximate::class.qualifiedName!!
 private val approximationByNameAnnotationClassName = ApproximateByName::class.qualifiedName!!
-private val approximatedClassName = ApproximatedClassName::class.qualifiedName!!
 private val approximatedMethodName = ApproximatedMethodName::class.qualifiedName!!
 private val approximatedFieldName = ApproximatedFieldName::class.qualifiedName!!
 private val versionAnnotationClassName = Version::class.qualifiedName!!
 
 private const val approximationPackagePrefix = "opentaint."
 
-private fun prefixAddressedTarget(approximationClassName: String, patchedClassName: String? = null): String? {
-    if (!approximationClassName.startsWith(approximationPackagePrefix)) return null
-    val defaultTarget = approximationClassName.removePrefix(approximationPackagePrefix)
-    if (defaultTarget.isEmpty()) return null
-    if (patchedClassName == null) return defaultTarget
-    require(patchedClassName.isNotBlank() && '.' !in patchedClassName) {
-        "Approximated class name must be one non-empty JVM class-name component: $patchedClassName"
-    }
-    val targetPackage = defaultTarget.substringBeforeLast('.', missingDelimiterValue = "")
-    return if (targetPackage.isEmpty()) patchedClassName else "$targetPackage.$patchedClassName"
-}
+private fun prefixAddressedTarget(approximationClassName: String): String? =
+    approximationClassName.takeIf { it.startsWith(approximationPackagePrefix) }
+        ?.removePrefix(approximationPackagePrefix)?.takeIf { it.isNotEmpty() }
 
 @JvmInline
 value class ApproximationClassName(val className: String) {

@@ -136,7 +136,7 @@ class GoIRDeserializer {
     var serverBuildTimeMs: Long = 0L
         private set
 
-    fun deserialize(responses: Iterator<BuildProgramResponse>): GoIRProgram {
+    internal fun deserialize(responses: Iterator<BuildProgramResponse>): DeserializedGoIRBuild {
         var program: ProtoProgram? = null
         val models = mutableListOf<ProtoModelProgram>()
         for (r in responses) {
@@ -157,28 +157,15 @@ class GoIRDeserializer {
         }
 
         check(program != null) { "Unexpected IR build issue" }
-        val original = deserializeProgram(program)
-        if (models.isEmpty()) {
-            return original
-        }
-
-        val deserializedModels = models.map { model ->
-            val normalizer = try {
-                ModelPathNormalizer.create(model.program)
-            } catch (error: IllegalArgumentException) {
-                throw IllegalArgumentException("invalid Go model ${model.source}: ${error.message}", error)
-            }
-            val ownedPaths = normalizer.replacements.keys
-            val modelProgram = GoIRDeserializer().deserializeProgram(
-                model.program,
-                DeserializationConfig(normalizer, ownedPaths),
-            )
-            GoIRModelDefinition(model.source, modelProgram, normalizer.targets)
-        }
-        return GoIRModelOverlayProgram(original, deserializedModels)
+        return DeserializedGoIRBuild(deserializeProgram(program), models)
     }
 
-    private data class DeserializationConfig(
+    internal data class DeserializedGoIRBuild(
+        val program: GoIRProgram,
+        val models: List<ProtoModelProgram>,
+    )
+
+    internal data class DeserializationConfig(
         val normalizer: ModelPathNormalizer? = null,
         val ownedPackagePaths: Set<String> = emptySet(),
     ) {
@@ -187,7 +174,7 @@ class GoIRDeserializer {
         fun owns(pkg: ProtoPackage): Boolean = pkg.importPath in ownedPackagePaths
     }
 
-    private fun deserializeProgram(
+    internal fun deserializeProgram(
         serializedProgram: ProtoProgram,
         config: DeserializationConfig = DeserializationConfig(),
     ): GoIRProgram {

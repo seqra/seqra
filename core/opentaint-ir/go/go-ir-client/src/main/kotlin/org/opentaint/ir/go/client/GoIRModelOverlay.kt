@@ -1,32 +1,22 @@
 package org.opentaint.ir.go.client
 
+import org.opentaint.ir.go.api.GoIRApproximatedFunction
 import org.opentaint.ir.go.api.GoIRConst
 import org.opentaint.ir.go.api.GoIRField
 import org.opentaint.ir.go.api.GoIRFunction
 import org.opentaint.ir.go.api.GoIRGlobal
 import org.opentaint.ir.go.api.GoIRInterfaceMethod
+import org.opentaint.ir.go.api.GoIRModelFunction
 import org.opentaint.ir.go.api.GoIRNamedType
 import org.opentaint.ir.go.api.GoIRPackage
 import org.opentaint.ir.go.api.GoIRProgram
+import org.opentaint.ir.go.api.GoIRTransformer
 import org.opentaint.ir.go.api.GoIRTypeParamDecl
-import org.opentaint.ir.go.impl.GoIRFunctionImpl
-import org.opentaint.ir.go.impl.GoIRBasicBlockImpl
-import org.opentaint.ir.go.impl.GoIRConstImpl
-import org.opentaint.ir.go.impl.GoIRGlobalImpl
-import org.opentaint.ir.go.impl.GoIRNamedTypeImpl
 import org.opentaint.ir.go.expr.GoIRFieldAddrExpr
 import org.opentaint.ir.go.expr.GoIRFieldExpr
-import org.opentaint.ir.go.expr.GoIRFunctionValueExpr
-import org.opentaint.ir.go.expr.GoIRGlobalValueExpr
-import org.opentaint.ir.go.expr.GoIRMakeClosureExpr
-import org.opentaint.ir.go.cfg.GoIRCallInfo
-import org.opentaint.ir.go.cfg.GoIRCallTarget
+import org.opentaint.ir.go.impl.GoIRBasicBlockImpl
 import org.opentaint.ir.go.inst.GoIRAssignInst
-import org.opentaint.ir.go.inst.GoIRCall
-import org.opentaint.ir.go.inst.GoIRDefer
 import org.opentaint.ir.go.inst.GoIRFieldStore
-import org.opentaint.ir.go.inst.GoIRGlobalStore
-import org.opentaint.ir.go.inst.GoIRGo
 import org.opentaint.ir.go.type.GoIRAnonymousInterfaceType
 import org.opentaint.ir.go.type.GoIRAnonymousInterfaceTypeRef
 import org.opentaint.ir.go.type.GoIRArrayType
@@ -35,18 +25,16 @@ import org.opentaint.ir.go.type.GoIRChanType
 import org.opentaint.ir.go.type.GoIRFuncType
 import org.opentaint.ir.go.type.GoIRMapType
 import org.opentaint.ir.go.type.GoIRNamedInterfaceType
-import org.opentaint.ir.go.type.GoIRNamedTypeRef
 import org.opentaint.ir.go.type.GoIRNamedTypeKind
+import org.opentaint.ir.go.type.GoIRNamedTypeRef
 import org.opentaint.ir.go.type.GoIRPointerType
 import org.opentaint.ir.go.type.GoIRSliceType
-import org.opentaint.ir.go.type.GoIRStructType
 import org.opentaint.ir.go.type.GoIRStructField
+import org.opentaint.ir.go.type.GoIRStructType
 import org.opentaint.ir.go.type.GoIRTupleType
 import org.opentaint.ir.go.type.GoIRType
 import org.opentaint.ir.go.type.GoIRTypeParamRef
 import org.opentaint.ir.go.type.GoIRTypeParamType
-import java.util.Collections
-import java.util.IdentityHashMap
 
 internal data class GoIRModelDefinition(
     val source: String,
@@ -60,7 +48,7 @@ internal class GoIRModelOverlayProgram(
     definitions: List<GoIRModelDefinition>,
 ) : GoIRProgram {
     private val definitionsByTarget = linkedMapOf<String, GoIRModelDefinition>()
-    private val modelDependencies = linkedMapOf<String, GoIRPackage>()
+    val modelDependencies = linkedMapOf<String, GoIRPackage>()
     private val effectivePackages = mutableMapOf<String, GoIRPackage>()
 
     init {
@@ -97,17 +85,11 @@ internal class GoIRModelOverlayProgram(
     override fun findPackage(importPath: String): GoIRPackage? {
         val original = originalProgram.findPackage(importPath) ?: return modelDependencies[importPath]
         val definition = definitionsByTarget[importPath] ?: return original
-        return effectivePackages.getOrPut(importPath) {
-            createPackage(original, definition.program.findPackage(importPath)!!)
+        return synchronized(effectivePackages) {
+            effectivePackages.getOrPut(importPath) {
+                createPackage(original, definition.program.findPackage(importPath)!!)
+            }
         }
-    }
-
-    override fun effectiveFunction(function: GoIRFunction): GoIRFunction {
-        val importPath = function.pkg?.importPath ?: return function
-        return findPackage(importPath)
-            ?.functions
-            ?.firstOrNull { it.fullName == function.fullName }
-            ?: function
     }
 
     override fun allFunctions(): List<GoIRFunction> = packages.values.flatMap { it.functions }
@@ -157,154 +139,23 @@ internal class GoIRModelOverlayProgram(
             val replacement = modelByName[target.fullName]
             if (replacement != null && replacement.bodyAvailable && sameSignature(replacement, target)) {
                 used += replacement
-                (replacement as? GoIRFunctionImpl)?.markAsModel(MODEL_KIND)
-                replacement
+                ApproximatedFunction(replacement, target)
             } else {
                 val genericModel = target.originFullName?.let(modelByName::get)
                 if (genericModel != null && genericModel.bodyAvailable) {
                     val specialized = specializer.specialize(genericModel, target)
                     specializedAnonymousFunctions += specialized.anonymousFunctions
-                    specialized.root
+                    ApproximatedFunction(specialized.root, target)
                 } else {
                     target
                 }
             }
         }.toMutableList()
-        effectiveFunctions += specializedAnonymousFunctions
-        modelFunctions.filterTo(effectiveFunctions) { function ->
-            if (function in used) return@filterTo false
-            (function as? GoIRFunctionImpl)?.markAsModel(MODEL_SUPPORT_KIND)
-            true
-        }
+        effectiveFunctions += specializedAnonymousFunctions.map(::ModelFunction)
+        effectiveFunctions += modelFunctions.filter { it !in used }.map(::ModelFunction)
 
-        val effective = GoIRModelOverlayPackage(original, model, effectiveFunctions)
-        modelFunctions.forEach { (it as? GoIRFunctionImpl)?.rebindPackage(effective) }
-        specializedAnonymousFunctions.forEach { (it as? GoIRFunctionImpl)?.rebindPackage(effective) }
-        effectiveFunctions.filter { it.syntheticKind == MODEL_KIND }
-            .forEach { (it as? GoIRFunctionImpl)?.rebindPackage(effective) }
-        model.namedTypes.forEach { (it as? GoIRNamedTypeImpl)?.rebindPackage(effective) }
-        model.globals.forEach { (it as? GoIRGlobalImpl)?.rebindPackage(effective) }
-        model.constants.forEach { (it as? GoIRConstImpl)?.rebindPackage(effective) }
-        rebindModelPackage(model)
         remapModelFieldAccesses(original, model)
-        rebindModelEntities(
-            effective,
-            modelFunctions + specializedAnonymousFunctions +
-                effectiveFunctions.filter { it.syntheticKind == MODEL_KIND },
-        )
-        return effective
-    }
-
-    private fun rebindModelEntities(
-        effective: GoIRPackage,
-        functions: List<GoIRFunction>,
-    ) {
-        fun resolve(function: GoIRFunction): GoIRFunction {
-            if (function.pkg?.importPath != effective.importPath) return function
-            return effective.functions.firstOrNull { candidate ->
-                candidate.fullName == function.fullName && sameSignature(candidate, function)
-            } ?: function
-        }
-        fun resolve(global: GoIRGlobal): GoIRGlobal {
-            if (global.pkg.importPath != effective.importPath) return global
-            return effective.globals.firstOrNull { it.fullName == global.fullName } ?: global
-        }
-        fun call(source: GoIRCallInfo): GoIRCallInfo {
-            val target = source.target
-            if (target !is GoIRCallTarget.Function) return source
-            val rebound = resolve(target.function)
-            return if (rebound === target.function) source else source.copy(
-                target = GoIRCallTarget.Function(rebound),
-            )
-        }
-
-        val visitedFunctions = Collections.newSetFromMap(IdentityHashMap<GoIRFunction, Boolean>())
-        functions.filter(visitedFunctions::add).forEach { function ->
-            val body = function.body ?: return@forEach
-            body.blocks.forEach { block ->
-                val mutableBlock = block as? GoIRBasicBlockImpl ?: return@forEach
-                mutableBlock.setInstructions(block.instructions.map { instruction ->
-                    when (instruction) {
-                        is GoIRCall -> instruction.copy(call = call(instruction.call))
-                        is GoIRGo -> instruction.copy(call = call(instruction.call))
-                        is GoIRDefer -> instruction.copy(call = call(instruction.call))
-                        is GoIRGlobalStore -> instruction.copy(global = resolve(instruction.global))
-                        is GoIRAssignInst -> when (val expression = instruction.expr) {
-                            is GoIRFunctionValueExpr -> instruction.copy(
-                                expr = expression.copy(function = resolve(expression.function)),
-                            )
-                            is GoIRMakeClosureExpr -> instruction.copy(
-                                expr = expression.copy(fn = resolve(expression.fn)),
-                            )
-                            is GoIRGlobalValueExpr -> instruction.copy(
-                                expr = expression.copy(global = resolve(expression.global)),
-                            )
-                            else -> instruction
-                        }
-                        else -> instruction
-                    }
-                })
-            }
-        }
-    }
-
-    private fun rebindModelPackage(model: GoIRPackage) {
-        val visited = Collections.newSetFromMap(IdentityHashMap<GoIRType, Boolean>())
-        fun rebind(type: GoIRType) {
-            if (!visited.add(type)) return
-            when (type) {
-                is GoIRPointerType -> rebind(type.elem)
-                is GoIRArrayType -> rebind(type.elem)
-                is GoIRSliceType -> rebind(type.elem)
-                is GoIRMapType -> {
-                    rebind(type.key)
-                    rebind(type.value)
-                }
-                is GoIRChanType -> rebind(type.elem)
-                is GoIRStructType -> {
-                    type.structTypeRef?.program = this
-                    type.fields.forEach { rebind(it.type) }
-                }
-                is GoIRNamedTypeRef -> {
-                    type.typeRef.program = this
-                    type.typeArgs.forEach(::rebind)
-                }
-                is GoIRNamedInterfaceType -> {
-                    type.interfaceTypeRef.program = this
-                    type.methods.forEach { rebind(it.signature) }
-                    type.embeds.forEach(::rebind)
-                }
-                is GoIRAnonymousInterfaceTypeRef -> {}
-                is GoIRAnonymousInterfaceType -> {
-                    type.methods.forEach { rebind(it.signature) }
-                    type.embeds.forEach(::rebind)
-                }
-                is GoIRFuncType -> {
-                    type.params.forEach(::rebind)
-                    type.results.forEach(::rebind)
-                    type.recv?.let(::rebind)
-                }
-                is GoIRTupleType -> type.elements.forEach(::rebind)
-                is GoIRTypeParamType -> rebind(type.constraint)
-                else -> {}
-            }
-        }
-        model.namedTypes.forEach { type ->
-            rebind(type.underlying)
-            type.fields.forEach { rebind(it.type) }
-            type.typeParams.forEach { rebind(it.constraint) }
-        }
-        model.functions.forEach { function ->
-            rebind(function.signature)
-            function.params.forEach { rebind(it.type) }
-            function.freeVars.forEach { rebind(it.type) }
-            function.typeParams.forEach { rebind(it.constraint) }
-            function.typeArgs.forEach(::rebind)
-            function.parent?.program = this
-            function.anonymousFunctions.forEach { it.program = this }
-        }
-        model.globals.forEach { rebind(it.type) }
-        model.constants.forEach { rebind(it.type) }
+        return GoIRModelOverlayPackage(original, model, effectiveFunctions)
     }
 
     private fun remapModelFieldAccesses(original: GoIRPackage, model: GoIRPackage) {
@@ -581,5 +432,29 @@ private class GoIRModelOverlayNamedType(
     }
 }
 
-private const val MODEL_SUPPORT_KIND = "opentaint model support"
-private const val MODEL_KIND = "opentaint model"
+private open class ModelFunction(protected val implementation: GoIRFunction) : GoIRModelFunction,
+    GoIRFunction by implementation {
+    override val isSynthetic: Boolean get() = true
+}
+
+private class ApproximatedFunction(
+    implementation: GoIRFunction,
+    override val original: GoIRFunction,
+) : ModelFunction(implementation), GoIRApproximatedFunction
+
+/** Resolves models as a lookup transformer; deserialization never applies it. */
+internal class GoIRModelTransformer(
+    program: GoIRProgram,
+    definitions: List<GoIRModelDefinition>,
+) : GoIRTransformer {
+    private val models = GoIRModelOverlayProgram(program, definitions)
+
+    override val additionalPackages: List<GoIRPackage> get() = models.modelDependencies.values.toList()
+
+    override fun transformPackage(pkg: GoIRPackage): GoIRPackage =
+        models.findPackage(pkg.importPath) ?: pkg
+
+    override fun transformFunction(function: GoIRFunction): GoIRFunction =
+        function.pkg?.importPath?.let(models::findPackage)?.functions
+            ?.firstOrNull { it.fullName == function.fullName } ?: function
+}
