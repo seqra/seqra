@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.bidi
 
 import org.opentaint.dataflow.bidi.ap.Direction
+import org.opentaint.dataflow.bidi.ap.MarkMode
 import org.opentaint.dataflow.bidi.driver.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.DriverFixtures
@@ -12,6 +13,29 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
 class DriverTest {
+    @Test
+    fun `driver captures mark selection once and preserves it in report metadata across later FULL runs`() {
+        val name = "opentaint.bidi.run1MarkMode"
+        val old = System.getProperty(name)
+        try {
+            System.setProperty(name, "FULL")
+            DriverFixtures().use { f ->
+                val c = f.persistentDemand()
+                val driver = f.driver(policy(next = { config, _, _ -> config.index < 3 }))
+                System.setProperty(name, "GROUP")
+                val report = driver.analyze(listOf(c.root))
+                assertEquals(listOf(1, 2, 3), f.configs.map { it.index })
+                assertTrue(f.configs.all { it.run1MarkMode == MarkMode.FULL })
+                assertTrue(f.configs.all { it.mode.markMode == MarkMode.FULL })
+                assertTrue(f.results.all { it.markMode == MarkMode.FULL })
+                assertEquals(MarkMode.FULL, report.end.run1MarkMode)
+                assertEquals(EndReason.POLICY, report.end.reason)
+            }
+        } finally {
+            if (old == null) System.clearProperty(name) else System.setProperty(name, old)
+        }
+    }
+
     private fun policy(
         limit: (Int) -> Int = IncreasingLimits::fieldLimit,
         next: (RunConfig, RunResult<RunMethodAnalyzer>, List<Frontier>) -> Boolean = { _, _, _ -> false },

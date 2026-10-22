@@ -25,9 +25,9 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
         fun snapshotRoot(): FlowNode = root
     }
     private class PointRow(val id: Long, val key: PointKey) {
-        val pending = HashMap<GroupId, PendingFlowImages>()
+        val pending = HashMap<TaintMark, PendingFlowImages>()
     }
-    private data class DetachedAnswer(val group: GroupId, val images: FlowNode)
+    private data class DetachedAnswer(val group: TaintMark, val images: FlowNode)
     private val points = HashMap<Long, PointRow>()
     private data class ReadKey(val site: ResumeSite, val operation: StaticOperation)
     private val readKeys = HashMap<ReadKey, Long>()
@@ -35,28 +35,29 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
     private data class WriterKey(val premise: PremiseKey, val output: Pattern, val layer: Layer)
     private val writerKeys = HashMap<WriterKey, Long>()
     private val writers = HashMap<Long, WriterKey>()
-    private class DirectRow(val key: ReadKey, val payload: OperationInput, var waiting: GroupSet)
+    private class DirectRow(val key: ReadKey, val payload: OperationInput, var waiting: MarkSet)
     private val direct = HashMap<Long, DirectRow>()
     private val directKeys = HashMap<ReadKey, Long>()
-    private class WriterInput(val writer: WriterKey, var waiting: GroupSet)
+    private class WriterInput(val writer: WriterKey, var waiting: MarkSet)
     private val writerInputs = HashMap<Long, WriterInput>()
     private class ConditionalJoin(val writer: WriterKey) {
         val inputs = arrayOfNulls<RegionGroups>(writer.premise.size)
     }
     private data class JoinInput(val join: Long, val member: Int)
+    private val conditionalKeys = HashMap<WriterKey, Long>()
     private val conditional = HashMap<Long, ConditionalJoin>()
     private val joinInputs = HashMap<Long, JoinInput>()
     private data class CallKey(val callee: MethodKey, val ref: org.opentaint.dataflow.bidi.store.CallerRef,
                                val linkLayer: Layer, val premise: PremiseKey, val result: Pattern,
                                val layer: Layer, val member: Int)
-    private class CallContinuation(val key: CallKey, val part: Subscription, val publication: Publication, val member: Int) { var waiting = GroupSet.EMPTY }
+    private class CallContinuation(val key: CallKey, val part: Subscription, val publication: Publication, val member: Int) { var waiting = MarkSet.EMPTY }
     private val callKeys = HashMap<CallKey, Long>()
     private val calls = HashMap<Long, CallContinuation>()
 
     fun callInterest(part: Subscription, pub: Publication, member: Int) {
         val initial = pub.premise.member(member)
         val atom = (initial.mark as? MarkSlot.Concrete)?.mark ?: return
-        val statistics = core.context.shared.n2Statistics.takeIf { core.mode.markMode == MarkMode.GROUP }
+        val statistics = core.context.shared.n2Statistics
         for (leaf in core.ops.leaves(pub.conclusion)) {
             statistics?.staticGroupCallOffered()
             val piece = pub.copy(conclusion = core.ap.factsOf(leaf.fact, leaf.exclusion, pub.layer))
@@ -65,7 +66,7 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
                 (++next).also { calls[it] = CallContinuation(key, part, piece, member) }
             }
             val row = calls.getValue(id)
-            val fresh = GroupSet.of(core.ap.marks.groupOf(atom)) - row.waiting
+            val fresh = MarkSet.of(core.ap.marks.runtimeAtom(atom, core.mode.markMode)) - row.waiting
             if (fresh.isEmpty) continue
             statistics?.staticGroupCallFallbackAdmitted()
             row.waiting += fresh
@@ -92,7 +93,7 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
                     Pattern(operation.transfer.from, operation.transfer.exclusion))
                 is StaticOperation.MarkInput -> {
                     val mark = (operation.position.fact.mark as? MarkSlot.Concrete)?.mark ?: continue
-                    val groups = GroupSet.of(core.ap.marks.groupOf(mark))
+                    val groups = MarkSet.of(core.ap.marks.runtimeAtom(mark, core.mode.markMode))
                     if (operation.position.fact.path.size == 1) {
                         val exact = operation.position.fact.tail == Tail.EXACT
                         // A wildcard is a field-query descriptor, never a class
@@ -102,7 +103,7 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
                             core.staticBatch.reads += StaticReadRegistration(core.key, id, operation.position)
                         if (exact || operation.includeBase) {
                             val directId = directKeys.getOrPut(key) {
-                                (++next).also { direct[it] = DirectRow(key, at, GroupSet.EMPTY) }
+                                (++next).also { direct[it] = DirectRow(key, at, MarkSet.EMPTY) }
                             }
                             val row = direct.getValue(directId)
                             val fresh = groups - row.waiting
@@ -120,7 +121,7 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
         }
     }
 
-    fun request(at: OperationInput, groups: GroupSet) {
+    fun request(at: OperationInput, groups: MarkSet) {
         val original = at.premise as? InitialAp ?: return
         val flow = at.facts as? FlowTree ?: return
         if (original.base != STATIC || original.mark !is MarkSlot.Star) return
@@ -130,7 +131,7 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
             (++next).also { points[it] = PointRow(it, key) }
         }
         val row = points.getValue(id)
-        var subscribe = GroupSet.EMPTY
+        var subscribe = MarkSet.EMPTY
         groups.forEach { group ->
             core.ap.cancellation.checkpoint()
             val images = row.pending[group]
@@ -167,30 +168,32 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
         core.requestWork()
     }
 
-    /** Any retained summary can produce a computed group supply. Promotion
-     * never admits a new write point or FLOW writer. */
-    fun computedGroups(premise: PremiseKey, delta: Facts) {
-        check(delta.base == STATIC)
-        if (delta !is TaintTree) return
+    /** A computed result can supply the pool before its summary is erased.
+     * Promotion never admits a new write point or FLOW writer. */
+    fun computedGroups(premise: PremiseKey, value: Facts) {
+        check(value.base == STATIC)
+        if (value !is TaintTree) return
         if (core.hasKnownStaticGroupInput(premise)) {
             val initial = premise as InitialAp
             val actual = core.knownStaticInput(initial)
-            for (leaf in core.ops.leaves(delta)) {
+            for (leaf in core.ops.leaves(value)) {
                 core.ap.cancellation.checkpoint()
                 core.context.shared.n2Statistics?.staticGroupSupplyDirect()
-                val scalar = core.ap.factsOf(leaf.fact, leaf.exclusion, delta.layer)
+                val scalar = core.ap.factsOf(leaf.fact, leaf.exclusion, value.layer)
                 core.composeStaticSummaryWithActualInput(initial, scalar, actual) { value ->
                     core.staticBatch.supplies += core.staticSlices(value)
                 }
             }
         } else if (!premise.isZero && (0 until premise.size).all { premise.member(it).base == STATIC }) {
-            for (leaf in core.ops.leaves(delta)) {
-                if (core.mode.markMode == MarkMode.GROUP)
-                    core.context.shared.n2Statistics?.staticGroupJoinFallback()
-                val key = WriterKey(premise, leaf, delta.layer)
+            for (leaf in core.ops.leaves(value)) {
+                core.context.shared.n2Statistics?.staticGroupJoinFallback()
+                val key = WriterKey(premise, leaf, value.layer)
+                if (key in conditionalKeys) continue
                 // A fixed-group conditional is a pending complete binding, not a
-                // permanent group-valued writer or a service-side Cartesian join.
+                // permanent summary archive or a service-side Cartesian join.
+                // Its immutable scalar survives erasure of the method row.
                 val joinId = ++next
+                conditionalKeys[key] = joinId
                 conditional[joinId] = ConditionalJoin(key)
                 repeat(premise.size) { member ->
                     val initial = premise.member(member)
@@ -198,30 +201,13 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
                     val inputId = ++next
                     joinInputs[inputId] = JoinInput(joinId, member)
                     core.staticBatch.interests += StaticInterest(core.key, inputId, initial.toPattern(),
-                        GroupSet.of(core.ap.marks.groupOf(atom)))
+                        MarkSet.of(core.ap.marks.runtimeAtom(atom, core.mode.markMode)))
                 }
             }
         }
         if (premise.isZero)
-            core.staticBatch.supplies += core.staticSlices(delta)
+            core.staticBatch.supplies += core.staticSlices(value)
         core.requestWork()
-    }
-
-    /** A semantic replacement gets its own fresh descriptor. An obsolete selector
-     * can stutter; it never keeps an old cumulative Facts root alive. */
-    private fun currentValues(writer: WriterKey): Sequence<Facts> = sequence {
-        val path = writer.output.fact.path.toIntArray()
-        for (value in core.summaries.borrow(writer.premise)) {
-            if (value.base != STATIC || value.layer != writer.layer) continue
-            if (value is FlowTree) {
-                val selector = writer.output.fact.mark as? MarkSlot.Star ?: continue
-                if (value.markExclusion != selector.excluded) continue
-            }
-            for (leaf in core.ops.leavesNear(value, path)) {
-                if (leaf != writer.output) continue
-                yield(core.ap.factsOf(leaf.fact, leaf.exclusion, value.layer))
-            }
-        }
     }
 
     fun onEffect(effect: StaticOwnerEffect) {
@@ -255,6 +241,7 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
                     join.inputs[input.member] = effect.supply
                     if (join.inputs.all { it != null }) {
                         conditional.remove(input.join)
+                        check(conditionalKeys.remove(join.writer) == input.join)
                         publishMatched(join.writer, join.inputs.map { checkNotNull(it) })
                     }
                     core.requestWork()
@@ -283,7 +270,7 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
                     writerInputs[inputId] = WriterInput(writer, effect.groups)
                     core.staticBatch.interests += StaticInterest(core.key, inputId, original.toPattern(), effect.groups)
                 } else {
-                    for (atom in core.ap.marks.atomsFor(effect.groups).ids)
+                    for (atom in effect.groups.ids)
                         core.addMarkRequest(original, TaintMark(atom))
                 }
             }
@@ -307,7 +294,7 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
         for (answer in detached) {
             core.ap.cancellation.checkpoint()
             materializeScalarImages(row.key, answer.images,
-                RegionGroups(effect.supply.region, GroupSet.of(answer.group)))
+                RegionGroups(effect.supply.region, MarkSet.of(answer.group)))
         }
     }
 
@@ -330,15 +317,11 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
     }
 
     private fun publishMatched(writer: WriterKey, inputs: List<RegionGroups>) {
-        // Local FLOW writers own this immutable bounded scalar relation. A
-        // merged summary can subsume its exact selector without invalidating it.
-        val values = if (writer.output.fact.mark is MarkSlot.Star)
-            sequenceOf(core.ap.factsOf(writer.output.fact, writer.output.exclusion, writer.layer))
-        else currentValues(writer) // Keep complete fixed-group supply behavior.
-        for (current in values) {
-            core.composeStaticSummary(writer.premise, current, inputs) { value ->
-                core.staticBatch.supplies += core.staticSlices(value)
-            }
+        // Both FLOW writers and unanswered fixed-mark input joins own the
+        // admitted bounded scalar; neither borrows an erased method summary.
+        val current = core.ap.factsOf(writer.output.fact, writer.output.exclusion, writer.layer)
+        core.composeStaticSummary(writer.premise, current, inputs) { value ->
+            core.staticBatch.supplies += core.staticSlices(value)
         }
     }
 
@@ -353,5 +336,5 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
             tail = if (exact && path.size <= 2) Tail.EXACT else Tail.STAR), ExclusionSet.Empty))
     }
 
-    fun clear() { pointKeys.clear(); points.clear(); readKeys.clear(); reads.clear(); writerKeys.clear(); writers.clear(); direct.clear(); directKeys.clear(); callKeys.clear(); calls.clear(); writerInputs.clear(); conditional.clear(); joinInputs.clear() }
+    fun clear() { pointKeys.clear(); points.clear(); readKeys.clear(); reads.clear(); writerKeys.clear(); writers.clear(); direct.clear(); directKeys.clear(); callKeys.clear(); calls.clear(); writerInputs.clear(); conditionalKeys.clear(); conditional.clear(); joinInputs.clear() }
 }

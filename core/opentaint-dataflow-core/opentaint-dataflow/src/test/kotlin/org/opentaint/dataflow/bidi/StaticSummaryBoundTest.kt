@@ -24,7 +24,7 @@ class StaticSummaryBoundTest {
         // not a legal run-1 marked initial or a request to enumerate the pool.
         interests += StaticInterest(f.store.key("pool observer"), Long.MAX_VALUE,
             Pattern(PathFact(STATIC, target, Tail.STAR, MarkSlot.STAR), ExclusionSet.Empty),
-            GroupSet.of(f.manager.marks.groupOf(f.mark("T"))))
+            f.manager.marks.atomsFor(GroupSet.of(f.manager.marks.groupOf(f.mark("T")))))
     }
 
     private fun pool(f: MethodAnalysisFixtures, core: RunMethodAnalyzer, target: List<Int>): List<Pattern> {
@@ -83,7 +83,10 @@ class StaticSummaryBoundTest {
             }
             assertTrue(complete, "A fresh suffix cannot grow beyond the selected field bound")
             val raw = core.summaries.all().filter { it.second.base == STATIC }.toList()
-            assertTrue(raw.any { it.first.isFlow })
+            assertTrue(raw.isNotEmpty())
+            assertTrue(raw.all { it.first.isZero }, "Local static/static FLOW rows are erased, not handed off")
+            assertTrue(checkNotNull(core.runnerPort.staticService).statistics().writerRows > 0,
+                "The reached bounded writer remains independently of the erased summary")
             for ((_, facts) in raw) {
                 val depth = when (facts) { is FlowTree -> facts.root.boundedDepth; is TaintTree -> facts.root.boundedDepth; is Reach -> 0 }
                 assertTrue(depth <= 1)

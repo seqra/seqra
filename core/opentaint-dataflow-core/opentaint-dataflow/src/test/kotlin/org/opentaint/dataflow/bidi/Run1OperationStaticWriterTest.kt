@@ -43,10 +43,10 @@ class Run1OperationStaticWriterTest {
         }
         fun request(group: GroupId = this.group) = commit(StaticBatch().apply {
             interests += StaticInterest(observer, group.value.toLong(),
-                f.pattern(STATIC, target, Tail.STAR, MarkSlot.STAR), GroupSet.of(group))
+                f.pattern(STATIC, target, Tail.STAR, MarkSlot.STAR), f.manager.marks.atomsFor(GroupSet.of(group)))
         })
         fun supply(path: List<Int> = from, group: GroupId = this.group) = commit(StaticBatch().apply {
-            supplies += RegionGroups(f.pattern(STATIC, path, Tail.STAR, MarkSlot.STAR), GroupSet.of(group))
+            supplies += RegionGroups(f.pattern(STATIC, path, Tail.STAR, MarkSlot.STAR), f.manager.marks.atomsFor(GroupSet.of(group)))
         })
         fun answers(): List<StaticOwnerEffect.PointReady> =
             (external + f.events.filterIsInstance<RunEvent.StaticOwner>().map { it.effect })
@@ -54,17 +54,17 @@ class Run1OperationStaticWriterTest {
         override fun close() = f.close()
     }
 
-    @Test fun `promotion retains summaries and demands without admitting write presence or FLOW writers`() = Fixture().use { t ->
+    @Test fun `static FLOW promotion has no summary or writer effect`() = Fixture().use { t ->
         t.actor.promoteStaticSummary(t.initial, t.flow())
         assertTrue(t.actor.staticBatch.writes.isEmpty())
         assertTrue(t.actor.staticBatch.writers.isEmpty())
         assertTrue(t.actor.staticBatch.flowWriters.isEmpty())
-        assertTrue(t.actor.summaries.all().any { (p, value) -> p === t.initial && value.base == STATIC })
-        assertTrue(t.actor.summaries.demandEdges().any { (p, value) -> p === t.initial && value.base == STATIC })
+        assertTrue(t.actor.summaries.all().none())
+        assertTrue(t.actor.summaries.demandEdges().none())
         t.f.drain(t.actor)
         assertEquals(0, t.service.statistics().writerRows)
         assertEquals(0, t.service.statistics().flowWriterRows)
-        assertTrue(t.f.publications.flatten().any { it.premise === t.initial })
+        assertTrue(t.f.publications.flatten().none { it.premise === t.initial })
     }
 
     @Test fun `a promoted summary cannot suppress the first equal local writer`() = Fixture().use { t ->
@@ -93,7 +93,7 @@ class Run1OperationStaticWriterTest {
                 assertTrue(t.answers().isEmpty())
                 t.supply()
             }
-            assertEquals(listOf(GroupSet.of(t.group)), t.answers().map { it.supply.groups })
+            assertEquals(listOf(t.f.manager.marks.atomsFor(GroupSet.of(t.group))), t.answers().map { it.supply.groups })
             assertEquals(1, t.service.statistics().writerRows)
         }
     }
@@ -108,7 +108,7 @@ class Run1OperationStaticWriterTest {
         assertTrue(t.answers().isEmpty(), "Only a real local relaxed relation can add the missing transfer")
         t.local()
         t.f.drain(t.actor)
-        assertEquals(listOf(GroupSet.of(t.group)), t.answers().map { it.supply.groups })
+        assertEquals(listOf(t.f.manager.marks.atomsFor(GroupSet.of(t.group))), t.answers().map { it.supply.groups })
         assertEquals(2, t.service.statistics().writerRows)
     }
 
@@ -120,7 +120,7 @@ class Run1OperationStaticWriterTest {
         assertTrue(t.actor.staticBatch.supplies.isNotEmpty())
         t.f.drain(t.actor)
         t.request()
-        assertEquals(listOf(GroupSet.of(t.group)), t.answers().map { it.supply.groups })
+        assertEquals(listOf(t.f.manager.marks.atomsFor(GroupSet.of(t.group))), t.answers().map { it.supply.groups })
     }
 
     @Test fun `noncanonical exact-field fixed-group result keeps the actual input fallback and declared output group`() {
@@ -142,7 +142,7 @@ class Run1OperationStaticWriterTest {
                 assertTrue(t.answers().isEmpty(), "A conditional summary is not an unconditional source")
                 t.supply()
             }
-            assertEquals(listOf(GroupSet.of(outGroup)), t.answers().map { it.supply.groups })
+            assertEquals(listOf(t.f.manager.marks.atomsFor(GroupSet.of(outGroup))), t.answers().map { it.supply.groups })
             assertEquals(0, t.service.statistics().writerRows)
             assertEquals(0, t.service.statistics().flowWriterRows)
         }

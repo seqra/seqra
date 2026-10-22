@@ -50,7 +50,7 @@ class Run1StaticRoutingTest {
         val child = f.field("child")
         val g = f.ap.marks.groupOf(f.mark("T"))
         val h = f.ap.marks.groupOf(f.mark("U"))
-        val groups = GroupSet.of(listOf(g, h))
+        val groups = f.ap.marks.atomsFor(GroupSet.of(listOf(g, h)))
         fun pattern(path: List<Int>, tail: Tail = Tail.STAR, exclusion: ExclusionSet = ExclusionSet.Empty) =
             Pattern(PathFact(STATIC, path, tail, MarkSlot.STAR), exclusion)
         val exactClass = pattern(listOf(cls), Tail.EXACT)
@@ -105,7 +105,7 @@ class Run1StaticRoutingTest {
                 flowWriters += StaticFlowWriter(v.owner, 6, v.pattern(emptyList(), Tail.EXACT))
             }
             val request = StaticBatch().apply {
-                interests += StaticInterest(v.owner, 7, v.exactClass, GroupSet.of(v.g))
+                interests += StaticInterest(v.owner, 7, v.exactClass, f.ap.marks.atomsFor(GroupSet.of(v.g)))
             }
             services.commit(if (writerFirst) writers else request)
             services.commit(if (writerFirst) request else writers)
@@ -124,7 +124,7 @@ class Run1StaticRoutingTest {
                 val services = PairOfServices(f)
                 val supply = StaticBatch().apply {
                     supplies += RegionGroups(v.pattern(listOf(v.cls), tail,
-                        if (blocked) ExclusionSet.of(v.field) else ExclusionSet.Empty), GroupSet.of(v.g))
+                        if (blocked) ExclusionSet.of(v.field) else ExclusionSet.Empty), f.ap.marks.atomsFor(GroupSet.of(v.g)))
                 }
                 val interests = StaticBatch().apply {
                     interests += StaticInterest(v.owner, 1, v.fieldRegion, v.groups)
@@ -136,11 +136,11 @@ class Run1StaticRoutingTest {
                 services.commit(if (supplyFirst) interests else supply)
                 services.commit(supply)
                 services.commit(StaticBatch().apply {
-                    supplies += RegionGroups(v.exactClass, GroupSet.of(v.h))
-                    supplies += RegionGroups(v.fieldRegion, GroupSet.of(v.h))
+                    supplies += RegionGroups(v.exactClass, f.ap.marks.atomsFor(GroupSet.of(v.h)))
+                    supplies += RegionGroups(v.fieldRegion, f.ap.marks.atomsFor(GroupSet.of(v.h)))
                 })
                 services.commit(StaticBatch().apply {
-                    supplies += RegionGroups(v.pattern(emptyList()), GroupSet.of(v.g))
+                    supplies += RegionGroups(v.pattern(emptyList()), f.ap.marks.atomsFor(GroupSet.of(v.g)))
                 })
                 assertEquals(0L, services.optimized.requestStatistics().pendingMemberships)
             }
@@ -163,10 +163,10 @@ class Run1StaticRoutingTest {
                 events += { writers += StaticWriterRegistration(v.owner, 300L + index,
                     f.ap.initial(v.fieldRegion), region) }
                 events += { writes += region }
-                events += { supplies += RegionGroups(region, GroupSet.of(v.g)) }
-                events += { supplies += RegionGroups(region, GroupSet.of(v.h)) }
+                events += { supplies += RegionGroups(region, f.ap.marks.atomsFor(GroupSet.of(v.g))) }
+                events += { supplies += RegionGroups(region, f.ap.marks.atomsFor(GroupSet.of(v.h))) }
                 if (region.fact.path.size >= 2 || region.fact.tail == Tail.EXACT && region.fact.path.size == 1) {
-                    events += { interests += StaticInterest(v.owner, 400L + index, region, GroupSet.of(v.g)) }
+                    events += { interests += StaticInterest(v.owner, 400L + index, region, f.ap.marks.atomsFor(GroupSet.of(v.g))) }
                     events += { interests += StaticInterest(v.owner, 400L + index, region, v.groups) }
                 }
             }

@@ -1,6 +1,6 @@
 # Next iteration: static summary erasure and mark-mode experiments
 
-Date: 22 October 2026. Status: **selected design; implementation pending**.
+Date: 22 October 2026. Status: **selected changes implemented; project measurements pending**.
 Measured runtime: `30c1b84606695070a79d7ae467703267b9f931c1`.
 Read the [performance report](../reports/bidirectional-static-protocol-removal-performance-20261022.md)
 and [current contract](../../spec/run1-static-group-protocol-removal.md).
@@ -64,7 +64,9 @@ replace the research alternative in this section. Remove all run-1
 static/static rows after producer effects. Use actual run-2 query
 completion and the explicitly selected named-field/EXACT class grammar;
 do not build the possible shared exact-pair directory described below.
-The design remains unimplemented. The measurements below still refer to
+The implementation is recorded in the
+[validation](../reports/bidirectional-static-summary-erasure-validation-20261022.md).
+The measurements below still refer to
 runtime `30c1b8460` and retain their stated limits.
 
 **Run-1 S-to-S summaries are not propagated to callers.** No publication,
@@ -421,8 +423,9 @@ occurrence counts against fresh main. Analyze each missing result.
 
 Measure both removed work and remaining work. A lower allocation count
 with a slower engine is not a successful speedup. A later-run OOM fix
-does not satisfy the run-1 target. No new runtime code is authorized by
-this proposal.
+does not satisfy the run-1 target. The other normalization and backfill ideas in this document remain
+unselected. The current task implements only the selected static erasure
+and mark-mode contract.
 
 Source reviews:
 

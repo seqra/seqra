@@ -17,6 +17,7 @@ import mu.KLogging
 import org.opentaint.dataflow.bidi.interp.DirectedForms
 import org.opentaint.dataflow.bidi.interp.RuleView
 import org.opentaint.dataflow.bidi.ap.MethodKey
+import org.opentaint.dataflow.bidi.ap.MarkMode
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.util.MemoryManager
@@ -61,8 +62,8 @@ class RunManager<A : RunActor>(
         if (status.compareAndSet(null, RunStatus.COMPLETE)) completion.complete(RunStatus.COMPLETE)
     }
     val forms: DirectedForms = shared.contexts.directed(config.direction,
-        if (config.run1) RuleView.RUN1_GROUP else RuleView.FULL)
-    val staticService: Run1StaticService? = if (config.run1) Run1StaticService(shared.ap) else null
+        if (config.mode.markMode == MarkMode.GROUP) RuleView.RUN1_GROUP else RuleView.FULL)
+    val staticService: Run1StaticService? = if (config.run1) Run1StaticService(shared.ap, config.mode.markMode) else null
     private val memory = MemoryManager(shared.refManager, OOM_THRESHOLD) { fail(RunStatus.OOM) }
 
     /** All units in this run share one storage for the complete callee key. */
@@ -130,6 +131,7 @@ class RunManager<A : RunActor>(
 
     fun run(timeout: Duration): RunResult<A> {
         check(invoked.compareAndSet(false, true)) { "A run manager can run only once" }
+        logger.info { "BIDI_MARK_MODE run=${config.index} mode=${config.mode.markMode} configuredRun1Mode=${config.run1MarkMode}" }
         if (config.run1) logger.info {
             "Run 1: DIAGNOSTIC opentaint.bidi.disableRun1Statics=${config.disableRun1Statics}; " +
                 "true disables static FIELD flows and can miss findings; exact global markers are kept"
@@ -209,7 +211,7 @@ class RunManager<A : RunActor>(
             if (joined) staticService?.clear()
         }
         failure?.let { throw it }
-        return RunResult(end, analyzers, config.index, config.direction, shared.vulnerabilities)
+        return RunResult(end, analyzers, config.index, config.direction, shared.vulnerabilities, config.mode.markMode)
     }
 
     private fun startRoots() {

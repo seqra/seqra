@@ -31,6 +31,7 @@ class MarkSet(ids: IntArray) {
     val ids: IntArray get() = data.copyOf()
     private val hash = data.contentHashCode()
     val isEmpty: Boolean get() = data.isEmpty()
+    val size: Int get() = data.size
 
     operator fun contains(mark: TaintMark): Boolean = data.binarySearch(mark.id) >= 0
     fun isSubsetOf(other: MarkSet): Boolean = this === other || sortedSubset(data, other.data)
@@ -40,15 +41,19 @@ class MarkSet(ids: IntArray) {
         if (mark in this) this else MarkSet(sortedUnion(data, intArrayOf(mark.id)))
     operator fun minus(other: MarkSet): MarkSet =
         MarkSet(data.filter { other.data.binarySearch(it) < 0 }.toIntArray())
-    fun intersect(other: MarkSet): MarkSet =
+    infix fun intersect(other: MarkSet): MarkSet =
         MarkSet(data.filter { other.data.binarySearch(it) >= 0 }.toIntArray())
+    fun forEach(visit: (TaintMark) -> Unit) { data.forEach { visit(TaintMark(it)) } }
 
     override fun equals(other: Any?): Boolean = this === other ||
         (other is MarkSet && hash == other.hash && data.contentEquals(other.data))
     override fun hashCode(): Int = hash
     override fun toString(): String = data.joinToString(prefix = "{", postfix = "}")
 
-    companion object { val EMPTY = MarkSet(IntArray(0)) }
+    companion object {
+        val EMPTY = MarkSet(IntArray(0))
+        fun of(mark: TaintMark): MarkSet = MarkSet(intArrayOf(mark.id))
+    }
 }
 
 sealed interface MarkSlot {

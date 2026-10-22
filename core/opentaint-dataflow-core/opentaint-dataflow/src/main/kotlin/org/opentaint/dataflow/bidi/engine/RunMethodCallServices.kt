@@ -281,6 +281,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
 
     override fun applySummary(part: Subscription, pub: Publication, member: Int) {
         val core = active()
+        if (core.erasesRun1StaticSummary(pub.premise, pub.conclusion)) return
         core.checkPremise(part.ref.premise)
         core.checkPremise(pub.premise)
         when (val premise = pub.premise) {
@@ -302,14 +303,14 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         val core = active()
         check(core.config.run1 && part.ref.premise.isZero && part.added is Reach && !part.zeroOnly)
         core.checkPremise(pub.premise)
+        if (core.erasesRun1StaticSummary(pub.premise, pub.conclusion)) return
         val initial = pub.premise.member(member)
         check(initial.base == STATIC)
         if (core.dropsStaticField(initial)) return
         if (initial.mark is MarkSlot.Star) {
             check(pub.premise is InitialAp && pub.conclusion is FlowTree)
             val value = pub.conclusion.withLayer(Layer.DEMAND)
-            if (value.base == STATIC) core.promoteStaticSummary(initial, value)
-            else resumeCallees(part.ref, listOf(planFact(initial, value, false)))
+            resumeCallees(part.ref, listOf(planFact(initial, value, false)))
         } else if (core.hasKnownStaticGroupInput(pub.premise)) {
             val actual = core.knownStaticInput(pub.premise as InitialAp)
             val statistics = core.context.shared.n2Statistics
@@ -325,6 +326,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
 
     override fun staticSupply(part: Subscription, pub: Publication, member: Int, supply: RegionGroups) {
         val core = active()
+        if (core.erasesRun1StaticSummary(pub.premise, pub.conclusion)) return
         core.checkPremise(part.ref.premise)
         core.checkPremise(pub.premise)
         val actual = core.staticFacts(supply)
@@ -348,7 +350,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             val input = part.copy(ref = ref, linkLayer = matched.layer, added = matched)
             if (pub.premise is PremiseSet) ndMatch(input, pub, pub.premise, member)
             else {
-                val statistics = core.context.shared.n2Statistics.takeIf { core.mode.markMode == MarkMode.GROUP }
+                val statistics = core.context.shared.n2Statistics
                 val results = ArrayList<PlanFact>()
                 statistics?.staticGroupScalarApplied()
                 applyParts(input, initial, conclusion, results)

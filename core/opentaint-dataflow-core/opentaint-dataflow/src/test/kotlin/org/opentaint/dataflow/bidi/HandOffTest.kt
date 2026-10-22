@@ -15,6 +15,15 @@ import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import kotlin.test.*
 
 class HandOffTest {
+    @Test fun `static query completion is attached only at the run1 to run2 boundary`(): Unit {
+        for (index in listOf(1, 2, 3, 4)) HandOffFixtures(index).use { f ->
+            val handOff = HandOff.of(f.config, f.result(), f.report, f.shared)
+            assertEquals(if (index == 1) StaticQueryPolicy.COMPLETE_RUN1_STATIC_FIELDS else StaticQueryPolicy.ORDINARY,
+                handOff.demand.staticQueryPolicy, "Completed run-$index handoff")
+            assertTrue(handOff.demandEdges.isEmpty(), "The policy creates no explicit demand pairs")
+        }
+    }
+
     private val x = AccessPathBase.Argument(0)
     private val y = AccessPathBase.Argument(1)
     private val returned = AccessPathBase.Return

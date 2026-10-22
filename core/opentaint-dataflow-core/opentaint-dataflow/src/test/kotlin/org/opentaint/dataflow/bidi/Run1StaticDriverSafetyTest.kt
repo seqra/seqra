@@ -78,8 +78,13 @@ class Run1StaticDriverSafetyTest {
             if (replayBackward) {
                 val backward = seen.configs.single { it.index == 2 }
                 // A fresh actual B4 engine reads completed F3 native records,
-                // independently of the driver's forward stop decision.
-                invoke(RunConfig(4, 3, backward.demand,
+                // independently of the driver's forward stop decision. Its
+                // demand comes from F3; the R1-to-B2 completion policy does not
+                // belong to B4. Keep the explicit sink seeds for this forced replay.
+                val forward = seen.configs.single { it.index == 3 }
+                val laterDemand = HandOff.of(forward, seen.results.single { it.runIndex == 3 },
+                    ReportBuilder(), owner).demand
+                invoke(RunConfig(4, 3, laterDemand,
                     owner.records.view(), backward.seeds, listOf(root)), owner, 20.seconds)
             }
             assertEquals(RunStatus.COMPLETE, report.end.status)

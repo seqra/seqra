@@ -88,7 +88,7 @@ class EmptyStaticSummaryFallbackTest {
             val region = f.pattern(STATIC, path, Tail.STAR, MarkSlot.STAR)
             val supply = StaticBatch().also {
                 it.writes += region
-                it.supplies += RegionGroups(region, GroupSet.of(f.manager.marks.groupOf(f.mark("T"))))
+                it.supplies += RegionGroups(region, f.manager.marks.atomsFor(GroupSet.of(f.manager.marks.groupOf(f.mark("T")))))
             }
             service.commit(supply).filter { it.owner == actor.key }.forEach(actor::onStaticEffect)
             f.drain(actor)

@@ -8,6 +8,8 @@ import org.opentaint.dataflow.bidi.interp.*
 /**
  * Frozen routing oracle from 51dbc4d66fb1bf1b56071dbf18c90c5909e3146b.
  * Keep the old candidate scans and matching code independent of the optimized service.
+ * The payload adapter uses executable GROUP atom handles after the service port
+ * moved from GroupSet to MarkSet. The routing and transition logic is unchanged.
  */
 internal class UnoptimizedRun1StaticService(private val ap: ApManager) {
     private val lock = Any()
@@ -24,25 +26,25 @@ internal class UnoptimizedRun1StaticService(private val ap: ApManager) {
     private class ReadRow(val registration: StaticReadRegistration) { val delivered = HashSet<Pattern>() }
     private class InterestRow(val registration: StaticInterest) { var wanted = registration.wanted }
     private class FlowWriterRow(val owner: MethodKey, val id: Long, val region: Pattern,
-                                val staticOrigin: Boolean) { var admitted = GroupSet.EMPTY }
+                                val staticOrigin: Boolean) { var admitted = MarkSet.EMPTY }
     private data class FieldKey(val klass: AccessorIdx, val field: AccessorIdx)
     private class FieldState(val region: Pattern) {
-        var req = GroupSet.EMPTY
-        var reach = GroupSet.EMPTY
-        var processed = GroupSet.EMPTY
+        var req = MarkSet.EMPTY
+        var reach = MarkSet.EMPTY
+        var processed = MarkSet.EMPTY
         val pending = LinkedHashMap<Key, InterestRow>()
     }
     private val writes = LinkedHashSet<Pattern>()
     private val writeIndex = Regions<Pattern>()
     // Only broad root/class supplies keep spatial history. A normal field has
     // one canonical membership, never a second region-valued group pool.
-    private val broadGroups = LinkedHashMap<Pattern, GroupSet>()
+    private val broadGroups = LinkedHashMap<Pattern, MarkSet>()
     private val fields = LinkedHashMap<FieldKey, FieldState>()
     private val fieldIndex = Regions<FieldKey>()
     private val reads = LinkedHashMap<Key, ReadRow>()
     private val readIndex = Regions<Key>()
     private val classInterests = LinkedHashMap<Key, InterestRow>()
-    private val classRequested = LinkedHashMap<Pattern, GroupSet>()
+    private val classRequested = LinkedHashMap<Pattern, MarkSet>()
     private val flowWriters = LinkedHashMap<Key, FlowWriterRow>()
     private val flowWriterIndex = Regions<Key>()
     private var candidateVisits = 0L
@@ -98,7 +100,7 @@ internal class UnoptimizedRun1StaticService(private val ap: ApManager) {
             admitWrite(position, out)
             if (fieldKey(position) != null) groupWrite(field(position), supply.groups, out)
             else {
-                val old = broadGroups[position] ?: GroupSet.EMPTY
+                val old = broadGroups[position] ?: MarkSet.EMPTY
                 val fresh = supply.groups - old
                 if (fresh.isEmpty) continue
                 broadGroups[position] = old + fresh
@@ -144,7 +146,7 @@ internal class UnoptimizedRun1StaticService(private val ap: ApManager) {
         }
     }
 
-    private fun groupWrite(state: FieldState, groups: GroupSet,
+    private fun groupWrite(state: FieldState, groups: MarkSet,
                            out: MutableList<StaticOwnerEffect>) {
         val fresh = groups - (state.reach + state.processed)
         if (fresh.isEmpty) return
@@ -170,7 +172,7 @@ internal class UnoptimizedRun1StaticService(private val ap: ApManager) {
         val key = Key(row.owner, row.id)
         if (flowWriters.putIfAbsent(key, row) != null) return
         flowWriterIndex.add(row.region, key)
-        var wanted = GroupSet.EMPTY
+        var wanted = MarkSet.EMPTY
         for (field in fieldIndex.around(row.region)) {
             val state = fields.getValue(field)
             if (requestMatches(row.region, state.region)) wanted += state.req + state.processed
@@ -180,7 +182,7 @@ internal class UnoptimizedRun1StaticService(private val ap: ApManager) {
         askOnce(row, wanted, out)
     }
 
-    private fun askOnce(row: FlowWriterRow, offered: GroupSet,
+    private fun askOnce(row: FlowWriterRow, offered: MarkSet,
                         out: MutableList<StaticOwnerEffect>) {
         val fresh = offered - row.admitted
         if (fresh.isEmpty) return
@@ -202,7 +204,7 @@ internal class UnoptimizedRun1StaticService(private val ap: ApManager) {
         val row = classInterests[key] ?: InterestRow(interest).also { classInterests[key] = it }
         row.wanted += interest.wanted
         val requested = region(interest.region).copy(exclusion = ExclusionSet.Empty)
-        classRequested[requested] = (classRequested[requested] ?: GroupSet.EMPTY) + interest.wanted
+        classRequested[requested] = (classRequested[requested] ?: MarkSet.EMPTY) + interest.wanted
         for ((position, supplied) in broadGroups) answerClass(row, position, supplied, out)
         for (state in fields.values) answerClass(row, state.region, state.reach + state.processed, out)
         if (row.wanted.isEmpty) classInterests.remove(key)
@@ -212,7 +214,7 @@ internal class UnoptimizedRun1StaticService(private val ap: ApManager) {
         }
     }
 
-    private fun answerClass(row: InterestRow, position: Pattern, supplied: GroupSet,
+    private fun answerClass(row: InterestRow, position: Pattern, supplied: MarkSet,
                             out: MutableList<StaticOwnerEffect>) {
         val overlap = intersect(row.registration.region, position) ?: return
         val fresh = supplied intersect row.wanted
@@ -262,18 +264,18 @@ internal class UnoptimizedRun1StaticService(private val ap: ApManager) {
         val out = ArrayList<RegionGroups>()
         for (leaf in ops.leaves(value)) {
             val mark = (leaf.fact.mark as? MarkSlot.Concrete)?.mark ?: continue
-            val group = ap.marks.groupOf(mark)
-            out += RegionGroups(region(leaf), GroupSet.of(group))
+            val atom = ap.marks.runtimeAtom(mark, MarkMode.GROUP)
+            out += RegionGroups(region(leaf), MarkSet.of(atom))
         }
         return out
     }
 
-    fun facts(region: Pattern, groups: GroupSet): Facts {
+    fun facts(region: Pattern, groups: MarkSet): Facts {
         require(!groups.isEmpty)
         check(region.fact.path.size != 1 || region.fact.tail == Tail.EXACT) {
             "Global marker materialization preserves the exact class point"
         }
-        val atoms = ap.marks.atomsFor(groups)
+        val atoms = groups
         var result: TaintTree? = null
         for (atom in atoms.ids) {
             val one = ap.factsOf(region.fact.copy(mark = MarkSlot.Concrete(TaintMark(atom))), region.exclusion, Layer.DEMAND) as TaintTree

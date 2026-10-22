@@ -4,12 +4,16 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import java.util.Collections
 
+/** A boundary policy, with no per-method static relation or mark catalog. */
+enum class StaticQueryPolicy { ORDINARY, COMPLETE_RUN1_STATIC_FIELDS }
+
 /** Immutable demand snapshot. Tails, marks, exclusions and exits remain candidate payloads. */
 class DemandStore private constructor(
     private val byMethod: Map<MethodKey, PathTrie<DemandPattern>>,
     private val zeroDemand: DemandPattern,
     private val ap: ApManager,
     private val staticGroupsEnabled: Boolean,
+    val staticQueryPolicy: StaticQueryPolicy,
 ) {
     /** Emission tests prefixes and extensions, with the implicit zero demand on the zero base. */
     fun near(method: MethodKey, actual: Pattern): List<DemandPattern> {
@@ -46,6 +50,12 @@ class DemandStore private constructor(
         private val seen = LinkedHashSet<Pair<MethodKey, DemandPattern>>()
         private val zeroDemand = ownDemand(m, DemandPattern(m.zero.toPattern(), null))
         private var staticGroupsEnabled = false
+        private var staticQueryPolicy = StaticQueryPolicy.ORDINARY
+
+        /** Only the completed run-1 handoff selects this policy for incoming run-2 inputs. */
+        fun completeRun1StaticFields() {
+            staticQueryPolicy = StaticQueryPolicy.COMPLETE_RUN1_STATIC_FIELDS
+        }
 
         /** One symbolic demand family. It stores no method-by-field product. */
         fun includeStaticGroups() {
@@ -89,7 +99,8 @@ class DemandStore private constructor(
                 byMethod.getOrPut(method) { PathTrie(m.cancellation) }
                     .add(demand.entry.fact.base, demand.entry.fact.path.toIntArray(), demand)
             }
-            return DemandStore(Collections.unmodifiableMap(byMethod), zeroDemand, m, staticGroupsEnabled)
+            return DemandStore(Collections.unmodifiableMap(byMethod), zeroDemand, m, staticGroupsEnabled,
+                staticQueryPolicy)
         }
     }
 }

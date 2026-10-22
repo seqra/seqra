@@ -10,8 +10,9 @@ replaces the removed run-2 static guide starts with bounded actual-input
 query completion, including same-field EXACT. The user also selected
 named-field and EXACT class-marker concrete grammar in run-2. These are
 explicit major changes; no field-transfer or source/exit-rule change is
-selected. **This design is not implemented.** The current runtime remains
-`30c1b84606695070a79d7ae467703267b9f931c1`.
+selected. **The implementation is present.** See the
+[implementation validation](../docs/reports/bidirectional-static-summary-erasure-validation-20261022.md).
+The comparison runtime remains `30c1b84606695070a79d7ae467703267b9f931c1`.
 
 The [proof dossier](run1-static-summary-erasure-proofs.md) separates
 constructive finite producer/relay erasure, scalar AP projection, exact
@@ -19,7 +20,8 @@ query coverage and later FULL witness replay. Its
 [audit](lean/run1-static-summary-erasure-audit.lean) checks the four owned
 modules. Kotlin constructor closure, scalar/tree refinement, pending
 payload ownership, queue accounting and observation/handoff adapters
-remain implementation gates. No whole-engine soundness, termination or
+have separate source reviews and focused controls. These checks do not
+constitute a whole-engine refinement theorem. No whole-engine soundness, termination or
 performance acceptance is claimed. The focused 53-job Lean build passes;
 the final owned audit passes **1,822 declarations and 75 controls**, with
 only `propext` and `Quot.sound` dependencies. The
@@ -36,7 +38,8 @@ cleaners and request/service keys while common structural run-1 policy
 stays fixed. The [local mode model](lean/ApSpec/Run1MarkModeExperiment.lean)
 checks selection, key identity and FULL-guide query coverage. The earlier
 75-control receipt remains scoped to its original GROUP contract;
-FULL runtime adapters and the experiments are not complete. See the
+FULL runtime adapters have separate source controls; the experiments are
+not complete. See the
 [extension receipt](lean/run1-mark-mode-experiment-checks.json): the focused
 23-job build and owned audit pass **216 declarations and 30 controls**,
 with no unexpected axioms.

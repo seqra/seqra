@@ -1,9 +1,11 @@
 # Proofs for run-1 static summary erasure
 
-Date: 22 October 2026. Status: **constructive design models; runtime unchanged**.
+Date: 22 October 2026. Status: **constructive design models; implementation checks recorded separately**.
 Read [the specification](run1-static-summary-erasure.md). The reference
 runtime is `30c1b84606695070a79d7ae467703267b9f931c1`.
 Follow [proof-guide.md](proof-guide.md).
+The [implementation validation](../docs/reports/bidirectional-static-summary-erasure-validation-20261022.md)
+records Kotlin adapters and tests. It does not extend these formal claims.
 
 The mark-mode extension is specified in
 [sections 14 and 15](run1-static-summary-erasure.md#14-select-group-or-full-marks-in-run-1).

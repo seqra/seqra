@@ -41,9 +41,12 @@ class HandOff(val demand: DemandStore, val seeds: SeedIndex, demandEdges: Map<Me
         }
 
         private fun toBackward(result: RunResult<RunMethodAnalyzer>, report: ReportBuilder, shared: SharedObjects,
-                               counts: MutableMap<MethodKey, Int>, groupedStatics: Boolean): Pair<DemandStore, SeedIndex> {
+                               counts: MutableMap<MethodKey, Int>, run1: Boolean): Pair<DemandStore, SeedIndex> {
             val demand = DemandStore.Builder(shared.ap)
-            if (groupedStatics) demand.includeStaticGroups()
+            if (run1) {
+                demand.includeStaticGroups()
+                demand.completeRun1StaticFields()
+            }
             forEachDemandPiece(result, shared) { method, premise, piece ->
                 val entry = normalizeDemandMark(located(piece).let { p ->
                     if (p.fact.tail == Tail.STAR) p.copy(fact = p.fact.copy(tail = Tail.ANY), exclusion = ExclusionSet.Empty) else p

@@ -50,7 +50,7 @@ class ProductionSchedule(
             source.cancellation, threads = 1,
             )
     }
-    private val staticService = if (config.run1) Run1StaticService(shared.ap) else null
+    private val staticService = if (config.run1) Run1StaticService(shared.ap, config.mode.markMode) else null
     var completedStaticStatistics: Run1StaticService.Statistics? = null
         private set
     private val units = LinkedHashMap<Any, UnitPort>()
@@ -95,7 +95,7 @@ class ProductionSchedule(
     private inner class UnitPort : RunnerPort<RunMethodAnalyzer> {
         override val config get() = this@ProductionSchedule.config
         override val shared get() = this@ProductionSchedule.shared
-        override val forms = shared.contexts.directed(config.direction, if (config.run1) RuleView.RUN1_GROUP else RuleView.FULL)
+        override val forms = shared.contexts.directed(config.direction, if (config.mode.markMode == MarkMode.GROUP) RuleView.RUN1_GROUP else RuleView.FULL)
         override val ops get() = shared.ops
         override val steps get() = deferred
         override val staticService get() = this@ProductionSchedule.staticService

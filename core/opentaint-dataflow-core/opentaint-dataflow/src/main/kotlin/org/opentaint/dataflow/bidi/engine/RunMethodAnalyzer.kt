@@ -33,7 +33,10 @@ class RunMethodAnalyzer(
     val initials: InitialFactStore get() = checkNotNull(initialStore) { "The initial facts were released" }
     val summaries = RunSummaryStore(ap)
     val sourceHits: SourceHitStore? = if (forward) null else SourceHitStore()
-    private val currentQueries = if (config.restricted) StrongQueries(ops, mode) else null
+    private val currentQueries = if (config.restricted)
+        StrongQueries(ops, mode, checkNotNull(config.demand).staticQueryPolicy) else null
+    private val checkRun2StaticAnchors =
+        config.demand?.staticQueryPolicy == StaticQueryPolicy.COMPLETE_RUN1_STATIC_FIELDS
     private var temporary = RequestStorage()
     private var temporarySinceNanos = 0L
     internal var staticBatch = StaticBatch(); private set
@@ -216,7 +219,8 @@ class RunMethodAnalyzer(
     internal fun forceRun1Layer(premise: PremiseKey, value: Facts): Facts {
         if (!config.run1) return value
         val runtime = ops.runtimeFact(value, mode)
-        return if (runtime is TaintTree || Run1StaticService.hasStaticMember(premise)) runtime.withLayer(Layer.DEMAND) else runtime
+        return if (runtime is TaintTree || runtime.base == STATIC || Run1StaticService.hasStaticMember(premise))
+            runtime.withLayer(Layer.DEMAND) else runtime
     }
 
     internal fun collect(at: OperationInput, sink: ResultSink): ApOut {
@@ -234,7 +238,7 @@ class RunMethodAnalyzer(
     internal fun collectAfterRun1Policy(at: OperationInput, sink: ResultSink): ApOut {
         return object : ApOut {
             override fun result(f: Facts) {
-                val value = if (config.run1 && (f is TaintTree || Run1StaticService.hasStaticMember(at.premise)))
+                val value = if (config.run1 && (f is TaintTree || f.base == STATIC || Run1StaticService.hasStaticMember(at.premise)))
                     f.withLayer(Layer.DEMAND) else f
                 if (config.run1) ops.run1Cover(value) { sink(at.premise, it) } else sink(at.premise, value)
             }
@@ -248,7 +252,7 @@ class RunMethodAnalyzer(
         if (at.facts !is FlowTree || original.mark !is MarkSlot.Star) return
         if (dropsStaticField(original)) return
         val atom = ap.marks.runtimeAtom(mark, mode.markMode)
-        if (original.base == STATIC) checkNotNull(pointResumes).request(at, GroupSet.of(ap.marks.groupOf(atom)))
+        if (original.base == STATIC) checkNotNull(pointResumes).request(at, MarkSet.of(atom))
         else addMarkRequest(original, atom)
     }
 
@@ -263,10 +267,10 @@ class RunMethodAnalyzer(
         if (config.run1 && runtime.base == STATIC) {
             if (operation != null) {
                 boundedSummaryResult(at.premise, runtime) { premise, bounded ->
-                    retainSummary(premise, bounded)
-                    // A promoted equal summary can already occupy this key.
-                    // Local admission must not depend on its insertion delta.
+                    // Producer effects survive even when their static/static
+                    // summary is erased. Calls never create a local writer.
                     checkNotNull(pointResumes).localWrite(premise, bounded)
+                    retainSummary(premise, bounded)
                 }
             }
             return
@@ -290,7 +294,7 @@ class RunMethodAnalyzer(
 
     /** These published run-1 originals have already received their canonical pool input. */
     internal fun hasKnownStaticGroupInput(premise: PremiseKey): Boolean =
-        config.run1 && mode.markMode == MarkMode.GROUP && premise is InitialAp &&
+        config.run1 && premise is InitialAp &&
             premise.base == STATIC && premise.mark is MarkSlot.Concrete &&
             premise.exclusion == ExclusionSet.Empty &&
             ((premise.pathData.size == 2 && premise.tail == Tail.STAR) ||
@@ -354,9 +358,20 @@ class RunMethodAnalyzer(
 
     internal fun cut(point: Cut, premise: PremiseKey, facts: Facts, sink: ResultSink) {
         runnerPort.onCut?.invoke(point, facts)
-        val out = collect(premise, facts, sink)
+        val checkedSink: ResultSink = if (!checkRun2StaticAnchors) sink else { pr, bounded ->
+            validateStaticFullAnchors(bounded)
+            sink(pr, bounded)
+        }
+        val out = collect(premise, facts, checkedSink)
         if (config.run1) ops.run1Cover(facts) { ops.limit(it, limit, out) }
         else ops.limit(facts, limit, out)
+    }
+
+    /** Current result headers stay unchanged. Only query/seed admission requires
+     * EXACT/ANY with empty E; other bounded field facts can retain MUST/E. */
+    private fun validateStaticFullAnchors(facts: Facts) {
+        if (facts !is TaintTree || facts.base != STATIC) return
+        for (leaf in ops.leaves(facts)) validateRun2StaticFullAnchor(ap, leaf)
     }
 
     private val hasPendingAbstractionWork: Boolean get() =
@@ -605,19 +620,32 @@ class RunMethodAnalyzer(
             // Retain the existing bounded AP result before indexing the effect.
             ops.limit(covered, limit, collect(premise, covered, sink))
         }
-        else sink(premise, admitted)
+        else {
+            // Native/summary producers can reach this boundary without a new
+            // successor cut. Keep the producer's existing bound and annotations.
+            if (checkRun2StaticAnchors) validateStaticFullAnchors(admitted)
+            sink(premise, admitted)
+        }
     }
 
     private fun retainSummary(premise: PremiseKey, facts: Facts) {
         checkKinds(premise, facts)
         if (!context.shared.interpreter.isSummaryBase(facts.base)) return
+        // A local producer or the first ordinary caller binding can supply
+        // the pool without retaining its static/static relation. Pending
+        // fixed-mark input joins own their scalar payload independently.
+        if (config.run1 && facts.base == STATIC) checkNotNull(pointResumes).computedGroups(premise, facts)
+        if (erasesRun1StaticSummary(premise, facts)) return
         val delta = summaries.add(premise, facts)
         if (delta == null) return
         edgeDeltas++
         if (delta.layer == Layer.DEMAND) demandLayerEdges++
-        if (config.run1 && delta.base == STATIC) checkNotNull(pointResumes).computedGroups(premise, delta)
         queuePublications(premise, delta)
     }
+
+    internal fun erasesRun1StaticSummary(premise: PremiseKey, facts: Facts): Boolean =
+        config.run1 && facts.base == STATIC && !premise.isZero &&
+            (0 until premise.size).all { premise.member(it).base == STATIC }
 
     private fun queuePublications(premise: PremiseKey, facts: Facts) {
         val selected = config.run1 || ops.demandPart(premise, facts, config.direction) != null

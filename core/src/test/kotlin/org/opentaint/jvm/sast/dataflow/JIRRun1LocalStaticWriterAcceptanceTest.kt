@@ -1,6 +1,8 @@
 package org.opentaint.jvm.sast.dataflow
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.parallel.ResourceLock
+import org.junit.jupiter.api.parallel.Resources
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.ReportState
@@ -13,6 +15,7 @@ import kotlin.test.*
 
 /** Real prescan, JVM forms, actors and three-run handoff. Writer counts and
  * controlled arrival orders are covered by the common actor tests. */
+@ResourceLock(Resources.SYSTEM_PROPERTIES)
 class JIRRun1LocalStaticWriterAcceptanceTest : AnalysisTest() {
     override val sourceFileExtension = "java"
     private val cls = "test.samples.bidi.Run1LocalStaticWriterSample"
@@ -50,7 +53,8 @@ class JIRRun1LocalStaticWriterAcceptanceTest : AnalysisTest() {
     }
 
     private fun assertPositiveHandoff(r: BidiAcceptanceResult, entry: String,
-                                      staticInput: List<String>? = null) {
+                                      staticInput: List<String>? = null,
+                                      run1MarkMode: MarkMode = MarkMode.GROUP) {
         assertComplete(r)
         assertEquals(listOf(1, 2, 3), r.runs.map { it.index })
         assertEquals(listOf(1, 1, 2), r.runs.map { it.fieldLimit })
@@ -61,22 +65,33 @@ class JIRRun1LocalStaticWriterAcceptanceTest : AnalysisTest() {
             "The later FULL run must retain a real sink witness, not only the run-1 candidate")
 
         val f1 = r.runs[0]
-        val group = f1.markGroups.getValue(full)
+        val runtimeMark = if (run1MarkMode == MarkMode.FULL) full else f1.markGroups.getValue(full)
         val entryKey = r.method(entry)
-        val supplies = f1.rawSummaries.filter { edge -> edge.method == entryKey &&
-            (if (staticInput == null) edge.premise == setOf(zero) else
-                edge.premise.singleOrNull()?.let { p -> p.base == AccessPathBase.ClassStatic &&
-                    p.path == staticInput && p.mark == group } == true) &&
-            isField(edge.conclusion.value, outputPath) && edge.conclusion.value.mark == group }
-        assertTrue(supplies.isNotEmpty(),
-            "Actual caller composition must retain ${if (staticInput == null) "ZERO" else "input/Group"} -> output/Group")
-        assertTrue(supplies.all { it.conclusion.layer == Layer.DEMAND && it in f1.selected })
-        if (staticInput != null) {
+        if (staticInput == null) {
+            val supplies = f1.rawSummaries.filter { edge -> edge.method == entryKey &&
+                edge.premise == setOf(zero) && isField(edge.conclusion.value, outputPath) &&
+                edge.conclusion.value.mark == runtimeMark }
+            assertTrue(supplies.isNotEmpty(), "Actual ZERO-derived composition must retain its output supply")
+            assertTrue(supplies.all { it.conclusion.layer == Layer.DEMAND && it in f1.selected })
+        } else {
             assertTrue(f1.rawSummaries.any { it.method == entryKey && it.premise == setOf(zero) &&
-                isField(it.conclusion.value, staticInput) && it.conclusion.value.mark == group &&
+                isField(it.conclusion.value, staticInput) && it.conclusion.value.mark == runtimeMark &&
                 it.conclusion.layer == Layer.DEMAND && it in f1.selected },
-                "The conditional output must join an actual ZERO-rooted input/Group supply")
+                "The conditional output must join an actual ZERO-rooted marked static input supply")
+            assertTrue(f1.links.any { link -> link.caller == entryKey && link.callee == r.method("setDeep") &&
+                link.premise.singleOrNull()?.let { p -> isField(p, staticInput) && p.mark == runtimeMark } == true &&
+                link.added.base == AccessPathBase.Argument(0) && link.added.mark == runtimeMark },
+                "The real first setter binding keeps the static original and its projected marked input")
+            assertTrue(r.witnesses.any { witness -> witness.run == 1 && witness.rule.id == rule &&
+                witness.literals.any { literal ->
+                    literal.premise.singleOrNull()?.let { p -> isField(p, outputPath) && p.mark == runtimeMark } == true &&
+                        literal.facts.any { it.value.mark == runtimeMark && it.layer == Layer.DEMAND }
+                } }, "The computed output supply answers the sink's saved static-origin point")
         }
+        for (rows in listOf(f1.rawSummaries, f1.selected)) assertTrue(rows.none { edge ->
+            edge.conclusion.value.base == AccessPathBase.ClassStatic && edge.premise.isNotEmpty() &&
+                edge.premise.all { it.base == AccessPathBase.ClassStatic }
+        }, "Run-1 retains no static/static row after securing its producer effects")
         assertEquals(true, f1.outgoingStaticGroupGuidance)
         assertTrue(f1.initials.none { it.value.base == AccessPathBase.ClassStatic },
             "Run-1 static inputs resume at operations, not at method entry")
@@ -131,12 +146,25 @@ class JIRRun1LocalStaticWriterAcceptanceTest : AnalysisTest() {
         val r = run("staticArgument")
         assertPositiveHandoff(r, "staticArgument", staticInput = inputPath)
         assertSetterAndGetterGuidance(r)
-        val f1 = r.runs.first()
-        val group = f1.markGroups.getValue(full)
-        assertTrue(f1.rawSummaries.any { it.method == r.method("staticArgument") &&
-            it.premise.any { p -> isField(p, inputPath) && p.mark == group } &&
-            isField(it.conclusion.value, outputPath) && it.conclusion.value.mark == group },
-            "The composed conditional static result must retain input/Group as its original")
+    }
+
+    @Test
+    fun `JVM FULL run1 static argument keeps actual supply and three-run source handoff`() {
+        val property = "opentaint.bidi.run1MarkMode"
+        val previous = System.getProperty(property)
+        try {
+            System.setProperty(property, "FULL")
+            val r = run("staticArgument")
+            assertPositiveHandoff(r, "staticArgument", staticInput = inputPath, run1MarkMode = MarkMode.FULL)
+            assertSetterAndGetterGuidance(r)
+            assertEquals(MarkMode.FULL, r.report.end.run1MarkMode)
+            val groupedNames = r.runs.first().markGroups.values.toSet()
+            assertTrue(r.runs.first().rawSummaries.none { edge ->
+                edge.conclusion.value.mark in groupedNames || edge.premise.any { it.mark in groupedNames }
+            }, "FULL mode cannot project actual marked summaries to their owner group")
+        } finally {
+            if (previous == null) System.clearProperty(property) else System.setProperty(property, previous)
+        }
     }
 
     @Test

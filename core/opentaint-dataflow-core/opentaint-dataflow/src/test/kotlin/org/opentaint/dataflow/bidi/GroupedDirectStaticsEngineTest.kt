@@ -302,9 +302,9 @@ class GroupedDirectStaticsEngineTest {
             assertTrue(result.analyzers.single { it.key == setter }.summaries.all().any { (original, value) ->
                 original.isFlow && original.member(0).base == arg && value.base == STATIC
             }, "The ordinary FLOW writer must be published")
-            assertTrue(result.analyzers.single { it.key == copy }.summaries.all().any { (original, value) ->
-                original.isFlow && original.member(0).base == STATIC && value.base == STATIC
-            }, "Actual pool groups must apply the all-static FLOW copy")
+            assertTrue(result.analyzers.single { it.key == copy }.summaries.all().none { (original, value) ->
+                !original.isZero && original.members.all { it.base == STATIC } && value.base == STATIC
+            }, "The actual copy supplies the observed sink without a retained static/static row")
             assertTrue(f.processed.none { it.run == 1 && it.delta.facts.base == STATIC })
         }
     }

@@ -64,13 +64,16 @@ class Run1OperationWriterPipelineTest {
                 val result = schedule.run()
                 assertTrue(result.witnesses.any { it.rule == sink.rule })
                 assertEquals(1, schedule.completedStaticStatistics!!.writerRows,
-                    "The two callers retain summaries, not copies of the leaf writer")
+                    "The leaf owns one writer; its callers retain no static/static relays")
                 assertEquals(0, schedule.completedStaticStatistics!!.flowWriterRows)
                 for (owner in listOf(main, middle, leaf)) {
                     val raw = result.rawSummaries.filter { row -> row.method == owner && row.conclusion.fact.path == to }
-                    assertTrue(raw.any { row -> row.premise.singleOrNull()?.fact?.path == from &&
-                        row.conclusion.fact.mark is MarkSlot.Star }, "Missing FLOW summary at $owner")
-                    assertTrue(result.selectedDemand.containsAll(raw))
+                    assertTrue(raw.none { row -> row.premise.singleOrNull()?.fact?.path == from },
+                        "Erased static/static rows must not remain in the raw store at $owner")
+                    for (rows in listOf(result.selectedDemand, result.publications)) assertTrue(rows.none { row ->
+                        row.method == owner && row.premise.singleOrNull()?.fact?.path == from &&
+                            row.conclusion.fact.path == to
+                    }, "Neither selected guidance nor publication can relay the erased relation at $owner")
                 }
             }
     }

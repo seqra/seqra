@@ -32,7 +32,7 @@ class StaticPointRequestOwnershipTest {
             service.commit(StaticBatch().apply { interests += first })
             actor.staticBatch.interests.clear()
             val queued = service.commit(StaticBatch().apply {
-                supplies += RegionGroups(initial.toPattern(), GroupSet.of(g))
+                supplies += RegionGroups(initial.toPattern(), f.manager.marks.atomsFor(GroupSet.of(g)))
             }).filterIsInstance<StaticOwnerEffect.PointReady>().single()
             actor.needGroups(at, u)
             val added = actor.staticBatch.interests.single()
@@ -41,7 +41,7 @@ class StaticPointRequestOwnershipTest {
             actor.staticBatch.interests.clear()
             actor.onStaticEffect(queued)
             val later = service.commit(StaticBatch().apply {
-                supplies += RegionGroups(initial.toPattern(), GroupSet.of(h))
+                supplies += RegionGroups(initial.toPattern(), f.manager.marks.atomsFor(GroupSet.of(h)))
             }).filterIsInstance<StaticOwnerEffect.PointReady>().single()
             actor.onStaticEffect(later) // Must still find the row after consuming the old reply.
             actor.needGroups(at, t)

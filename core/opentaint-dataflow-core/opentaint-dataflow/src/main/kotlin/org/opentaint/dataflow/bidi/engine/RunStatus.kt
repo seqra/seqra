@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.bidi.engine
 
 import org.opentaint.dataflow.bidi.ap.Direction
+import org.opentaint.dataflow.bidi.ap.MarkMode
 import org.opentaint.dataflow.bidi.store.SinkWitness
 import org.opentaint.dataflow.bidi.store.VulnerabilityKey
 import org.opentaint.dataflow.bidi.store.VulnerabilityStore
@@ -15,6 +16,7 @@ class RunResult<A : RunActor>(
     val runIndex: Int,
     val direction: Direction,
     val vulnerabilities: VulnerabilityStore,
+    val markMode: MarkMode? = null,
 ) {
     val analyzers: List<A> = Collections.unmodifiableList(ArrayList(analyzers))
 

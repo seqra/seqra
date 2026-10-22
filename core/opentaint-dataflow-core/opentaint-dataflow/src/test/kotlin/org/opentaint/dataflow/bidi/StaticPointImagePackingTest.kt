@@ -63,7 +63,7 @@ class StaticPointImagePackingTest {
 
         fun supply(group: GroupId, other: GroupId? = null): List<StaticOwnerEffect.PointReady> =
             service.commit(StaticBatch().apply {
-                supplies += RegionGroups(original.toPattern(), GroupSet.of(listOfNotNull(group, other)))
+                supplies += RegionGroups(original.toPattern(), f.manager.marks.atomsFor(GroupSet.of(listOfNotNull(group, other))))
             }).filterIsInstance<StaticOwnerEffect.PointReady>()
 
         fun answer(effects: List<StaticOwnerEffect.PointReady>) {
@@ -73,7 +73,7 @@ class StaticPointImagePackingTest {
 
         /** The old scalar algorithm, without the new key or pending-image union. */
         fun scalarReference(at: OperationInput, group: GroupId): Set<OperationInput> {
-            val actual = actor.staticFacts(RegionGroups(original.toPattern(), GroupSet.of(group)))
+            val actual = actor.staticFacts(RegionGroups(original.toPattern(), f.manager.marks.atomsFor(GroupSet.of(group))))
             val expected = HashSet<OperationInput>()
             for (image in f.ops.leaves(at.facts)) {
                 val scalar = f.manager.factsOf(image.fact, image.exclusion, at.facts.layer) as FlowTree
@@ -109,10 +109,10 @@ class StaticPointImagePackingTest {
         val second = t.input(t.f.manager.flowTree(t.local, Layer.DEMAND, ExclusionSet.Empty,
             MarkExclusions.EMPTY, sharedRoot, Tail.STAR))
         val onlyOther = t.input(t.flow(listOf(listOf(b))))
-        t.directory.request(first, GroupSet.of(t.group))
-        t.directory.request(second, GroupSet.of(t.group))
-        t.directory.request(first, GroupSet.of(t.group))
-        t.directory.request(onlyOther, GroupSet.of(t.otherGroup))
+        t.directory.request(first, t.f.manager.marks.atomsFor(GroupSet.of(t.group)))
+        t.directory.request(second, t.f.manager.marks.atomsFor(GroupSet.of(t.group)))
+        t.directory.request(first, t.f.manager.marks.atomsFor(GroupSet.of(t.group)))
+        t.directory.request(onlyOther, t.f.manager.marks.atomsFor(GroupSet.of(t.otherGroup)))
         val interests = t.actor.staticBatch.interests
         assertEquals(2, interests.size, "Only new row/group memberships register")
         assertEquals(1, interests.map { it.id }.distinct().size, "Current mx and path belong to the payload")
@@ -131,24 +131,24 @@ class StaticPointImagePackingTest {
     @Test fun `late images join queued answers and partial answers retain only their own groups`() = Fixture().use { t ->
         val a = t.input(t.flow(listOf(listOf(t.f.field("a")))))
         val b = t.input(t.flow(listOf(listOf(t.f.field("b")))))
-        t.directory.request(a, GroupSet(intArrayOf(t.group.value, t.otherGroup.value)))
+        t.directory.request(a, t.f.manager.marks.atomsFor(GroupSet(intArrayOf(t.group.value, t.otherGroup.value))))
         val firstId = t.actor.staticBatch.interests.single().id
         t.requests()
         val queued = t.supply(t.group)
         assertEquals(1, queued.size)
-        t.directory.request(b, GroupSet.of(t.group))
+        t.directory.request(b, t.f.manager.marks.atomsFor(GroupSet.of(t.group)))
         assertTrue(t.actor.staticBatch.interests.isEmpty(), "In-flight answer still owns the pending group")
         t.answer(queued)
         assertEquals(t.scalarReference(a, t.group) + t.scalarReference(b, t.group), t.resumed.toSet())
         t.resumed.clear()
-        t.directory.request(b, GroupSet.of(t.group))
+        t.directory.request(b, t.f.manager.marks.atomsFor(GroupSet.of(t.group)))
         assertEquals(firstId, t.actor.staticBatch.interests.single().id, "The other pending group keeps the row alive")
         t.answer(t.requests()) // Supply already exists.
         assertEquals(t.scalarReference(b, t.group), t.resumed.toSet())
         t.resumed.clear()
         t.answer(t.supply(t.otherGroup))
         assertEquals(t.scalarReference(a, t.otherGroup), t.resumed.toSet())
-        t.directory.request(a, GroupSet.of(t.group))
+        t.directory.request(a, t.f.manager.marks.atomsFor(GroupSet.of(t.group)))
         assertTrue(t.actor.staticBatch.interests.single().id > firstId, "A drained row gets a fresh monotone ID")
         t.answer(t.requests())
         assertFailsWith<IllegalStateException> { t.directory.onEffect(queued.single()) }
@@ -186,9 +186,9 @@ class StaticPointImagePackingTest {
             }
         } }
         // Some headers are defensive storage controls, not new run-1 input shapes.
-        variants.forEach { t.directory.request(it, GroupSet.of(t.group)) }
+        variants.forEach { t.directory.request(it, t.f.manager.marks.atomsFor(GroupSet.of(t.group))) }
         assertEquals(variants.size, t.actor.staticBatch.interests.map { it.id }.distinct().size)
-        variants.forEach { t.directory.request(it, GroupSet.of(t.group)) }
+        variants.forEach { t.directory.request(it, t.f.manager.marks.atomsFor(GroupSet.of(t.group))) }
         assertEquals(variants.size, t.actor.staticBatch.interests.size)
     }
 
@@ -198,32 +198,32 @@ class StaticPointImagePackingTest {
         val inputs = listOf<Boolean?>(null, false, true).flatMap { identity -> listOf(false, true).map { demotion ->
             t.input(flow, state = CallResumeState(Layer.NORMAL, identity, demotion))
         } }
-        inputs.forEach { t.directory.request(it, GroupSet.of(t.group)) }
+        inputs.forEach { t.directory.request(it, t.f.manager.marks.atomsFor(GroupSet.of(t.group))) }
         t.answer(t.requests())
         assertEquals(inputs.flatMap { t.scalarReference(it, t.group) }.toSet(), t.resumed.toSet())
     }
 
     @Test fun `unanswered rows remain passive and clear keeps IDs monotone`() = Fixture().use { t ->
         val input = t.input(t.flow(listOf(emptyList())))
-        t.directory.request(input, GroupSet.of(t.group))
+        t.directory.request(input, t.f.manager.marks.atomsFor(GroupSet.of(t.group)))
         val old = t.actor.staticBatch.interests.single()
         t.requests()
         assertTrue(t.actor.work(1), "A pending reply does not create runnable work")
         t.directory.clear()
         assertFailsWith<IllegalStateException> {
             t.directory.onEffect(StaticOwnerEffect.PointReady(t.f.key, old.id,
-                RegionGroups(t.original.toPattern(), GroupSet.of(t.group))))
+                RegionGroups(t.original.toPattern(), t.f.manager.marks.atomsFor(GroupSet.of(t.group)))))
         }
-        t.directory.request(input, GroupSet.of(t.group))
+        t.directory.request(input, t.f.manager.marks.atomsFor(GroupSet.of(t.group)))
         assertTrue(t.actor.staticBatch.interests.single().id > old.id)
     }
 
     @Test fun `cancellation is observed during pending union and answer drain`() = Fixture().use { t ->
         val input = t.input(t.flow(listOf(emptyList())))
-        t.directory.request(input, GroupSet.of(t.group))
+        t.directory.request(input, t.f.manager.marks.atomsFor(GroupSet.of(t.group)))
         t.requests()
         t.f.cancellation.cancel()
-        assertFailsWith<Cancellation.Cancelled> { t.directory.request(input, GroupSet.of(t.group)) }
+        assertFailsWith<Cancellation.Cancelled> { t.directory.request(input, t.f.manager.marks.atomsFor(GroupSet.of(t.group))) }
         t.f.cancellation.activate()
         val reply = t.supply(t.group).single()
         t.f.cancellation.cancel()

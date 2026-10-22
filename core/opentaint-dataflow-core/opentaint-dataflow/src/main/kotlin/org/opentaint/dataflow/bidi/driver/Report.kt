@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.bidi.driver
 
 import org.opentaint.dataflow.bidi.ap.Direction
+import org.opentaint.dataflow.bidi.ap.MarkMode
 import org.opentaint.dataflow.bidi.engine.RunActor
 import org.opentaint.dataflow.bidi.engine.RunConfig
 import org.opentaint.dataflow.bidi.engine.RunResult
@@ -12,7 +13,10 @@ import java.util.Collections
 enum class ReportState { CONFIRMED, DEMAND }
 enum class EndReason { STOP_RULE, NO_DEMAND_EDGE, POLICY, ABNORMAL }
 
-data class AnalysisEnd(val status: RunStatus, val run: Int, val direction: Direction, val reason: EndReason)
+data class AnalysisEnd(
+    val status: RunStatus, val run: Int, val direction: Direction, val reason: EndReason,
+    val run1MarkMode: MarkMode = MarkMode.GROUP,
+)
 
 /** A report owns its lists and retains each witness's complete support shape. */
 class Report(entries: List<Entry>, val end: AnalysisEnd) {

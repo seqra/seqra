@@ -38,13 +38,13 @@ class StaticConditionalRequestJoinTest {
                     f.drain(actor)
                 }
                 fun supplies(path: List<Int>, group: GroupId) = StaticBatch().apply {
-                    supplies += RegionGroups(f.pattern(STATIC, path, Tail.STAR, MarkSlot.STAR), GroupSet.of(group))
+                    supplies += RegionGroups(f.pattern(STATIC, path, Tail.STAR, MarkSlot.STAR), f.manager.marks.atomsFor(GroupSet.of(group)))
                 }
                 fun answers(): List<StaticOwnerEffect.PointReady> =
                     (external + f.events.filterIsInstance<RunEvent.StaticOwner>().map { it.effect })
                         .filterIsInstance<StaticOwnerEffect.PointReady>().filter { it.owner == observer }
                 commit(StaticBatch().apply {
-                    interests += StaticInterest(observer, 1, f.pattern(STATIC, output, Tail.STAR, MarkSlot.STAR), GroupSet.of(result))
+                    interests += StaticInterest(observer, 1, f.pattern(STATIC, output, Tail.STAR, MarkSlot.STAR), f.manager.marks.atomsFor(GroupSet.of(result)))
                 })
                 val supplyingPath = if (supplyingMember == 0) left else right
                 val supplyingGroup = if (supplyingMember == 0) g else h
@@ -83,23 +83,22 @@ class StaticConditionalRequestJoinTest {
                 f.drain(actor)
                 val expectedOrigins: Set<PremiseKey> = members.toSet()
                 assertEquals(expectedOrigins, published, "Every admitted original has an atomic result arm")
-                assertEquals(expectedOrigins, actor.summaries.all().map { it.first }.toSet())
-                assertTrue(actor.summaries.all().all { (premise, _) -> premise is InitialAp && !premise.isZero },
-                    "A local complete guard creates neither an executable ND premise nor an unconditional result")
+                assertTrue(actor.summaries.all().none(),
+                    "Every static/static arm is erased after securing its delayed scalar input join")
                 if (!supplyFirst) {
                     assertTrue(answers().isEmpty())
                     commit(supplies(supplyingPath, wrongGroup))
                     assertTrue(answers().isEmpty(), "A wrong group cannot supply either result arm")
                     commit(supplies(supplyingPath, supplyingGroup))
                 }
-                assertEquals(listOf(GroupSet.of(result)), answers().map { it.supply.groups })
+                assertEquals(listOf(f.manager.marks.atomsFor(GroupSet.of(result))), answers().map { it.supply.groups })
                 assertEquals(if (nd) 1L else 0L, service.requestStatistics().pendingMemberships,
                     "An unanswered origin remains pending after the other arm supplies the result")
                 if (nd) {
                     val remainingPath = if (supplyingMember == 0) right else left
                     val remainingGroup = if (supplyingMember == 0) h else g
                     commit(supplies(remainingPath, remainingGroup))
-                    assertEquals(listOf(GroupSet.of(result)), answers().map { it.supply.groups },
+                    assertEquals(listOf(f.manager.marks.atomsFor(GroupSet.of(result))), answers().map { it.supply.groups },
                         "The second satisfied arm does not answer an already released output request twice")
                 }
                 assertEquals(0, service.statistics().writerRows,
@@ -110,7 +109,7 @@ class StaticConditionalRequestJoinTest {
             }
     }
 
-    @Test fun `grounded canonical origins need the whole local guard and retain all pairs without repeated input joins`() {
+    @Test fun `grounded canonical origins need the whole local guard then erase pairs without repeated input joins`() {
         for (reverse in listOf(false, true)) MethodAnalysisFixtures().use { f ->
             val cls = f.manager.accessors.index(ClassStaticAccessor("Grounded"))
             val paths = listOf(listOf(cls, f.field("left")), listOf(cls, f.field("right")))
@@ -124,8 +123,8 @@ class StaticConditionalRequestJoinTest {
             val grounded = service.commit(StaticBatch().apply {
                 paths.forEachIndexed { index, path ->
                     val region = f.pattern(STATIC, path, Tail.STAR, MarkSlot.STAR)
-                    supplies += RegionGroups(region, GroupSet.of(groups[index]))
-                    interests += StaticInterest(observer, 10L + index, region, GroupSet.of(groups[index]))
+                    supplies += RegionGroups(region, f.manager.marks.atomsFor(GroupSet.of(groups[index])))
+                    interests += StaticInterest(observer, 10L + index, region, f.manager.marks.atomsFor(GroupSet.of(groups[index])))
                 }
             }).filterIsInstance<StaticOwnerEffect.PointReady>().sortedBy { it.id }
             assertEquals(listOf(10L, 11L), grounded.map { it.id })
@@ -139,7 +138,7 @@ class StaticConditionalRequestJoinTest {
             assertTrue(members.all(actor::hasKnownStaticGroupInput))
             val external = service.commit(StaticBatch().apply {
                 interests += StaticInterest(observer, 12,
-                    f.pattern(STATIC, output, Tail.STAR, MarkSlot.STAR), GroupSet.of(result))
+                    f.pattern(STATIC, output, Tail.STAR, MarkSlot.STAR), f.manager.marks.atomsFor(GroupSet.of(result)))
             }).toMutableList()
             assertTrue(external.isEmpty(), "Input supply does not bypass the local guard")
             val value = f.run1Fact(STATIC, output, Tail.EXACT, f.mark("V"))
@@ -183,12 +182,9 @@ class StaticConditionalRequestJoinTest {
             assertEquals(0, service.statistics().pointSubscriptions)
             assertEquals(0, service.statistics().writerRows)
             assertEquals(0, service.statistics().flowWriterRows)
-            assertEquals(expectedOrigins, actor.summaries.all().map { it.first }.toSet())
-            assertEquals(expectedOrigins, actor.summaries.demandEdges().map { it.first }.toSet())
-            assertTrue(actor.summaries.all().all { (premise, facts) ->
-                premise is InitialAp && !premise.isZero && facts.layer == Layer.DEMAND &&
-                    f.ops.leaves(facts).single() == f.ops.leaves(value).single()
-            })
+            assertTrue(actor.summaries.all().none())
+            assertTrue(actor.summaries.demandEdges().none())
+            assertTrue(f.publications.flatten().isEmpty())
             val replies = service.statistics().ownerReplies
             for (index in order) actor.localServices.conjunction(edge, members[index],
                 f.run1Fact(STATIC, paths[index], Tail.EXACT, full[index]), f.inst(1), ::publish)
@@ -197,9 +193,10 @@ class StaticConditionalRequestJoinTest {
             actor.freeze()
             val handOff = HandOff.of(f.config(), RunResult(RunStatus.COMPLETE, listOf(actor), 1,
                 Direction.FORWARD, f.vulnerabilities), ReportBuilder(), f.shared)
-            assertEquals(members.map { DemandPattern(f.ops.leaves(value).single(), it.toPattern()) }.toSet(),
-                handOff.demand.near(f.key, f.ops.leaves(value).single()).toSet(),
-                "Both complete origin exits survive the actual handoff")
+            assertTrue(handOff.demand.near(f.key, f.ops.leaves(value).single()).isEmpty(),
+                "Erased group-valued static/static pairs cannot reappear in the actual handoff")
+            assertEquals(org.opentaint.dataflow.bidi.store.StaticQueryPolicy.COMPLETE_RUN1_STATIC_FIELDS,
+                handOff.demand.staticQueryPolicy)
         }
     }
 }

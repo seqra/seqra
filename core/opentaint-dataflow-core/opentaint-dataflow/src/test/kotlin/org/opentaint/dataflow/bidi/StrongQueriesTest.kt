@@ -5,10 +5,89 @@ import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.StrongQueries
 import org.opentaint.dataflow.bidi.fixtures.StoreFixtures
+import org.opentaint.dataflow.bidi.fixtures.TestMark
+import org.opentaint.dataflow.bidi.fixtures.testDeclarations
+import org.opentaint.dataflow.bidi.store.StaticQueryPolicy
 import org.opentaint.dataflow.util.Cancellation
 import kotlin.test.*
 
 class StrongQueriesTest {
+    @Test fun `run2 completion covers every erased field guide with the actual full identity`() {
+        val owner = MarkGroupKey.Rule("one owner")
+        val f = StoreFixtures(markDeclarations = testDeclarations(TestMark("T", owner), TestMark("U", owner)))
+        val cls = f.manager.accessors.index(ClassStaticAccessor("C"))
+        val otherClass = f.manager.accessors.index(ClassStaticAccessor("Other"))
+        val field = f.field("f")
+        val otherField = f.field("g")
+        val t = f.mark("T")
+        val u = f.mark("U")
+        val group = MarkSlot.Concrete(f.manager.marks.group(f.manager.marks.groupOf(t)))
+        val paths = listOf(emptyList(), listOf(cls), listOf(cls, field), listOf(cls, otherField),
+            listOf(otherClass, field))
+        val guides = paths.flatMap { path -> listOf(Tail.EXACT, Tail.ANY).map { tail ->
+            DemandPattern(f.pattern(STATIC, path, tail, group), null)
+        } }
+        val completed = StrongQueries(f.ops, ApMode(false, Direction.BACKWARD, 1),
+            StaticQueryPolicy.COMPLETE_RUN1_STATIC_FIELDS)
+        val admitted = LinkedHashSet<InitialAp>()
+        for (mark in listOf(t, u)) for (tail in listOf(Tail.EXACT, Tail.ANY)) {
+            val actual = f.fact(STATIC, listOf(cls, field), tail, MarkSlot.Concrete(mark), layer = Layer.DEMAND)
+            val old = StrongQueries(f.ops, ApMode(false, Direction.BACKWARD, 1)).admit(actual, guides.asSequence())
+            admitted += completed.admit(actual)
+            assertTrue(admitted.containsAll(old), "Every exact old guide intersection is covered")
+        }
+        assertEquals(4, admitted.size, "EXACT and ANY stay distinct for both full members of one group")
+        assertTrue(admitted.all { it.toPattern().fact.path == listOf(cls, field) })
+        assertEquals(setOf(MarkSlot.Concrete(t), MarkSlot.Concrete(u)), admitted.map { it.mark }.toSet())
+        assertTrue(admitted.all(completed::permits), "The whole batch is installed before execution")
+        assertTrue(completed.permits(f.manager.premiseOf(admitted)), "Every ND member must be admitted")
+        val absent = f.manager.initial(f.pattern(STATIC, listOf(cls, otherField), mark = MarkSlot.Concrete(t)))
+        assertFalse(completed.permits(f.manager.premiseOf(admitted + absent)))
+    }
+
+    @Test fun `run2 completion retains exact markers and adds no full query from FLOW`() {
+        val f = StoreFixtures()
+        val cls = f.manager.accessors.index(ClassStaticAccessor("C"))
+        val field = f.field("f")
+        val t = f.mark("T")
+        val queries = StrongQueries(f.ops, ApMode(false, Direction.BACKWARD, 1),
+            StaticQueryPolicy.COMPLETE_RUN1_STATIC_FIELDS)
+        val marker = f.fact(STATIC, listOf(cls), mark = MarkSlot.Concrete(t))
+        val markerQueries = queries.admit(marker)
+        assertEquals(listOf(f.manager.initial(f.pattern(STATIC, listOf(cls), mark = MarkSlot.Concrete(t)))), markerQueries)
+        val flow = f.fact(STATIC, listOf(cls, field), Tail.STAR, MarkSlot.STAR)
+        assertTrue(queries.admit(flow).all { it.mark is MarkSlot.Star })
+        assertTrue(queries.admit(marker).isEmpty())
+    }
+
+    @Test fun `run2 completion keeps the static field anchor when the existing field bound cuts a descendant`() {
+        val f = StoreFixtures()
+        val cls = f.manager.accessors.index(ClassStaticAccessor("C"))
+        val field = f.field("f")
+        val nested = f.field("g")
+        val t = MarkSlot.Concrete(f.mark("T"))
+        val queries = StrongQueries(f.ops, ApMode(false, Direction.BACKWARD, 1),
+            StaticQueryPolicy.COMPLETE_RUN1_STATIC_FIELDS)
+        val actual = f.fact(STATIC, listOf(cls, field, nested), mark = t)
+        val initials = queries.admit(actual)
+        assertEquals(setOf(Tail.ANY, Tail.EXACT), initials.map { it.tail }.toSet())
+        assertTrue(initials.all { it.toPattern().fact.path == listOf(cls, field) && it.mark == t })
+    }
+
+    @Test fun `unsupported broad concrete static input is diagnosed before any batch permission is installed`() {
+        val f = StoreFixtures()
+        val cls = f.manager.accessors.index(ClassStaticAccessor("C"))
+        val t = MarkSlot.Concrete(f.mark("T"))
+        for (path in listOf(emptyList(), listOf(cls))) {
+            val queries = StrongQueries(f.ops, ApMode(false, Direction.BACKWARD, 1),
+                StaticQueryPolicy.COMPLETE_RUN1_STATIC_FIELDS)
+            val actual = f.fact(STATIC, path, Tail.ANY, t, layer = Layer.DEMAND)
+            val failure = assertFailsWith<IllegalStateException> { queries.admit(actual) }
+            assertContains(checkNotNull(failure.message), "Unsupported run-2 concrete static input")
+            assertFalse(queries.permits(f.manager.zero))
+        }
+    }
+
     @Test fun `actual exact queries admit every base in both strong directions without an old guide`() {
         for (direction in Direction.entries) {
             val f = StoreFixtures()

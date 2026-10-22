@@ -42,8 +42,8 @@ class Run1StaticGroupProtocolRemovalTest {
         /** An actual source supply and first request establish the production precondition. */
         fun ground(): RegionGroups {
             val result = service.commit(StaticBatch().apply {
-                supplies += RegionGroups(region, GroupSet.of(group))
-                interests += StaticInterest(observer, 10, region, GroupSet.of(group))
+                supplies += RegionGroups(region, f.manager.marks.atomsFor(GroupSet.of(group)))
+                interests += StaticInterest(observer, 10, region, f.manager.marks.atomsFor(GroupSet.of(group)))
             }).filterIsInstance<StaticOwnerEffect.PointReady>().single()
             assertEquals(observer, result.owner)
             return result.supply
@@ -162,7 +162,7 @@ class Run1StaticGroupProtocolRemovalTest {
         assertEquals(demand, t.decoded(t.actor.summaries.demandEdges()))
     }
 
-    @Test fun `computed output keeps its method pair and only the output first request wakes writers`() {
+    @Test fun `computed output erases its method pair and only the output first request wakes writers`() {
         for (exactClass in listOf(false, true)) Fixture(exactClass).use { t ->
             t.ground()
             val outputFull = t.f.mark("output"); val output = t.f.manager.marks.groupOf(outputFull)
@@ -170,7 +170,7 @@ class Run1StaticGroupProtocolRemovalTest {
             t.actor.promoteStaticSummary(t.initial, value)
             assertTrue(t.actor.staticBatch.interests.isEmpty(), "An answered original needs no unary input join")
             assertTrue(t.actor.staticBatch.supplies.isNotEmpty())
-            val expected = setOf(t.initial to Conclusion(t.f.ops.leaves(value).single().fact, ExclusionSet.Empty, true))
+            val expected = emptySet<Pair<PremiseKey, Conclusion>>()
             assertEquals(expected, t.decoded(t.actor.summaries.demandEdges()))
             val before = t.service.statistics().ownerReplies
             t.f.drain(t.actor, quantum = 1)
@@ -180,12 +180,12 @@ class Run1StaticGroupProtocolRemovalTest {
             assertTrue(t.service.commit(StaticBatch().apply { flowWriters += writer }).isEmpty(),
                 "An unrequested reached group must not wake a writer")
             val first = t.service.commit(StaticBatch().apply {
-                interests += StaticInterest(t.observer, 21, target, GroupSet.of(output))
+                interests += StaticInterest(t.observer, 21, target, t.f.manager.marks.atomsFor(GroupSet.of(output)))
             })
-            assertEquals(listOf(GroupSet.of(output)), first.filterIsInstance<StaticOwnerEffect.PointReady>().map { it.supply.groups })
+            assertEquals(listOf(t.f.manager.marks.atomsFor(GroupSet.of(output))), first.filterIsInstance<StaticOwnerEffect.PointReady>().map { it.supply.groups })
             assertEquals(listOf(20L), first.filterIsInstance<StaticOwnerEffect.WriterInterest>().map { it.id })
             val repeated = t.service.commit(StaticBatch().apply {
-                interests += StaticInterest(t.observer, 22, target, GroupSet.of(output))
+                interests += StaticInterest(t.observer, 22, target, t.f.manager.marks.atomsFor(GroupSet.of(output)))
             })
             assertEquals(1, repeated.filterIsInstance<StaticOwnerEffect.PointReady>().size)
             assertTrue(repeated.none { it is StaticOwnerEffect.WriterInterest })

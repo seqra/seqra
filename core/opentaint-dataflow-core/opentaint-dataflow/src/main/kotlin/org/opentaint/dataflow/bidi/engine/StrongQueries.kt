@@ -1,13 +1,25 @@
 package org.opentaint.dataflow.bidi.engine
 
 import org.opentaint.dataflow.bidi.ap.*
+import org.opentaint.dataflow.ap.ifds.FieldAccessor
+import org.opentaint.dataflow.bidi.store.StaticQueryPolicy
 
 /**
  * Owner-local authorization for actual later-run inputs, independent of old guidance.
  * Only canonical initial identities are retained; caller inputs stay in subscriptions.
  */
-internal class StrongQueries(private val ops: ApOps, private val mode: ApMode) {
-    init { require(!mode.run1) { "Strong current queries belong to restricted runs" } }
+internal class StrongQueries(
+    private val ops: ApOps,
+    private val mode: ApMode,
+    private val staticQueryPolicy: StaticQueryPolicy = StaticQueryPolicy.ORDINARY,
+) {
+    init {
+        require(!mode.run1) { "Strong current queries belong to restricted runs" }
+        require(staticQueryPolicy == StaticQueryPolicy.ORDINARY ||
+            mode.direction == Direction.BACKWARD && mode.fieldLimit == 1) {
+            "Run-1 static completion belongs only to the incoming run-2 demand"
+        }
+    }
 
     private val admitted = LinkedHashSet<InitialAp>()
 
@@ -37,6 +49,8 @@ internal class StrongQueries(private val ops: ApOps, private val mode: ApMode) {
                     // The same scalar primitive used by ops.emit, once per leaf;
                     // do not rescan the whole packed input for every current leaf.
                     emit(query, leaf)?.let { projected += ap.initial(it) }
+                    if (staticQueryPolicy == StaticQueryPolicy.COMPLETE_RUN1_STATIC_FIELDS)
+                        completeStaticFull(leaf)?.let { projected += ap.initial(it) }
                 }
                 // Guidance refines actual concrete inputs by intersection; it cannot
                 // manufacture a concrete mark from FLOW or reintroduce an abstract
@@ -65,6 +79,16 @@ internal class StrongQueries(private val ops: ApOps, private val mode: ApMode) {
         }
     }
 
+    /** Complete one actual FULL field intersection. FLOW never supplies a concrete mark. */
+    private fun completeStaticFull(actual: Pattern): Pattern? {
+        val ap = ops.manager
+        val field = validateRun2StaticFullInput(ap, actual)
+        if (!field || actual.fact.tail != Tail.ANY) return null
+        val exact = actual.copy(fact = actual.fact.copy(tail = Tail.EXACT))
+        // The real AP emitter preserves the actual full identity and spatial intersection.
+        return emit(exact, actual)
+    }
+
     /** Authorize the whole premise, never one independently matching ND member. */
     fun permits(premise: PremiseKey): Boolean {
         ops.manager.cancellation.checkpoint()
@@ -79,4 +103,37 @@ internal class StrongQueries(private val ops: ApOps, private val mode: ApMode) {
     }
 
     fun clear() = admitted.clear()
+}
+
+/** Check after the existing field cut, before a producer starts executable run-2 work.
+ * Returns true only for a named FULL field; exact class markers need no completion. */
+internal fun validateRun2StaticFullInput(ap: ApManager, actual: Pattern): Boolean {
+    val field = validateRun2StaticFullAnchor(ap, actual) ?: return false
+    check(actual.exclusion == ExclusionSet.Empty &&
+        (!field || actual.fact.path.size == 2 &&
+            (actual.fact.tail == Tail.EXACT || actual.fact.tail == Tail.ANY))) {
+        "Unsupported run-2 concrete static input: $actual. " +
+            "A query or seed needs empty field exclusions and a named field with EXACT/ANY tail, " +
+            "or an EXACT class marker (run1-static-summary-erasure.md section 3)."
+    }
+    return field
+}
+
+/** A current fact can retain its existing MUST/E header. Only its static anchor
+ * is checked here. Deeper field suffixes are lawful before the normal field cut.
+ * Returns true for a named field, false for an exact class marker, null otherwise. */
+internal fun validateRun2StaticFullAnchor(ap: ApManager, actual: Pattern): Boolean? {
+    if (actual.fact.base != STATIC) return null
+    val atom = (actual.fact.mark as? MarkSlot.Concrete)?.mark ?: return null
+    if (ap.marks.fullId(atom) == null) return null // GROUP guidance is metadata, not an actual FULL mark.
+    val path = actual.fact.path
+    val field = path.size >= 2 && path[0].isClass() &&
+        ap.accessors.accessor(path[1]) is FieldAccessor
+    val exactClass = path.size == 1 && path[0].isClass() && actual.fact.tail == Tail.EXACT
+    check(field || exactClass) {
+        "Unsupported run-2 concrete static input: $actual. " +
+            "Expected a named JVM static field anchor or an EXACT class marker; " +
+            "broad root/class marks require a separate query adapter (run1-static-summary-erasure.md section 3)."
+    }
+    return field
 }

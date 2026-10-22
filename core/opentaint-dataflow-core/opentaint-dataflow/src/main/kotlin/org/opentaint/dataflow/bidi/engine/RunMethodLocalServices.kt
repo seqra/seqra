@@ -296,6 +296,11 @@ class RunMethodLocalServices(core: RunMethodAnalyzer) : MethodLocalServices {
     private fun seedFact(core: RunMethodAnalyzer, requirement: Pattern, emit: (Facts) -> Unit) {
         core.ap.cancellation.checkpoint()
         core.cut(Cut.SEED, core.ap.zero, core.ops.targetTree(requirement.fact, Layer.NORMAL)) { _, facts ->
+            if (core.config.demand?.staticQueryPolicy == StaticQueryPolicy.COMPLETE_RUN1_STATIC_FIELDS) {
+                // A seed starts at its check, before any caller-input query gate.
+                // Validate the bounded value; a deeper named field is lawful before this cut.
+                for (leaf in core.ops.leaves(facts)) validateRun2StaticFullInput(core.ap, leaf)
+            }
             emit(facts)
             core.ap.cancellation.checkpoint()
         }

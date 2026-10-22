@@ -20,7 +20,7 @@ class Run1StaticAliasEffectTest {
         val batch = StaticBatch()
         batch.interests += StaticInterest(f.key, Long.MAX_VALUE,
             f.pattern(STATIC, target, Tail.STAR, MarkSlot.STAR),
-            GroupSet.of(f.manager.marks.groupOf(f.mark("T"))))
+            f.manager.marks.atomsFor(GroupSet.of(f.manager.marks.groupOf(f.mark("T")))))
         return checkNotNull(actor.runnerPort.staticService).commit(batch)
             .filterIsInstance<StaticOwnerEffect.PointReady>().filter { it.id == Long.MAX_VALUE }.map { it.supply }
     }
@@ -116,7 +116,7 @@ class Run1StaticAliasEffectTest {
             // The interest queues an owner callback; consume it through the same actor protocol.
             val wanted = StaticBatch().also { it.interests += StaticInterest(f.key, 999,
                 f.pattern(STATIC, target, Tail.STAR, MarkSlot.STAR),
-                GroupSet.of(f.manager.marks.groupOf(f.mark("T")))) }
+                f.manager.marks.atomsFor(GroupSet.of(f.manager.marks.groupOf(f.mark("T"))))) }
             val effects = checkNotNull(actor.runnerPort.staticService).commit(wanted)
             assertTrue(effects.none { it is StaticOwnerEffect.PointReady }, "An ordinary FLOW is not group supply")
             for (effect in effects) if (effect.owner == actor.key) actor.onStaticEffect(effect)

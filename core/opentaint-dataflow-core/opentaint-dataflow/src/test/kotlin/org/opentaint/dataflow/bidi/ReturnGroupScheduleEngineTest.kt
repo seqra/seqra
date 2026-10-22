@@ -67,7 +67,7 @@ class ReturnGroupScheduleEngineTest {
             assertEquals(if (scheduled) 2 else 5, pending)
             val replies = service.commit(StaticBatch().apply {
                 supplies += RegionGroups(original.toPattern(),
-                    GroupSet.of(listOf(f.manager.marks.groupOf(g), f.manager.marks.groupOf(h))))
+                    f.manager.marks.atomsFor(GroupSet.of(listOf(f.manager.marks.groupOf(g), f.manager.marks.groupOf(h)))))
             }).filterIsInstance<StaticOwnerEffect.PointReady>()
             assertEquals(pending, replies.size)
             replies.forEach(actor::onStaticEffect)

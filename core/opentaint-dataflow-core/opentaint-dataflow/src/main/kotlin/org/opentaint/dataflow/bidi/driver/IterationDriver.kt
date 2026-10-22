@@ -14,6 +14,7 @@ import org.opentaint.dataflow.bidi.engine.RunMethodLocalServices
 import org.opentaint.dataflow.bidi.engine.RunResult
 import org.opentaint.dataflow.bidi.engine.RunStatus
 import org.opentaint.dataflow.bidi.engine.SharedObjects
+import org.opentaint.dataflow.bidi.engine.readRun1MarkMode
 import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.util.MemoryManager
 import java.util.Collections
@@ -31,6 +32,7 @@ class IterationDriver internal constructor(
     constructor(policy: IterationPolicy, shared: SharedObjects, budget: Duration) :
         this(policy, shared, budget, ::runEngine, ::withBarrierGuard)
 
+    private val run1MarkMode = readRun1MarkMode()
     private val frontierLog = ArrayList<Frontier>()
     val frontiers: List<Frontier> get() = Collections.unmodifiableList(ArrayList(frontierLog))
 
@@ -41,13 +43,13 @@ class IterationDriver internal constructor(
         fun end(status: RunStatus, reason: EndReason): Report {
             logger.info { "BIDI_ANALYSIS_END run=$index status=$status reason=$reason elapsed=${start.elapsedNow()}" }
             return report.build(AnalysisEnd(status, index,
-                if (index % 2 == 1) Direction.FORWARD else Direction.BACKWARD, reason))
+                if (index % 2 == 1) Direction.FORWARD else Direction.BACKWARD, reason, run1MarkMode))
         }
         try {
             val firstLimit = policy.fieldLimit(1)
             require(firstLimit == 1) { "F78: selected run 1 needs field limit exactly 1" }
             var config = RunConfig(1, firstLimit, demand = null, records = shared.records.view(),
-                seeds = SeedIndex.EMPTY, roots = roots)
+                seeds = SeedIndex.EMPTY, roots = roots, run1MarkMode = run1MarkMode)
             while (true) {
                 index = config.index
                 val selectedTimeout = policy.timeout(config, budget - start.elapsedNow())
@@ -67,7 +69,7 @@ class IterationDriver internal constructor(
     /** This frame releases its result before the next engine is created. */
     private fun runOnce(config: RunConfig, report: ReportBuilder, timeout: Duration): Next {
         val start = TimeSource.Monotonic.markNow()
-        logger.info { "BIDI_RUN_START run=${config.index} direction=${config.direction} limit=${config.fieldLimit} timeout=$timeout" }
+        logger.info { "BIDI_RUN_START run=${config.index} direction=${config.direction} limit=${config.fieldLimit} timeout=$timeout markMode=${config.mode.markMode}" }
         logOptimizationStatistics(config, "START")
         val result = try {
             invokeRun(config, shared, timeout)
@@ -131,7 +133,7 @@ class IterationDriver internal constructor(
         val index = config.index + 1
         val limit = policy.fieldLimit(index)
         require(limit >= config.fieldLimit) { "ap.md W3: the field limit must not decrease" }
-        return RunConfig(index, limit, handOff.demand, shared.records.view(), handOff.seeds, config.roots)
+        return RunConfig(index, limit, handOff.demand, shared.records.view(), handOff.seeds, config.roots, run1MarkMode = run1MarkMode)
     }
 
     companion object : KLogging() {

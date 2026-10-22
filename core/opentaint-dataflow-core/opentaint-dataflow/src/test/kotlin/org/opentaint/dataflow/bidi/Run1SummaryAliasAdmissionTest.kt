@@ -154,7 +154,7 @@ class Run1SummaryAliasAdmissionTest {
             observed.clear()
             val supplied = f.pattern(STATIC, fields, Tail.STAR, MarkSlot.STAR)
             val effects = checkNotNull(actor.runnerPort.staticService).commit(StaticBatch().also {
-                it.supplies += RegionGroups(supplied, GroupSet.of(f.manager.marks.groupOf(group.mark)))
+                it.supplies += RegionGroups(supplied, f.manager.marks.atomsFor(GroupSet.of(f.manager.marks.groupOf(group.mark))))
             })
             assertTrue(effects.any { it is StaticOwnerEffect.PointReady })
             effects.filter { it.owner == actor.key }.forEach(actor::onStaticEffect)

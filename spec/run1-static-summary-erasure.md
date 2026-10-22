@@ -1,10 +1,11 @@
 # Run-1 without static-to-static summaries
 
-Date: 22 October 2026. Status: **selected design; not implemented**.
+Date: 22 October 2026. Status: **implemented; project measurements pending**.
 Reference runtime: `30c1b84606695070a79d7ae467703267b9f931c1`.
 Revision: add the run-1 mark-mode experiment in sections 14 and 15.
-Read the [proof dossier](run1-static-summary-erasure-proofs.md) and
-[proof guide](proof-guide.md).
+Read the [proof dossier](run1-static-summary-erasure-proofs.md),
+[proof guide](proof-guide.md), and
+[implementation validation](../docs/reports/bidirectional-static-summary-erasure-validation-20261022.md).
 
 ## 1. Purpose and comparison
 

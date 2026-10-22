@@ -11,7 +11,9 @@ data class StaticRegion(val pattern: Pattern) {
         this(Pattern(fact.copy(mark = MarkSlot.STAR), exclusion))
 }
 
-data class RegionGroups(val region: Pattern, val groups: GroupSet)
+/** Selected executable atoms: GROUP handles in GROUP mode, FULL handles in FULL
+ * mode. The legacy payload name does not imply owner-only membership. */
+data class RegionGroups(val region: Pattern, val groups: MarkSet)
 
 /** Event payloads contain values and IDs, never actor callbacks or mutable stores. */
 sealed interface StaticOwnerEffect {
@@ -19,11 +21,11 @@ sealed interface StaticOwnerEffect {
     data class ReadReady(override val owner: MethodKey, val id: Long, val region: Pattern) : StaticOwnerEffect
     data class PointReady(override val owner: MethodKey, val id: Long, val supply: RegionGroups) : StaticOwnerEffect
     data class WriterInterest(override val owner: MethodKey, val id: Long,
-                              val groups: GroupSet) : StaticOwnerEffect
+                              val groups: MarkSet) : StaticOwnerEffect
 }
 
 data class StaticReadRegistration(val owner: MethodKey, val id: Long, val region: Pattern)
-data class StaticInterest(val owner: MethodKey, val id: Long, val region: Pattern, val wanted: GroupSet)
+data class StaticInterest(val owner: MethodKey, val id: Long, val region: Pattern, val wanted: MarkSet)
 data class StaticWriterRegistration(val owner: MethodKey, val id: Long, val premise: PremiseKey, val region: Pattern)
 data class StaticFlowWriter(val owner: MethodKey, val id: Long, val region: Pattern)
 
@@ -40,7 +42,7 @@ class StaticBatch {
 }
 
 /** Run-1 positive forward closure. Program transfer and resumption always run at the addressed owner. */
-class Run1StaticService(private val ap: ApManager) {
+class Run1StaticService(private val ap: ApManager, private val markMode: MarkMode = MarkMode.GROUP) {
     private val lock = Any()
     private val ops = ApOps(ap)
     private data class Key(val owner: MethodKey, val id: Long)
@@ -56,25 +58,25 @@ class Run1StaticService(private val ap: ApManager) {
     private class ReadRow(val registration: StaticReadRegistration) { val delivered = HashSet<Pattern>() }
     private class InterestRow(val registration: StaticInterest) { var wanted = registration.wanted }
     private class FlowWriterRow(val owner: MethodKey, val id: Long, val region: Pattern,
-                                val staticOrigin: Boolean) { var admitted = GroupSet.EMPTY }
+                                val staticOrigin: Boolean) { var admitted = MarkSet.EMPTY }
     private data class FieldKey(val klass: AccessorIdx, val field: AccessorIdx)
     private class FieldState(val region: Pattern) {
-        var req = GroupSet.EMPTY
-        var reach = GroupSet.EMPTY
-        var processed = GroupSet.EMPTY
+        var req = MarkSet.EMPTY
+        var reach = MarkSet.EMPTY
+        var processed = MarkSet.EMPTY
         val pending = LinkedHashMap<Key, InterestRow>()
     }
     private val writes = LinkedHashSet<Pattern>()
     private val writeIndex = Regions<Pattern>()
     // Only broad root/class supplies keep spatial history. A normal field has
     // one canonical membership, never a second region-valued group pool.
-    private val broadGroups = LinkedHashMap<Pattern, GroupSet>()
+    private val broadGroups = LinkedHashMap<Pattern, MarkSet>()
     private val fields = LinkedHashMap<FieldKey, FieldState>()
     private val fieldIndex = Regions<FieldKey>()
     private val reads = LinkedHashMap<Key, ReadRow>()
     private val readIndex = Regions<Key>()
     private val classInterests = LinkedHashMap<Key, InterestRow>()
-    private val classRequested = LinkedHashMap<Pattern, GroupSet>()
+    private val classRequested = LinkedHashMap<Pattern, MarkSet>()
     private val flowWriters = LinkedHashMap<Key, FlowWriterRow>()
     private val flowWriterIndex = Regions<Key>()
     private var candidateVisits = 0L
@@ -136,7 +138,7 @@ class Run1StaticService(private val ap: ApManager) {
             admitWrite(position, out)
             if (fieldKey(position) != null) groupWrite(field(position), supply.groups, out)
             else {
-                val old = broadGroups[position] ?: GroupSet.EMPTY
+                val old = broadGroups[position] ?: MarkSet.EMPTY
                 val fresh = supply.groups - old
                 if (fresh.isEmpty) continue
                 broadGroups[position] = old + fresh
@@ -187,7 +189,7 @@ class Run1StaticService(private val ap: ApManager) {
         }
     }
 
-    private fun groupWrite(state: FieldState, groups: GroupSet,
+    private fun groupWrite(state: FieldState, groups: MarkSet,
                            out: MutableList<StaticOwnerEffect>) {
         val fresh = groups - (state.reach + state.processed)
         if (fresh.isEmpty) return
@@ -213,7 +215,7 @@ class Run1StaticService(private val ap: ApManager) {
         val key = Key(row.owner, row.id)
         if (flowWriters.putIfAbsent(key, row) != null) return
         flowWriterIndex.add(row.region, key)
-        var wanted = GroupSet.EMPTY
+        var wanted = MarkSet.EMPTY
         for (field in fieldIndex.around(row.region)) {
             val state = fields.getValue(field)
             if (requestMatches(row.region, state.region)) wanted += state.req + state.processed
@@ -225,7 +227,7 @@ class Run1StaticService(private val ap: ApManager) {
         askOnce(row, wanted, out)
     }
 
-    private fun askOnce(row: FlowWriterRow, offered: GroupSet,
+    private fun askOnce(row: FlowWriterRow, offered: MarkSet,
                         out: MutableList<StaticOwnerEffect>) {
         val fresh = offered - row.admitted
         if (fresh.isEmpty) return
@@ -247,7 +249,7 @@ class Run1StaticService(private val ap: ApManager) {
         val row = classInterests[key] ?: InterestRow(interest).also { classInterests[key] = it }
         row.wanted += interest.wanted
         val requested = region(interest.region).copy(exclusion = ExclusionSet.Empty)
-        classRequested[requested] = (classRequested[requested] ?: GroupSet.EMPTY) + interest.wanted
+        classRequested[requested] = (classRequested[requested] ?: MarkSet.EMPTY) + interest.wanted
         for ((position, supplied) in broadGroups) answerClass(row, position, supplied, out)
         if (row.wanted.isEmpty) classInterests.remove(key)
         for (writer in flowWriterIndex.prefixes(interest.region)) {
@@ -256,7 +258,7 @@ class Run1StaticService(private val ap: ApManager) {
         }
     }
 
-    private fun answerClass(row: InterestRow, position: Pattern, supplied: GroupSet,
+    private fun answerClass(row: InterestRow, position: Pattern, supplied: MarkSet,
                             out: MutableList<StaticOwnerEffect>) {
         val overlap = intersect(row.registration.region, position) ?: return
         val fresh = supplied intersect row.wanted
@@ -281,14 +283,30 @@ class Run1StaticService(private val ap: ApManager) {
 
     data class Statistics(val writeRegions: Int, val suppliedRegions: Int, val suppliedGroups: Long,
                           val readDescriptors: Int, val pointSubscriptions: Int, val writerRows: Int,
-                          val flowWriterRows: Int, val candidateVisits: Long, val ownerReplies: Long)
+                          val flowWriterRows: Int, val candidateVisits: Long, val ownerReplies: Long,
+                          val distinctRequestedAtoms: Int, val distinctSuppliedAtoms: Int,
+                          val suppliedOwnerGroups: Int, val suppliedFullAtoms: Int)
     fun statistics(): Statistics = synchronized(lock) {
         val supplied = fields.values.filter { !(it.reach + it.processed).isEmpty }
+        // Snapshot only: union existing membership, with no hot-path observer,
+        // member enumeration, or retained cardinality index. GROUP mode cannot
+        // recover the number of underlying FULL marks from these memberships.
+        val requestedAtoms = HashSet<TaintMark>()
+        val suppliedAtoms = HashSet<TaintMark>()
+        for (state in fields.values) {
+            state.req.forEach { requestedAtoms += it }
+            state.processed.forEach { requestedAtoms += it; suppliedAtoms += it }
+            state.reach.forEach { suppliedAtoms += it }
+        }
+        classRequested.values.forEach { marks -> marks.forEach { requestedAtoms += it } }
+        broadGroups.values.forEach { marks -> marks.forEach { suppliedAtoms += it } }
         Statistics(writes.size, supplied.size + broadGroups.size,
             supplied.sumOf { (it.reach + it.processed).size.toLong() } + broadGroups.values.sumOf { it.size.toLong() },
             reads.size, fields.values.sumOf { it.pending.size } + classInterests.size,
             flowWriters.values.count { it.staticOrigin }, flowWriters.values.count { !it.staticOrigin },
-            candidateVisits, replies)
+            candidateVisits, replies, requestedAtoms.size, suppliedAtoms.size,
+            suppliedAtoms.mapTo(HashSet(), ap.marks::groupOf).size,
+            suppliedAtoms.count(ap.marks::isFull))
     }
 
     data class RequestStatistics(val requested: Long, val reached: Long, val processed: Long,
@@ -306,21 +324,23 @@ class Run1StaticService(private val ap: ApManager) {
         val out = ArrayList<RegionGroups>()
         for (leaf in ops.leaves(value)) {
             val mark = (leaf.fact.mark as? MarkSlot.Concrete)?.mark ?: continue
-            val group = ap.marks.groupOf(mark)
-            out += RegionGroups(region(leaf), GroupSet.of(group))
+            val atom = ap.marks.runtimeAtom(mark, markMode)
+            out += RegionGroups(region(leaf), MarkSet.of(atom))
         }
         return out
     }
 
-    fun facts(region: Pattern, groups: GroupSet): Facts {
+    fun facts(region: Pattern, groups: MarkSet): Facts {
         require(!groups.isEmpty)
         check(region.fact.path.size != 1 || region.fact.tail == Tail.EXACT) {
             "Global marker materialization preserves the exact class point"
         }
-        val atoms = ap.marks.atomsFor(groups)
+        val atoms = groups
         var result: TaintTree? = null
         for (atom in atoms.ids) {
-            val one = ap.factsOf(region.fact.copy(mark = MarkSlot.Concrete(TaintMark(atom))), region.exclusion, Layer.DEMAND) as TaintTree
+            val executable = ap.marks.runtimeAtom(TaintMark(atom), markMode)
+            check(executable.id == atom) { "Static reply contains an atom from a different run mode" }
+            val one = ap.factsOf(region.fact.copy(mark = MarkSlot.Concrete(executable)), region.exclusion, Layer.DEMAND) as TaintTree
             result = if (result == null) one else ap.taintTree(one.base, Layer.DEMAND,
                 ap.taintAlg.mergeAdd(result.root, one.root, ap.cancellation), one.exclusion, one.anyTail)
         }

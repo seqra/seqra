@@ -19,9 +19,9 @@ class ThreeSetStaticRequestsTest {
             val owner = f.method("reader", listOf(emptyList()), 0).key()
             val g = f.ap.marks.groupOf(f.mark("T")); val position = field(f)
             val service = Run1StaticService(f.ap)
-            service.commit(StaticBatch().apply { interests += StaticInterest(owner, 1, position, GroupSet.of(g)) })
+            service.commit(StaticBatch().apply { interests += StaticInterest(owner, 1, position, f.ap.marks.atomsFor(GroupSet.of(g))) })
             assertEquals(1, service.statistics().pointSubscriptions)
-            val ready = service.commit(StaticBatch().apply { supplies += RegionGroups(position, GroupSet.of(g)) })
+            val ready = service.commit(StaticBatch().apply { supplies += RegionGroups(position, f.ap.marks.atomsFor(GroupSet.of(g))) })
             assertEquals(1, ready.filterIsInstance<StaticOwnerEffect.PointReady>().size)
             assertEquals(0, service.statistics().pointSubscriptions,
                 "The service must release an answered request instead of keeping delivered history")
@@ -33,9 +33,9 @@ class ThreeSetStaticRequestsTest {
             val owner = f.method("reader", listOf(emptyList()), 0).key()
             val g = f.ap.marks.groupOf(f.mark("T")); val position = field(f)
             val service = Run1StaticService(f.ap)
-            service.commit(StaticBatch().apply { interests += StaticInterest(owner, 1, position, GroupSet.of(g)) })
+            service.commit(StaticBatch().apply { interests += StaticInterest(owner, 1, position, f.ap.marks.atomsFor(GroupSet.of(g))) })
             val exact = position.copy(fact = position.fact.copy(tail = Tail.EXACT))
-            val reply = service.commit(StaticBatch().apply { supplies += RegionGroups(exact, GroupSet.of(g)) })
+            val reply = service.commit(StaticBatch().apply { supplies += RegionGroups(exact, f.ap.marks.atomsFor(GroupSet.of(g))) })
                 .filterIsInstance<StaticOwnerEffect.PointReady>().single()
             assertEquals(position, reply.supply.region,
                 "The descriptor is C.f.*; ordinary marked current-fact construction can use ANY")
@@ -48,10 +48,10 @@ class ThreeSetStaticRequestsTest {
             val g = f.ap.marks.groupOf(f.mark("T")); val position = field(f)
             val service = Run1StaticService(f.ap)
             service.commit(StaticBatch().apply { flowWriters += StaticFlowWriter(owner, 1, position) })
-            val unrequested = service.commit(StaticBatch().apply { supplies += RegionGroups(position, GroupSet.of(g)) })
+            val unrequested = service.commit(StaticBatch().apply { supplies += RegionGroups(position, f.ap.marks.atomsFor(GroupSet.of(g))) })
             assertTrue(unrequested.filterIsInstance<StaticOwnerEffect.WriterInterest>().isEmpty())
             val requested = service.commit(StaticBatch().apply {
-                interests += StaticInterest(owner, 2, position, GroupSet.of(g))
+                interests += StaticInterest(owner, 2, position, f.ap.marks.atomsFor(GroupSet.of(g)))
             })
             assertEquals(1, requested.filterIsInstance<StaticOwnerEffect.WriterInterest>().size)
             assertEquals(1, requested.filterIsInstance<StaticOwnerEffect.PointReady>().size)
@@ -76,13 +76,13 @@ class ThreeSetStaticRequestsTest {
             f.drain(actor)
             val service = checkNotNull(actor.runnerPort.staticService)
             val unrequested = service.commit(StaticBatch().apply {
-                supplies += RegionGroups(f.pattern(STATIC, inputPath, Tail.STAR, MarkSlot.STAR), GroupSet.of(g))
+                supplies += RegionGroups(f.pattern(STATIC, inputPath, Tail.STAR, MarkSlot.STAR), f.manager.marks.atomsFor(GroupSet.of(g)))
             })
             assertTrue(unrequested.isEmpty(),
                 "Pool growth must not replay an all-static FLOW writer before its output group is requested")
             val requested = service.commit(StaticBatch().apply {
                 interests += StaticInterest(f.key, Long.MAX_VALUE,
-                    f.pattern(STATIC, outputPath, Tail.STAR, MarkSlot.STAR), GroupSet.of(g))
+                    f.pattern(STATIC, outputPath, Tail.STAR, MarkSlot.STAR), f.manager.marks.atomsFor(GroupSet.of(g)))
             })
             assertEquals(1, requested.filterIsInstance<StaticOwnerEffect.WriterInterest>().size)
         }

@@ -22,6 +22,23 @@ except ImportError:
 ASPROF = Path('/home/sobol/.local/opt/async-profiler-4.5-linux-x64/bin/asprof')
 
 
+def analyzer_jvm_args(args, directory, side, memory):
+    values = [f'-Xmx{memory}', '-XX:FlightRecorderOptions=stackdepth=256',
+              f'-XX:StartFlightRecording=filename={directory}/continuous.jfr,settings=profile,dumponexit=true,maxsize=256m',
+              f'-Xlog:gc*:file={directory}/gc.log:time,uptime,level,tags:filecount=0']
+    if args.heap_snapshots:
+        values += [f'-Dopentaint.memorySnapshotDir={directory}',
+                   '-XX:+HeapDumpOnOutOfMemoryError', f'-XX:HeapDumpPath={directory}/jvm-oom.hprof']
+    if side == 'bidi':
+        values += [f'-Dopentaint.bidi.run1MarkMode={args.run1_mark_mode}',
+                   '-Dopentaint.bidi.disableRun1Statics=false']
+        if args.form_statistics:
+            values.append('-Dorg.opentaint.bidi.formStatistics=true')
+        if args.optimization_statistics:
+            values.append('-Dorg.opentaint.bidi.optimizationStatistics=true')
+    return values
+
+
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -125,19 +142,14 @@ def run(args, project, side, config):
     if side == 'bidi':
         runner_args.append('--ifds-bidirectional')
     init = directory / 'benchmark.init.gradle'
-    snapshot_arg = (f', "-Dopentaint.memorySnapshotDir={directory}", '
-                    f'"-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath={directory}/jvm-oom.hprof"'
-                    if args.heap_snapshots else '')
     form_statistics = args.form_statistics and side == 'bidi'
-    statistics_arg = ', "-Dorg.opentaint.bidi.formStatistics=true"' if form_statistics else ''
     optimization_statistics = args.optimization_statistics and side == 'bidi'
-    optimization_statistics_arg = ', "-Dorg.opentaint.bidi.optimizationStatistics=true"' if optimization_statistics else ''
+    jvm_args = analyzer_jvm_args(args, directory, side, memory)
     # Configure only the selected JavaExec; Gradle/compiler heaps stay separate.
     init.write_text('gradle.projectsEvaluated {\n'
                     '  if (rootProject.name != "opentaint-jvm-sast") return\n'
                     '  rootProject.tasks.named("runProjectAnalyzer", JavaExec).configure {\n'
-                    f'    jvmArgs = ["-Xmx{memory}", "-XX:FlightRecorderOptions=stackdepth=256", '
-                    f'"-XX:StartFlightRecording=filename={directory}/continuous.jfr,settings=profile,dumponexit=true,maxsize=256m"{snapshot_arg}{statistics_arg}{optimization_statistics_arg}]\n'
+                    f'    jvmArgs = {json.dumps(jvm_args)}\n'
                     f'    args = {json.dumps(runner_args)}\n'
                     '  }\n}\n')
     # These four inputs are JVM projects. The Go server is never called.
@@ -150,6 +162,8 @@ def run(args, project, side, config):
                 'guard_heap_snapshot': args.heap_snapshots,
                 'form_statistics': form_statistics,
                 'optimization_statistics': optimization_statistics,
+                'run1_mark_mode': args.run1_mark_mode if side == 'bidi' else None,
+                'analyzer_jvm_args': jvm_args,
                 'started_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
     (directory / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     print(f'START {project} {side}: {memory}, {timeout}s', flush=True)
@@ -164,6 +178,9 @@ def run(args, project, side, config):
     hard_timeout = False
     log_offset = 0
     log_tail = ''
+    latest_run = None
+    latest_run_active = False
+    run1_recording = None
     with (directory / 'console.log').open('w') as console, (directory / 'resources.jsonl').open('w') as resources:
         process = subprocess.Popen(command, cwd=checkout / 'core', stdout=console,
                                    stderr=subprocess.STDOUT, start_new_session=True)
@@ -178,6 +195,23 @@ def run(args, project, side, config):
                     lines = stream.read()
                     log_offset = stream.tell()
                 log_tail = (log_tail + lines)[-65536:]
+                for marker in re.finditer(r'BIDI_RUN_(START|END) run=(\d+)', log_tail):
+                    latest_run = int(marker[2])
+                    latest_run_active = marker[1] == 'START'
+                if (pid and side == 'bidi' and run1_recording is None
+                        and 'BIDI_RUN_END run=1 ' in log_tail):
+                    # Preserve the early recording before a later run rolls it out.
+                    # This runs after the engine end marker, without a GC request.
+                    try:
+                        dump = subprocess.run(
+                            [str(Path(os.environ['JAVA_HOME']) / 'bin/jcmd'), str(pid),
+                             'JFR.dump', f'filename={directory}/run1.jfr'],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
+                        run1_recording = {'returncode': dump.returncode, 'output': dump.stdout,
+                                          'elapsed': now - start, 'latest_run': latest_run}
+                    except (OSError, subprocess.TimeoutExpired) as error:
+                        run1_recording = {'error': str(error), 'elapsed': now - start,
+                                          'latest_run': latest_run}
                 if analysis_start is None and 'Start IFDS analysis' in lines:
                     analysis_start = now
                 if full_start is None and ('BIDI_RUN_START run=1 ' in lines or 'Start full scan phase' in lines):
@@ -208,14 +242,24 @@ def run(args, project, side, config):
                 windows = [('normal', full_start, 60), ('near-limit', analysis_start, timeout - 60)]
                 for label, anchor, delay in windows:
                     if anchor and not workload_finished and now >= anchor + delay and label not in profiles:
+                        if label == 'normal' and side == 'bidi' and not (latest_run == 1 and latest_run_active):
+                            profiles[label] = {'skipped': True, 'reason': 'Run-1 engine already ended',
+                                               'latest_run': latest_run, 'elapsed': now - start}
+                            continue
                         output = directory / f'{label}.collapsed'
                         profile_log = (directory / f'{label}-profiler.log').open('w')
                         job = subprocess.Popen([str(ASPROF), '-e', 'cpu', '-d', '30', '-o', 'collapsed',
                                                 '-f', str(output), str(pid)], stdout=profile_log, stderr=subprocess.STDOUT)
                         profiles[label] = {'start_elapsed': now - start, 'duration_requested': 30,
                                            'requested_delay_seconds': delay,
-                                           'anchor': 'full-analysis' if label == 'normal' else 'ifds'}
+                                           'anchor': 'run-1-engine' if side == 'bidi' and label == 'normal' else 'full-analysis' if label == 'normal' else 'ifds',
+                                           'latest_run': latest_run, 'engine_active': latest_run_active}
                         profile_jobs.append((label, job, profile_log))
+                for label, job, _ in profile_jobs:
+                    if job.poll() is not None and 'end_observed_elapsed' not in profiles[label]:
+                        profiles[label].update(end_observed_elapsed=now - start,
+                                               end_latest_run=latest_run,
+                                               end_engine_active=latest_run_active)
             # The project config gives a 1200s outer scan limit. Start at the
             # analyzer launch so Gradle compilation is not charged to the scan.
             if pid and 'analyzer_started_elapsed' not in manifest:
@@ -248,6 +292,8 @@ def run(args, project, side, config):
         except subprocess.TimeoutExpired:
             job.kill()
             profiles[label]['return_code'] = job.wait()
+        if 'end_observed_elapsed' not in profiles[label]:
+            profiles[label]['end_phase_unobserved'] = True
         stream.close()
     console_text = (directory / 'console.log').read_text(errors='replace')
     exit_match = re.search(r'finished with non-zero exit value (\d+)', console_text)
@@ -259,6 +305,7 @@ def run(args, project, side, config):
                'analysis_started_elapsed': analysis_start - start if analysis_start else None,
                'full_started_elapsed': full_start - start if full_start else None,
                'profiles': profiles, 'continuous_jfr': (directory / 'continuous.jfr').exists(),
+               'run1_recording': run1_recording,
                'sarif': (directory / 'reports/report-ifds.sarif').exists()}
     summary.update(bidi_iteration_summary(directory / 'analyzer.log', side, status))
     (directory / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
@@ -279,6 +326,8 @@ def main():
                         help='Record aggregate bidi form/cache counters without per-event logging')
     parser.add_argument('--optimization-statistics', action='store_true',
                         help='Record bounded N1/N2 counters with run, direction and limit attribution')
+    parser.add_argument('--run1-mark-mode', choices=['GROUP', 'FULL'], default='GROUP',
+                        help='Select run-1 mark precision in the analyzer JVM; later runs remain FULL')
     args = parser.parse_args()
     for name in ('main', 'current', 'test', 'output'):
         setattr(args, name, getattr(args, name).resolve())
