@@ -56,7 +56,9 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
     fun callInterest(part: Subscription, pub: Publication, member: Int) {
         val initial = pub.premise.member(member)
         val atom = (initial.mark as? MarkSlot.Concrete)?.mark ?: return
+        val statistics = core.context.shared.n2Statistics.takeIf { core.mode.markMode == MarkMode.GROUP }
         for (leaf in core.ops.leaves(pub.conclusion)) {
+            statistics?.staticGroupCallOffered()
             val piece = pub.copy(conclusion = core.ap.factsOf(leaf.fact, leaf.exclusion, pub.layer))
             val key = CallKey(part.callee, part.ref, part.linkLayer, pub.premise, leaf, pub.layer, member)
             val id = callKeys.getOrPut(key) {
@@ -65,6 +67,7 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
             val row = calls.getValue(id)
             val fresh = GroupSet.of(core.ap.marks.groupOf(atom)) - row.waiting
             if (fresh.isEmpty) continue
+            statistics?.staticGroupCallFallbackAdmitted()
             row.waiting += fresh
             core.staticBatch.interests += StaticInterest(core.key, id, initial.toPattern(), fresh)
         }
@@ -169,8 +172,21 @@ internal class Run1PointResume(private val core: RunMethodAnalyzer) {
     fun computedGroups(premise: PremiseKey, delta: Facts) {
         check(delta.base == STATIC)
         if (delta !is TaintTree) return
-        if (!premise.isZero && (0 until premise.size).all { premise.member(it).base == STATIC }) {
+        if (core.hasKnownStaticGroupInput(premise)) {
+            val initial = premise as InitialAp
+            val actual = core.knownStaticInput(initial)
             for (leaf in core.ops.leaves(delta)) {
+                core.ap.cancellation.checkpoint()
+                core.context.shared.n2Statistics?.staticGroupSupplyDirect()
+                val scalar = core.ap.factsOf(leaf.fact, leaf.exclusion, delta.layer)
+                core.composeStaticSummaryWithActualInput(initial, scalar, actual) { value ->
+                    core.staticBatch.supplies += core.staticSlices(value)
+                }
+            }
+        } else if (!premise.isZero && (0 until premise.size).all { premise.member(it).base == STATIC }) {
+            for (leaf in core.ops.leaves(delta)) {
+                if (core.mode.markMode == MarkMode.GROUP)
+                    core.context.shared.n2Statistics?.staticGroupJoinFallback()
                 val key = WriterKey(premise, leaf, delta.layer)
                 // A fixed-group conditional is a pending complete binding, not a
                 // permanent group-valued writer or a service-side Cartesian join.

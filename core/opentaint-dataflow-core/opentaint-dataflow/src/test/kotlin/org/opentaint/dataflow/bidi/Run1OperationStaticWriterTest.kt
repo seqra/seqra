@@ -123,10 +123,13 @@ class Run1OperationStaticWriterTest {
         assertEquals(listOf(GroupSet.of(t.group)), t.answers().map { it.supply.groups })
     }
 
-    @Test fun `promoted all-static fixed-group result keeps actual input join and declared output group`() {
+    @Test fun `noncanonical exact-field fixed-group result keeps the actual input fallback and declared output group`() {
         for (supplyFirst in listOf(false, true)) Fixture().use { t ->
             if (supplyFirst) t.supply()
-            val premise = t.f.manager.initial(t.f.run1Pattern(STATIC, t.from, Tail.STAR))
+            // Canonical STAR originals now require an earlier actual reply and no longer
+            // repeat that request. An exact field is legal but outside the selected fast
+            // path; retain this delayed-input regression on that explicit fallback.
+            val premise = t.f.manager.initial(t.f.run1Pattern(STATIC, t.from, Tail.EXACT))
             val outFull = t.f.mark("output")
             val outGroup = t.f.manager.marks.groupOf(outFull)
             t.actor.promoteStaticSummary(premise, t.f.run1Fact(STATIC, t.target, full = outFull))

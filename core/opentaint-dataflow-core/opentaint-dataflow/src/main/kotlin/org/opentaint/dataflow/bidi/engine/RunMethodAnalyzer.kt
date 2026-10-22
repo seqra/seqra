@@ -288,25 +288,44 @@ class RunMethodAnalyzer(
     internal fun staticCallSupply(part: Subscription, pub: Publication, member: Int, supply: RegionGroups) =
         callServices.staticSupply(part, pub, member, supply)
 
+    /** These published run-1 originals have already received their canonical pool input. */
+    internal fun hasKnownStaticGroupInput(premise: PremiseKey): Boolean =
+        config.run1 && mode.markMode == MarkMode.GROUP && premise is InitialAp &&
+            premise.base == STATIC && premise.mark is MarkSlot.Concrete &&
+            premise.exclusion == ExclusionSet.Empty &&
+            ((premise.pathData.size == 2 && premise.tail == Tail.STAR) ||
+                (premise.pathData.size == 1 && premise.tail == Tail.EXACT))
+
+    internal fun knownStaticInput(initial: InitialAp): Facts {
+        check(hasKnownStaticGroupInput(initial))
+        return ap.factsOf(initial.toPattern().fact, ExclusionSet.Empty, Layer.DEMAND)
+    }
+
+    private fun boundedStaticSummaryOut(premise: PremiseKey, emit: (Facts) -> Unit): ApOut = object : ApOut {
+        override fun result(f: Facts) {
+            if (f is TaintTree) {
+                // Static effects leave the ordinary call suffix early. Apply
+                // the same field limit that suffix would apply to its result.
+                ops.limit(forceRun1Layer(premise, f), limit, collect(premise, f) { _, bounded -> emit(bounded) })
+            }
+        }
+        override fun markRequest(mark: TaintMark) = Unit // summary application is not rule execution
+    }
+
+    internal fun composeStaticSummaryWithActualInput(initial: InitialAp, value: Facts, actual: Facts,
+                                                    emit: (Facts) -> Unit) {
+        checkPremise(initial)
+        val matched = ops.satisfying(actual, initial, mode) ?: return
+        ops.applySummary(matched, initial, value, mode, boundedStaticSummaryOut(initial, emit))
+    }
+
     /** Apply a complete static tuple on this owner after releasing the service lock. */
     internal fun composeStaticSummary(premise: PremiseKey, value: Facts, inputs: List<RegionGroups>, emit: (Facts) -> Unit) {
         checkPremise(premise)
-        val out = object : ApOut {
-            override fun result(f: Facts) {
-                if (f is TaintTree) {
-                    // Static effects leave the ordinary call suffix early. Apply
-                    // the same field limit that suffix would apply to its result.
-                    ops.limit(forceRun1Layer(premise, f), limit, collect(premise, f) { _, bounded -> emit(bounded) })
-                }
-            }
-            override fun markRequest(mark: TaintMark) = Unit // summary application is not rule execution
-        }
         when (premise) {
             is InitialAp -> if (premise.isZero) { if (value is TaintTree) emit(value.withLayer(Layer.DEMAND)) }
                 else if (inputs.size == 1) {
-                    val actual = staticFacts(inputs.single())
-                    val matched = ops.satisfying(actual, premise, mode) ?: return
-                    ops.applySummary(matched, premise, value, mode, out)
+                    composeStaticSummaryWithActualInput(premise, value, staticFacts(inputs.single()), emit)
                 }
             is PremiseSet -> if (inputs.size == premise.size && value is TaintTree) {
                 val parts = inputs.mapIndexed { i, slice ->
@@ -315,7 +334,7 @@ class RunMethodAnalyzer(
                     val matched = ops.satisfying(staticFacts(slice), initial, mode) ?: return
                     matched to initial
                 }
-                ops.applyCombination(parts, value, mode, out)
+                ops.applyCombination(parts, value, mode, boundedStaticSummaryOut(premise, emit))
             }
         }
     }

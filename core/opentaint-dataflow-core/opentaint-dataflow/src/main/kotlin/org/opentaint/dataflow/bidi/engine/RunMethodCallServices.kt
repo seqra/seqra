@@ -310,6 +310,16 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             val value = pub.conclusion.withLayer(Layer.DEMAND)
             if (value.base == STATIC) core.promoteStaticSummary(initial, value)
             else resumeCallees(part.ref, listOf(planFact(initial, value, false)))
+        } else if (core.hasKnownStaticGroupInput(pub.premise)) {
+            val actual = core.knownStaticInput(pub.premise as InitialAp)
+            val statistics = core.context.shared.n2Statistics
+            for (leaf in core.ops.leaves(pub.conclusion)) {
+                core.ap.cancellation.checkpoint()
+                statistics?.staticGroupCallOffered()
+                statistics?.staticGroupCallDirect()
+                val scalar = core.ap.factsOf(leaf.fact, leaf.exclusion, pub.layer)
+                applyStaticInput(part, pub, member, actual, scalar)
+            }
         } else core.staticCallInterest(part, pub, member)
     }
 
@@ -318,6 +328,13 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         core.checkPremise(part.ref.premise)
         core.checkPremise(pub.premise)
         val actual = core.staticFacts(supply)
+        applyStaticInput(part, pub, member, actual)
+    }
+
+    /** Both pool replies and known-input activation use the same scalar AP application and suffix. */
+    private fun applyStaticInput(part: Subscription, pub: Publication, member: Int, actual: Facts,
+                                 conclusion: Facts = pub.conclusion) {
+        val core = active()
         val initial = pub.premise.member(member)
         val matched = core.ops.satisfying(actual, initial, core.mode) ?: return
         for (leaf in core.ops.leaves(matched)) {
@@ -331,8 +348,11 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             val input = part.copy(ref = ref, linkLayer = matched.layer, added = matched)
             if (pub.premise is PremiseSet) ndMatch(input, pub, pub.premise, member)
             else {
+                val statistics = core.context.shared.n2Statistics.takeIf { core.mode.markMode == MarkMode.GROUP }
                 val results = ArrayList<PlanFact>()
-                applyParts(input, initial, pub.conclusion, results)
+                statistics?.staticGroupScalarApplied()
+                applyParts(input, initial, conclusion, results)
+                if (results.isNotEmpty()) statistics?.staticGroupSuffixEntered()
                 resumeCallees(ref, results)
             }
         }

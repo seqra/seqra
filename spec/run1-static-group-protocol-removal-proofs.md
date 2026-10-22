@@ -1,8 +1,10 @@
 # Proofs for run-1 static GROUP protocol removal
 
-Date: 22 October 2026. Status: **specification proofs; runtime unchanged**.
+Date: 22 October 2026. Status: **checked proofs; runtime adapters implemented**.
 Read with [the specification](run1-static-group-protocol-removal.md).
 The reference runtime is `a4bf789866f912ebefc54bca42d809c89beea2d4`.
+See [implementation validation](../docs/reports/bidirectional-static-protocol-removal-validation-20261022.md)
+for the production adapter checks. The proof claims and their limits are unchanged.
 
 ## 1. Claim and comparison boundary
 

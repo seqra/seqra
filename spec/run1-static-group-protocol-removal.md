@@ -1,8 +1,10 @@
 # Run-1 static GROUP application without repeated pool requests
 
-Date: 22 October 2026. Status: **specification; runtime unchanged**.
+Date: 22 October 2026. Status: **implemented; validation in progress**.
 The runtime reference is `a4bf789866f912ebefc54bca42d809c89beea2d4`.
 Later documentation commits do not change this reference.
+The [implementation validation](../docs/reports/bidirectional-static-protocol-removal-validation-20261022.md)
+records production checks and the new measurement campaign.
 
 This document specifies two changes:
 

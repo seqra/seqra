@@ -36,7 +36,7 @@ finite controls do not override the failed project gates. The
 [next proposal](../docs/design/bidirectional-local-static-writers-aliases-next-iteration-20261022.md)
 does not authorize another runtime change.
 
-## Specified: Thingsboard run-1 static GROUP protocol removal
+## Implemented: Thingsboard run-1 static GROUP protocol removal
 
 The [complete specification](run1-static-group-protocol-removal.md) and
 [proof dossier](run1-static-group-protocol-removal-proofs.md) select removal
@@ -44,7 +44,9 @@ of repeated call/supply requests for already-processed static GROUP originals.
 Keep the same local scalar AP reducers and scalar caller suffixes. Packed
 suffix execution and the other candidates in the
 [next proposal](../docs/design/bidirectional-local-static-writers-aliases-next-iteration-20261022.md)
-remain unselected. Runtime is unchanged.
+remain unselected. The scalar runtime adapters are implemented. Their
+[validation report](../docs/reports/bidirectional-static-protocol-removal-validation-20261022.md)
+records the checks and project campaign status.
 The ZERO exit restriction and Spring rewrite are withdrawn/deferred;
 controller annotation-based exit selection remains in place.
 
@@ -64,8 +66,13 @@ check receipt: Lean 4.33.1 passes 1,441 owned declarations and 66 executable
 controls, with no unexpected axioms. Duplicate call offers can change
 physical suffix counts; the model proves semantic membership preservation,
 not equality of scheduler callback counts. Raw-output AP identity and packed suffix additivity are
-not needed by this selected contract. Actual edited Kotlin adapters must
-still pass the specified production controls after implementation.
+not needed by this selected contract. The edited Kotlin adapters pass
+the specified focused production controls. Common dataflow passes
+1,745 tests and JVM dataflow passes 438 tests. The application gate has
+nine cleaner failures and the rule gate has two exit-scope failures.
+Fresh exact-base controls reproduce the same selected findings. These
+gates remain failed; project measurements remain separate. See the
+validation report for their current state.
 There is no whole-engine equivalence or measured speedup claim. The
 [focused investigation](../docs/reports/bidirectional-thingsboard-run1-workload-investigation-20261022.md)
 uses the existing Thingsboard run-1 OOM capture: latest completed and

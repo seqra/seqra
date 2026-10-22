@@ -16,6 +16,13 @@ class N2Statistics {
     private val e6Bindings = AtomicLong()
     private val e6AvoidedBindings = AtomicLong()
     private val e6Combinations = AtomicLong()
+    private val staticGroupCallOffers = AtomicLong()
+    private val staticGroupDirectCalls = AtomicLong()
+    private val staticGroupFallbackCallsAdmitted = AtomicLong()
+    private val staticGroupScalarApplications = AtomicLong()
+    private val staticGroupSuffixEntries = AtomicLong()
+    private val staticGroupDirectSupplyLeaves = AtomicLong()
+    private val staticGroupFallbackJoinLeaves = AtomicLong()
 
     data class Snapshot(
         val acceptedDeltas: Long,
@@ -30,6 +37,13 @@ class N2Statistics {
         val e6Bindings: Long,
         val e6AvoidedBindings: Long,
         val e6Combinations: Long,
+        val staticGroupCallOffers: Long = 0,
+        val staticGroupDirectCalls: Long = 0,
+        val staticGroupFallbackCallsAdmitted: Long = 0,
+        val staticGroupScalarApplications: Long = 0,
+        val staticGroupSuffixEntries: Long = 0,
+        val staticGroupDirectSupplyLeaves: Long = 0,
+        val staticGroupFallbackJoinLeaves: Long = 0,
     )
 
     internal fun accepted(newGroup: Boolean = false, zeroOnly: Boolean = false) {
@@ -71,9 +85,21 @@ class N2Statistics {
         e6Combinations.addAndGet(newCombinations.toLong())
     }
 
+    /** Scalar offers include repeats rejected by a pending fallback key. */
+    internal fun staticGroupCallOffered() { staticGroupCallOffers.incrementAndGet() }
+    internal fun staticGroupCallDirect() { staticGroupDirectCalls.incrementAndGet() }
+    internal fun staticGroupCallFallbackAdmitted() { staticGroupFallbackCallsAdmitted.incrementAndGet() }
+    /** Count matched scalar reducer entries and nonempty suffix batches separately. */
+    internal fun staticGroupScalarApplied() { staticGroupScalarApplications.incrementAndGet() }
+    internal fun staticGroupSuffixEntered() { staticGroupSuffixEntries.incrementAndGet() }
+    internal fun staticGroupSupplyDirect() { staticGroupDirectSupplyLeaves.incrementAndGet() }
+    internal fun staticGroupJoinFallback() { staticGroupFallbackJoinLeaves.incrementAndGet() }
+
     /** Read after joining for a consistent aggregate; reads during work are a bounded live census. */
     fun snapshot(): Snapshot = Snapshot(acceptedDeltas.get(), cumulativeGroups.get(), zeroOnlyEntries.get(),
         indexPostings.get(), createdGroups.get(), createdZeroOnlyEntries.get(), createdIndexPostings.get(),
         queuedReplays.get(), peakQueuedReplays.get(), e6Bindings.get(),
-        e6AvoidedBindings.get(), e6Combinations.get())
+        e6AvoidedBindings.get(), e6Combinations.get(), staticGroupCallOffers.get(), staticGroupDirectCalls.get(),
+        staticGroupFallbackCallsAdmitted.get(), staticGroupScalarApplications.get(), staticGroupSuffixEntries.get(),
+        staticGroupDirectSupplyLeaves.get(), staticGroupFallbackJoinLeaves.get())
 }
