@@ -14,6 +14,10 @@ public class FieldLimitSample {
         Middle middle;
     }
 
+    static class LeafHolder {
+        Leaf leaf;
+    }
+
     public void depthThreeFlow() {
         Root root = wrapThree(source());
         sinkThree(root);
@@ -22,6 +26,28 @@ public class FieldLimitSample {
     public void depthOneFlow() {
         Leaf leaf = wrapOne(source());
         sinkOne(leaf);
+    }
+
+    public void mixedDepthFlow() {
+        Leaf leaf = taintedLeaf();
+        LeafHolder holder = new LeafHolder();
+        holder.leaf = leaf;
+        sinkHolderLeaf(holder);
+        sinkHolderLeafValue(holder);
+    }
+
+    private Leaf taintedLeaf() {
+        Leaf leaf = leafSource();
+        leaf.value = source();
+        return leaf;
+    }
+
+    private void sinkHolderLeaf(LeafHolder holder) {
+        shallowSink(holder.leaf);
+    }
+
+    private void sinkHolderLeafValue(LeafHolder holder) {
+        deepSink(holder.leaf.value);
     }
 
     private Root wrapThree(String data) {
@@ -55,5 +81,15 @@ public class FieldLimitSample {
     }
 
     public void sink(String data) {
+    }
+
+    public Leaf leafSource() {
+        return new Leaf();
+    }
+
+    public void shallowSink(Object data) {
+    }
+
+    public void deepSink(String data) {
     }
 }

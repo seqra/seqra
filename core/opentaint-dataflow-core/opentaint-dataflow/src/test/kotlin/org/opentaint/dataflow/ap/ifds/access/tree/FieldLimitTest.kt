@@ -12,12 +12,16 @@ import org.opentaint.dataflow.ap.ifds.TypeInfoAccessor
 import org.opentaint.dataflow.ap.ifds.TypeInfoGroupAccessor
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.FactAp
+import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.util.RefManager
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class FieldLimitTest {
@@ -53,8 +57,48 @@ class FieldLimitTest {
         return fact
     }
 
+    private fun abstractFact(vararg accessors: Accessor): AccessTree {
+        var fact = manager.mostAbstractFinalAp(base)
+        for (accessor in accessors.reversed()) {
+            fact = fact.prependAccessor(accessor)
+        }
+        return fact as AccessTree
+    }
+
     private fun merged(a: AccessTree, b: AccessTree): AccessTree =
         AccessTree(manager, base, a.access.mergeAdd(b.access), a.exclusions)
+
+    private fun FinalFactAp?.paths(): Set<String> {
+        if (this == null) return emptySet()
+        val result = hashSetOf<String>()
+        (this as AccessTree).access.collectPaths("", result)
+        return result
+    }
+
+    private fun AccessTree.AccessNode.collectPaths(prefix: String, dst: MutableSet<String>) {
+        if (isFinal) dst.add("$prefix.$")
+        if (isAbstract) dst.add("$prefix.*${deepAccessorExclusion ?: ""}")
+        forEachAccessor { accessor, node ->
+            node.collectPaths("$prefix.${with(manager) { accessor.accessor }}", dst)
+        }
+    }
+
+    private fun assertSplitPartition(fact: AccessTree, limit: Int, split: FinalFactAp.FieldLimitSplit) {
+        val within = split.within
+        val rest = split.rest
+        assertTrue(within.paths().intersect(rest.paths()).isEmpty())
+        assertEquals(fact.paths(), within.paths() + rest.paths())
+        if (within != null) {
+            assertFalse(within.exceedsFieldLimit(limit))
+            assertEquals(fact.base, within.base)
+            assertEquals(fact.exclusions, within.exclusions)
+        }
+        if (rest != null) {
+            assertTrue((rest as AccessTree).access.allFieldPathsExceed(limit))
+            assertEquals(fact.base, rest.base)
+            assertEquals(fact.exclusions, rest.exclusions)
+        }
+    }
 
     private fun FactAp.fieldDepth(): Int =
         (0..32).first { !exceedsFieldLimit(it) }
@@ -124,5 +168,111 @@ class FieldLimitTest {
     fun `negative limit is always exceeded`() {
         assertTrue(finalFact().exceedsFieldLimit(-1))
         assertTrue(initialFact().exceedsFieldLimit(-1))
+    }
+
+    @Test
+    fun `split keeps the short branch within and the long branch over the limit`() {
+        val shallow = finalFact(FIELD_A)
+        val deep = finalFact(FIELD_B, FIELD_C, FIELD_D)
+        val tree = merged(shallow, deep)
+
+        val split = tree.splitFieldLimit(1)
+
+        assertEquals(shallow, split.within)
+        assertEquals(deep, split.rest)
+        assertEquals(tree, merged(split.within as AccessTree, split.rest as AccessTree))
+        assertSplitPartition(tree, 1, split)
+    }
+
+    @Test
+    fun `split within limit returns the same fact`() {
+        val tree = merged(finalFact(FIELD_A), finalFact(FIELD_B, FIELD_C, FIELD_D))
+
+        val split = tree.splitFieldLimit(3)
+
+        assertSame(tree, split.within)
+        assertNull(split.rest)
+    }
+
+    @Test
+    fun `split with every path over the limit returns the same fact as rest`() {
+        val chain = finalFact(FIELD_A, FIELD_B, FIELD_C)
+        val chainSplit = chain.splitFieldLimit(1)
+        assertNull(chainSplit.within)
+        assertSame(chain, chainSplit.rest)
+
+        val tree = merged(finalFact(FIELD_A, FIELD_B), finalFact(FIELD_C, FIELD_D, FIELD_A))
+        val treeSplit = tree.splitFieldLimit(1)
+        assertNull(treeSplit.within)
+        assertSame(tree, treeSplit.rest)
+
+        val negativeSplit = finalFact().splitFieldLimit(-1)
+        assertNull(negativeSplit.within)
+        assertNotNull(negativeSplit.rest)
+    }
+
+    @Test
+    fun `split moves deeper children of a terminal node at the limit to rest`() {
+        val tree = merged(finalFact(FIELD_A), finalFact(FIELD_A, FIELD_B, FIELD_C))
+
+        val split = tree.splitFieldLimit(1)
+
+        assertEquals(setOf(".$FIELD_A.$"), split.within.paths())
+        assertEquals(setOf(".$FIELD_A.$FIELD_B.$FIELD_C.$"), split.rest.paths())
+
+        val restPrefix = (split.rest as AccessTree).access.getChild(with(manager) { FIELD_A.idx })
+        assertNotNull(restPrefix)
+        assertFalse(restPrefix.isFinal)
+        assertFalse(restPrefix.isAbstract)
+        assertSplitPartition(tree, 1, split)
+    }
+
+    @Test
+    fun `split counts any accessor as one field`() {
+        val tree = merged(finalFact(FIELD_A), finalFact(AnyAccessor, FIELD_B))
+
+        val split = tree.splitFieldLimit(1)
+
+        assertEquals(setOf(".$FIELD_A.$"), split.within.paths())
+        assertEquals(setOf(".$AnyAccessor.$FIELD_B.$"), split.rest.paths())
+        assertSplitPartition(tree, 1, split)
+    }
+
+    @Test
+    fun `split does not count marks and final accessor`() {
+        val tree = merged(finalFact(FIELD_A, MARK), finalFact(FIELD_B, FIELD_C, MARK))
+
+        val split = tree.splitFieldLimit(1)
+
+        assertEquals(finalFact(FIELD_A, MARK), split.within)
+        assertEquals(finalFact(FIELD_B, FIELD_C, MARK), split.rest)
+        assertSplitPartition(tree, 1, split)
+    }
+
+    @Test
+    fun `split preserves abstract leaves and their deep exclusions`() {
+        val shallow = abstractFact(FIELD_A).clearAllAccessorOccurrences(FIELD_D, keepStartAccessor = false) as AccessTree
+        val deep = abstractFact(FIELD_B, FIELD_C)
+        val tree = merged(merged(shallow, deep), finalFact(FIELD_B))
+
+        val split = tree.splitFieldLimit(1)
+
+        val shallowAbstract = shallow.access.getChild(with(manager) { FIELD_A.idx })
+        assertNotNull(shallowAbstract?.deepAccessorExclusion)
+        assertEquals(shallow.paths() + finalFact(FIELD_B).paths(), split.within.paths())
+        assertEquals(deep.paths(), split.rest.paths())
+        assertSplitPartition(tree, 1, split)
+    }
+
+    @Test
+    fun `split preserves base exclusions on both parts`() {
+        val exclusions = ExclusionSet.Concrete(FIELD_D)
+        val tree = merged(finalFact(FIELD_A), finalFact(FIELD_B, FIELD_C)).replaceExclusions(exclusions) as AccessTree
+
+        val split = tree.splitFieldLimit(1)
+
+        assertEquals(exclusions, split.within?.exclusions)
+        assertEquals(exclusions, split.rest?.exclusions)
+        assertSplitPartition(tree, 1, split)
     }
 }

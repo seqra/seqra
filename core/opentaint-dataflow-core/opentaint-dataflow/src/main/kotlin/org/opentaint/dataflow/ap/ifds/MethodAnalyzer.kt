@@ -555,17 +555,8 @@ class NormalMethodAnalyzer(
     }
 
     private fun addInitialF2FEdge(edge: FactToFact) {
-        if (delayInitialEdge(edge)) return
-        addSequentialEdge(edge)
-    }
-
-    private fun delayInitialEdge(edge: FactToFact): Boolean {
-        if (!edgeExceedLimit(edge)) return false
-        if (dropEdgeOverFieldLimit()) return true
-
-        registerDelayed()
-        delayedF2FInitialEdges.add(edge)
-        return true
+        val admittedEdge = admitEdgeWithinLimit(edge) { delayedF2FInitialEdges.add(it) } ?: return
+        addSequentialEdge(admittedEdge)
     }
 
     private fun registerDelayed() {
@@ -598,11 +589,41 @@ class NormalMethodAnalyzer(
         }
     }
 
-    private fun edgeExceedLimit(edge: Edge): Boolean = when (edge) {
-        is ZeroToZero -> false
-        is ZeroToFact -> edge.factAp.exceedsFieldLimit(factDepthLimit)
-        is FactToFact -> edge.initialFactAp.exceedsFieldLimit(factDepthLimit) || edge.factAp.exceedsFieldLimit(factDepthLimit)
-        is NDFactToFact -> edge.factAp.exceedsFieldLimit(factDepthLimit) || edge.initialFacts.any { it.exceedsFieldLimit(factDepthLimit) }
+    private inline fun admitEdgeWithinLimit(edge: Edge, delay: (Edge) -> Unit): Edge? {
+        val finalFact = when (edge) {
+            is ZeroToZero -> return edge
+            is ZeroToFact -> edge.factAp
+            is FactToFact -> edge.factAp.takeUnless { edge.initialFactAp.exceedsFieldLimit(factDepthLimit) }
+            is NDFactToFact -> edge.factAp.takeUnless { edge.initialFacts.any { it.exceedsFieldLimit(factDepthLimit) } }
+        }
+
+        if (finalFact == null) {
+            delayEdgeOverLimit(edge, delay)
+            return null
+        }
+
+        if (!finalFact.exceedsFieldLimit(factDepthLimit)) return edge
+
+        val (within, rest) = finalFact.splitFieldLimit(factDepthLimit)
+        if (rest != null) {
+            delayEdgeOverLimit(edge.replaceFinalFact(rest), delay)
+        }
+
+        return within?.let { edge.replaceFinalFact(it) }
+    }
+
+    private inline fun delayEdgeOverLimit(edge: Edge, delay: (Edge) -> Unit) {
+        if (dropEdgeOverFieldLimit()) return
+
+        registerDelayed()
+        delay(edge)
+    }
+
+    private fun Edge.replaceFinalFact(factAp: FinalFactAp): Edge = when (this) {
+        is ZeroToZero -> this
+        is ZeroToFact -> ZeroToFact(methodEntryPoint, statement, factAp)
+        is FactToFact -> FactToFact(methodEntryPoint, initialFactAp, statement, factAp)
+        is NDFactToFact -> NDFactToFact(methodEntryPoint, initialFacts, statement, factAp)
     }
 
     private fun cappedFactDepthLimit(limit: Int): Int =
@@ -615,20 +636,11 @@ class NormalMethodAnalyzer(
     }
 
     private fun addSequentialEdge(edge: Edge) {
-        if (delaySequentialEdge(edge)) return
+        val admittedEdge = admitEdgeWithinLimit(edge) { delayedSequentialEdges.add(it) } ?: return
 
-        edges.add(edge).forEach { newEdge ->
+        edges.add(admittedEdge).forEach { newEdge ->
             enqueueNewEdge(newEdge)
         }
-    }
-
-    private fun delaySequentialEdge(edge: Edge): Boolean {
-        if (!edgeExceedLimit(edge)) return false
-        if (dropEdgeOverFieldLimit()) return true
-
-        registerDelayed()
-        delayedSequentialEdges.add(edge)
-        return true
     }
 
     private fun addSequentialUnchangedEdge(edge: Edge) {
@@ -723,18 +735,9 @@ class NormalMethodAnalyzer(
         if (edge is ZeroToZero) {
             runner.addNewSummaryEdges(methodEntryPoint, listOf(edge))
         } else {
-            if (delaySummaryEdge(edge)) return
-            addNewSummaryEdge(edge)
+            val admittedEdge = admitEdgeWithinLimit(edge) { delayedF2FSummaries.add(it) } ?: return
+            addNewSummaryEdge(admittedEdge)
         }
-    }
-
-    private fun delaySummaryEdge(edge: Edge): Boolean {
-        if (!edgeExceedLimit(edge)) return false
-        if (dropEdgeOverFieldLimit()) return true
-
-        registerDelayed()
-        delayedF2FSummaries.add(edge)
-        return true
     }
 
     private fun addNewSummaryEdge(edge: Edge) {
