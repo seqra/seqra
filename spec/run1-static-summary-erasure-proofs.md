@@ -5,6 +5,12 @@ Read [the specification](run1-static-summary-erasure.md). The reference
 runtime is `30c1b84606695070a79d7ae467703267b9f931c1`.
 Follow [proof-guide.md](proof-guide.md).
 
+The mark-mode extension is specified in
+[sections 14 and 15](run1-static-summary-erasure.md#14-select-group-or-full-marks-in-run-1).
+Sections P1 through P9 below retain their original GROUP comparison.
+Section 13 gives the new mode-selection and FULL-guide claims. The prior
+75-control receipt is frozen; it is not certification of a FULL runtime.
+
 ## 1. Claim, scope and proof structure
 
 There are two different claims. Do not merge them:
@@ -34,6 +40,7 @@ The current project failures remain failures.
 | [Run1StaticRelayProjection](lean/ApSpec/Run1StaticRelayProjection.lean) | Same-path concrete scalar reapplication preserves target region and EXACT/ANY/MUST; derive normalizer idempotence | Empty E; aligned canonical input; scalar extraction/graft/bounds need source correspondence |
 | [Run1StaticQueryCompletion](lean/ApSpec/Run1StaticQueryCompletion.lean) | Exact old static-query identity occurs in at most two queries from a legal actual input | Selected actual/guide grammar; canonical empty-E query forms |
 | [Run1StaticErasureBackwardReplay](lean/ApSpec/Run1StaticErasureBackwardReplay.lean) | Rebuild each finite FULL witness, source hit, seed and complete binding from those queries | Same ordinary FULL kernel and seed identities; Kotlin refinement remains required |
+| [Run1MarkModeExperiment](lean/ApSpec/Run1MarkModeExperiment.lean) | Select run-1 mode; preserve exact FULL key identity; construct coverage for matching FULL guide starts | Local policy/identity contracts only; FULL engine adapters and empirical comparison remain required |
 
 The first model contains no arbitrary old-summary root. Old summaries
 are generated only by a local producer, a first ordinary binding, or a
@@ -513,7 +520,10 @@ dependency lint warnings do not fail that build. The owned audit gives:
 
 All 75 controls pass. Every owned declaration passes the axiom allowlist.
 The [machine-readable receipt](lean/run1-static-summary-erasure-checks.json)
-binds final source hashes, commands, counts, and audit output. The combined
+binds the original source hashes, commands, counts, and audit output.
+Its document hashes correspond to the pre-extension contract committed
+at `4bbceb038`, not to this later mark-mode amendment. Its four Lean
+model sources and audit remain unchanged. The combined
 audit helper needed explicit type annotations during development; the
 corrected final helper passes. No feature-model source was changed to
 hide an audit failure.
@@ -521,3 +531,65 @@ hide an audit failure.
 The controls are local formal-model controls. They are not Kotlin or
 project acceptance tests. No analyzer implementation or new performance
 result is included in this check.
+
+## 13. Mark-mode extension: local contracts and FULL guidance
+
+The default flag selects GROUP, exactly as before. `run1_uses_selected_mode`
+and `later_runs_full` prove that the selected setting controls run-1 only.
+`runtime_atom_idempotent` proves a valid selected atom is a fixed point.
+`zero_unchanged` keeps control ZERO outside the mark choice.
+
+`full_keys_injective` proves that two selected FULL keys are equal only
+when their complete owned marks are equal. `group_keys_merge_exactly_owners`
+proves the intended GROUP quotient. `group_not_decoded_to_full` rejects
+an executable group selector in FULL mode instead of choosing a member.
+These keys must be used for requests, service state, pending joins and
+answers. A Kotlin `groupOf(full)` call is not a valid implementation of
+the full-key identity theorem.
+
+`same_structural_policy` states a separate common contract: limit 1,
+concrete DEMAND, empty field exclusions, static/static erasure and local
+writers. The current null static-suppression adapter and entry-mark-removal
+skip also remain common. This is a specification invariant, not a proof
+that every Kotlin GROUP-only gate already implements it in FULL mode.
+
+The two modes are not claimed equivalent. In GROUP, T and U under one
+owner can satisfy the same projected condition. In FULL, the actual T
+cannot satisfy a distinct U literal. `full_condition_has_actual_witness`
+checks this exact membership requirement. `full_cleaner_kills_only_selected`
+checks that a FULL selected cleaner removes only its literal; the GROUP
+wildcard is retained. Spatial partial-cleaning, requests, source/exit
+scope and complete condition binding still use their current contracts.
+The model does not prove arbitrary Boolean-rule or whole-engine semantics
+from this membership example.
+
+For a retained FULL guide T, its old successful intersection requires the
+same actual FULL identity. Map its shape to the corresponding owner guide.
+The old FULL candidates are a subset of that owner guide's candidates.
+P5 already places each such candidate in `complete(actual)`.
+`Query.full_guide_query_covered` composes these steps;
+`Query.fullGuideQueryWitness` returns the equal query as an executable
+witness. No mark catalog or old-pair directory is required. The same
+named-field/EXACT class grammar and canonical query exclusions apply.
+
+For FULL erasure, instantiate the operational proof with a same-mode
+reference kernel and exact runtime atoms. Keep the common run-1 DEMAND
+and field policy. Then discharge FULL rule-view/action, producer, scalar
+projection, pending-reply, all-origin, static-service and handoff adapters.
+The ordinary run-2 replay kernel remains FULL. This is not equality of
+GROUP and FULL seed sets or a shortcut around those production gates.
+
+Reproduce the new local check from `spec/lean`:
+
+```sh
+lake build ApSpec.Run1MarkModeExperiment
+lake env lean run1-mark-mode-experiment-audit.lean
+```
+
+The [new receipt](lean/run1-mark-mode-experiment-checks.json) binds this
+amendment and its model/audit. The new focused build passes 23 jobs; its
+owned audit passes **216 declarations and 30 executable controls**, with
+only `propext` and `Quot.sound` dependencies. These are local model checks,
+not FULL production acceptance. The paired experiments in spec section 15
+are planned, not measured. Existing latest reached/COMPLETE/accepted
+iteration labels in section P9 remain the latest measured results.

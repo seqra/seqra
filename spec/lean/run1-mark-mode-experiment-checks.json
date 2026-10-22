@@ -1,0 +1,87 @@
+{
+  "created_utc": "2026-10-22T19:16:35.078552+00:00",
+  "workspace_head": "4bbceb0384721cf7488804b7388e0c83d762930b",
+  "reference_runtime": "30c1b84606695070a79d7ae467703267b9f931c1",
+  "original_group_contract_commit": "4bbceb0384721cf7488804b7388e0c83d762930b",
+  "original_group_receipt_sha256": "ea721c4587dd2705ed5ca85b7321a276062bd197e69fb01ba90a7b8a47e57ccc",
+  "sha256": {
+    "spec/lean/ApSpec/Run1MarkModeExperiment.lean": "0ac87c7fe567d1d11e0377078068c81096a79346d0c52455eabc32f7dde15512",
+    "spec/lean/run1-mark-mode-experiment-audit.lean": "30610e5b7be58d30c2fd2383750560392e697de2e9e8286a34a4bfe904d62738",
+    "spec/run1-static-summary-erasure.md": "a8929c0cc64eb5863857066f89d6c0eea49baba337e42da5ecc136a5c09b9940",
+    "spec/run1-static-summary-erasure-proofs.md": "f9050402b5fd52bd3ceb901ef5d9c2568992c2497ef670af92da6ea850b446a5",
+    "spec/proof-status.md": "a6c841d260462b1f087e0d7b5c343cb2357ee6955837488666670b921c5b6fa8",
+    "docs/design/bidirectional-static-protocol-removal-next-iteration-20261022.md": "ddd146968fe763e3ea9f7f91d91e717fb7e33b1ea0aec4e537cef84e01a52e5f"
+  },
+  "status": "design extension; no runtime implementation or project experiments",
+  "toolchain": "leanprover/lean4:v4.33.1",
+  "flag": {
+    "property": "opentaint.bidi.run1MarkMode",
+    "values": [
+      "GROUP",
+      "FULL"
+    ],
+    "default": "GROUP",
+    "scope": "run-1 only"
+  },
+  "commands": [
+    {
+      "cwd": "spec/lean",
+      "argv": [
+        "lake",
+        "build",
+        "ApSpec.Run1MarkModeExperiment"
+      ],
+      "exit_code": 0,
+      "jobs": 23
+    },
+    {
+      "cwd": "spec/lean",
+      "argv": [
+        "lake",
+        "env",
+        "lean",
+        "run1-mark-mode-experiment-audit.lean"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "audit": {
+    "owned_declarations": 216,
+    "controls": 30,
+    "allowed_axioms": [
+      "propext",
+      "Quot.sound"
+    ],
+    "unexpected_axioms": 0,
+    "stdout": "Audited 216 experiment declarations; no unexpected axioms.\nExecutable mode controls passed: 30.\n'ApSpec.Run1MarkModeExperiment.later_runs_full' depends on axioms: [propext]\n'ApSpec.Run1MarkModeExperiment.full_keys_injective' depends on axioms: [propext]\n'ApSpec.Run1MarkModeExperiment.group_keys_merge_exactly_owners' depends on axioms: [propext]\n'ApSpec.Run1MarkModeExperiment.runtime_atom_idempotent' depends on axioms: [propext, Quot.sound]\n'ApSpec.Run1MarkModeExperiment.same_structural_policy' does not depend on any axioms\n'ApSpec.Run1MarkModeExperiment.full_cleaner_kills_only_selected' depends on axioms: [propext]\n'ApSpec.Run1MarkModeExperiment.Query.fullGuideQueryWitness' depends on axioms: [propext]\n"
+  },
+  "checked_scope": [
+    "Default GROUP and selected run-1-only mode",
+    "FULL key injection, GROUP owner quotient and ZERO identity",
+    "Accepted runtime-atom idempotence; no GROUP-to-FULL decoding",
+    "Common structural policy as a specification invariant",
+    "Exact FULL selected-cleaner and positive-condition identity examples",
+    "Constructive FULL-guide query coverage from prior named-field/exact-class completion"
+  ],
+  "production_gates": [
+    "Select rule/action view and cache with the configured mode",
+    "Preserve selected exact atom keys through requests/pool/writers/answers",
+    "Keep common run-1 DEMAND/E/ND/exit/static suppression policies",
+    "Generalize canonical direct paths without legacy static relay fallback",
+    "Prove actual source, cleaner, field, pending reply and handoff adapters",
+    "Expose comparable mode-independent counters"
+  ],
+  "planned_experiments": [
+    {
+      "name": "run1-groups",
+      "run1_mode": "GROUP"
+    },
+    {
+      "name": "run1-full",
+      "run1_mode": "FULL"
+    }
+  ],
+  "experiment_scope": "Same implemented binary and fixed four-project cohort; fresh JVM serial pairs; at least three alternating-order pairs; engine-time/allocation/work/precision metrics and latest iteration labels",
+  "no_new_measurements": true,
+  "old_group_receipt": "Frozen; its document hashes bind the original contract commit; its unchanged four models remain GROUP-scoped evidence."
+}

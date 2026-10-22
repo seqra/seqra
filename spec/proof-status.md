@@ -29,6 +29,18 @@ Conductor and PDF status is reached **run-2 OOM**, latest COMPLETE/accepted
 **run-1/run-1**. OWASP reached **run-5 TIMEOUT**, latest COMPLETE **run-4**,
 latest accepted **run-3**. No new project measurement was made for this design.
 
+The selected [mark-mode extension](run1-static-summary-erasure.md#14-select-group-or-full-marks-in-run-1)
+adds a GROUP/FULL run-1 flag, default GROUP, and plans paired measurements
+on the same implemented revision. FULL keeps exact conditions, exclusions,
+cleaners and request/service keys while common structural run-1 policy
+stays fixed. The [local mode model](lean/ApSpec/Run1MarkModeExperiment.lean)
+checks selection, key identity and FULL-guide query coverage. The earlier
+75-control receipt remains scoped to its original GROUP contract;
+FULL runtime adapters and the experiments are not complete. See the
+[extension receipt](lean/run1-mark-mode-experiment-checks.json): the focused
+23-job build and owned audit pass **216 declarations and 30 controls**,
+with no unexpected axioms.
+
 ## Selected 22 October specification: local writers and summary aliases
 
 The [complete specification](run1-static-writers-and-summary-aliases.md)

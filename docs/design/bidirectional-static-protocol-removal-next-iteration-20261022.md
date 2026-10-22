@@ -1,9 +1,17 @@
-# Next iteration after static GROUP protocol removal
+# Next iteration: static summary erasure and mark-mode experiments
 
-Date: 22 October 2026. Status: **proposal; no runtime change selected**.
+Date: 22 October 2026. Status: **selected design; implementation pending**.
 Measured runtime: `30c1b84606695070a79d7ae467703267b9f931c1`.
 Read the [performance report](../reports/bidirectional-static-protocol-removal-performance-20261022.md)
 and [current contract](../../spec/run1-static-group-protocol-removal.md).
+
+The selected deliverables are the
+[static-summary erasure specification](../../spec/run1-static-summary-erasure.md),
+its [run-1 mark-mode flag](../../spec/run1-static-summary-erasure.md#14-select-group-or-full-marks-in-run-1),
+and [two paired experiments](../../spec/run1-static-summary-erasure.md#15-two-experiments-group-versus-full-in-run-1).
+Implement the shared new static design once. Then compare GROUP and FULL
+run-1 on that same revision. The flag defaults to GROUP. This extension
+does not select the other normalization/backfill proposals below.
 
 The next target remains Thingsboard **run-1 engine time**. Its engine takes
 220.578 seconds. Conductor takes 18.005 seconds and PDF takes 29.530 seconds;
@@ -26,7 +34,8 @@ scopes separate. A run-2 heap is not a retained-heap measurement of run-1.
 
 | Priority | Proposal | Expected effect and evidence | Semantic contract |
 | --- | --- | --- | --- |
-| 1: largest run-1 potential; research | Remove static-only relay summaries and factor their exact guidance | Incoming guidance retains 2.683 GB in run-2; 5,890,526 of its 6,956,267 physical pairs are static/static. Remove repeated relay work across wrappers. The removable subset is not yet measured. | **Major change:** per-method raw and demand relations change. Needs a new contract and coverage proof. Do not implement as an internal storage optimization. |
+| 1: selected run-1 work | Remove static/static summaries and complete actual run-2 queries | Incoming guidance retains 2.683 GB in run-2; 5,890,526 of its 6,956,267 physical pairs are static/static. Remove repeated relay work across wrappers. The removable byte/time fraction is not measured. | **Major change:** use the selected specification and finite coverage proofs; production adapter gates remain. |
+| Selected experiment control | Add GROUP/FULL run-1 selection and compare both modes | Measure whether mark merging reduces net work, or whether GROUP condition/cleaner candidates offset the smaller mark vocabulary | **Mark-precision change in FULL only:** exact conditions, exclusions and selected cleaners; keep structural run-1 policy fixed. |
 | 2: run-1; narrower proof scope | Normalize GROUP payloads at proved boundaries | Remove repeated whole-DAG walks, scratch maps and frames. Source shows five normalizations on one ordinary transfer path. Thingsboard run-1 allocation weight under `runtimeFact` is 104.276 GB, 11.06%; inclusive rows overlap. | Preserve current facts, requests, layers, origins, rules and demand pairs. Prove the producer closure before the broad change. |
 | 3: later runs only | Backfill summaries only when their premise first becomes permitted | Remove repeated publication offers for already-permitted rows. Thingsboard run-2 retains 12.77 million actor-pending Publication objects; PDF retains 19.32 million. The duplicate fraction is not measured. | Preserve current FULL execution and handoff. No effect on run-1, which has no StrongQueries restriction. |
 
@@ -38,8 +47,12 @@ establish a twofold engine improvement. No
 proposal in this document has a measured twofold whole-engine bound.
 Use the fixed cohort after implementation to test net benefit.
 
-No proposal changes field transfer, source conditions, exit-rule scope,
-controller annotation checks, FULL mark meaning or the run schedule.
+The default GROUP rule view stays unchanged. The selected FULL experiment
+keeps exact marks in conditions/actions, requests, exclusions and cleaners.
+This can change candidate precision. It does not change field transfer,
+exit-rule scope, controller annotation checks, FULL mark identity or the
+direction/field-limit schedule. Both modes keep run-1 concrete taint DEMAND,
+empty field exclusions, all-origin handling and the same static algorithm.
 Keep `trackFactsReachAnalysisEnd` empty. Do not add GroundingSupport,
 reference-manager changes, weak caches or IR changes.
 
@@ -339,6 +352,38 @@ antichain entry can cover a historical value without preserving every
 earlier precise application. Establish application coverage before
 discarding such values.
 
+## 4. Selected: run-1 mark-mode flag and two experiments
+
+Add `opentaint.bidi.run1MarkMode=GROUP|FULL`, default GROUP. Select rule
+views, executable atoms, requests, static service keys and answers with
+that same mode. FULL must preserve T versus U within one owner. Keep
+the current structural run-1 policy, canonical direct paths and demand
+handoff. Do not route FULL through an older static algorithm. The
+[complete flag contract](../../spec/run1-static-summary-erasure.md#14-select-group-or-full-marks-in-run-1)
+lists the integration gates and explicit precision differences.
+
+Plan two experiments on the same implemented candidate commit:
+
+| Experiment | Run-1 setting | Everything else |
+| --- | --- | --- |
+| `run1-groups` | `-Dopentaint.bidi.run1MarkMode=GROUP` | Shared new static design and fixed project settings |
+| `run1-full` | `-Dopentaint.bidi.run1MarkMode=FULL` | Same binary, inputs, aliases/statics enabled, heap, timeouts and instrumentation |
+
+Run both on Thingsboard first, then the fixed Conductor, Stirling-PDF and
+OWASP configurations. Use at least three serial pairs with alternating
+order and fresh analyzer JVMs. Run the ordinary configured analyses;
+compare run-1 engine time separately from prescan, barriers and later
+runs. Record memory/allocation/GC, actual work and request counts, mark
+cardinality, strict finding identities, and every latest reached,
+COMPLETE and accepted iteration. Keep later OOM outcomes separate from
+complete run-1 timings. The
+[experiment plan](../../spec/run1-static-summary-erasure.md#15-two-experiments-group-versus-full-in-run-1)
+specifies resource caps, ratios, counters, profiles and precision checks.
+
+Measure the net effect. FULL can avoid GROUP condition/cleaner candidates
+even though it carries more mark identities. Do not infer performance
+from mark count alone. No experiment has run under this extension.
+
 ## Ideas not selected
 
 A pure static AP self-composition shortcut could retain the current raw
@@ -357,14 +402,14 @@ ignored END tracking as part of a performance patch.
 
 ## Acceptance boundary
 
-Before implementation, write the selected detailed contract and
+Before implementation, use the selected detailed contract and
 constructive proofs under [proof-guide.md](../../spec/proof-guide.md).
-List semantic changes explicitly. Use the current runtime as the new
-reference and retain existing failed precision gates as failures.
+Complete the FULL-mode and shared runtime adapter gates. Keep semantic
+changes explicit and existing failed precision gates marked as failures.
 
-After implementation, rerun the approved module checks and four fixed
-project configurations. Report every engine/barrier and latest reached,
-COMPLETE and accepted iteration. Compare strict rule/method/span keys and
+After implementation, rerun approved module checks and both planned modes
+on the four fixed project configurations. Report every engine/barrier and
+latest reached, COMPLETE and accepted iteration. Compare strict rule/method/span keys and
 occurrence counts against fresh main. Analyze each missing result.
 
 Measure both removed work and remaining work. A lower allocation count

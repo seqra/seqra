@@ -2,6 +2,7 @@
 
 Date: 22 October 2026. Status: **selected design; not implemented**.
 Reference runtime: `30c1b84606695070a79d7ae467703267b9f931c1`.
+Revision: add the run-1 mark-mode experiment in sections 14 and 15.
 Read the [proof dossier](run1-static-summary-erasure-proofs.md) and
 [proof guide](proof-guide.md).
 
@@ -25,6 +26,11 @@ analyzer is sound for every program. Compare complete semantic closures,
 not the prefixes of an OOM or timeout. Sections 12 and 13 separate checked
 models from production adapter obligations.
 
+The pinned runtime uses GROUP. Sections 1 through 13 compare erasure in
+that mode. For the FULL experiment, compare erasure with a same-mode
+reference that keeps static/static rows and uses the identical FULL mark
+policy. The flag does not require equal GROUP and FULL candidate sets.
+
 This document supersedes the per-method static/static relation-preservation
 requirement of [the previous protocol-removal spec](run1-static-group-protocol-removal.md)
 for this selected design only. That spec still describes the implemented
@@ -38,6 +44,7 @@ runtime. All unmodified behavior comes from that runtime and
 | Run-1 static/static relations | Retain raw rows, publish them through callers, and hand off their selected pairs | Execute producer effects, then erase all these rows | Producer-effect preservation and finite relay compression |
 | Run-2 static guidance | Old concrete guide intersections can add starts to the actual-input start | Complete each actual named-field FULL start with its same-field EXACT intersection | Exact old-start coverage, followed by ordinary FULL witness replay |
 | Executable concrete static grammar | The general AP API accepts broad root/class values | In run-2 also, concrete statics must be named fields or EXACT class markers | Producer and consumer grammar closure |
+| Run-1 mark precision | Run-1 always selects GROUP | Add `opentaint.bidi.run1MarkMode=GROUP\|FULL`, default GROUP; FULL keeps exact mark semantics end to end | Mode/key isolation, full-guide coverage and production adapters in section 14 |
 
 The third row is an explicit user-selected restriction. A field limit of
 one does not imply it. A general AP constructor must not be mistaken for
@@ -45,10 +52,12 @@ a proof of this grammar.
 
 The following behavior must remain unchanged:
 
-- Rule groups, owner IDs, FULL marks, primitive tracking, condition
-  specialization, source actions, sink identities, and report admission.
-- Selected-mark cleaners request their group and cannot kill in run-1.
-  `RemoveAllMarks` can kill. Keep the current exclusion/complement repair.
+- Rule owners, FULL mark identity, primitive tracking, sink identities
+  and report admission. Default GROUP condition/action selection stays
+  unchanged. Section 14 defines the selected FULL alternative.
+- In GROUP mode, selected-mark cleaners request their group and cannot
+  kill. In FULL mode, exact selected-mark cleaning applies. `RemoveAllMarks`
+  can kill in both modes. Keep spatial cleaning and complement repair.
 - Field transfer. For `x.f = y`, an `x.*` keep edge moves to DEMAND with
   empty field exclusion; `x.f.*` is killed; `x.g.*` remains. Do not turn
   these rules into weak updates or add writer-path validation.
@@ -59,8 +68,9 @@ The following behavior must remain unchanged:
 - ZERO source effects, exit rules, controller annotation checks, actual
   call ports/stages, alias classification, later strong updates and FULL
   summary application.
-- The schedule: run-1 forward, GROUP, limit 1; run-2 backward, FULL,
-  limit 1; run-3 forward, limit 2; later limits increase as before.
+- The schedule: run-1 forward, configured mark mode, limit 1; run-2
+  backward, FULL, limit 1; run-3 forward, FULL, limit 2; later limits
+  increase as before. Run-1 defaults to GROUP.
 - `trackFactsReachAnalysisEnd` is empty. Keep the existing
   `disableRun1Statics` gates. No Spring exit rewrite or ZERO-only exit
   restriction is part of this design.
@@ -87,7 +97,8 @@ STAR       correlated abstract tail, written '*'
 E          field exclusion set
 ```
 
-Run-1 still has empty E. Concrete GROUP edges are DEMAND. A field
+Run-1 still has empty E. Concrete taint edges are DEMAND in both selected
+mark modes. Examples in sections 3 through 13 use default GROUP. A field
 initial descriptor can be `S.C.f/STAR/G`; materializing it gives the
 existing `S.C.f/ANY/G` current fact. A legal exact-field fallback is not
 removed. Exact class inputs remain exact. Keep the current distinction
@@ -149,7 +160,8 @@ Current run-1 production uses singleton contributing-origin arms. The
 predicate also states the correct reusable contract for a complete
 premise. It does not introduce new run-1 ND objects.
 
-Erase FLOW and GROUP rows, same-group and changed-group rows, identity
+Erase FLOW and concrete rows in either configured mark mode, same-group
+and changed-group rows, identity
 rows, named-field rows and exact class-marker rows. Do not limit the
 test to canonical STAR field initials. Do not erase a mixed dependency
 merely because one member is static.
@@ -614,3 +626,259 @@ section 12. A discovered need to change field transfer, source/exit
 eligibility, mark matching, or later-run calls is a new major semantic
 change. Highlight it and obtain the intended behavior. Do not hide it in
 a support label, canonicalizer or proof helper.
+
+## 14. Select GROUP or FULL marks in run-1
+
+### 14.1 Flag and scope
+
+Add the analyzer JVM property `opentaint.bidi.run1MarkMode` with exactly
+two values. The default is `GROUP`. An invalid value fails configuration
+with a clear error. Read the flag once when the analysis is created.
+Keep the chosen value immutable and include it in logs and result metadata.
+
+```kotlin
+fun readRun1MarkMode(): MarkMode = when (
+    val value = System.getProperty("opentaint.bidi.run1MarkMode")
+) {
+    null, "GROUP" -> MarkMode.GROUP
+    "FULL" -> MarkMode.FULL
+    else -> error("Invalid opentaint.bidi.run1MarkMode=$value; use GROUP or FULL")
+}
+
+// Capture run1MarkMode once for this analysis; pass it to each RunConfig.
+val selectedMarkMode = if (index == 1) run1MarkMode else MarkMode.FULL
+val mode = ApMode(run1, direction, fieldLimit, markMode = selectedMarkMode)
+val ruleView = if (selectedMarkMode == MarkMode.GROUP) RuleView.RUN1_GROUP else RuleView.FULL
+```
+
+The flag changes run-1 only. It does not select a legacy engine or the old
+static propagation mechanism. Both values use the static-summary erasure
+and actual-query completion defined here. Run-2 and every later run keep
+FULL marks and the same direction/field-limit schedule.
+
+This is an explicit mark-precision change. FULL mode does not merge T
+and U merely because they have the same owner. GROUP can admit more
+condition matches and retain more cleaner candidates. Equal run-1 facts,
+demands or finding counts across the two modes are not required.
+
+### 14.2 Apply the selection at every mark boundary
+
+Let T and U be different FULL marks of the same owner g. Let M be the
+selected runtime atom: `(g,*)` in GROUP or `(g,T)` in FULL.
+
+| Boundary | GROUP, current/default | FULL, new experiment |
+| --- | --- | --- |
+| Source/GEN/action target T, including GeneratedMark | Use `(g,*)` | Keep `(g,T)` and its full generated identity |
+| `ContainsMark(p,T)` | Check `(p,g)`; simplify the projected condition | Check `(p,(g,T))`; keep distinct full literals in the ordinary FULL condition form |
+| `CM(p,T) AND CM(p,U)` | Can reduce to one group check | Requires both full checks under the existing complete binding rule |
+| Owner-based return/action skipping | Keep the existing GROUP schedule | Execute the FULL-valued action sequence; do not skip U because T has the same owner |
+| FLOW mark request | Request g | Request actual full T |
+| FLOW mark exclusion for T | Exclude g, with existing demand repair | Exclude only T, with the same spatial/complement policy |
+| Selected cleaner for T | Request/refine g as needed; cannot remove a wildcard group | Request/refine T from FLOW as needed; can remove T; cannot remove U merely because owner(U)=g |
+| Nonstatic requests and answers | Merge by group atom | Merge by full atom; answering T cannot close U |
+| Static pool req/reach/processed and pending joins | Membership is `(static slot,g)` | Membership is `(static slot,(g,T))`; no owner-only match |
+| Static refinement and canonical replies | Canonical field/group facts | Same canonical field shape with exact full atom |
+| Handoff | GROUP selectors admit actual FULL members by owner | Retained concrete selectors match exact FULL identity; same actual-input completion policy |
+
+Keep rule IDs, owner metadata and primitive properties the same. Do not
+create a new mark census or enumerate all members of a group. FULL requests
+name an actual literal or propagated full mark. Never turn a GROUP atom
+back into an arbitrary FULL member. Symbolic GROUP guidance metadata is
+distinct from an executable FULL atom. Keep ordinary handoff exclusion
+normalization; do not change it to preserve an executable exclusion set.
+
+Use one configured runtime-atom domain throughout each run. Generalize
+group-only request/service interfaces where required. A `GroupSet` holds
+GroupId values today; do not put full IDs or opaque atom IDs into it.
+Use a typed runtime-atom set, or equivalent type-safe separate adapters,
+with the same transitions, writer admission and queue policy. Exact
+class-marker state must use the same selected identity domain.
+
+```text
+GROUP: write C.f/(g,*) answers request C.f/g
+FULL:  write C.f/(g,T) answers request C.f/(g,T)
+FULL:  write C.f/(g,T) does not answer request C.f/(g,U), T != U
+```
+
+Select the method rule view with the same mode as the AP engine. Keep
+existing per-method/view caching. FULL conditions must not first pass
+through the GROUP rewriter. GROUP-only shortcuts need an exact-atom
+counterpart or the same generic reducer, not an old static relay path.
+Keep existing signed NNF and negative-ContainsMark approximations in both
+modes. Exact FULL identity does not make every rule predicate exact.
+
+### 14.3 Keep structural run-1 policy fixed
+
+Both modes keep these properties:
+
+```text
+field limit = 1; forward direction; no field exclusions;
+concrete taint = DEMAND; same field overwrite/kill rules;
+complete condition admission, then every contributing origin;
+no run-1 ND premise products; exact all-ZERO condition;
+same local-only FLOW writers, three-set transitions and barriers;
+same static/static erasure, retained mixed/ZERO relations and query completion;
+same aliases, primitive metadata, exit rules, report admission and seeds.
+```
+
+The concrete DEMAND rule is common to both modes. Do not enable NORMAL
+concrete-taint starts or run-2 field processing when FULL is selected.
+Keep the current run-1 skip of entry-mark-removal at method exit in both
+modes. Explicit selected-mark cleaners use exact matching in FULL; this
+does not authorize a new entry/exit cleanup policy.
+
+The current source has integration gates which a one-line flag does not
+address:
+
+| Source seam | Required change or invariant |
+| --- | --- |
+| `RunConfig.mode`, `RunManager` rule-view selection | Use the same selected mode; do not select RUN1_GROUP solely from the run index |
+| GROUP-gated DEMAND and contributing-origin paths | Keep common run-1 policy in both modes; do not restore ND products |
+| `needGroups`, `Run1PointResume`, `Run1StaticService.slices/facts` | Preserve selected executable atom identity; `groupOf(full)` is not a FULL request/supply key |
+| `hasKnownStaticGroupInput` and call/fixed-input shortcuts | Generalize to a known selected atom; do not restore repeated handshakes only in FULL |
+| `unchangedStaticInitial` adapter | Keep its current null result in both modes. Historical AP FULL suppression branches remain inert in this engine; no AP reference-rule removal is selected |
+| Optional GROUP-only counters | Collect comparable observations in both modes, or mark the metric unavailable |
+
+Classify every `markMode == GROUP` test. Keep genuine projection under
+that test. Put common run-1 behavior under the run-1 test or provide its
+equivalent exact-atom path. Do not leave group-keyed services behind an
+AP mode switch.
+
+### 14.4 Proof and implementation gates
+
+The [mode model](lean/ApSpec/Run1MarkModeExperiment.lean) checks default
+selection, run-1-only scope, exact FULL key identity, GROUP owner merging,
+ZERO preservation, rejection of GROUP-to-FULL decoding, and the selected
+cleaner/condition examples. It models common structural policy separately
+from mark selection. It also constructs coverage of a FULL guide's old
+query by the same completion batch: a matching FULL guide is a subset of
+the corresponding owner-selector candidates.
+
+The previous 75-control receipt covers its original GROUP specification.
+It does not certify the new FULL runtime path. Before measurement, add
+production controls for:
+
+```text
+default = explicit GROUP; invalid property fails; later modes remain FULL;
+same-owner T/U distinct through actions, requests, service, answers and stores;
+late write/request in both orders; exact class T cannot answer class U;
+no member enumeration or GROUP-to-FULL decoding;
+exact selected cleaner in FULL; wildcard non-kill in GROUP;
+same field/DEMAND/all-origin/all-ZERO policy; no FULL-only static relays;
+retained FULL guide coverage and ANY-to-EXACT completion in run-2;
+effective mode and equal counter definitions on both paths.
+```
+
+Instantiate the producer/relay proof with the selected atom domain and
+common structural policy. Compare erasure to a same-mode reference
+without erasure, not GROUP answers to FULL answers. Recheck concrete FULL
+producer, pending reply, scalar projection, all-origin, cleaner and
+handoff adapters. The mode model does not prove those adapters or
+whole-analyzer soundness. The [proof dossier](run1-static-summary-erasure-proofs.md)
+records the extended proof boundary.
+
+## 15. Two experiments: GROUP versus FULL in run-1
+
+Plan these configurations on the **same implemented revision**:
+
+| Experiment | Analyzer JVM property | Run-1 | Run-2 and later |
+| --- | --- | --- | --- |
+| `run1-groups` | `-Dopentaint.bidi.run1MarkMode=GROUP` | GROUP, forward, limit 1 | Existing FULL schedule |
+| `run1-full` | `-Dopentaint.bidi.run1MarkMode=FULL` | FULL, forward, limit 1 | Existing FULL schedule |
+
+Measure the net cost and precision effect of mark abstraction in the new
+design. More FULL atoms need not imply a slower engine: exact conditions
+and cleaners can avoid GROUP candidates. Do not assume either mode wins.
+
+### 15.1 Paired setup
+
+Thingsboard run-1 engine time is the primary target. Run both configurations
+on the fixed cohort: Thingsboard, Conductor, Stirling-PDF and OWASP. Use
+the project configurations, extension rules and Gradle
+`runProjectAnalyzer` task from the reference campaign. Use no extra
+project or ablation configuration.
+
+| Project | Analyzer heap | IFDS timeout | Outer timeout |
+| --- | --- | --- | --- |
+| Thingsboard | 12 GiB | 1080 s | 1200 s |
+| Conductor | 8 GiB | 1080 s | 1200 s |
+| Stirling-PDF | 8 GiB | 1080 s | 1200 s |
+| OWASP | 8 GiB | 1000 s | 1200 s |
+
+Pin one candidate commit/binary, source/dependency inputs, rules/models,
+JDK, workers, GC, heap, timeouts, batch size 2000 and multi-release JAR
+setting. Keep aliases and static propagation enabled
+(`disableRun1Statics=false`). Both sides use static-summary erasure and
+the same selected changes. Only `run1MarkMode` differs. This is not a
+pre-refactor-versus-new-engine comparison.
+
+Confirm that the property reaches the analyzer JVM, not only the Gradle
+launcher. Record the effective mode before engine start and for every
+later run. A missing mode record or an ignored flag invalidates the pair.
+
+Use fresh analyzer JVMs and isolated outputs. Run pairs serially on the
+same host. Repeat at least three pairs; alternate GROUP-first and
+FULL-first order. Keep the same cache preparation and instrumentation.
+Record host load/pressure and other active workloads. Do not terminate
+unrelated jobs or treat host variation as a proven mode effect.
+
+Run the ordinary configured analysis, so later refinement and finding
+checks remain visible. Extract run-1 cost separately. Do not add a
+different early-stop policy on one side. A later OOM does not discard an
+already complete run-1 measurement.
+
+### 15.2 Measurements
+
+Record these values for every project, mode and repetition:
+
+| Area | Required values |
+| --- | --- |
+| Primary | Run-1 engine wall time; COMPLETE/OOM/TIMEOUT; 60-second engine target |
+| Separate phases | Prescan, run-1 report/handoff barrier, whole command; engine/barrier time of every later reached run |
+| Memory/CPU | Run-1 allocation, GC time/count, peak sampled process/heap use with sample phase, process CPU; distinguish post-GC live measurements |
+| Mark cardinality | Observed distinct owners, FULL marks and selected runtime atoms; per-fact mark memberships |
+| Work | Processed work/AP applications, request offers/fresh memberships, writer/refinement work, service transitions, pending peaks, summary/publication admissions and handoff size |
+| Findings | Run-1 candidate locations/occurrences, source/sink keys, later accepted locations and strict comparison to the pinned reference/main finding set |
+| Progress | Latest reached, latest COMPLETE and latest accepted forward iteration, with labels such as run-1 or run-3 |
+
+Use the same counters on both paths. Generalize GROUP-only counters or
+mark the metric unavailable on both sides. Missing FULL statistics must
+not appear as zero work. Record counter definitions and scopes. Do not
+add a costly per-node observer to only one side.
+
+Use equal profiling settings and engine-relative windows. The usual
+30-second sample after 60 seconds is valid only while run-1 is active.
+If run-1 already finished, record missing coverage; do not label a run-2
+sample as run-1 or prolong one side. Keep profiled commands distinct from
+unprofiled timing pairs. Use the same existing MemoryManager OOM snapshot
+policy. Bind artifacts to mode, revision and iteration. Seal required old
+evidence before removing obsolete large profiles/snapshots; keep separate
+repetition outputs.
+
+### 15.3 Report and interpretation
+
+Report raw paired values, per-mode medians and paired ratios:
+
+```text
+time ratio       = FULL run-1 engine seconds / GROUP run-1 engine seconds
+allocation ratio = FULL run-1 allocation / GROUP run-1 allocation
+work ratio       = FULL run-1 processed work / GROUP run-1 processed work
+```
+
+Use the same phase/definition on each side. Report OOM/timeouts as
+censored outcomes with their latest iterations. Do not insert timeout
+limits into completed-run medians or call a lower failure prefix a
+speedup. Use request/static/condition/cleaner work to explain the ratios.
+A mark-count ratio alone does not explain engine cost.
+
+Run-1 candidates can differ because GROUP merges full checks and retains
+selected-cleaner candidates. Compare finding identities and concrete
+source-to-sink evidence. Classify differences as refinement, an expected
+GROUP candidate, or a regression. A lower FULL count is not automatically
+a false negative; neither is it proof that no true path was lost. Keep
+existing no-FN/allowed-FP gates and later-run checks. State unresolved
+differences explicitly.
+
+Use the results to decide whether GROUP remains the default and which
+work explains the gap. These experiments are planned. No new measurement
+or improvement claim is made here.
