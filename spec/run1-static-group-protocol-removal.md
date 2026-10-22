@@ -1,8 +1,9 @@
 # Run-1 static GROUP application without repeated pool requests
 
-Date: 22 October 2026. Status: **implemented; validation in progress**.
-The runtime reference is `a4bf789866f912ebefc54bca42d809c89beea2d4`.
-Later documentation commits do not change this reference.
+Date: 22 October 2026. Status: **implemented; formal and production checks recorded**.
+The comparison runtime is `a4bf789866f912ebefc54bca42d809c89beea2d4`.
+The implemented runtime is `30c1b84606695070a79d7ae467703267b9f931c1`.
+Later documentation commits do not change these references.
 The [implementation validation](../docs/reports/bidirectional-static-protocol-removal-validation-20261022.md)
 records production checks and the new measurement campaign.
 
@@ -257,8 +258,9 @@ In particular, the ZERO control subscription must not turn
 only in run-1. Later runs still need an actual matching static fact.
 
 The selected path has zero new StaticInterest, CallContinuation and
-PointReady events. It still performs one scalar suffix application per
-old scalar leaf. Ordinary callee subscriptions, initial group refinement
+PointReady events. Each offered scalar leaf uses the same scalar reducer
+and suffix path. Physical execution counts can differ as stated in section 10.
+Ordinary callee subscriptions, initial group refinement
 at a caller condition/cleaner, and FLOW summary activation remain.
 
 ## 7. Computed static supply pipeline
@@ -543,8 +545,13 @@ existing focused suites and approved project gates after implementation.
 Use the fixed Thingsboard configuration for performance comparison; do
 not add a workload/configuration here.
 
-The latest reference measurement reached **Thingsboard run-1 OOM**;
-completed iteration: **none**; accepted report iteration: **none**. See the
-[existing report](../docs/reports/bidirectional-local-static-writers-aliases-performance-20261022.md).
-This specification adds no new project measurement. Future reports must
-give the latest reached, completed and accepted iteration separately.
+The pre-change reference reached **Thingsboard run-1 OOM**; completed
+iteration: **none**; accepted report iteration: **none**. The
+[current performance report](../docs/reports/bidirectional-static-protocol-removal-performance-20261022.md)
+measures the implemented runtime. Thingsboard, Conductor and PDF reach
+**run-2 OOM**, with **run-1 COMPLETE** and **run-1 accepted**. OWASP reaches
+**run-5 TIMEOUT**, with **run-4 COMPLETE** and **run-3 accepted**. All four
+run-1 engines complete. Only Conductor and PDF meet 60 engine seconds.
+These outcomes do not establish a causal patch speedup or override the
+failed finding and precision gates. Reports must always give latest
+reached, completed and accepted iterations separately.

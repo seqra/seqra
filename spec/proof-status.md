@@ -73,10 +73,25 @@ nine cleaner failures and the rule gate has two exit-scope failures.
 Fresh exact-base controls reproduce the same selected findings. These
 gates remain failed; project measurements remain separate. See the
 validation report for their current state.
-There is no whole-engine equivalence or measured speedup claim. The
-[focused investigation](../docs/reports/bidirectional-thingsboard-run1-workload-investigation-20261022.md)
-uses the existing Thingsboard run-1 OOM capture: latest completed and
-accepted iteration are both none. No new project run has been performed.
+There is no whole-engine equivalence or causal patch-speedup claim. The
+[current performance report](../docs/reports/bidirectional-static-protocol-removal-performance-20261022.md)
+uses committed runtime `30c1b8460` and fresh main `f945f92c5`. All four run-1
+engines complete. Thingsboard, Conductor and PDF reach run-2 OOM, with
+run-1 complete and accepted. OWASP reaches run-5 TIMEOUT, with run-4
+complete and run-3 accepted. Only Conductor and PDF meet 60 engine seconds
+in run-1. The strict location gate fails on two PDF returns; original-path
+coverage remains unproven. OWASP retains all main strict keys but fails
+the separate exact trace-count criterion. The fresh source-bound heap
+reviews are closed. Thingsboard's incoming run-1 demand store retains
+2.683 GB in run-2; 84.68% of its physical pairs are static/static.
+The [next proposal](../docs/design/bidirectional-static-protocol-removal-next-iteration-20261022.md)
+marks relay elimination and replacement guidance as a major new contract.
+The current preservation theorem still requires the existing complete
+per-method demand relation. No further runtime change is selected. The
+[earlier focused investigation](../docs/reports/bidirectional-thingsboard-run1-workload-investigation-20261022.md)
+uses the pre-change Thingsboard run-1 OOM capture; its completed and
+accepted iterations are both none. It is historical context, not a new
+measurement of these adapters.
 
 ## Current iteration: all origins, routing and GROUP projection
 

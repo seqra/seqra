@@ -176,6 +176,16 @@ sink and rule occurrence identity when applying this duplicate quotient.
 In particular, retain j as the caller original. Substituting ZERO would
 fail the proof because it changes both demand exits and source meaning.
 
+This argument does not assume that arbitrary stateful callbacks commute.
+The selected engine evaluates positive stored predicates (`FALSE`, `TRUE`,
+`LEAF`, `AND`, `OR`). Signed source/sink conditions already use the current
+compiled approximation; they are not tests for the absence of a future
+global-store value. Cleaners and filters receive the same immutable scalar
+input in the same suffix order. Rule stores accumulate bindings and retain
+their existing proof/header/action and contributing-origin identities.
+Thus an equal replay cannot create a new semantic occurrence merely by
+running earlier. Keep those identity and compilation contracts unchanged.
+
 ### P6. Eliminate one unary supply join
 
 Take a fresh retained static TAINT output v under eligible j. Run-1 has
@@ -389,7 +399,7 @@ pairs, a dead local with a sink but no invented return summary, FULL-owner
 implicit guidance, persistent exact and ANY leaves, and duplicate boundary
 effects. Diagnostic lists can have different lengths while semantic
 membership remains equal. These are formal-model controls; they are not
-claims that the future Kotlin implementation already passes its tests.
+claims that the Kotlin production adapters pass their separate tests.
 
 Reproduce from `spec/lean`:
 
@@ -408,6 +418,12 @@ audit above. It did not run the entire historical formal suite.
 | `ApSpec/Run1StaticGroupProtocolRemoval.lean` | `a6f79177729b3fa9c6f87838381ccead6a6fefb9ed49e733d352fc4c4d3f104d` |
 | `run1-static-group-protocol-removal-audit.lean` | `7178648fcdb6287b3043c973dee02dad9e2d43adc78dc61f028ecc0be5e29825` |
 
-The implementation remains unchanged. No new project run is part of this
-proof delivery. The latest reference Thingsboard run reached **run-1 OOM**,
-with **no completed iteration** and **no accepted report iteration**.
+The models and proofs preceded the runtime change. The adapters are now
+implemented in `30c1b84606695070a79d7ae467703267b9f931c1`. The linked validation
+records the production checks and the new campaign. The historical reference
+Thingsboard run reached **run-1 OOM**, with **no completed iteration** and
+**no accepted report iteration**. The current implementation reaches
+**run-2 OOM**, with **run-1 COMPLETE** and **run-1 accepted**. The
+[performance report](../docs/reports/bidirectional-static-protocol-removal-performance-20261022.md)
+records all four projects. Measurement outcomes do not extend the proved
+scope or turn failed project gates into proof acceptance.

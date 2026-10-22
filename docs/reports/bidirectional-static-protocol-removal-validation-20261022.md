@@ -1,8 +1,10 @@
 # Static GROUP protocol removal: implementation validation
 
-Date: 22 October 2026. Status: **module checks closed; project measurements pending**.
+Date: 22 October 2026. Status: **module checks, fixed-project runs and
+source-bound profile/heap reviews closed**.
 Contract: [selected specification](../../spec/run1-static-group-protocol-removal.md).
 Runtime base: `a05444739`; its runtime is `a4bf789866f912ebefc54bca42d809c89beea2d4`.
+Implemented and measured runtime: `30c1b84606695070a79d7ae467703267b9f931c1`.
 
 The selected changes remove two repeated waits for a static GROUP input
 that the method already has. They keep the scalar AP reducer, raw alias
@@ -35,7 +37,7 @@ run. These counters do not establish a whole-engine speedup.
 | Rule and join controls | 41 tests: 39 passed, 2 failures, no errors or skips |
 | Fresh exact-base precision controls | Same findings in all 9 cleaner failures and both exit-scope failures |
 | Candidate analyzer classes | PASS |
-| Fresh fixed-configuration project campaign | Pending implementation commit |
+| Fresh fixed-configuration project campaign | All eight commands closed; source and inputs unchanged. All four candidate run-1 engines complete. Later engines stop on OOM/timeout. |
 
 Evidence root:
 `/drive-testcomp/opentaint-go-rules/run1-static-protocol-removal-20261022`.
@@ -75,7 +77,31 @@ attempt remain available.
 
 ## Latest iteration
 
-No project measurement exists for this patch yet. Reached, completed and
-accepted iterations are **unavailable**. The final performance report
-must state all three for each new candidate measurement. A prior
-measurement is not evidence for this patch.
+The [current performance report](bidirectional-static-protocol-removal-performance-20261022.md)
+uses fresh main `f945f92c5` and the committed implementation. It records
+each engine and barrier, strict finding differences and capture coverage.
+All three fresh OOM heap reviews are closed. Each capture belongs to run-2.
+
+| Project | Run-1 engine s | Latest reached | Latest COMPLETE | Latest accepted forward report |
+| --- | ---: | --- | --- | --- |
+| Thingsboard | 220.578 | run-2 OOM | run-1 | run-1 |
+| OWASP | 239.868 | run-5 TIMEOUT | run-4 | run-3 |
+| Conductor | 18.005 | run-2 OOM | run-1 | run-1 |
+| Stirling-PDF | 29.530 | run-2 OOM | run-1 | run-1 |
+
+Only Conductor and PDF meet the 60-second run-1 engine target. The strict
+reported-location gate fails on two PDF returns. Their export-coordinate
+mechanism is documented; coverage of the original paths is unproven.
+OWASP retains all 4,112 main strict keys but has 9,179 trace attempts, so
+the separate CI count criterion fails. Added findings remain unvalidated.
+The existing failed module gates remain failed. No new source, exit,
+field or FULL-run fix is included to change those outcomes.
+
+The owner review identifies active later-run actor/index storage, pending
+publication lists and Thingsboard's 2.683 GB incoming guidance store.
+Its 5,890,526 static/static physical pairs are 84.68% of all demand pairs;
+that is not a proved removable fraction. The run-1 allocation review also
+finds repeated GROUP payload normalization. The
+[next proposal](../design/bidirectional-static-protocol-removal-next-iteration-20261022.md)
+separates those scopes and marks static relay removal as a major new
+contract. It selects no further runtime change.
