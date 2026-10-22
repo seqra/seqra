@@ -101,8 +101,9 @@ class AccessPathWithCycles(
         var fieldDepth = 0
         var node = access
         while (node != null) {
-            if (node.cycles.any { cycle -> cycle.any { it.isFieldDepthAccessor() } }) return true
-            if (node.accessor.isFieldDepthAccessor() && ++fieldDepth > limit) return true
+            if (node.cycles.any { cycle -> cycle.any { it.isFieldDepthAccessor() } }) fieldDepth++
+            if (node.accessor.isFieldDepthAccessor()) fieldDepth++
+            if (fieldDepth > limit) return true
             node = node.next
         }
         return fieldDepth > limit

@@ -520,9 +520,11 @@ class AccessCactus(
             if (limit < 0) return true
 
             forEachEdge { edge ->
-                if (edge is CycleStartEdge && edge.cycleEdges.any { it.accessor.isFieldDepthAccessor() }) return true
-
-                val childLimit = if (edge.accessor.isFieldDepthAccessor()) limit - 1 else limit
+                val counted = when (edge) {
+                    is CycleStartEdge -> edge.cycleEdges.any { it.accessor.isFieldDepthAccessor() }
+                    else -> edge.accessor.isFieldDepthAccessor()
+                }
+                val childLimit = if (counted) limit - 1 else limit
                 val exceeds = edge.node?.exceedsFieldLimit(childLimit) ?: (childLimit < 0)
                 if (exceeds) return true
             }

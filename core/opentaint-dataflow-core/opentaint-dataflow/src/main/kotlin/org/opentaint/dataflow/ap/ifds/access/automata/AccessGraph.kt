@@ -145,31 +145,31 @@ class AccessGraph(
 
     fun exceedsFieldLimit(limit: Int): Boolean {
         if (limit < 0) return true
+        return fieldDepth() > limit
+    }
 
-        val fieldDepth = Int2IntOpenHashMap().also { it.defaultReturnValue(-1) }
-        fieldDepth.put(initial, 0)
+    private fun fieldDepth(): Int {
+        val depth = IntArray(numNodes) { NO_NODE }
+        val onStack = nodeSet(numNodes)
+        return fieldDepth(initial, depth, onStack)
+    }
 
-        val unprocessed = IntArrayList()
-        unprocessed.add(initial)
+    private fun fieldDepth(node: NodeMarker, depth: IntArray, onStack: NodeSet): Int {
+        val known = depth[node]
+        if (known != NO_NODE) return known
 
-        while (!unprocessed.isEmpty) {
-            val node = unprocessed.removeLastInt()
-            val nodeDepth = fieldDepth.get(node)
-            val successors = nodeSucc[node] ?: continue
-
-            successors.forEach { accessor ->
-                val successor = edges.get(accessor).to
-                val successorDepth = if (accessor.isFieldDepthAccessor()) nodeDepth + 1 else nodeDepth
-                if (successorDepth > limit) return true
-
-                if (successorDepth > fieldDepth.get(successor)) {
-                    fieldDepth.put(successor, successorDepth)
-                    unprocessed.add(successor)
-                }
-            }
+        onStack.set(node)
+        var maxDepth = 0
+        nodeSucc[node]?.forEach { accessor ->
+            val successor = edges.get(accessor).to
+            val accessorDepth = if (accessor.isFieldDepthAccessor()) 1 else 0
+            val successorDepth = if (onStack.get(successor)) 0 else fieldDepth(successor, depth, onStack)
+            maxDepth = maxOf(maxDepth, accessorDepth + successorDepth)
         }
+        onStack.clear(node)
 
-        return false
+        depth[node] = maxDepth
+        return maxDepth
     }
 
     override fun hashCode(): Int = hash
