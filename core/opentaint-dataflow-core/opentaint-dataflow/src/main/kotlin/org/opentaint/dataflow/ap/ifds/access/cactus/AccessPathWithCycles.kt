@@ -4,6 +4,7 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
+import org.opentaint.dataflow.ap.ifds.isFieldDepthAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 
@@ -95,6 +96,17 @@ class AccessPathWithCycles(
         get() = access?.size ?: 0
 
     override val depth: Int get() = size
+
+    override fun exceedsFieldLimit(limit: Int): Boolean {
+        var fieldDepth = 0
+        var node = access
+        while (node != null) {
+            if (node.cycles.any { cycle -> cycle.any { it.isFieldDepthAccessor() } }) return true
+            if (node.accessor.isFieldDepthAccessor() && ++fieldDepth > limit) return true
+            node = node.next
+        }
+        return fieldDepth > limit
+    }
 
     override fun toString(): String = "$base${access ?: ""}.*/$exclusions"
 

@@ -17,6 +17,7 @@ import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.FIN
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.TYPE_INFO_GROUP_ACCESSOR_IDX
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.VALUE_ACCESSOR_IDX
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldAccessor
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldDepthAccessor
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isStaticAccessor
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isTaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isTypeInfoAccessor
@@ -235,6 +236,16 @@ class AccessPath(
         get() = access?.size ?: 0
 
     override val depth: Int get() = size
+
+    override fun exceedsFieldLimit(limit: Int): Boolean {
+        var fieldDepth = 0
+        var node = access
+        while (node != null) {
+            if (node.accessor.isFieldDepthAccessor() && ++fieldDepth > limit) return true
+            node = node.next
+        }
+        return fieldDepth > limit
+    }
 
     override fun toString(): String = "$base${access ?: ""}.*/$exclusions"
 

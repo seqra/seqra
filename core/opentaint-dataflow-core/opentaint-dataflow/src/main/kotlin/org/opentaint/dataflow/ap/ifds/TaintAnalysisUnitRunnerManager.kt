@@ -49,6 +49,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.LongAdder
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -61,6 +62,7 @@ class TaintAnalysisUnitRunnerManager(
     override val unitResolver: UnitResolver<CommonMethod>,
     private val summarySerializationContext: SummarySerializationContext,
     private val taintRulesStatsSamplingPeriod: Int?,
+    private val fieldLimit: Int?,
 ): AnalysisUnitRunnerManager, AutoCloseable {
     enum class Status {
         OK, EXCEPTION, TIMEOUT, OOM
@@ -86,6 +88,7 @@ class TaintAnalysisUnitRunnerManager(
     private val totalEventsProcessed = AtomicInteger()
     private val totalEventsEnqueued = AtomicInteger()
     private val totalDelayedUnits = AtomicInteger()
+    private val edgesDroppedOverFieldLimit = LongAdder()
 
     @OptIn(DelicateCoroutinesApi::class)
     private val analyzerDispatcher = newFixedThreadPoolContext(
@@ -194,6 +197,7 @@ class TaintAnalysisUnitRunnerManager(
 
                 reportRunnerProgress(currentProgress)
                 logger.info { "Analysis done in ${timeStart.elapsedNow()}" }
+                reportFieldLimit()
             }
         }
     }
@@ -469,7 +473,8 @@ class TaintAnalysisUnitRunnerManager(
             graph = graph,
             unitResolver = unitResolver,
             summarySerializationContext = summarySerializationContext,
-            taintRulesStatsSamplingPeriod = taintRulesStatsSamplingPeriod
+            taintRulesStatsSamplingPeriod = taintRulesStatsSamplingPeriod,
+            fieldLimit = fieldLimit,
         )
 
         startRunner(unit, runner)
@@ -513,6 +518,10 @@ class TaintAnalysisUnitRunnerManager(
         analysisCompletion.complete(Unit)
     }
 
+    fun handleEdgeDroppedOverFieldLimit() {
+        edgesDroppedOverFieldLimit.increment()
+    }
+
     fun handleUnitDelayed() {
         totalDelayedUnits.incrementAndGet()
     }
@@ -552,6 +561,12 @@ class TaintAnalysisUnitRunnerManager(
     }
 
     fun allUnits(): Set<UnitType> = runnerForUnit.keys
+
+    private fun reportFieldLimit() {
+        val limit = fieldLimit ?: return
+        val dropped = edgesDroppedOverFieldLimit.sumThenReset()
+        logger.info { "Field limit $limit: dropped $dropped edges over the limit" }
+    }
 
     private fun reportMemoryUsage(): String {
         val maxMemory = Runtime.getRuntime().maxMemory()

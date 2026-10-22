@@ -33,7 +33,8 @@ class TaintAnalysisUnitRunner(
     override val graph: ApplicationGraph<CommonMethod, CommonInst>,
     private val unitResolver: UnitResolver<CommonMethod>,
     private val summarySerializationContext: SummarySerializationContext,
-    private val taintRulesStatsSamplingPeriod: Int?
+    private val taintRulesStatsSamplingPeriod: Int?,
+    private val fieldLimit: Int?,
 ) : AnalysisRunner, SummaryEdgeSubscriptionManager.SummaryEdgeProcessingCtx {
     override val apManager: ApManager
         get() = manager.apManager
@@ -331,7 +332,7 @@ class TaintAnalysisUnitRunner(
 
     private fun methodAnalyzers(method: CommonMethod): MethodAnalyzerStorage =
         methodAnalyzers.computeIfAbsent(method) {
-            MethodAnalyzerStorage(analysisManager, taintRulesStatsSamplingPeriod).also {
+            MethodAnalyzerStorage(analysisManager, taintRulesStatsSamplingPeriod, fieldLimit).also {
                 analyzers.add(it)
             }
         }
@@ -346,6 +347,10 @@ class TaintAnalysisUnitRunner(
 
     override fun registerDelayedAnalyzer(analyzer: MethodAnalyzer) {
         addUnprocessedEvent(MethodAnalysisDelayed(analyzer))
+    }
+
+    override fun handleEdgeDroppedOverFieldLimit() {
+        manager.handleEdgeDroppedOverFieldLimit()
     }
 
     private var factLimit = NormalMethodAnalyzer.INITIAL_ALLOWED_FACT_DEPTH

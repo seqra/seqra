@@ -14,6 +14,7 @@ import org.opentaint.dataflow.ap.ifds.access.DeepAccessorExclusion
 import org.opentaint.dataflow.ap.ifds.access.forExclusions
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker.CompatibilityFilterResult
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldDepthAccessor
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
 import org.opentaint.dataflow.util.PersistentArrayBuilder
@@ -140,6 +141,35 @@ class AccessGraph(
         }
 
         return hash
+    }
+
+    fun exceedsFieldLimit(limit: Int): Boolean {
+        if (limit < 0) return true
+
+        val fieldDepth = Int2IntOpenHashMap().also { it.defaultReturnValue(-1) }
+        fieldDepth.put(initial, 0)
+
+        val unprocessed = IntArrayList()
+        unprocessed.add(initial)
+
+        while (!unprocessed.isEmpty) {
+            val node = unprocessed.removeLastInt()
+            val nodeDepth = fieldDepth.get(node)
+            val successors = nodeSucc[node] ?: continue
+
+            successors.forEach { accessor ->
+                val successor = edges.get(accessor).to
+                val successorDepth = if (accessor.isFieldDepthAccessor()) nodeDepth + 1 else nodeDepth
+                if (successorDepth > limit) return true
+
+                if (successorDepth > fieldDepth.get(successor)) {
+                    fieldDepth.put(successor, successorDepth)
+                    unprocessed.add(successor)
+                }
+            }
+        }
+
+        return false
     }
 
     override fun hashCode(): Int = hash

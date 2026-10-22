@@ -52,6 +52,7 @@ type AnalyzerBuilder struct {
 	semgrepCompatibility                  bool
 	partialFingerprints                   bool
 	ifdsAnalysisTimeout                   int64
+	fieldLimit                            int64
 	severities                            []string
 	ruleSetPaths                          []string
 	ruleLoadTracePath                     string
@@ -113,6 +114,11 @@ func (a *AnalyzerBuilder) EnablePartialFingerprints() *AnalyzerBuilder {
 
 func (a *AnalyzerBuilder) SetIfdsAnalysisTimeout(timeout int64) *AnalyzerBuilder {
 	a.ifdsAnalysisTimeout = timeout
+	return a
+}
+
+func (a *AnalyzerBuilder) SetFieldLimit(limit int64) *AnalyzerBuilder {
+	a.fieldLimit = limit
 	return a
 }
 
@@ -235,6 +241,10 @@ func (a *AnalyzerBuilder) BuildNativeCommand() []string {
 
 	if a.ifdsAnalysisTimeout > 0 {
 		flags = append(flags, fmt.Sprintf("--ifds-analysis-timeout=%d", a.ifdsAnalysisTimeout))
+	}
+
+	if a.fieldLimit > 0 {
+		flags = append(flags, fmt.Sprintf("--field-limit=%d", a.fieldLimit))
 	}
 
 	for _, ruleSetPath := range a.ruleSetPaths {

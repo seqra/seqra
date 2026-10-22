@@ -25,6 +25,7 @@ import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.FIN
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.TYPE_INFO_GROUP_ACCESSOR_IDX
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.VALUE_ACCESSOR_IDX
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldAccessor
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldDepthAccessor
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isStaticAccessor
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isTaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isTypeInfoAccessor
@@ -231,6 +232,8 @@ class AccessTree(
     override val depth: Int
         get() = access.maxDepth
 
+    override fun exceedsFieldLimit(limit: Int): Boolean = access.maxFieldDepth > limit
+
     override fun toString(): String = buildString {
         access.print(this, "$base", suffix = "/$exclusions")
         if (this[lastIndex] == '\n') {
@@ -270,6 +273,7 @@ class AccessTree(
         @JvmField val hash: Long
         @JvmField val size: Long
         @JvmField val maxDepth: Int
+        @JvmField val maxFieldDepth: Int
         @JvmField val containsStatic: Boolean
 
         init {
@@ -281,6 +285,7 @@ class AccessTree(
         init {
             var hash = 0L
             var depth = 0
+            var fieldDepth = 0
             var containsStatic = false
 
             if (isAbstract) hash += 1
@@ -301,6 +306,12 @@ class AccessTree(
 
                 depth = accessorNodes.maxOf { it.maxDepth } + 1
 
+                for (i in accessorNodes.indices) {
+                    val childFieldDepth = accessorNodes[i].maxFieldDepth
+                    val edgeFieldDepth = if (accessors!![i].isFieldDepthAccessor()) childFieldDepth + 1 else childFieldDepth
+                    if (edgeFieldDepth > fieldDepth) fieldDepth = edgeFieldDepth
+                }
+
                 containsStatic = containsStatic || accessorNodes.any { it.containsStatic }
             }
 
@@ -310,6 +321,7 @@ class AccessTree(
 
             this.hash = hash
             this.maxDepth = depth
+            this.maxFieldDepth = fieldDepth
             this.containsStatic = containsStatic
         }
 

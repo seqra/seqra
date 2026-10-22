@@ -70,6 +70,7 @@ class MethodTraceResolver(
     private val analysisContext: MethodAnalysisContext,
     private val edges: MethodAnalyzerEdges,
     private val graph: MethodInstGraph,
+    private val fieldLimit: Int?,
 ) {
     private val methodEntryPoint: MethodEntryPoint = analysisContext.methodEntryPoint
     private val analysisManager: AnalysisManager get() = runner.analysisManager
@@ -148,6 +149,12 @@ class MethodTraceResolver(
 
         data class MethodTraceNDEdge(val initialFacts: Set<InitialFactAp>, override val fact: InitialFactAp) : TraceEdge {
             override fun replaceFact(newFact: InitialFactAp): MethodTraceNDEdge = copy(fact = newFact)
+        }
+
+        fun exceedsFieldLimit(limit: Int): Boolean = when (this) {
+            is SourceTraceEdge -> fact.exceedsFieldLimit(limit)
+            is MethodTraceEdge -> fact.exceedsFieldLimit(limit) || initialFact.exceedsFieldLimit(limit)
+            is MethodTraceNDEdge -> fact.exceedsFieldLimit(limit) || initialFacts.any { it.exceedsFieldLimit(limit) }
         }
     }
 
@@ -373,6 +380,7 @@ class MethodTraceResolver(
         finalEntry: TraceEntry.Final,
         val cancellation: Cancellation,
         private val collectActionVariants: Boolean,
+        private val fieldLimit: Int?,
     ) {
         val entryManager = EntryManager()
         val finalEntryId: Int = entryManager.entryId(finalEntry)
@@ -384,6 +392,8 @@ class MethodTraceResolver(
         var steps = 0
 
         fun addPredecessor(current: TraceEntry, predecessor: TraceEntry, enqueue: Boolean = true) {
+            if (fieldLimit != null && predecessor.edges.any { it.exceedsFieldLimit(fieldLimit) }) return
+
             val currentId = entryManager.entryId(current)
             val predecessorId = entryManager.entryId(predecessor)
 
@@ -544,7 +554,7 @@ class MethodTraceResolver(
         val st = summaryTrace.universeTrace()
         check(st.method == methodEntryPoint) { "Incorrect summary trace" }
 
-        val builder = TraceBuilder(st.final, cancellation, collectActionVariants = false)
+        val builder = TraceBuilder(st.final, cancellation, collectActionVariants = false, fieldLimit)
         builder.resolveTrace(st.traceKind)
         stats.traceResolverSteps += builder.steps
 
@@ -564,7 +574,7 @@ class MethodTraceResolver(
         val st = summaryTrace.universeTrace()
         check(st.method == methodEntryPoint) { "Incorrect summary trace" }
 
-        val builder = TraceBuilder(st.final, cancellation, collectActionVariants = true)
+        val builder = TraceBuilder(st.final, cancellation, collectActionVariants = true, fieldLimit)
         builder.resolveTrace(st.traceKind)
         stats.traceResolverSteps += builder.steps
 
@@ -583,7 +593,7 @@ class MethodTraceResolver(
     ): List<FullStart2FinalTrace> {
         check(start2FinalTrace.method == methodEntryPoint) { "Incorrect summary trace" }
 
-        val builder = TraceBuilder(start2FinalTrace.final, cancellation, collectActionVariants = true)
+        val builder = TraceBuilder(start2FinalTrace.final, cancellation, collectActionVariants = true, fieldLimit)
         builder.resolveTrace(start2FinalTrace.traceKind)
         stats.traceResolverSteps += builder.steps
 

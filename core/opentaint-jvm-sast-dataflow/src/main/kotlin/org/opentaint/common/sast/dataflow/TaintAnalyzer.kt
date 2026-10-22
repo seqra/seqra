@@ -113,6 +113,7 @@ abstract class TaintAnalyzer<Method: CommonMethod, Statement: CommonInst>(
         unitResolver() as UnitResolver<CommonMethod>,
         summarySerializationContext,
         options.debugOptions?.taintRulesStatsSamplingPeriod,
+        options.fieldLimit,
     )
 
     private fun analyzeStaged(entryPoints: List<Method>): Pair<List<VulnerabilityWithTrace>, Status> {

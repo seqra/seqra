@@ -163,6 +163,9 @@ object ValueAccessor : Accessor(), AbstractionAlwaysUnrollNextAccessor {
     override val accessorClassId: Int = 6
 }
 
+fun Accessor.isFieldDepthAccessor(): Boolean =
+    this is FieldAccessor || this is ElementAccessor || this is AnyAccessor
+
 inline fun <T : Any> ApManager.tryAnyAccessorOrNull(accessor: Accessor, body: () -> T?): T? {
     if (!AnyAccessor.containsAccessor(accessor)) return null
     if (!anyAccessorUnrollStrategy.unrollAccessor(accessor)) return null

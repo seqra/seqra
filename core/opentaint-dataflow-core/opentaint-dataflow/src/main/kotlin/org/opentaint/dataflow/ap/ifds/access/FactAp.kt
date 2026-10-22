@@ -23,6 +23,8 @@ interface FactAp: AccessorList {
 
     val size: Int
     val depth: Int
+
+    fun exceedsFieldLimit(limit: Int): Boolean
 }
 
 interface InitialFactAp : FactAp, ReadableAccessorList<InitialFactAp> {
