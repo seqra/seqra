@@ -1,10 +1,16 @@
 # Run-1 cost: explanation and recommended changes
 
-Date: 22 October 2026. Status: recommendation, not an implementation spec.
+Date: 22 October 2026. Status: updated two-change proposal, not an implementation spec.
 Runtime: `d7244c08cdaefbb157f42e4d89731d301b97e48f`.
 The [closed investigation](../reports/bidirectional-run1-causal-performance-20261021.md)
 contains the 16 configurations, 13 controls and source/heap/profile bindings.
 No analyzer code changes are part of this document.
+
+The selected scope is now: register static write points only for local
+transfer results, then correct run-1 summary alias admission. Sharing
+identical static FLOW relations globally is deferred until we measure the
+first fix. The other optimization recommendations are removed from this
+iteration.
 
 ## 1. What the comparison establishes
 
@@ -127,179 +133,399 @@ That residual subsystem and the old whole-graph replay router are absent
 from the current implementation. Their diagnostics explain history; they
 are not current fixes.
 
-## 3. Recommended changes, in order
+## 3. First fix: register only operation-produced static writes
 
-The ranking targets run-1. It does not replace separate later-run memory
-proposals. Project speedups and the number of distinct shared keys have
-not yet been measured for these proposed implementations.
+### Current versus new
 
-### First: evaluate identical static FLOW relations once globally
+Current summary retention mixes two operations:
 
-**Current:** an equal static relation gets a writer and requested-group
-state under each method owner. On group interest, each owner subscribes
-to the same source static and composes the same global answer.
+```text
+retain a static summary
+  -> publish method summary and demand guidance
+  -> register static write presence and FLOW writer interests
+```
 
-Assume a corresponding write has activated the read of C.b:
+This also runs for summaries copied from a callee. The caller fabricates
+a `StaticOperation.Write` even though it has only applied a summary.
+
+New rule: register a static write point only when a local micro-edge or
+local rule-action application produces a nonempty static-field result.
+Applying a callee summary only promotes the composed edge to the caller's
+summary storage. It does not create another write point or FLOW writer.
 
 ```java
 void leaf() { C.a = C.b; }
 void wrap1() { leaf(); }
 void wrap2() { leaf(); }
-// Many more wrappers.
 ```
 
-Each method can retain `C.b/FLOW -> C.a/FLOW`. Each owner then acquires
-`C.b/G` separately when `C.a/G` is requested. Its static writer callback
-only composes the relation and supplies a global group result. It does
-not install a marked edge in that method's demand store.
-
-**New:** retain all method summaries/publications and demand guidance, but
-share the pure global relation evaluator and its group acquisition state.
+Assume a corresponding write has activated the read of C.b. Let
+`R = C.b/*/FLOW -> C.a/*/FLOW, DEMAND`.
 
 ```text
-Current evaluator key:
-    (method owner, writer id)
+Before: leaf, wrap1 and wrap2 each retain R and register a writer for R.
+After:  all three retain R; only leaf's local write registers a writer.
 
-Proposed evaluator key:
-    (complete static premise, complete output Pattern,
-     layer, AP mode, field limit)
-
-For each required group:
-    acquire source group once for this complete relation
-    compose the relation once
-    publish its global answer
+Request C.a/G:
+Before: up to three source listeners for C.b/G and three compositions.
+After:  one writer, one source listener and one composition.
 ```
 
-**Why:** remove the method-owner multiplier from writer state, source
-interests, composition and replies. This avoids work instead of only
-packing its representation. It directly targets the statics/aliases
-failure. It does not by itself fix the static-disabled OWASP workload.
+This removes registrations at their source. It does not need a new global
+relation table. Different local write points can still produce an equal
+relation; global sharing of those remaining cases is a separate proposal.
 
-Start with singleton static-field FLOW-to-static-field FLOW relations.
-Keep owner-directed nonstatic RHS requests and fixed-group conditional
-bindings unchanged. Do not merge different methods' Arg(0) requests.
-Do not use only a field pair as the sharing key: preserve tail, field
-exclusions and FLOW mark exclusions.
+### Separate summary retention, write admission and computed supply
 
-Do not select an arbitrary actor as the permanent evaluator. Its exact
-summary selector can become stale while another producer still supports
-the relation. Prove monotone coverage for an immutable relation, or retain
-a valid producer/refresh contract. Preserve both arrival orders and the
-existing req/reach/processed policy. Method demand publication must remain
-independent of global evaluator admission.
+Use three explicit responsibilities. `LocalTransfer` below names the
+executed micro-edge or completed local action; it is not a new support
+label stored on ordinary facts.
 
-Relevant code: `Run1PointResume.summary`, `WriterInterest`, `publishMatched`;
-`Run1StaticService.registerWriter`; and `retainStaticCallEffect` in
-`RunMethodCallServices`.
+```kotlin
+// Pseudocode. Normalization is the existing bounded run-1 policy.
+fun onLocalStaticResult(at: OperationInput, producer: LocalTransfer, raw: Facts) {
+    forEachBoundedStaticResult(at.premise, raw) { premise, result ->
+        retainStaticSummary(premise, result)
+        admitLocalWrite(producer, premise, result)
+    }
+}
 
-### Second: share pure AP work across origins
+fun promoteStaticSummary(premise: PremiseKey, raw: Facts) {
+    forEachBoundedStaticResult(premise, raw, ::retainStaticSummary)
+}
 
-**Current:** `I1 -> F` and `I2 -> F` can perform the same AP transformation
-twice. Their different originals must remain, but need not force duplicate
-kernel computation. A compiled-edge cache does not cache the transformation.
-
-```java
-Object copy(boolean chooseX, Object x, Object y) {
-    Object z = chooseX ? x : y;
-    Object q = z;
-    return q;
+fun retainStaticSummary(premise: PremiseKey, bounded: Facts) {
+    val delta = summaries.add(premise, bounded) ?: return
+    queuePublications(premise, delta) // Includes existing selected demand edges.
+    publishComputedGroupResults(premise, delta)
+    // No write-point or FLOW-writer registration here.
 }
 ```
 
-At `q = z`, suppose `Arg(x)/G -> z/G` and `Arg(y)/G -> z/G`
-have equal complete current Facts. The copy kernel has the same input
-twice. Before: two kernel evaluations. After: one evaluation and two
-origin-specific emissions, retaining both `Arg(x)/G -> q/G` and
-`Arg(y)/G -> q/G`.
+The shared boundary keeps the existing disabled-statics filter, runtime
+group projection, DEMAND layer, `run1Cover` and field limit. Apply the
+existing policy in the same order. Do not widen output geometry or erase
+FLOW mark exclusions to simplify registration.
 
-**New:** evaluate equal complete kernel inputs once, then replay the result
-and request events through each original's existing collector.
+`admitLocalWrite` publishes write presence from the actual bounded field
+result. A nonzero FLOW result also registers its ordinary writer relation.
+Use the existing actor writer key `(premise, complete output Pattern,
+layer)` and service owner/id protocol. Do not add a new point directory or
+global equivalence table in this fix.
 
-```text
-events = pureAP(compiledEdge, completeFacts, mode, requiredSelectors)
-for each original with that complete kernel input:
-    replay events through collector(original, operationSite)
+Write admission must not depend on a fresh summary-store delta. A call
+can promote an equal summary before a local operation produces its result.
+The local operation must still reach the writer registry. That registry's
+own key decides whether the local write registration is fresh.
+
+Computed group supplies remain enabled, including supplies established by
+caller summary composition. This is the user's selected clarification:
+remove call-created write points, keep computed group supplies.
+
+```kotlin
+fun publishComputedGroupResults(premise: PremiseKey, delta: Facts) {
+    if (delta !is TaintTree) return
+    when {
+        premise.isZero -> offerComputedGroups(delta)
+        premise.hasOnlyStaticMembers() -> keepExistingConditionalGroupJoin(premise, delta)
+        else -> Unit // A hypothetical nonstatic input does not supply a global group.
+    }
+}
 ```
 
-**Why:** avoid repeated trie walks, gating and result construction before
-storage admission. Keep every original edge, source/sink effect and request.
-Use a bounded actor-local scope. Do not retain all Facts and form payloads
-for the full method epoch. The actual reuse rate needs an explicit counter.
+Keep complete binding checks for conditional group supplies. This code
+does not turn a conditional result into an unconditional group. A computed
+supply can still activate reads through the existing pool commit logic;
+that does not create a new FLOW writer or a write-point registration.
 
-The first scope can use plain nonstatic TAINT kernels. Extending to FLOW
-must preserve ordered request/result events and original-dependent static
-selectors. Calls, rule evaluation, witnesses, operation hooks, filtering
-and owner-specific effects remain outside the memoized kernel.
+### Local operations include call-site micro-edges
 
-### Third: construct alias projections only when the stage is used
+This is a distinction between a local transfer and imported summary
+composition, not between ordinary statements and call statements:
 
-**Current:** call-plan construction enumerates/lowers persisted aliases
-before the runtime MemoryEffect guard can reject the stage. A rebuild can
-repeat this preparation. Method-level AA results are already lazy; this
-proposal is not a new AA engine.
+- An executed local field-write, source/model or alias micro-edge that
+  produces a static field remains a producer, including at a call stage.
+- A locally completed source/conjunction action remains a producer. The
+  current `operationResult(null, ...)` callback does not mean that its
+  result came from a callee. Preserve existing transfer/action matching,
+  rule permissions and result filters.
+- Merely reaching a write descriptor is insufficient. It must have an
+  accepted result. Summary application must not fabricate that descriptor.
+- Keep static-read registration and current-point group refinement. They
+  are consumers, not extra writer registrations.
+
+The direct `CleanStep.Clean` callback is not a micro-edge write. Remove
+its synthetic write-point route too; keep its ordinary result, requests,
+demand edges and computed group-supply behavior. A `CleanStep.Field` write
+phase executes real micro-edges and still qualifies when it produces a
+static field. This changes registration only, not what either cleaner
+removes or preserves.
+
+Exact global class markers keep their existing special path. They are
+not class-wide static field writes. No later-run, field-write, cleaner,
+condition, ND-origin or mark-group contract changes are selected here.
+
+### Keep a local writer valid when summaries merge
+
+The current `currentValues(writer)` requires its exact leaf to remain in
+the combined summary store. Previously a merged replacement could acquire
+another writer through the summary hook. That hook will no longer register
+writers for promoted summaries.
+
+Therefore a local writer must own its immutable bounded relation, already
+represented by its key. A summary merge must not disable that writer:
+
+```kotlin
+fun writerRelation(writer: WriterKey): Facts = ap.factsOf(
+    writer.output.fact, writer.output.exclusion, writer.layer
+)
+```
+
+Use that relation for local FLOW-writer eligibility and static-origin
+composition instead of requiring an exact current summary leaf. Fixed-group
+conditional supply joins keep their existing binding checks. Keep the local
+FLOW relation's field tail, E and mx. The relation
+has a reached local derivation and stays valid in the monotone run-1
+closure. Do not retain an old cumulative Facts root or add grounding state.
+State and prove this writer-lifetime invariant before implementation.
+
+### Required argument-binding cases
 
 ```java
-void pure(Box b) { }
-void caller(Box b) { pure(b); }
+void set(Object p) { C.f = p; }
+void main() { set(src()); consume(C.f); }
 ```
 
-For a NORMAL identity result that the existing guard rejects, the current
-builder still prepares alias projection edges. The proposed builder does
-not prepare that payload. For a DEMAND result admitted by the guard, it
-prepares and applies the same payload as today.
+The local `p/FLOW -> C.f/FLOW` writer answers a `C.f/G` interest by offering
+the existing `Base(p)/G` request. Ordinary request replay emits `p/G` for
+the actual caller input. The local write produces `p/G -> C.f/G`; caller
+composition produces `ZERO -> C.f/G`. Summary retention publishes that
+computed group supply. The caller registers no new writer.
 
-**New:** keep a lightweight stage descriptor. Build its alias summary on
-the first admitted use, with the existing form lifetime and cache policy.
-Preserve stage addresses, static-operation metadata, backward use and
-empty-stage behavior. Keep all effects for DEMAND inputs that still pass.
+```java
+void main() { set(C.g); consume(C.f); }
+```
 
-**Why:** avoid unused alias-list and micro-edge construction. In Stirling-PDF
-with statics OFF and AA ON, builder/alias frames account for 59.88%/44.73%
-of execution samples. These inclusive shares overlap; neither is a promised
-saving. The fraction of preparation for rejected stages is unmeasured.
+For this case, the same Base request reaches the caller's static-origin
+input. The existing point continuation requests `C.g/G`; a pool answer
+replays the call input and permits the callee's `p/G` initial. Caller
+composition then retains `C.g/G -> C.f/G`. Keep the ordinary all-static
+conditional group join so that the actual `C.g/G` supply establishes
+`C.f/G`. Do not require a caller FLOW writer for this step, and do not
+invent G when `C.g/G` has no derivation.
 
-### Small follow-up: return immediately for a selected GROUP TAINT clean
+### Implementation boundary and validation
 
-**Current:** `TaintClean` traverses/rebuilds the trie, although `gone` returns
-an empty removed set in GROUP mode for a selected-mark cleaner.
+Replace `retainStaticCallEffect` with direct `promoteStaticSummary` calls.
+Remove its synthetic `StaticOperation.Write`. Apply this to every reachable
+run-1 static conclusion from callee-summary composition, including
+`applyStaticSummary` and `applyParts`. Later-run native and ND handling
+remain unchanged. Real call-stage micro-edge results keep the local route.
 
-**New:** return the original TAINT value on that exact primitive branch.
-Keep outer read/write/field-wrapper actions and their requests unchanged.
-RemoveAllMarks retains its current behavior.
+Split `Run1PointResume.summary` into local write admission and computed
+group-supply handling. Generic summary retention calls only the latter.
+Local filtered/bounded results call the former independently of summary
+deduplication. Keep batching, cancellation and complete-barrier accounting.
+
+Before implementation, prove local-writer coverage of the removed
+caller-writer jobs through existing Base request and static-point replay.
+Cover both arrival orders, multiple callers, recursion, conditional source
+actions, group-changing outputs and exclusion-bearing FLOW relations.
+Prove that all method summaries and selected run-2 demands still publish,
+and that summary merging cannot disable a local writer. These are required
+proof obligations, not completed proofs.
+
+Measure writer admissions by producer kind before and after this fix.
+Promoted summary edges must produce zero write-point/FLOW-writer admissions.
+Check wrapper-chain writer counts, local-write-after-promoted-summary
+ordering, both argument-binding examples, delayed groups and an unseeded
+copy cycle. Preserve computed supplies and all required run-2 demands.
+No new performance measurement is claimed. The latest measurements above
+reach run-1 on all projects; Thingsboard does not complete run-1.
+
+## 4. Selected change: correct summary alias admission
+
+This follows the write-registration fix. It prevents redundant alias
+outputs from local micro-edges that can still create writer/refinement
+work. Measure the two changes separately.
+
+### The selected predicate
+
+For a singleton summary edge, compare its raw initial and scalar conclusion
+before caller binding or return rewriting. The bases and complete field
+chains must be equal. Then:
+
+- FLOW: both field-tail kinds must be STAR.
+- TAINT: the actual marks must be equal; field-tail kinds do not matter.
+
+```kotlin
+// Proposed scalar helper. This does not transform either fact.
+fun hasNoMemoryEffect(initial: PathFact, result: PathFact): Boolean {
+    if (initial.base != result.base || initial.path != result.path)
+        return false
+
+    return when {
+        initial.mark is MarkSlot.Star && result.mark is MarkSlot.Star ->
+            initial.tail == Tail.STAR && result.tail == Tail.STAR
+
+        initial.mark is MarkSlot.Concrete && result.mark is MarkSlot.Concrete ->
+            initial.mark == result.mark
+
+        else -> false
+    }
+}
+```
+
+STAR here means the field-tail kind, not merely a FLOW mark slot. Do not
+convert an ANY tail to STAR to make the predicate pass. In run-1, compare
+runtime group atoms. A later FULL use would compare the complete marks,
+not only their groups.
+
+Layer, field exclusions and FLOW mark exclusions are not extra equality
+conditions in this selected predicate. Preserve them in the propagated
+facts. Ignoring them for alias admission does not erase them or make
+transfers with different exclusions globally interchangeable.
+
+| Initial -> conclusion | No memory effect? |
+| --- | --- |
+| `p.f/*/FLOW -> p.f/*/FLOW` | Yes, also on DEMAND |
+| `p.f/*/FLOW -> p.f/[any]/FLOW` | No |
+| `p/*/G -> p/./G` | Yes; TAINT tails can differ |
+| `p/./G -> p/[any]/G` | Yes; retain the broader result |
+| `p.f/*/G -> p.g/*/G` | No; field chains differ |
+| `p.f/*/G -> p.f/*/H` | No; marks differ |
+| `arg0/*/FLOW -> return/*/FLOW` | No; bases differ |
+
+The helper is an alias-admission predicate. It is not a claim that the
+APs are identical or that the whole method has no writes. For example:
+
+```java
+void set(Box b, Object t) { b.f = t; }
+```
 
 ```text
-Primitive operation: RemoveMark(r, T), where T belongs to G
-Input:  I -> r/G, DEMAND
-Before: walk/rebuild the TAINT trie; emit I -> r/G, DEMAND
-After:  emit the same value directly
+b/*/FLOW -> b/*/FLOW       no effect for alias admission
+t/*/FLOW -> b.f/*/FLOW     effect: apply aliases
 ```
 
-**Why:** avoid an identity walk. This is a local cost reduction, not the
-solution to the whole cleaner pipeline. Primitive `TaintClean.run` occurs
-in 3.35% of OWASP's both-OFF execution samples, including its callbacks.
+The second arm must not be suppressed because the first is no-effect.
 
-## 4. Semantic scope and rejected shortcuts
+### Current versus new
 
-The four recommendations intend to preserve the current closure, including
-method demand guidance, every contributing origin, current field handling,
-group rules and report/source/sink identities. They need constructive models
-and preservation proofs under [proof-guide.md](../../spec/proof-guide.md)
-before implementation. No completed proof or measured speedup is claimed.
+Current `summaryParts` rejects identity classification for a DEMAND
+conclusion or a different full group key. That key includes tail/header
+properties which are not conditions in the selected predicate. It then
+uses semantic subtraction against `startFact`.
 
-Do not apply the diagnostic GROUP kill, alias publication deletion, old
-representative-only origin emission or coarse NORMAL static pass. They can
-change semantics. The longer full-Facts repeat guard is also not selected:
-it reduces form accesses by 24.31% but increases GC cost and observed time.
+Separately, the current guard admits a DEMAND result even when it was
+classified as an identity:
 
-Changing alias admission to infer real write effects, or moving refinement
-from saved condition points to original read seeds, would be separate major
-changes. They need explicit contracts and proofs. Do not introduce them as
-implementation details of sharing. In particular, read-seed replay must
-cover implicit condition/cleaner reads, late arrivals, exclusions, call
-stages and every intermediate group demand needed by run-2.
+```kotlin
+// Current guard.
+layer == Layer.DEMAND || !identityCandidate
 
-No IR, reference-manager, weak-cache, grounding or field-policy rewrite is
-proposed. First measure whether the selected changes reduce global writer
-evaluations, pending subscriptions, queue events and actual AP computations.
-Then check completed/accepted run-1 and the 60-second engine target on the
-same four projects and configurations.
+// Selected run-1 alias guard.
+!hasNoMemoryEffect
+```
+
+Both the classifier and the run-1 guard must change. Updating only the
+classifier leaves the DEMAND bypass and does not suppress those aliases.
+This is broader than the earlier C6/C7 controls: their remaining tail and
+header restrictions do not implement the selected TAINT rule.
+
+### Packed summaries and flag lifetime
+
+A packed conclusion needs two parts. Partition its actual leaf payloads
+by the predicate; do not assign one Boolean to a mixed result.
+
+```text
+Initial: p/*/G
+Packed output:
+    p/./G       -> no effect
+    p/[any]/G   -> no effect
+    p.f/*/G     -> effect
+    p/*/H       -> effect
+```
+
+```kotlin
+val (noEffect, effect) = partitionLeaves(conclusion) { leaf ->
+    hasNoMemoryEffect(initial.fact, leaf.fact)
+}
+applyPart(noEffect, hasNoMemoryEffect = true)
+applyPart(effect,   hasNoMemoryEffect = false)
+```
+
+Use a structural path/mark partition. Do not use `without(startFact)` as
+the classifier: semantic subtraction can erase or combine distinctions
+which this predicate deliberately treats differently. Preserve every
+part's actual tail, layer, fields, E and mx. A one-walk packed partition
+can avoid scalar result allocation in the implementation.
+
+Classify the callee summary arm before caller projection. For example,
+`arg0 -> return` is still an effect even if caller binding happens to map
+both positions to one local. Carry the classification through return
+cleaners, bind-back, cuts and suspended/resumed run-1 call stages. A layer
+change alone must not turn no-effect into effect. Source-generated values
+retain their own effect classification.
+
+Skip only the guarded ALIASES stage for a no-effect part. Keep ordinary
+summary application, bind-back, caller successors and all demand guidance.
+Direct static-operation publication is a separate route; this predicate
+is not a blanket static-writer filter.
+
+For this run-1 iteration, later FULL/native-record handling and reversed
+call-stage guards remain unchanged. Extending the new classifier to those
+paths must be an explicit later scope decision.
+
+## 5. Deferred: share identical static FLOW evaluation globally
+
+The previous proposal shared equal static FLOW relations across method
+owners. First measure operation-only write registration. It removes the
+wrapper-copy multiplier at the source, without a new global evaluator.
+
+Revisit global sharing only if equal relations from distinct remaining
+local producers still account for substantial writer/group work. That
+would be a separate change. Its key would need the complete static
+premise, output Pattern, layer, AP mode and field limit, not just two field
+names. It would also need coverage and arrival-order proofs against the
+engine after section 3. No global relation table is selected now.
+
+## 6. Semantic scope, proofs and measurement
+
+The first fix changes who may register a static writer: only a reached
+local transfer can do so. Caller summaries remain published and available
+as run-2 guidance. Computed ZERO and all-static conditional group supplies
+remain enabled. The required writer-lifetime ownership change is explicit
+in section 3; it is not permission for a new support or grounding mechanism.
+
+The selected alias change modifies current run-1 alias admission. It
+intentionally treats same-mark TAINT tail changes as no-effect and removes
+the run-1 DEMAND bypass. It must not silently change AP transfer, field
+writes, cleaner behavior, summaries, mark values or demand layers.
+
+Global relation sharing is deferred. If it is selected later, prove it
+against the engine after the selected fixes, rather than against redundant
+caller-writer registrations that section 3 has already removed.
+
+Before implementation, follow [proof-guide.md](../../spec/proof-guide.md):
+
+- Model the scalar alias criterion and lossless packed partition.
+- Model local write admission separately from method-summary retention and
+  computed group supply. Prove both bootstrap traces and writer coverage.
+- Verify that only effect parts reach aliases; preserve no-effect parts'
+  ordinary results and demand edges, including resumed call stages.
+- Prove local writer validity across summary merging. A later sharing
+  proposal also needs group/relation arrival-order and coverage proofs.
+- Check full marks, runtime groups, tail changes, mixed output marks/paths,
+  both layers, real mutator arms and direct static-write routes.
+
+No completed proofs or new performance results are claimed here. Record
+separate measurements after the write-registration fix and alias correction
+on the same four projects. Report latest reached/completed/accepted iteration.
+Count alias applications, distinct relation keys, evaluator/group jobs,
+pending interests and replies, in addition to run-1 time and heap.
+The target remains completion of run-1 engine work within 60 seconds.
+
+The other prior recommendations are not selected. No AP memo, lazy alias
+construction, cleaner fast path, read-seed replay, IR, reference-manager,
+weak-cache, grounding or field-policy rewrite is included.
