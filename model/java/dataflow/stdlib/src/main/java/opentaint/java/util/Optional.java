@@ -1,6 +1,5 @@
-package org.opentaint.jvm.dataflow.approximations.stdlib;
+package opentaint.java.util;
 
-import org.opentaint.ir.approximation.annotation.Approximate;
 import org.opentaint.jvm.dataflow.approximations.ArgumentTypeContext;
 
 import java.util.function.Consumer;
@@ -8,7 +7,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-@Approximate(java.util.Optional.class)
 public class Optional {
     public void ifPresent(@ArgumentTypeContext Consumer action) {
         java.util.Optional t = (java.util.Optional) (Object) this;

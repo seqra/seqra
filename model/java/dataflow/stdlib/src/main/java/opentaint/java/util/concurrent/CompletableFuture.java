@@ -1,6 +1,5 @@
-package org.opentaint.jvm.dataflow.approximations.stdlib;
+package opentaint.java.util.concurrent;
 
-import org.opentaint.ir.approximation.annotation.Approximate;
 import org.opentaint.jvm.dataflow.approximations.ArgumentTypeContext;
 import org.opentaint.jvm.dataflow.approximations.OpentaintNdUtil;
 
@@ -12,7 +11,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-@Approximate(java.util.concurrent.CompletableFuture.class)
 public class CompletableFuture {
 
     public static java.util.concurrent.CompletableFuture supplyAsync(@ArgumentTypeContext Supplier supplier) {

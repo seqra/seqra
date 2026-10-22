@@ -1,0 +1,16 @@
+language: go
+passThrough:
+- function:
+    package: github.com/modelcontextprotocol/go-sdk/mcp
+    name: ResourceNotFoundError
+    receiver: false
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: github.com/modelcontextprotocol/go-sdk/mcp
+    name: URLElicitationRequiredError
+    receiver: false
+  copy:
+  - from: arg(0)
+    to: result

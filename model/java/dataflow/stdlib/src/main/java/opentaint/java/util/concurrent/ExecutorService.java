@@ -1,6 +1,5 @@
-package org.opentaint.jvm.dataflow.approximations.stdlib;
+package opentaint.java.util.concurrent;
 
-import org.opentaint.ir.approximation.annotation.Approximate;
 import org.opentaint.jvm.dataflow.approximations.ArgumentTypeContext;
 
 import java.util.ArrayList;
@@ -12,7 +11,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-@Approximate(java.util.concurrent.ExecutorService.class)
 public class ExecutorService {
 
     public void execute(@ArgumentTypeContext Runnable command) {
