@@ -7,6 +7,13 @@ Later documentation commits do not change these references.
 The [implementation validation](../docs/reports/bidirectional-static-protocol-removal-validation-20261022.md)
 records production checks and the new measurement campaign.
 
+The later [static summary erasure design](run1-static-summary-erasure.md)
+deliberately replaces this document's static/static per-method relation
+equality with producer-effect and run-2 query/path coverage. That design
+is selected but **not implemented**. The proofs here still describe this
+implemented reference; do not use their relation-equality conclusion for
+the new erased representation.
+
 This document specifies two changes:
 
 1. Remove the repeated static GROUP call handshake.

@@ -1,0 +1,122 @@
+{
+  "created_utc": "2026-10-22T18:53:17.470950+00:00",
+  "workspace_head": "8aae320804a01bf0a8e96918c2c533099abdc39d",
+  "reference_runtime": "30c1b84606695070a79d7ae467703267b9f931c1",
+  "sha256": {
+    "spec/lean/ApSpec/Run1StaticSummaryErasure.lean": "3de05132194bd39f79b6aba46a55fa3ae3e05c47fd1594e21f5c4dbcb2b71933",
+    "spec/lean/ApSpec/Run1StaticRelayProjection.lean": "c2ceed4a5f2a3acbe3a86f29302f2758e7f6d81fee97c4bcde3f060c0b38926c",
+    "spec/lean/ApSpec/Run1StaticQueryCompletion.lean": "304813911b12fd7661523ad7067d4b17e708f72ac7812a432e5d6294d5421fbb",
+    "spec/lean/ApSpec/Run1StaticErasureBackwardReplay.lean": "c336457fe6baf41c6e59725f2059ae9aafe52937b6ef14ac5d910ac72b53800f",
+    "spec/lean/run1-static-summary-erasure-audit.lean": "9814a374ea481bace5eb4d9133b3e5e8757fff1ea31c130a9744f35fcd1d8f71",
+    "spec/run1-static-summary-erasure.md": "73ed5fde7c91ed7c365e940fe2bb4f6bc7fe8a7d9ea5fa713bef3519231f1d0d",
+    "spec/run1-static-summary-erasure-proofs.md": "88ccf02466f1f90e6b317c8f2f3eae8fc142c1c29a4920d14617fcfab3d3306a"
+  },
+  "runtime_source_sha256": {
+    "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/Summary.kt": "b752391754da93b0621b24d7558f1e435fb7eefbef3e3a9f3a99258c3152087b",
+    "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/EdgeApplication.kt": "b5ff79f0d30bee2e95db627601d21f080098feff1ceadf02d407a3f4164e9209",
+    "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/LeafViews.kt": "30635774207e7792623196e415d3c10f1b477f500c1c0513fc381d6bf95cb15e",
+    "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/Reference.kt": "5aa3f6ab27cd62eb925761c3ec34ff0748c10889b70aaba40f1f974cedeb98b8",
+    "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/Limit.kt": "4a03eed47d6c2f1362219fbdb0e8d40895194dd2a7f090ed93c822054f6de45d",
+    "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/ApManager.kt": "b26c47d6a65021b27f3708a7456221aa8105e549e5a5cad0ec05849902a83536",
+    "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/Run1StaticService.kt": "bd71ce3c7a9c276701f52df7ffc6861c295baa385e871f786262e71bf8f51934",
+    "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/Run1PointResume.kt": "83a612a11a9678a699dbefeab50256958d5a89b06de02bbefce0b624abbb3824",
+    "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunMethodCallServices.kt": "c11de0d28588d52db19a831d26c0c54e42507cbea286b39cead484a8decaf423",
+    "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunMethodAnalyzer.kt": "bd8baca07edc711f97bff5aae52530c418fe2959d758fb7f13d88728b1ddf07a",
+    "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/StrongQueries.kt": "18406e3f8cbae1312424e223cb15e1f91d4668e92e4aae8e565805f69bebd67e",
+    "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/store/DemandStore.kt": "e885ea751a848b3114f5a3630d65e60b372abac6a0dd5dd226491289ee9f1895",
+    "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/driver/HandOff.kt": "78d2c6643c8316de9440e2e32188578f3ad854db7b1395d3c43e713d9e312afd"
+  },
+  "status": "design-only",
+  "toolchain": "leanprover/lean4:v4.33.1",
+  "runtime_changes": false,
+  "commands": [
+    {
+      "cwd": "spec/lean",
+      "argv": [
+        "lake",
+        "build",
+        "ApSpec.Run1StaticSummaryErasure",
+        "ApSpec.Run1StaticRelayProjection",
+        "ApSpec.Run1StaticQueryCompletion",
+        "ApSpec.Run1StaticErasureBackwardReplay"
+      ],
+      "exit_code": 0,
+      "jobs": 53
+    },
+    {
+      "cwd": "spec/lean",
+      "argv": [
+        "lake",
+        "env",
+        "lean",
+        "run1-static-summary-erasure-audit.lean"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "audit": {
+    "owned_declarations": {
+      "Run1StaticSummaryErasure": 848,
+      "Run1StaticRelayProjection": 202,
+      "Run1StaticQueryCompletion": 263,
+      "Run1StaticErasureBackwardReplay": 509
+    },
+    "total_owned_declarations": 1822,
+    "controls": {
+      "producer_relay": 32,
+      "scalar_projection": 13,
+      "actual_queries": 8,
+      "backward_replay": 22
+    },
+    "total_controls": 75,
+    "allowed_axioms": [
+      "propext",
+      "Quot.sound"
+    ],
+    "unexpected_axioms": 0,
+    "stdout": "Audited ApSpec.Run1StaticSummaryErasure: 848 declarations.\nAudited ApSpec.Run1StaticRelayProjection: 202 declarations.\nAudited ApSpec.Run1StaticQueryCompletion: 263 declarations.\nAudited ApSpec.Run1StaticErasureBackwardReplay: 509 declarations.\nTotal: 1822; no unexpected axioms.\nControls passed: producer/relay: 32\nControls passed: scalar projection: 13\nControls passed: actual queries: 8\nControls passed: backward replay: 22\nExecutable controls: 75; all passed.\n'ApSpec.Run1StaticSummaryErasure.localOutputPreimage' depends on axioms: [propext, Quot.sound]\n'ApSpec.Run1StaticSummaryErasure.compress' depends on axioms: [propext, Quot.sound]\n'ApSpec.Run1StaticSummaryErasure.complete_operational_closure' depends on axioms: [propext, Quot.sound]\n'ApSpec.Run1StaticSummaryErasure.no_source_free_cycle' depends on axioms: [propext, Quot.sound]\n'ApSpec.Run1StaticRelayProjection.reapply_preserves_region' depends on axioms: [propext]\n'ApSpec.Run1StaticRelayProjection.normalizer_idempotent' depends on axioms: [propext]\n'ApSpec.Run1StaticRelayProjection.reapply_erases_to_actual_AP' depends on axioms: [propext, Quot.sound]\n'ApSpec.Run1StaticQueryCompletion.coveredQuery' depends on axioms: [propext, Quot.sound]\n'ApSpec.Run1StaticQueryCompletion.old_query_batch_covered' depends on axioms: [propext, Quot.sound]\n'ApSpec.Run1StaticQueryCompletion.completion_adds_no_locations' depends on axioms: [propext]\n'ApSpec.Run1StaticErasureBackwardReplay.replay' depends on axioms: [propext, Quot.sound]\n'ApSpec.Run1StaticErasureBackwardReplay.source_hit_identity_preserved' depends on axioms: [propext, Quot.sound]\n'ApSpec.Run1StaticErasureBackwardReplay.complete_binding_preserved' depends on axioms: [propext, Quot.sound]\n"
+  },
+  "development_note": "Initial combined audit helper attempts required explicit type annotations; the corrected final helper passes. Feature-model sources were not weakened.",
+  "scope": [
+    "Finite operational producer and pure-relay erasure under a shared scalar kernel and idempotent AP projection",
+    "EXACT/ANY/MUST scalar region preservation at empty E",
+    "Exact run-2 query coverage for named field EXACT/ANY and exact class FULL actuals",
+    "Finite later FULL/source-hit/complete-binding witness replay through an unchanged ordinary kernel"
+  ],
+  "remaining_production_gates": [
+    "Constructor closure for the selected executable static grammar",
+    "Scalar extraction/graft and receiving-manager AP refinement",
+    "Pending fixed-GROUP scalar ownership without raw summary borrows",
+    "Service/actor once-admission, work accounting and cancellation",
+    "Complete premise authorization, retained seeds, records and report/handoff refinement"
+  ],
+  "not_claimed": [
+    "Kotlin implementation verified",
+    "Whole-engine soundness or termination",
+    "Arbitrary count-sensitive custom policy equivalence",
+    "Resource-limited prefix equality",
+    "Performance improvement measured"
+  ],
+  "latest_baseline_iterations": {
+    "thingsboard": {
+      "reached": "run-2 OOM",
+      "complete": "run-1",
+      "accepted": "run-1"
+    },
+    "conductor": {
+      "reached": "run-2 OOM",
+      "complete": "run-1",
+      "accepted": "run-1"
+    },
+    "stirling_pdf": {
+      "reached": "run-2 OOM",
+      "complete": "run-1",
+      "accepted": "run-1"
+    },
+    "owasp": {
+      "reached": "run-5 TIMEOUT",
+      "complete": "run-4",
+      "accepted": "run-3"
+    }
+  }
+}

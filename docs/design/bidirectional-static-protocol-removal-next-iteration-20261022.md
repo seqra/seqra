@@ -45,6 +45,15 @@ reference-manager changes, weak caches or IR changes.
 
 ## 1. Research: stop static-only relay summaries
 
+The selected [complete specification](../../spec/run1-static-summary-erasure.md)
+and [proof dossier](../../spec/run1-static-summary-erasure-proofs.md) now
+replace the research alternative in this section. Remove all run-1
+static/static rows after producer effects. Use actual run-2 query
+completion and the explicitly selected named-field/EXACT class grammar;
+do not build the possible shared exact-pair directory described below.
+The design remains unimplemented. The measurements below still refer to
+runtime `30c1b8460` and retain their stated limits.
+
 The actual run-2 incoming guidance has 5,890,526 static/static physical
 pairs, **84.68%** of its DemandPattern population. The whole incoming
 store retains 2.683 GB across 73,608 method keys. These measurements

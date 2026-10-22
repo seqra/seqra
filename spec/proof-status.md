@@ -1,5 +1,34 @@
 # Current proof status
 
+## Selected design: run-1 static summary erasure
+
+The [new specification](run1-static-summary-erasure.md) removes all run-1
+static/static summary rows after their required producer effects. It
+keeps local FLOW writers, first ordinary caller bindings, computed
+supplies, retained mixed/nonstatic/ZERO relations and sink seeds. It
+replaces the removed run-2 static guide starts with bounded actual-input
+query completion, including same-field EXACT. The user also selected
+named-field and EXACT class-marker concrete grammar in run-2. These are
+explicit major changes; no field-transfer or source/exit-rule change is
+selected. **This design is not implemented.** The current runtime remains
+`30c1b84606695070a79d7ae467703267b9f931c1`.
+
+The [proof dossier](run1-static-summary-erasure-proofs.md) separates
+constructive finite producer/relay erasure, scalar AP projection, exact
+query coverage and later FULL witness replay. Its
+[audit](lean/run1-static-summary-erasure-audit.lean) checks the four owned
+modules. Kotlin constructor closure, scalar/tree refinement, pending
+payload ownership, queue accounting and observation/handoff adapters
+remain implementation gates. No whole-engine soundness, termination or
+performance acceptance is claimed. The focused 53-job Lean build passes;
+the final owned audit passes **1,822 declarations and 75 controls**, with
+only `propext` and `Quot.sound` dependencies. The
+[check receipt](lean/run1-static-summary-erasure-checks.json) pins the
+final sources. Latest measured Thingsboard,
+Conductor and PDF status is reached **run-2 OOM**, latest COMPLETE/accepted
+**run-1/run-1**. OWASP reached **run-5 TIMEOUT**, latest COMPLETE **run-4**,
+latest accepted **run-3**. No new project measurement was made for this design.
+
 ## Selected 22 October specification: local writers and summary aliases
 
 The [complete specification](run1-static-writers-and-summary-aliases.md)

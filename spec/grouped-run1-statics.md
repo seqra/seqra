@@ -1,5 +1,14 @@
 # Mark groups and direct static handling
 
+The selected next design is
+[Run-1 without static-to-static summaries](run1-static-summary-erasure.md).
+It removes those rows after producer effects and replaces their later
+query starts with actual-input completion. It also pins named-field and
+EXACT class-marker concrete inputs in run-2. This is an explicit major
+update to guidance, not a change to field transfer or source/exit rules.
+It is **not implemented**. The implemented contracts below remain the
+reference until its production adapter gates are complete.
+
 The selected 22 October update is
 [Run-1 local static writers and summary alias admission](run1-static-writers-and-summary-aliases.md).
 It replaces static write-point registration from caller summary copies
