@@ -139,9 +139,10 @@ data class GoIRTypeAssertExpr(
 
 data class GoIRMakeClosureExpr(
     override var type: GoIRType,
-    val fn: GoIRFunction,
+    val lookup: org.opentaint.ir.go.api.GoIrFunctionReference,
     val bindings: List<GoIRValue>,
 ) : GoIRExpr {
+    val fn get() = lookup.function
     override val operands: List<GoIRValue> get() = bindings
     override fun <T> accept(visitor: GoIRExprVisitor<T>): T = visitor.visitMakeClosure(this)
     override fun toString(): String = "makeclosure ${fn.name}[${bindings.joinToString(", ")}]"
@@ -310,8 +311,9 @@ data class GoIRExtractExpr(
 
 data class GoIRGlobalValueExpr(
     override var type: GoIRType,
-    val global: GoIRGlobal,
+    val lookup: org.opentaint.ir.go.api.GoIRGlobalReference,
 ) : GoIRExpr {
+    val global get() = lookup.global
     override val operands: List<GoIRValue> get() = emptyList()
     override fun <T> accept(visitor: GoIRExprVisitor<T>): T = visitor.visitGlobalValue(this)
     override fun toString(): String = "global ${global.fullName}"
@@ -319,8 +321,9 @@ data class GoIRGlobalValueExpr(
 
 data class GoIRFunctionValueExpr(
     override var type: GoIRType,
-    val function: GoIRFunction,
+    val lookup: org.opentaint.ir.go.api.GoIrFunctionReference,
 ) : GoIRExpr {
+    val function get() = lookup.function
     override val operands: List<GoIRValue> get() = emptyList()
     override fun <T> accept(visitor: GoIRExprVisitor<T>): T = visitor.visitFunctionValue(this)
     override fun toString(): String = "func ${function.fullName}"

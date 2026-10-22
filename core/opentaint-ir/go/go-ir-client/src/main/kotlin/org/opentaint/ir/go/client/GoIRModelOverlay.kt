@@ -12,11 +12,6 @@ import org.opentaint.ir.go.api.GoIRPackage
 import org.opentaint.ir.go.api.GoIRProgram
 import org.opentaint.ir.go.api.GoIRTransformer
 import org.opentaint.ir.go.api.GoIRTypeParamDecl
-import org.opentaint.ir.go.expr.GoIRFieldAddrExpr
-import org.opentaint.ir.go.expr.GoIRFieldExpr
-import org.opentaint.ir.go.impl.GoIRBasicBlockImpl
-import org.opentaint.ir.go.inst.GoIRAssignInst
-import org.opentaint.ir.go.inst.GoIRFieldStore
 import org.opentaint.ir.go.type.GoIRAnonymousInterfaceType
 import org.opentaint.ir.go.type.GoIRAnonymousInterfaceTypeRef
 import org.opentaint.ir.go.type.GoIRArrayType
@@ -48,8 +43,8 @@ internal class GoIRModelOverlayProgram(
     definitions: List<GoIRModelDefinition>,
 ) : GoIRProgram {
     private val definitionsByTarget = linkedMapOf<String, GoIRModelDefinition>()
+    val modeledPaths: Set<String> get() = definitionsByTarget.keys
     val modelDependencies = linkedMapOf<String, GoIRPackage>()
-    private val effectivePackages = mutableMapOf<String, GoIRPackage>()
 
     init {
         definitions.forEach { definition ->
@@ -85,11 +80,7 @@ internal class GoIRModelOverlayProgram(
     override fun findPackage(importPath: String): GoIRPackage? {
         val original = originalProgram.findPackage(importPath) ?: return modelDependencies[importPath]
         val definition = definitionsByTarget[importPath] ?: return original
-        return synchronized(effectivePackages) {
-            effectivePackages.getOrPut(importPath) {
-                createPackage(original, definition.program.findPackage(importPath)!!)
-            }
-        }
+        return createPackage(original, definition.program.findPackage(importPath)!!)
     }
 
     override fun allFunctions(): List<GoIRFunction> = packages.values.flatMap { it.functions }
@@ -139,71 +130,22 @@ internal class GoIRModelOverlayProgram(
             val replacement = modelByName[target.fullName]
             if (replacement != null && replacement.bodyAvailable && sameSignature(replacement, target)) {
                 used += replacement
-                ApproximatedFunction(replacement, target)
+                ModelFunctionCandidate(replacement, target)
             } else {
                 val genericModel = target.originFullName?.let(modelByName::get)
                 if (genericModel != null && genericModel.bodyAvailable) {
                     val specialized = specializer.specialize(genericModel, target)
                     specializedAnonymousFunctions += specialized.anonymousFunctions
-                    ApproximatedFunction(specialized.root, target)
+                    ModelFunctionCandidate(specialized.root, target)
                 } else {
                     target
                 }
             }
         }.toMutableList()
-        effectiveFunctions += specializedAnonymousFunctions.map(::ModelFunction)
-        effectiveFunctions += modelFunctions.filter { it !in used }.map(::ModelFunction)
+        effectiveFunctions += specializedAnonymousFunctions.map { ModelFunctionCandidate(it) }
+        effectiveFunctions += modelFunctions.filter { it !in used }.map { ModelFunctionCandidate(it) }
 
-        remapModelFieldAccesses(original, model)
         return GoIRModelOverlayPackage(original, model, effectiveFunctions)
-    }
-
-    private fun remapModelFieldAccesses(original: GoIRPackage, model: GoIRPackage) {
-        val plans = model.namedTypes.mapNotNull { modelType ->
-            val targetType = original.findNamedType(modelType.name) ?: return@mapNotNull null
-            val targetByName = targetType.fields.associateBy { it.name }
-            val extraByName = modelType.fields
-                .filter { it.name !in targetByName }
-                .mapIndexed { index, field -> field.name to targetType.fields.size + index }
-                .toMap()
-            val indexes = modelType.fields.associate { field ->
-                field.index to (targetByName[field.name]?.index ?: extraByName.getValue(field.name))
-            }
-            modelType.fullName to indexes
-        }.toMap()
-
-        fun namedType(type: GoIRType): String? = when (type) {
-            is GoIRPointerType -> namedType(type.elem)
-            is GoIRNamedTypeRef -> type.typeRef.fullRefName
-            is GoIRStructType -> type.structTypeRef?.fullRefName
-            else -> null
-        }
-        fun index(type: GoIRType, oldIndex: Int): Int =
-            namedType(type)?.let(plans::get)?.get(oldIndex) ?: oldIndex
-
-        model.functions.forEach { function ->
-            val body = function.body ?: return@forEach
-            body.blocks.forEach { block ->
-                val mutableBlock = block as? GoIRBasicBlockImpl ?: return@forEach
-                mutableBlock.setInstructions(block.instructions.map { instruction ->
-                    when (instruction) {
-                        is GoIRAssignInst -> when (val expression = instruction.expr) {
-                            is GoIRFieldAddrExpr -> instruction.copy(
-                                expr = expression.copy(fieldIndex = index(expression.x.type, expression.fieldIndex)),
-                            )
-                            is GoIRFieldExpr -> instruction.copy(
-                                expr = expression.copy(fieldIndex = index(expression.x.type, expression.fieldIndex)),
-                            )
-                            else -> instruction
-                        }
-                        is GoIRFieldStore -> instruction.copy(
-                            fieldIndex = index(instruction.base.type, instruction.fieldIndex),
-                        )
-                        else -> instruction
-                    }
-                })
-            }
-        }
     }
 
     private fun validateFields(original: GoIRPackage, model: GoIRPackage, source: String) {
@@ -432,8 +374,15 @@ private class GoIRModelOverlayNamedType(
     }
 }
 
+private class ModelFunctionCandidate(
+    val implementation: GoIRFunction,
+    val original: GoIRFunction? = null,
+) : GoIRFunction by implementation
+
 private open class ModelFunction(protected val implementation: GoIRFunction) : GoIRModelFunction,
-    GoIRFunction by implementation {
+    GoIRFunction by implementation, GoIRBodyReader {
+    override fun readBody(owner: GoIRFunction, context: GoIRBodyContext) =
+        (implementation as GoIRBodyReader).readBody(owner, context)
     override val isSynthetic: Boolean get() = true
 }
 
@@ -451,10 +400,18 @@ internal class GoIRModelTransformer(
 
     override val additionalPackages: List<GoIRPackage> get() = models.modelDependencies.values.toList()
 
-    override fun transformPackage(pkg: GoIRPackage): GoIRPackage =
-        models.findPackage(pkg.importPath) ?: pkg
+    override fun resolveFunction(
+        reference: org.opentaint.ir.go.api.GoIrFunctionReference,
+        next: () -> GoIRFunction?,
+    ): GoIRFunction? {
+        val candidate = next() ?: return null
+        if (candidate !is ModelFunctionCandidate) return candidate
+        val original = candidate.original
+        return if (original == null) ModelFunction(candidate.implementation)
+        else ApproximatedFunction(candidate.implementation, original)
+    }
 
-    override fun transformFunction(function: GoIRFunction): GoIRFunction =
-        function.pkg?.importPath?.let(models::findPackage)?.functions
-            ?.firstOrNull { it.fullName == function.fullName } ?: function
+
+    override fun resolvePackage(importPath: String, next: () -> GoIRPackage?): GoIRPackage? =
+        if (importPath in models.modeledPaths) models.findPackage(importPath) else next()
 }

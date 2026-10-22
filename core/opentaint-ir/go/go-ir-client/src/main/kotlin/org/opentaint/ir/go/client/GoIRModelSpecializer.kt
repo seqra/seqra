@@ -1,22 +1,13 @@
 package org.opentaint.ir.go.client
 
-import org.opentaint.ir.go.api.GoIRBody
 import org.opentaint.ir.go.api.GoIRFunction
 import org.opentaint.ir.go.api.GoIRParameter
 import org.opentaint.ir.go.api.GoIRFreeVar
 import org.opentaint.ir.go.api.GoIRProgram
 import org.opentaint.ir.go.api.GoIRTypeParamDecl
 import org.opentaint.ir.go.api.GoIrFunctionReference
-import org.opentaint.ir.go.cfg.GoIRCallInfo
-import org.opentaint.ir.go.cfg.GoIRCallTarget
-import org.opentaint.ir.go.cfg.GoIRSelectState
-import org.opentaint.ir.go.expr.*
-import org.opentaint.ir.go.impl.GoIRBasicBlockImpl
-import org.opentaint.ir.go.impl.GoIRBodyImpl
 import org.opentaint.ir.go.impl.GoIRFunctionImpl
-import org.opentaint.ir.go.inst.*
 import org.opentaint.ir.go.type.*
-import org.opentaint.ir.go.value.*
 import java.util.IdentityHashMap
 
 internal data class SpecializedGoModelFunction(
@@ -24,7 +15,7 @@ internal data class SpecializedGoModelFunction(
     val anonymousFunctions: List<GoIRFunction>,
 )
 
-/** Copies a generic model body and substitutes the target instance type arguments. */
+/** Substitutes concrete type arguments and closure lookups while reading a generic model body. */
 internal class GoIRModelSpecializer(
     private val program: GoIRProgram,
 ) {
@@ -111,7 +102,20 @@ internal class GoIRModelSpecializer(
 
         (listOf(modelRoot) + sourceFunctions).forEach { source ->
             val copied = functionMap.getValue(source)
-            copied.setBody(transformGoIRBody(source.body!!, copied, specializeType, { functionMap[it] ?: it }))
+            val reader = source as? GoIRBodyReader
+                ?: error("Go model ${source.fullName} has no body reader")
+            copied.setBodyReader { owner, context ->
+                reader.readBody(owner, object : GoIRBodyContext() {
+                    override fun type(type: GoIRType) = context.type(specializeType(type))
+                    override fun function(ref: GoIrFunctionReference): GoIrFunctionReference {
+                        val replacement = functionMap[ref.function]
+                        return context.function(if (replacement == null) ref else reference(replacement))
+                    }
+                    override fun global(ref: org.opentaint.ir.go.api.GoIRGlobalReference) = context.global(ref)
+                    override fun fieldIndex(type: GoIRType, index: Int, name: String) =
+                        context.fieldIndex(specializeType(type), index, name)
+                }) ?: error("Go model ${source.fullName} has no body")
+            }
         }
         return SpecializedGoModelFunction(root, sourceFunctions.map(functionMap::getValue))
     }
@@ -133,10 +137,7 @@ internal class GoIRModelSpecializer(
 private class TypeSpecializer(
     private val arguments: Map<Int, GoIRType>,
 ) : (GoIRType) -> GoIRType {
-    private val memo = IdentityHashMap<GoIRType, GoIRType>()
-
     override fun invoke(type: GoIRType): GoIRType {
-        memo[type]?.let { return it }
         val result = when (type) {
             is GoIRTypeParamType -> arguments[type.paramIndex] ?: type
             is GoIRTypeParamRef -> arguments[type.paramIndex] ?: type
@@ -169,7 +170,6 @@ private class TypeSpecializer(
             is GoIRTupleType -> GoIRTupleType(type.elements.map(::invoke))
             else -> type
         }
-        memo[type] = result
         return result
     }
 }

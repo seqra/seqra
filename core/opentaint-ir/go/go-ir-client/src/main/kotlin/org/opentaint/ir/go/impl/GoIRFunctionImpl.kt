@@ -1,5 +1,7 @@
 package org.opentaint.ir.go.impl
 
+import org.opentaint.ir.go.client.GoIRBodyReader
+import org.opentaint.ir.go.client.GoIRBodyContext
 import org.opentaint.ir.go.api.GoIRBody
 import org.opentaint.ir.go.api.GoIRBodyUnavailableException
 import org.opentaint.ir.go.api.GoIRFreeVar
@@ -15,7 +17,7 @@ import org.opentaint.ir.go.type.GoIRType
 class GoIRFunctionImpl(
     override val name: String,
     override val fullName: String,
-    pkg: GoIRPackage?,
+    override val pkg: GoIRPackage?,
     override val signature: GoIRFuncType,
     override val params: List<GoIRParameter>,
     override val freeVars: List<GoIRFreeVar>,
@@ -31,26 +33,31 @@ class GoIRFunctionImpl(
     override val typeParams: List<GoIRTypeParamDecl> = emptyList(),
     override val originFullName: String? = null,
     override val typeArgs: List<GoIRType> = emptyList(),
-) : GoIRFunction {
-    private var owner = pkg
-    override val pkg: GoIRPackage? get() = owner
-
-    internal fun rebindPackage(pkg: GoIRPackage) {
-        owner = pkg
-    }
+) : GoIRFunction, GoIRBodyReader {
 
     private var _body: GoIRBody? = null
+    private var reader: ((GoIRFunction, GoIRBodyContext) -> GoIRBody)? = null
+
+    internal fun setBodyReader(reader: (GoIRFunction, GoIRBodyContext) -> GoIRBody) {
+        this.reader = reader
+    }
+
+    override fun readBody(owner: GoIRFunction, context: GoIRBodyContext): GoIRBody? =
+        reader?.invoke(owner, context) ?: _body
+
+    private val resolvedBody by lazy { reader?.invoke(this, GoIRBodyContext()) }
 
     override val body: GoIRBody?
         get() {
             val b = _body
             if (b != null) return b
+            resolvedBody?.let { return it }
             if (!declaredHasBody) return null
             throw GoIRBodyUnavailableException(fullName)
         }
 
     override val hasBody: Boolean get() = declaredHasBody
-    override val bodyAvailable: Boolean get() = _body != null
+    override val bodyAvailable: Boolean get() = _body != null || reader != null
 
     fun setBody(body: GoIRBody) {
         this._body = body

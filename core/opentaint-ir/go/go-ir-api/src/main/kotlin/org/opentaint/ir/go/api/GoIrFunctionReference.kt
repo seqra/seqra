@@ -11,14 +11,11 @@ data class GoIrFunctionReference(
 
     lateinit var program: GoIRProgram
 
-    val function: GoIRFunction
-        get() {
-            val p = program.findPackage(pkg)
-                ?: error("Could not find package $pkg for $fullName")
-            // Match on name + signature because methods on different named
-            // types legitimately share short names (e.g. `Dog.Legs` and
-            // `Snake.Legs`); only the signature's receiver disambiguates them.
-            return p.functions.firstOrNull { it.name == name && it.signature == signature }
-                ?: error("Could not find function $fullName with signature $signature")
-        }
+    val function: GoIRFunction by lazy {
+        program.lookup.function(this)
+            ?: error("Could not find function $fullName with signature $signature")
+    }
 }
+
+fun GoIRFunction.reference(): GoIrFunctionReference =
+    GoIrFunctionReference(pkg?.importPath.orEmpty(), name, signature)

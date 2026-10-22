@@ -1,6 +1,6 @@
 package org.opentaint.ir.go.client
 
-import org.opentaint.ir.go.proto.ProtoProgram
+import org.opentaint.ir.go.api.*
 
 internal data class ModelPathNormalizer(
     val replacements: Map<String, String>,
@@ -14,8 +14,8 @@ internal data class ModelPathNormalizer(
     }
 
     companion object {
-        fun create(program: ProtoProgram): ModelPathNormalizer {
-            val replacements = program.packagesList
+        fun create(program: GoIRProgram): ModelPathNormalizer {
+            val replacements = program.packages.values
                 .filterNot { it.isDependency || it.isStdlib || it.importPath == UNIVERSE_PACKAGE_PATH }
                 .associate { pkg ->
                     require(pkg.importPath.startsWith(GO_MODEL_PREFIX)) {
@@ -43,3 +43,16 @@ internal data class ModelPathNormalizer(
 
 private const val GO_MODEL_PREFIX = "opentaint/"
 private const val UNIVERSE_PACKAGE_PATH = "<universe>"
+
+internal class GoIRModelPathTransformer(private val normalizer: ModelPathNormalizer) : GoIRTransformer {
+    override fun packagePath(importPath: String) = normalizer.path(importPath)
+    override fun symbolName(fullName: String) = normalizer.symbol(fullName)
+    override fun resolvePackage(importPath: String, next: () -> GoIRPackage?): GoIRPackage? {
+        val pkg = next() ?: return null
+        if (pkg.importPath !in normalizer.replacements) return pkg
+        return object : GoIRPackage by pkg {
+            override val isStdlib = false
+            override val isDependency = true
+        }
+    }
+}

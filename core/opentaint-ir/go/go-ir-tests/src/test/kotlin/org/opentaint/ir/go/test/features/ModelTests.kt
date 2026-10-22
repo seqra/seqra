@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.opentaint.ir.go.api.GoIRApproximatedFunction
 import org.opentaint.ir.go.api.GoIRModelFunction
 import org.opentaint.ir.go.api.GoIRFunction
+import org.opentaint.ir.go.api.reference
 import org.opentaint.ir.go.api.GoIRTransformer
 import org.opentaint.ir.go.client.GoIRTransformerChain
 import org.opentaint.ir.go.cfg.GoIRCallTarget
@@ -757,10 +758,15 @@ class ModelTests {
     fun `transformers compose in order and resolve calls through one cached view`(builder: GoIRTestBuilder) {
         val original = builder.buildFromSource("package p\nfunc Target() {}\nfunc Caller() { Target() }\n")
         fun suffix(value: String) = object : GoIRTransformer {
-            override fun transformFunction(function: GoIRFunction): GoIRFunction =
-                object : GoIRFunction by function {
+            override fun resolveFunction(
+                reference: org.opentaint.ir.go.api.GoIrFunctionReference,
+                next: () -> GoIRFunction?,
+            ): GoIRFunction? {
+                val function = next() ?: return null
+                return object : GoIRFunction by function {
                     override val syntheticKind = function.syntheticKind.orEmpty() + value
                 }
+            }
         }
         val transformed = GoIRTransformerChain(original, listOf(suffix("first"), suffix("second")))
         val pkg = transformed.packages.getValue("test/p")
@@ -771,6 +777,60 @@ class ModelTests {
         assertThat(call.function).isSameAs(target)
         assertThat(transformed.allFunctions()).contains(target, caller)
         assertThat(original.findPackage("test/p")!!.functions.single { it.name == "Target" }.syntheticKind).isNull()
+    }
+
+    @Test
+    fun `lookup interceptor can bypass later resolvers and leaves bodies unread`(builder: GoIRTestBuilder) {
+        val original = builder.buildFromSource("package p\nfunc Target() {}\nfunc Caller() { Target() }\n")
+        val target = original.findPackage("test/p")!!.functions.single { it.name == "Target" }
+        var ownedFallbacks = 0
+        var bodyReads = 0
+        val fallback = object : GoIRTransformer {
+            override fun resolveFunction(
+                reference: org.opentaint.ir.go.api.GoIrFunctionReference,
+                next: () -> GoIRFunction?,
+            ): GoIRFunction? {
+                if (reference.name == "Target") ownedFallbacks++
+                return next()
+            }
+        }
+        val interceptor = object : GoIRTransformer {
+            override fun resolveFunction(
+                reference: org.opentaint.ir.go.api.GoIrFunctionReference,
+                next: () -> GoIRFunction?,
+            ): GoIRFunction? {
+                if (reference.name != "Target") return next()
+                return object : GoIRFunction by target {
+                    override val syntheticKind = "intercepted"
+                    override val body get() = target.body.also { bodyReads++ }
+                }
+            }
+        }
+        val program = GoIRTransformerChain(original, listOf(fallback, interceptor))
+        val pkg = program.findPackage("test/p")!!
+        val resolved = pkg.functions.single { it.name == "Target" }
+        val call = pkg.functions.single { it.name == "Caller" }
+            .findInstructions<GoIRCall>().single().call.target as GoIRCallTarget.Function
+        assertThat(resolved.syntheticKind).isEqualTo("intercepted")
+        assertThat(call.lookup.pkg).isEqualTo("test/p")
+        assertThat(call.function).isSameAs(resolved)
+        assertThat(call.function).isSameAs(resolved)
+        assertThat(ownedFallbacks).isZero()
+        assertThat(bodyReads).isZero()
+    }
+
+    @Test
+    fun `method and initializer lookup reuse package members`(builder: GoIRTestBuilder) {
+        val original = builder.buildFromSource(
+            "package p\ntype Box struct {}\nfunc (b *Box) Method() {}\nfunc init() {}\n",
+        )
+        val program = GoIRTransformerChain(original, emptyList())
+        val pkg = program.findPackage("test/p")!!
+        val method = pkg.functions.single { it.name == "Method" }
+        assertThat(pkg.findNamedType("Box")!!.pointerMethods.single()).isSameAs(method)
+        val call = GoIRCallTarget.Function(method.reference().also { it.program = program })
+        assertThat(call.displayName).isEqualTo(method.fullName)
+        assertThat(pkg.initFunction).isSameAs(pkg.functions.single { it.name == "init" })
     }
 
     private fun project(module: String, source: String): Path {
