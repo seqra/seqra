@@ -19,7 +19,7 @@ class ImmutableGroupFastPathsTest {
     private val u = m.marks.full("U")
     private val v = m.marks.full("V")
     private val h = m.marks.group(m.marks.groupOf(v))
-    private val mode = ApMode(true, Direction.FORWARD, 1)
+    private val mode = ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.GROUP)
 
     @Test fun `attached normalized exclusions retain their object on repeated catalog attachment`() {
         // Both FULL and GROUP exclusions use the same private factory invariant.

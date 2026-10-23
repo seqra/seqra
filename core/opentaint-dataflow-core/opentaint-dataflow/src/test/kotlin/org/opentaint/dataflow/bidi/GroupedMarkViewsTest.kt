@@ -24,7 +24,7 @@ class GroupedMarkViewsTest {
     private val t = m.marks.full("outer#left;state;v;1")
     private val u = m.marks.full("outer#right;state;v;2")
     private val v = m.marks.full("other;state;v;3")
-    private val group = ApMode(true, Direction.FORWARD, 1)
+    private val group = ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.GROUP)
     private val full = ApMode(false, Direction.FORWARD, 1)
 
     private val g = m.marks.group(m.marks.groupOf(t))

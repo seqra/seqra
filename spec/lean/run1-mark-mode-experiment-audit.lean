@@ -25,6 +25,9 @@ run_elab do
   IO.println s!"Executable mode controls passed: {controls.length}."
 
 #print axioms ApSpec.Run1MarkModeExperiment.later_runs_full
+#print axioms ApSpec.Run1MarkModeExperiment.default_is_full
+#print axioms ApSpec.Run1MarkModeExperiment.default_matches_explicit_full
+#print axioms ApSpec.Run1MarkModeExperiment.explicit_group_is_group
 #print axioms ApSpec.Run1MarkModeExperiment.full_keys_injective
 #print axioms ApSpec.Run1MarkModeExperiment.group_keys_merge_exactly_owners
 #print axioms ApSpec.Run1MarkModeExperiment.runtime_atom_idempotent

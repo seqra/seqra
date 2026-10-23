@@ -11,7 +11,7 @@ import kotlin.test.*
 /** Compare public effects and cumulative state with the frozen pre-optimization service. */
 class Run1StaticRoutingTest {
     private class PairOfServices(f: FiniteProgramFixtures) {
-        val optimized = Run1StaticService(f.ap)
+        val optimized = Run1StaticService(f.ap, MarkMode.GROUP)
         private val reference = UnoptimizedRun1StaticService(f.ap)
         val eliminatedCandidateVisits: Long get() =
             reference.statistics().candidateVisits - optimized.statistics().candidateVisits

@@ -18,7 +18,7 @@ class ThreeSetStaticRequestsTest {
         FiniteProgramFixtures().use { f ->
             val owner = f.method("reader", listOf(emptyList()), 0).key()
             val g = f.ap.marks.groupOf(f.mark("T")); val position = field(f)
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             service.commit(StaticBatch().apply { interests += StaticInterest(owner, 1, position, f.ap.marks.atomsFor(GroupSet.of(g))) })
             assertEquals(1, service.statistics().pointSubscriptions)
             val ready = service.commit(StaticBatch().apply { supplies += RegionGroups(position, f.ap.marks.atomsFor(GroupSet.of(g))) })
@@ -32,7 +32,7 @@ class ThreeSetStaticRequestsTest {
         FiniteProgramFixtures().use { f ->
             val owner = f.method("reader", listOf(emptyList()), 0).key()
             val g = f.ap.marks.groupOf(f.mark("T")); val position = field(f)
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             service.commit(StaticBatch().apply { interests += StaticInterest(owner, 1, position, f.ap.marks.atomsFor(GroupSet.of(g))) })
             val exact = position.copy(fact = position.fact.copy(tail = Tail.EXACT))
             val reply = service.commit(StaticBatch().apply { supplies += RegionGroups(exact, f.ap.marks.atomsFor(GroupSet.of(g))) })
@@ -46,7 +46,7 @@ class ThreeSetStaticRequestsTest {
         FiniteProgramFixtures().use { f ->
             val owner = f.method("reader", listOf(emptyList()), 0).key()
             val g = f.ap.marks.groupOf(f.mark("T")); val position = field(f)
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             service.commit(StaticBatch().apply { flowWriters += StaticFlowWriter(owner, 1, position) })
             val unrequested = service.commit(StaticBatch().apply { supplies += RegionGroups(position, f.ap.marks.atomsFor(GroupSet.of(g))) })
             assertTrue(unrequested.filterIsInstance<StaticOwnerEffect.WriterInterest>().isEmpty())

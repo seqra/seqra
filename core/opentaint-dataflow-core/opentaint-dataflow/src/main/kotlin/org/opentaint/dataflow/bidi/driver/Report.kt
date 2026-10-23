@@ -15,7 +15,7 @@ enum class EndReason { STOP_RULE, NO_DEMAND_EDGE, POLICY, ABNORMAL }
 
 data class AnalysisEnd(
     val status: RunStatus, val run: Int, val direction: Direction, val reason: EndReason,
-    val run1MarkMode: MarkMode = MarkMode.GROUP,
+    val run1MarkMode: MarkMode = MarkMode.FULL,
 )
 
 /** A report owns its lists and retains each witness's complete support shape. */

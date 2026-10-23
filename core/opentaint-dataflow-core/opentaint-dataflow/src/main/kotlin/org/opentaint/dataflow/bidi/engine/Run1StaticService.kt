@@ -42,7 +42,7 @@ class StaticBatch {
 }
 
 /** Run-1 positive forward closure. Program transfer and resumption always run at the addressed owner. */
-class Run1StaticService(private val ap: ApManager, private val markMode: MarkMode = MarkMode.GROUP) {
+class Run1StaticService(private val ap: ApManager, private val markMode: MarkMode = MarkMode.FULL) {
     private val lock = Any()
     private val ops = ApOps(ap)
     private data class Key(val owner: MethodKey, val id: Long)

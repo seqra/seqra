@@ -234,10 +234,11 @@ class MethodAnalysisFixtures(
     val sinkSeedCalls = ArrayList<CommonInst>()
     val sinkEvaluations = ArrayList<Pair<SinkRule, Layer>>()
 
+    /** The existing reference fixture selects GROUP; production-default controls use RunConfig directly. */
     fun config(index: Int = 1, L: Int = maxOf(1, index - 1),
                demand: DemandStore? = if (index == 1) null else DemandStore.Builder(manager).build(),
                seeds: SeedIndex = SeedIndex.EMPTY): RunConfig =
-        RunConfig(index, L, demand, records, seeds, listOf(key))
+        RunConfig(index, L, demand, records, seeds, listOf(key), run1MarkMode = MarkMode.GROUP)
 
     fun core(index: Int = 1, L: Int = maxOf(1, index - 1),
              demand: DemandStore? = if (index == 1) null else DemandStore.Builder(manager).build(),

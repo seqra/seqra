@@ -337,7 +337,9 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
             is Seed.PredicateSink -> seed.copy()
         } })
         val builder = if (index == 1) null else DemandStore.Builder(ap).also { b -> rawDemand.forEach { b.add(it.first, it.second) } }
-        val config = RunConfig(index, L, builder?.build(), recordStore, SeedIndex.of(ownedSeeds), roots)
+        // This reference fixture deliberately exercises the established GROUP contract.
+        val config = RunConfig(index, L, builder?.build(), recordStore, SeedIndex.of(ownedSeeds), roots,
+            run1MarkMode = MarkMode.GROUP)
         runInputs[config] = ProgramRunInputs(ownedList(roots), rawDemand, ownedList(rawRecords), ownedSeeds)
         return config
     }

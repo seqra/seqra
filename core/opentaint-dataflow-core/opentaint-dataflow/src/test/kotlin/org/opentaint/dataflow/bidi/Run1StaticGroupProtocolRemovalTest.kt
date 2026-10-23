@@ -25,7 +25,7 @@ class Run1StaticGroupProtocolRemovalTest {
         private val alias = AccessPathBase.Argument(1)
         val f = MethodAnalysisFixtures()
         val config = RunConfig(1, 1, null, f.records, SeedIndex.EMPTY, listOf(f.key),
-            disableRun1Statics = disabled)
+            disableRun1Statics = disabled, run1MarkMode = MarkMode.GROUP)
         val actor = f.core(config, localFactory = MethodLocalServicesFactory(::RunMethodLocalServices),
             callFactory = MethodCallServicesFactory(::RunMethodCallServices))
         val service = checkNotNull(actor.runnerPort.staticService)

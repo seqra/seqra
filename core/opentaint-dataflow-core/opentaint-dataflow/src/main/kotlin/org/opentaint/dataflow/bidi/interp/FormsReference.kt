@@ -88,7 +88,10 @@ class PlanHooks(
 /** Per-path form execution and the reference walk of a call plan. */
 class FormsReference(
     private val ops: ApOps,
-    algebra: ReferenceAlgebra = ReferenceAlgebra(ApMode(run1 = true, Direction.FORWARD, fieldLimit = Int.MAX_VALUE),
+    // This independent reference default keeps its established GROUP algebra.
+    // The production driver passes its selected run-1 mode explicitly.
+    algebra: ReferenceAlgebra = ReferenceAlgebra(ApMode(run1 = true, Direction.FORWARD,
+        fieldLimit = Int.MAX_VALUE, markMode = MarkMode.GROUP),
         manager = ops.manager),
     private val run1AliasAdmission: Boolean = algebra.run1,
 ) {

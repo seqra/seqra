@@ -11,7 +11,7 @@ class Run1GroundingTest {
         MethodAnalysisFixtures().use { f ->
             val original = f.manager.initial(f.run1Pattern(tail = Tail.STAR))
             val literal = f.pattern(path = listOf(f.field("right")))
-            val mode = ApMode(true, Direction.FORWARD, 1)
+            val mode = ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.GROUP)
             val current = f.ops.startFact(original, mode)
             val result = assertIs<MarkCheck.Holds>(f.ops.checkMark(current, literal, mode))
             assertEquals(Layer.DEMAND, result.facts.layer)
@@ -24,7 +24,7 @@ class Run1GroundingTest {
         MethodAnalysisFixtures().use { f ->
             val left = f.run1Fact(path = listOf(f.field("left")))
             val right = f.pattern(path = listOf(f.field("right")))
-            val mode = ApMode(true, Direction.FORWARD, 1)
+            val mode = ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.GROUP)
             assertSame(MarkCheck.None, f.ops.checkMark(left, right, mode))
             assertIs<MarkCheck.Holds>(f.ops.checkMark(left,
                 f.pattern(path = listOf(f.field("left"))), mode))
@@ -51,7 +51,7 @@ class Run1GroundingTest {
             val out = CollectingOut()
             f.ops.clean(input, f.manager.zero,
                 Cleaner(input.base, null, CleanReach.AT_AND_BELOW, full),
-                ApMode(true, Direction.FORWARD, 1), out)
+                ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.GROUP), out)
             assertEquals(listOf(input), out.results)
             assertTrue(out.results.all { it.layer == Layer.DEMAND })
         }

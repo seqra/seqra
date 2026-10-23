@@ -8,6 +8,7 @@ import org.opentaint.dataflow.bidi.driver.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.engine.historical.isSpecialStaticRoot
 import org.opentaint.dataflow.bidi.fixtures.DriverFixtures
+import org.opentaint.dataflow.bidi.fixtures.withRun1MarkMode
 import org.opentaint.dataflow.bidi.fixtures.directStaticWrite
 import org.opentaint.dataflow.bidi.fixtures.directStaticRead
 import org.opentaint.dataflow.bidi.fixtures.GroupedScalarMarks
@@ -72,8 +73,10 @@ class Run1StaticDriverSafetyTest {
                     }
                     return RunManager(config, shared, factory, quantum = 1).run(timeout).also { seen.results += it }
             }
-            val driver = IterationDriver(FixedLimits(limits), owner, 20.seconds,
-                invokeRun = ::invoke, guardBarrier = { _, body -> body() })
+            val driver = withRun1MarkMode(MarkMode.GROUP) {
+                IterationDriver(FixedLimits(limits), owner, 20.seconds,
+                    invokeRun = ::invoke, guardBarrier = { _, body -> body() })
+            }
             val report = driver.analyze(listOf(root))
             if (replayBackward) {
                 val backward = seen.configs.single { it.index == 2 }

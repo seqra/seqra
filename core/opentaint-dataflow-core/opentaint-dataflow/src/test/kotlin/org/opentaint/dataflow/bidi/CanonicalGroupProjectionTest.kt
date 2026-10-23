@@ -24,7 +24,7 @@ class CanonicalGroupProjectionTest {
         TestMark("V", MarkGroupKey.Rule("two")),
     )
     private val m = testApManager(Cancellation(), declarations = declarations)
-    private val grouped = ApMode(true, Direction.FORWARD, 1)
+    private val grouped = ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.GROUP)
     private val full = ApMode(false, Direction.BACKWARD, 1)
     private val x = AccessPathBase.Argument(0)
     private val t = m.marks.full("T")

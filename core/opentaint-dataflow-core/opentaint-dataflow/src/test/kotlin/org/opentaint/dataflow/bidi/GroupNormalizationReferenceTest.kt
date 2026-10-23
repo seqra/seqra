@@ -26,7 +26,7 @@ class GroupNormalizationReferenceTest {
     private val g = table.group(table.groupOf(t))
     private val h = table.group(table.groupOf(v))
     private val atoms = listOf(TaintMark.ZERO, t, u, v, g, h)
-    private val grouped = ApMode(true, Direction.FORWARD, 1)
+    private val grouped = ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.GROUP)
     private val full = ApMode(false, Direction.BACKWARD, 1)
 
     private fun referenceAtom(table: MarkTable, mark: TaintMark): TaintMark = when (val key = table.key(mark)) {

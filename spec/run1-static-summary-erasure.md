@@ -4,7 +4,9 @@ Date: 22 October 2026. Status: **implemented and measured;
 acceptance limits are reported**.
 Reference runtime: `30c1b84606695070a79d7ae467703267b9f931c1`.
 Implemented runtime: `b68b3a1c9389c8d1b8ab6ad513af0c586a546895`.
-Revision: add the run-1 mark-mode experiment in sections 14 and 15.
+Revision: 23 October 2026 selects FULL when the run-1 flag is absent.
+GROUP remains an explicit experiment. The measured runtime above had a
+GROUP default; its explicit-mode measurements are unchanged.
 Read the [proof dossier](run1-static-summary-erasure-proofs.md),
 [proof guide](proof-guide.md), and
 [implementation validation](../docs/reports/bidirectional-static-summary-erasure-validation-20261022.md).
@@ -51,7 +53,7 @@ runtime. All unmodified behavior comes from that runtime and
 | Run-1 static/static relations | Retain raw rows, publish them through callers, and hand off their selected pairs | Execute producer effects, then erase all these rows | Producer-effect preservation and finite relay compression |
 | Run-2 static guidance | Old concrete guide intersections can add starts to the actual-input start | Complete each actual named-field FULL start with its same-field EXACT intersection | Exact old-start coverage, followed by ordinary FULL witness replay |
 | Executable concrete static grammar | The general AP API accepts broad root/class values | In run-2 also, concrete statics must be named fields or EXACT class markers | Producer and consumer grammar closure |
-| Run-1 mark precision | Run-1 always selects GROUP | Add `opentaint.bidi.run1MarkMode=GROUP\|FULL`, default GROUP; FULL keeps exact mark semantics end to end | Mode/key isolation, full-guide coverage and production adapters in section 14 |
+| Run-1 mark precision | Run-1 always selects GROUP | Add `opentaint.bidi.run1MarkMode=GROUP\|FULL`, default FULL; FULL keeps exact mark semantics end to end | Mode/key isolation, full-guide coverage and production adapters in section 14 |
 
 The third row is an explicit user-selected restriction. A field limit of
 one does not imply it. A general AP constructor must not be mistaken for
@@ -60,8 +62,8 @@ a proof of this grammar.
 The following behavior must remain unchanged:
 
 - Rule owners, FULL mark identity, primitive tracking, sink identities
-  and report admission. Default GROUP condition/action selection stays
-  unchanged. Section 14 defines the selected FULL alternative.
+  and report admission. Explicit GROUP condition/action selection stays
+  unchanged. Section 14 defines the default FULL selection.
 - In GROUP mode, selected-mark cleaners request their group and cannot
   kill. In FULL mode, exact selected-mark cleaning applies. `RemoveAllMarks`
   can kill in both modes. Keep spatial cleaning and complement repair.
@@ -77,7 +79,7 @@ The following behavior must remain unchanged:
   summary application.
 - The schedule: run-1 forward, configured mark mode, limit 1; run-2
   backward, FULL, limit 1; run-3 forward, FULL, limit 2; later limits
-  increase as before. Run-1 defaults to GROUP.
+  increase as before. Run-1 defaults to FULL.
 - `trackFactsReachAnalysisEnd` is empty. Keep the existing
   `disableRun1Statics` gates. No Spring exit rewrite or ZERO-only exit
   restriction is part of this design.
@@ -105,7 +107,7 @@ E          field exclusion set
 ```
 
 Run-1 still has empty E. Concrete taint edges are DEMAND in both selected
-mark modes. Examples in sections 3 through 13 use default GROUP. A field
+mark modes. Examples in sections 3 through 13 select GROUP explicitly. A field
 initial descriptor can be `S.C.f/STAR/G`; materializing it gives the
 existing `S.C.f/ANY/G` current fact. A legal exact-field fallback is not
 removed. Exact class inputs remain exact. Keep the current distinction
@@ -665,7 +667,7 @@ a support label, canonicalizer or proof helper.
 ### 14.1 Flag and scope
 
 Add the analyzer JVM property `opentaint.bidi.run1MarkMode` with exactly
-two values. The default is `GROUP`. An invalid value fails configuration
+two values. The default is `FULL`. An invalid value fails configuration
 with a clear error. Read the flag once when the analysis is created.
 Keep the chosen value immutable and include it in logs and result metadata.
 
@@ -673,8 +675,8 @@ Keep the chosen value immutable and include it in logs and result metadata.
 fun readRun1MarkMode(): MarkMode = when (
     val value = System.getProperty("opentaint.bidi.run1MarkMode")
 ) {
-    null, "GROUP" -> MarkMode.GROUP
-    "FULL" -> MarkMode.FULL
+    null, "FULL" -> MarkMode.FULL
+    "GROUP" -> MarkMode.GROUP
     else -> error("Invalid opentaint.bidi.run1MarkMode=$value; use GROUP or FULL")
 }
 
@@ -689,6 +691,13 @@ static propagation mechanism. Both values use the static-summary erasure
 and actual-query completion defined here. Run-2 and every later run keep
 FULL marks and the same direction/field-limit schedule.
 
+The absent setting now selects the existing FULL conditions, actions and
+selected-mark cleaner behavior. Previously it selected GROUP projection
+and GROUP selected-cleaner non-kill. Explicit GROUP and explicit FULL
+keep their algorithms. Field transfer, layers, requests, summaries and
+later runs keep the same selected-mode rules. This is a default precision
+change, not an algorithm rewrite or a new performance measurement.
+
 This is an explicit mark-precision change. FULL mode does not merge T
 and U merely because they have the same owner. GROUP can admit more
 condition matches and retain more cleaner candidates. Equal run-1 facts,
@@ -699,7 +708,7 @@ demands or finding counts across the two modes are not required.
 Let T and U be different FULL marks of the same owner g. Let M be the
 selected runtime atom: `(g,*)` in GROUP or `(g,T)` in FULL.
 
-| Boundary | GROUP, current/default | FULL, new experiment |
+| Boundary | GROUP, explicit experiment | FULL, default |
 | --- | --- | --- |
 | Source/GEN/action target T, including GeneratedMark | Use `(g,*)` | Keep `(g,T)` and its full generated identity |
 | `ContainsMark(p,T)` | Check `(p,g)`; simplify the projected condition | Check `(p,(g,T))`; keep distinct full literals in the ordinary FULL condition form |
@@ -792,7 +801,7 @@ It does not certify the new FULL runtime path. Before measurement, add
 production controls for:
 
 ```text
-default = explicit GROUP; invalid property fails; later modes remain FULL;
+default = explicit FULL; explicit GROUP retained; invalid property fails; later modes remain FULL;
 same-owner T/U distinct through actions, requests, service, answers and stores;
 late write/request in both orders; exact class T cannot answer class U;
 no member enumeration or GROUP-to-FULL decoding;
@@ -912,8 +921,9 @@ a false negative; neither is it proof that no true path was lost. Keep
 existing no-FN/allowed-FP gates and later-run checks. State unresolved
 differences explicitly.
 
-Use the results to decide whether GROUP remains the default and which
-work explains the gap. The required paired campaign is complete for the
+The 23 October follow-up decision makes FULL the default and retains
+explicit GROUP. No mode algorithm changes with that decision.
+The required paired campaign is complete for the
 implemented runtime above. The
 [measurement report](../docs/reports/bidirectional-static-summary-erasure-performance-20261022.md)
 records the outcomes, limits and default-mode decision. This specification

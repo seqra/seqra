@@ -19,9 +19,14 @@ class Run1MarkModeTest {
     )
 
     @Test fun `flag accepts exactly GROUP and FULL and each run keeps the selected immutable value`() {
-        assertEquals(MarkMode.GROUP, readRun1MarkMode(null))
+        assertEquals(MarkMode.FULL, readRun1MarkMode(null))
         assertEquals(MarkMode.GROUP, readRun1MarkMode("GROUP"))
         assertEquals(MarkMode.FULL, readRun1MarkMode("FULL"))
+        assertEquals(readRun1MarkMode("FULL"), readRun1MarkMode(null))
+        assertEquals(MarkMode.FULL, ApMode(true, Direction.FORWARD, 1).markMode)
+        assertEquals(MarkMode.FULL, org.opentaint.dataflow.bidi.driver.AnalysisEnd(
+            RunStatus.COMPLETE, 1, Direction.FORWARD,
+            org.opentaint.dataflow.bidi.driver.EndReason.POLICY).run1MarkMode)
         for (invalid in listOf("", "full", "GROUP ", "false")) {
             assertTrue(assertFailsWith<IllegalStateException> { readRun1MarkMode(invalid) }
                 .message.orEmpty().contains("use GROUP or FULL"))
@@ -35,6 +40,22 @@ class Run1MarkModeTest {
                 assertEquals(selected, config.run1MarkMode)
                 assertEquals(index == 1, config.mode.run1)
             }
+        }
+    }
+
+    @Test fun `default static service preserves same owner FULL identities`() {
+        FiniteProgramFixtures(markDeclarations = declarations).use { f ->
+            val t = f.mark("T"); val u = f.mark("U")
+            assertEquals(f.ap.marks.groupOf(t), f.ap.marks.groupOf(u))
+            val path = listOf(f.ap.accessors.index(ClassStaticAccessor("C")), f.field("f"))
+            val fact = f.ap.factsOf(PathFact(STATIC, path, Tail.ANY,
+                MarkSlot.Concrete(t)), ExclusionSet.Empty, Layer.DEMAND)
+            val other = f.ap.factsOf(PathFact(STATIC, path, Tail.ANY,
+                MarkSlot.Concrete(u)), ExclusionSet.Empty, Layer.DEMAND)
+            fun atoms(service: Run1StaticService) = listOf(fact, other)
+                .flatMap { service.slices(it) }.fold(MarkSet.EMPTY) { acc, slice -> acc + slice.groups }
+            assertEquals(MarkSet.of(t) + u, atoms(Run1StaticService(f.ap)))
+            assertEquals(1, atoms(Run1StaticService(f.ap, MarkMode.GROUP)).size)
         }
     }
 

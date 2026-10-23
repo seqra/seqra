@@ -31,8 +31,8 @@ inductive Checked (α : Type) where
   deriving DecidableEq, Repr
 
 def parseFlag : Option String → Checked Mode
-  | none | some "GROUP" => .ok .group
-  | some "FULL" => .ok .full
+  | none | some "FULL" => .ok .full
+  | some "GROUP" => .ok .group
   | some _ => .error "Expected GROUP or FULL"
 
 def selectedMode (index : Nat) (run1Mode : Mode) : Mode :=
@@ -50,7 +50,11 @@ def runtimeAtom (mode : Mode) : Atom → Checked Atom
     | .group => .ok (.group id)
     | .full => .error "A GROUP selector is not a FULL executable mark"
 
-theorem default_is_group : parseFlag none = .ok .group := rfl
+theorem default_is_full : parseFlag none = .ok .full := rfl
+
+theorem default_matches_explicit_full : parseFlag none = parseFlag (some "FULL") := rfl
+
+theorem explicit_group_is_group : parseFlag (some "GROUP") = .ok .group := rfl
 
 theorem run1_uses_selected_mode (mode : Mode) : selectedMode 1 mode = mode := by
   simp [selectedMode]
@@ -152,7 +156,8 @@ def actual : Run1StaticQueryCompletion.Actual := .fieldAny 2 3 101
 def exact := (Run1StaticQueryCompletion.Actual.fieldExact 2 3 101).pattern
 
 def controls : List Bool := [
-  decide (parseFlag none = .ok .group),
+  decide (parseFlag none = .ok .full),
+  decide (parseFlag none = parseFlag (some "FULL")),
   decide (parseFlag (some "GROUP") = .ok .group),
   decide (parseFlag (some "FULL") = .ok .full),
   decide (parseFlag (some "bad") = .error "Expected GROUP or FULL"),

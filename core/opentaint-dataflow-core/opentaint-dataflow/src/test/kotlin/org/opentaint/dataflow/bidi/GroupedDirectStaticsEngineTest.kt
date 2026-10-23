@@ -5,6 +5,7 @@ import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.fixtures.DriverFixtures
+import org.opentaint.dataflow.bidi.fixtures.withRun1MarkMode
 import org.opentaint.dataflow.bidi.interp.*
 import org.opentaint.dataflow.bidi.interp.CallPoint.*
 import org.opentaint.dataflow.bidi.interp.StageKind.*
@@ -139,7 +140,9 @@ class GroupedDirectStaticsEngineTest {
                     .flatMap { it.edges }.all { it.facts.layer == Layer.DEMAND })
                 return SpatialResult(candidate, false, false)
             }
-            val report = f.driver(FixedLimits(listOf(1, 1, 2)), 20.seconds).analyze(listOf(main))
+            val report = withRun1MarkMode(MarkMode.GROUP) {
+                f.driver(FixedLimits(listOf(1, 1, 2)), 20.seconds)
+            }.analyze(listOf(main))
             assertTrue(f.results.all { it.status == RunStatus.COMPLETE })
             return SpatialResult(f.results.first().witnessesByKey().any { it.key.rule == sink.rule },
                 report.entries.any { it.key.rule == sink.rule }, f.results.any { it.runIndex > 1 })
@@ -184,7 +187,9 @@ class GroupedDirectStaticsEngineTest {
             val local = AccessPathBase.LocalVar(0)
             val sink = SinkRule(f.rule("wrapped getter"), 0, listOf(p.pattern(local, mark = MarkSlot.Concrete(full))), emptyList())
             p.exit(deep, 2, ExitRules(RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY, listOf(sink)), false, emptySet()))
-            val report = f.driver(FixedLimits(listOf(1, 1, 2)), 20.seconds).analyze(listOf(main))
+            val report = withRun1MarkMode(MarkMode.GROUP) {
+                f.driver(FixedLimits(listOf(1, 1, 2)), 20.seconds)
+            }.analyze(listOf(main))
             assertEquals(RunStatus.COMPLETE, report.end.status)
             assertTrue(f.results.first().witnessesByKey().any { it.key.rule == sink.rule }, "F1 conditional static return reaches the sink")
             assertTrue(f.results.any { it.runIndex == 2 && it.analyzers.any { actor -> actor.sourceHits?.occurrences()?.any() == true } },

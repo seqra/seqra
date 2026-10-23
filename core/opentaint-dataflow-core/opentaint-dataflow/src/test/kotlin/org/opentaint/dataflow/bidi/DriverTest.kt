@@ -18,7 +18,7 @@ class DriverTest {
         val name = "opentaint.bidi.run1MarkMode"
         val old = System.getProperty(name)
         try {
-            System.setProperty(name, "FULL")
+            System.clearProperty(name)
             DriverFixtures().use { f ->
                 val c = f.persistentDemand()
                 val driver = f.driver(policy(next = { config, _, _ -> config.index < 3 }))

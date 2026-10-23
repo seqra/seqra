@@ -15,7 +15,7 @@ import kotlin.test.*
 class Run1StaticFieldAblationTest {
     private fun config(f: MethodAnalysisFixtures, disabled: Boolean, index: Int = 1) = RunConfig(
         index, maxOf(1, index - 1), if (index == 1) null else DemandStore.Builder(f.manager).build(),
-        f.records, SeedIndex.EMPTY, listOf(f.key), disableRun1Statics = disabled)
+        f.records, SeedIndex.EMPTY, listOf(f.key), disableRun1Statics = disabled, run1MarkMode = MarkMode.GROUP)
 
     private fun operation(f: MethodAnalysisFixtures, index: Int = 0) =
         OperationId(FormKey(FormOwner(), f.key.method, f.key, f.inst(index)))

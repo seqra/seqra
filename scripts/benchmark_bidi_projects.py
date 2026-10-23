@@ -326,7 +326,7 @@ def main():
                         help='Record aggregate bidi form/cache counters without per-event logging')
     parser.add_argument('--optimization-statistics', action='store_true',
                         help='Record bounded N1/N2 counters with run, direction and limit attribution')
-    parser.add_argument('--run1-mark-mode', choices=['GROUP', 'FULL'], default='GROUP',
+    parser.add_argument('--run1-mark-mode', choices=['GROUP', 'FULL'], default='FULL',
                         help='Select run-1 mark precision in the analyzer JVM; later runs remain FULL')
     args = parser.parse_args()
     for name in ('main', 'current', 'test', 'output'):

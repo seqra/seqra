@@ -25,7 +25,7 @@ class GroupedScalarReferenceTest {
     private val y = AccessPathBase.Return
     private val a = m.accessors.index(FieldAccessor("Box", "a", "Box"))
     private val b = m.accessors.index(FieldAccessor("Box", "b", "Box"))
-    private val mode = ApMode(true, Direction.FORWARD, 1)
+    private val mode = ApMode(true, Direction.FORWARD, 1, markMode = MarkMode.GROUP)
     private val scalar = GroupedScalarMarks(m.marks)
     private fun output(facts: List<Facts>): Set<Conclusion> = facts.flatMap { value ->
         ops.leaves(value).map { Conclusion(it.fact, it.exclusion, value.layer == Layer.DEMAND) }.toList()

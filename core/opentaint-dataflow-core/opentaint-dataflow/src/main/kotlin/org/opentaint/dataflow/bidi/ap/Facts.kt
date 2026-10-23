@@ -11,7 +11,7 @@ infix fun Layer.or(demand: Boolean): Layer = if (demand) Layer.DEMAND else this
 
 /** Run 1 is forward. Every run has a positive field limit. */
 class ApMode(val run1: Boolean, val direction: Direction, val fieldLimit: Int,
-             val markMode: MarkMode = if (run1) MarkMode.GROUP else MarkMode.FULL) {
+             val markMode: MarkMode = MarkMode.FULL) {
     val restricted: Boolean get() = !run1
 
     init {

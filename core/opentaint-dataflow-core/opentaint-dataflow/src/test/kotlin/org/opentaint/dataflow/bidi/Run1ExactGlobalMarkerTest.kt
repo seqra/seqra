@@ -33,7 +33,7 @@ class Run1ExactGlobalMarkerTest {
             val g = f.ap.marks.groupOf(f.mark("T"))
             val marker = Pattern(PathFact(STATIC, listOf(cls), Tail.EXACT, MarkSlot.STAR), ExclusionSet.Empty)
             val field = marker.copy(fact = marker.fact.copy(path = listOf(cls, f.field("f")), tail = Tail.STAR))
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             val supply = StaticBatch().apply { supplies += RegionGroups(marker, f.ap.marks.atomsFor(GroupSet.of(g))) }
             val queries = StaticBatch().apply {
                 interests += StaticInterest(owner, 1, marker, f.ap.marks.atomsFor(GroupSet.of(g)))

@@ -1,11 +1,32 @@
 import unittest
+from unittest.mock import patch
+import argparse
 from pathlib import Path
 from types import SimpleNamespace
 
 from benchmark_bidi_projects import analyzer_jvm_args
+import benchmark_bidi_projects
 
 
 class AnalyzerConfigurationTest(unittest.TestCase):
+    def test_absent_mode_option_selects_full_before_starting_any_measurement(self):
+        class Parsed(Exception):
+            pass
+
+        parse = argparse.ArgumentParser.parse_args
+        selected = []
+
+        def capture(parser):
+            args = parse(parser, ['--main', '/tmp/main', '--current', '/tmp/current',
+                                  '--test', '/tmp/test', '--output', '/tmp/output'])
+            selected.append(args.run1_mark_mode)
+            raise Parsed()
+
+        with patch.object(argparse.ArgumentParser, 'parse_args', new=capture):
+            with self.assertRaises(Parsed):
+                benchmark_bidi_projects.main()
+        self.assertEqual(['FULL'], selected)
+
     def options(self, mode):
         return SimpleNamespace(run1_mark_mode=mode, heap_snapshots=True,
                                form_statistics=True, optimization_statistics=True)

@@ -15,6 +15,18 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
+/** Select a fixture mode only while the production driver captures its immutable setting. */
+internal fun <T> withRun1MarkMode(mode: MarkMode, body: () -> T): T {
+    val property = "opentaint.bidi.run1MarkMode"
+    val previous = System.getProperty(property)
+    try {
+        System.setProperty(property, mode.name)
+        return body()
+    } finally {
+        if (previous == null) System.clearProperty(property) else System.setProperty(property, previous)
+    }
+}
+
 data class ProgramCase(val root: MethodKey, val rule: RuleId, val sink: CommonInst, val source: PathEdge)
 data class DriverInput(val run: Int, val callee: MethodKey, val link: Link)
 data class DriverProcessed(val run: Int, val method: MethodKey, val delta: EdgeDelta)

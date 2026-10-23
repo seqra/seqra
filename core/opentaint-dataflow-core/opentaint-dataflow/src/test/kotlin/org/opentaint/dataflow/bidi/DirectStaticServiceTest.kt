@@ -18,7 +18,7 @@ class DirectStaticServiceTest {
         for (writeFirst in listOf(false, true)) FiniteProgramFixtures().use { f ->
             val owner = f.method("reader", listOf(emptyList()), 0).key()
             val position = field(f, "f")
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             val read = StaticBatch().apply { reads += StaticReadRegistration(owner, 1, position) }
             val write = StaticBatch().apply { writes += position }
             assertTrue(service.commit(if (writeFirst) write else read).isEmpty())
@@ -34,7 +34,7 @@ class DirectStaticServiceTest {
             val owner = f.method("reader", listOf(emptyList()), 0).key()
             val position = field(f, "f")
             val exactClass = position.copy(fact = position.fact.copy(path = position.fact.path.take(1), tail = Tail.EXACT))
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             assertTrue(service.commit(StaticBatch().apply {
                 reads += StaticReadRegistration(owner, 1, position)
                 writes += exactClass
@@ -50,7 +50,7 @@ class DirectStaticServiceTest {
             val g = f.ap.marks.groupOf(t)
             val h = f.ap.marks.groupOf(u)
             val position = field(f, "f")
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             assertTrue(service.commit(StaticBatch().apply {
                 reads += StaticReadRegistration(owner, 1, position)
                 interests += StaticInterest(owner, 2, position, f.ap.marks.atomsFor(GroupSet.of(g)))
@@ -68,7 +68,7 @@ class DirectStaticServiceTest {
     @Test fun `unrelated regions and empty commits do not cause a global replay`() {
         FiniteProgramFixtures().use { f ->
             val owner = f.method("reader", listOf(emptyList()), 0).key()
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             val readBatch = StaticBatch().apply {
                 repeat(200) { reads += StaticReadRegistration(owner, it.toLong(), field(f, "read$it")) }
             }
@@ -92,7 +92,7 @@ class DirectStaticServiceTest {
                 writers += StaticWriterRegistration(owner, 1, f.ap.initial(input), output)
             }
             val supply = StaticBatch().apply { supplies += RegionGroups(output, f.ap.marks.atomsFor(GroupSet.of(g))) }
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             assertTrue(service.commit(if (writeFirst) writer else supply).isEmpty())
             assertTrue(service.commit(if (writeFirst) supply else writer).isEmpty())
             assertEquals(1L, service.requestStatistics().reached)
@@ -114,7 +114,7 @@ class DirectStaticServiceTest {
             val g = f.ap.marks.groupOf(f.mark("T"))
             val h = f.ap.marks.groupOf(f.mark("U"))
             val position = field(f, "value")
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             service.commit(StaticBatch().apply {
                 interests += StaticInterest(owner, 2, position, f.ap.marks.atomsFor(GroupSet.of(listOf(g, h))))
             })
@@ -141,7 +141,7 @@ class DirectStaticServiceTest {
             val output = field(f, "result")
             val writer = StaticBatch().apply { flowWriters += StaticFlowWriter(owner, 7, output) }
             val interest = StaticBatch().apply { interests += StaticInterest(owner, 8, output, f.ap.marks.atomsFor(GroupSet.of(g))) }
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             assertTrue(service.commit(if (writerFirst) writer else interest).isEmpty())
             val reply = service.commit(if (writerFirst) interest else writer)
             assertEquals(listOf(StaticOwnerEffect.WriterInterest(owner, 7, f.ap.marks.atomsFor(GroupSet.of(g)))), reply)
@@ -155,7 +155,7 @@ class DirectStaticServiceTest {
         FiniteProgramFixtures().use { f ->
             val owner = f.method("writer", listOf(emptyList()), 0).key()
             val t = f.mark("T")
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             assertTrue(service.commit(StaticBatch().apply {
                 flowWriters += StaticFlowWriter(owner, 1, field(f, "left"))
                 interests += StaticInterest(owner, 2, field(f, "right"), f.ap.marks.atomsFor(GroupSet.of(f.ap.marks.groupOf(t))))
@@ -167,7 +167,7 @@ class DirectStaticServiceTest {
             val owner = f.method("writer", listOf(emptyList()), 0).key()
             val g = f.ap.marks.groupOf(f.mark("T")); val h = f.ap.marks.groupOf(f.mark("U"))
             val position = field(f, "f")
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             service.commit(StaticBatch().apply {
                 flowWriters += StaticFlowWriter(owner, 1, position)
                 supplies += RegionGroups(position, f.ap.marks.atomsFor(GroupSet.of(listOf(g, h))))
@@ -191,7 +191,7 @@ class DirectStaticServiceTest {
         FiniteProgramFixtures().use { f ->
             val owner = f.method("reader", listOf(emptyList()), 0).key()
             val g = f.ap.marks.groupOf(f.mark("T")); val h = f.ap.marks.groupOf(f.mark("U"))
-            val position = field(f, "f"); val service = Run1StaticService(f.ap)
+            val position = field(f, "f"); val service = Run1StaticService(f.ap, MarkMode.GROUP)
             service.commit(StaticBatch().apply { interests += StaticInterest(owner, 1, position, f.ap.marks.atomsFor(GroupSet.of(g))) })
             val queued = service.commit(StaticBatch().apply { supplies += RegionGroups(position, f.ap.marks.atomsFor(GroupSet.of(g))) })
                 .filterIsInstance<StaticOwnerEffect.PointReady>().single()
@@ -212,7 +212,7 @@ class DirectStaticServiceTest {
                 val g = f.ap.marks.groupOf(f.mark("T")); val position = field(f, "f")
                 val broad = position.copy(fact = position.fact.copy(path = position.fact.path.take(1), tail = Tail.ANY_TAINT),
                     exclusion = if (blocked) ExclusionSet.of(position.fact.path[1]) else ExclusionSet.Empty)
-                val service = Run1StaticService(f.ap)
+                val service = Run1StaticService(f.ap, MarkMode.GROUP)
                 val supply = StaticBatch().apply { supplies += RegionGroups(broad, f.ap.marks.atomsFor(GroupSet.of(g))) }
                 val interest = StaticBatch().apply { interests += StaticInterest(owner, 1, position, f.ap.marks.atomsFor(GroupSet.of(g))) }
                 assertTrue(service.commit(if (supplyFirst) supply else interest).isEmpty())
@@ -228,7 +228,7 @@ class DirectStaticServiceTest {
             val owner = f.method("reader", listOf(emptyList()), 0).key()
             val g = f.ap.marks.groupOf(f.mark("T")); val position = field(f, "f")
             val exactClass = position.copy(fact = position.fact.copy(path = position.fact.path.take(1), tail = Tail.EXACT))
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             val supply = StaticBatch().apply { supplies += RegionGroups(exactClass, f.ap.marks.atomsFor(GroupSet.of(g))) }
             val interest = StaticBatch().apply { interests += StaticInterest(owner, 1, position, f.ap.marks.atomsFor(GroupSet.of(g))) }
             assertTrue(service.commit(if (supplyFirst) supply else interest).isEmpty())
@@ -243,7 +243,7 @@ class DirectStaticServiceTest {
             val g = f.ap.marks.groupOf(f.mark("T")); val position = field(f, "f")
             val descendant = position.copy(fact = position.fact.copy(path = position.fact.path + f.field("child")))
             val exact = position.copy(fact = position.fact.copy(tail = Tail.EXACT))
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             val supply = StaticBatch().apply { supplies += RegionGroups(exact, f.ap.marks.atomsFor(GroupSet.of(g))) }
             val consumers = StaticBatch().apply {
                 reads += StaticReadRegistration(owner, 1, descendant)
@@ -260,7 +260,7 @@ class DirectStaticServiceTest {
         FiniteProgramFixtures().use { f ->
             val position = field(f, "f")
             val g = f.ap.marks.groupOf(f.mark("T"))
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             assertFailsWith<IllegalArgumentException> {
                 service.commit(StaticBatch().apply {
                     supplies += RegionGroups(position.copy(fact = position.fact.copy(base = AccessPathBase.Argument(0))),
@@ -278,7 +278,7 @@ class DirectStaticServiceTest {
             val position = field(f, "f")
             val ordinary = f.ap.initial(PathFact(AccessPathBase.Argument(0), emptyList(), Tail.STAR,
                 MarkSlot.STAR).let { Pattern(it, ExclusionSet.Empty) })
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             assertFailsWith<IllegalStateException> {
                 service.commit(StaticBatch().apply {
                     writers += StaticWriterRegistration(owner, 1, ordinary, position)
@@ -294,7 +294,7 @@ class DirectStaticServiceTest {
             val position = field(f, "f")
             val g = f.ap.marks.groupOf(f.mark("T"))
             val nonstatic = position.copy(fact = position.fact.copy(base = AccessPathBase.Argument(0)))
-            val service = Run1StaticService(f.ap)
+            val service = Run1StaticService(f.ap, MarkMode.GROUP)
             val supply = StaticBatch().apply { supplies += RegionGroups(position, f.ap.marks.atomsFor(GroupSet.of(g))) }
             val interest = StaticBatch().apply { interests += StaticInterest(owner, 1, nonstatic, f.ap.marks.atomsFor(GroupSet.of(g))) }
             assertTrue(service.commit(if (supplyFirst) supply else interest).isEmpty())

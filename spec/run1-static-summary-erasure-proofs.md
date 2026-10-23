@@ -541,7 +541,10 @@ result is included in this check.
 
 ## 13. Mark-mode extension: local contracts and FULL guidance
 
-The default flag selects GROUP, exactly as before. `run1_uses_selected_mode`
+The 23 October default amendment makes an absent flag select FULL.
+`default_is_full` and `default_matches_explicit_full` prove that selection;
+`explicit_group_is_group` retains the explicit experiment. These are
+constructive `rfl` proofs with no axiom dependency. `run1_uses_selected_mode`
 and `later_runs_full` prove that the selected setting controls run-1 only.
 `runtime_atom_idempotent` proves a valid selected atom is a fixed point.
 `zero_unchanged` keeps control ZERO outside the mark choice.
@@ -593,10 +596,17 @@ lake build ApSpec.Run1MarkModeExperiment
 lake env lean run1-mark-mode-experiment-audit.lean
 ```
 
-The [new receipt](lean/run1-mark-mode-experiment-checks.json) binds this
-amendment and its model/audit. The new focused build passes 23 jobs; its
-owned audit passes **216 declarations and 30 executable controls**, with
+The [original mode receipt](lean/run1-mark-mode-experiment-checks.json)
+binds the original GROUP-default model/audit snapshot. The
+[FULL-default receipt](lean/run1-full-default-checks.json) binds the
+23 October parser/default-control amendment. The prior model contracts
+for explicit modes, runtime keys, cleaners, query coverage and common
+structural policy do not change. The new focused build passes 23 jobs; its
+owned audit passes **218 declarations and 31 executable controls**, with
 only `propext` and `Quot.sound` dependencies. These are local model checks,
-not FULL production acceptance. The paired experiments in spec section 15
-are planned, not measured. Existing latest reached/COMPLETE/accepted
-iteration labels in section P9 remain the latest measured results.
+not FULL production acceptance. The paired experiment results in spec
+section 15 belong to measured
+runtime `b68b3a1c9` with explicit GROUP/FULL selections. Its historical
+GROUP default remains part of its provenance. The default amendment
+adds no project measurement. The current report supplies the actual
+latest reached/COMPLETE/accepted iteration labels.

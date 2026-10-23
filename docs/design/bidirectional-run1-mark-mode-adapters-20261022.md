@@ -7,7 +7,8 @@ complete **run-1**. The driver control also completes **run-3**.
 ## Selected change
 
 The property `opentaint.bidi.run1MarkMode=GROUP|FULL` selects mark precision
-in run-1. Its default is GROUP. FULL keeps each full mark. Thus T and U can
+in run-1. Its default is FULL from 23 October. GROUP remains explicit.
+FULL keeps each full mark. Thus T and U can
 have the same owner and still be different request and supply keys.
 
 Both modes keep the same run-1 field rules, DEMAND policy, contributing
@@ -23,7 +24,7 @@ The existing formal receipt remains separate from these source checks.
 
 | Model contract | Production adapter | Control |
 | --- | --- | --- |
-| `parseFlag`, `default_is_group` | `readRun1MarkMode` accepts only absent/GROUP/FULL | `Run1MarkModeTest`: valid and invalid values |
+| `parseFlag`, `default_is_full`, `default_matches_explicit_full` | `readRun1MarkMode` accepts only absent/GROUP/FULL | `Run1MarkModeTest`: valid and invalid values |
 | `selectedMode`, `later_runs_full` | `IterationDriver` captures once; `RunConfig` selects FULL after run-1 | Mode schedule test and `DriverTest` immutable capture control |
 | `full_keys_injective`, `group_keys_merge_exactly_owners` | `MarkTable.runtimeAtom`; service and point resumes use `MarkSet` of executable `TaintMark` handles | Same-owner T/U field and exact class controls |
 | `runtime_atom_idempotent`, `group_not_decoded_to_full` | Service `slices` uses the selected mode; `facts` preserves and validates selected atoms | FULL supply round trip and rejected GROUP materialization |
@@ -107,3 +108,27 @@ dataflow gate passed **438 tests**, with no failures or skipped tests,
 on the same unchanged runtime source state. Its receipt is
 `validation/jvm-final/receipt.json` under the same evidence root. These controls do not
 establish a whole-engine equivalence theorem or a performance improvement.
+
+## 23 October default amendment
+
+An absent run-1 setting now selects the existing FULL path. Explicit
+GROUP and FULL algorithms do not change. Thus the default uses exact
+FULL conditions and selected-mark cleaning instead of GROUP projection
+and wildcard non-kill. Field transfer and later runs do not change.
+
+`ApMode`, the direct static-service constructor, report metadata and the
+benchmark option use the same FULL fallback. `FormsReference` retains its
+independent established GROUP algebra explicitly; the production driver
+passes its selected mode. Existing GROUP reference fixtures also select
+GROUP explicitly. Default controls use the production config/driver.
+
+The [FULL-default receipt](../../spec/lean/run1-full-default-checks.json)
+records the new constructive default checks and focused Kotlin controls.
+The prior b68 project measurements used explicit mode properties; no
+project is remeasured by this amendment.
+
+Current default-only checks pass 369 focused common controls, six JVM
+static-writer cases and three harness controls. The property-absent JVM
+case completes run-3 through the actual backward source action. The
+mode audit checks 218 declarations and 31 controls. This does not rerun
+the historical full-module or project campaign.

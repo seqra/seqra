@@ -27,8 +27,9 @@ not retain this policy. Unsupported executable broad root or class marks
 receive an explicit diagnostic; they are not dropped or mapped to a field.
 Current named-field MUST and exclusion headers keep their existing rules.
 
-`opentaint.bidi.run1MarkMode=GROUP|FULL` selects run-1 precision. GROUP is
-the default. FULL keeps distinct full marks through rules, actions,
+`opentaint.bidi.run1MarkMode=GROUP|FULL` selects run-1 precision. The
+23 October amendment makes FULL the default; GROUP remains explicit.
+FULL keeps distinct full marks through rules, actions,
 requests, service memberships and cleaners. Both modes keep the same
 run-1 field transfer, DEMAND policy, contributing origins and static
 procedure. Later runs remain FULL. The driver captures the setting once
@@ -42,7 +43,9 @@ support, IR change, reference-manager change or weak cache is included.
 The focused Lean build passed 54 jobs before the runtime patch. The
 static-erasure audit checked 1,822 owned declarations and 75 executable
 controls. The mode audit checked 216 declarations and 30 controls. No
-unexpected axiom occurred. The formal sources remain unchanged.
+unexpected axiom occurred. The four erasure model sources remain unchanged.
+The later FULL-default amendment updates only the mode parser/default
+proofs and controls; its separate receipt records those checks.
 
 These models prove the stated finite producer, relay, query and replay
 contracts. They do not compile Kotlin or prove arbitrary provider inputs.
@@ -112,3 +115,30 @@ run-8 and retain an accepted run-7 report. Other projects end in run-1 or
 run-2, as listed per command in the performance report. The two missing
 Stirling-PDF baseline return locations and all eleven inherited precision
 test failures remain explicit failed acceptance results.
+
+## 23 October: FULL default follow-up
+
+An absent run-1 flag now selects the existing FULL path. Explicit GROUP
+and FULL algorithms do not change. FULL keeps exact mark conditions and
+selected-mark cleaning; this is a default precision change. Field
+transfer, DEMAND policy, static handling and later FULL runs do not change.
+The benchmark option and report metadata use the same FULL fallback.
+Independent reference semantics and existing GROUP fixtures select GROUP
+explicitly.
+
+The focused current-patch checks pass **369 common controls**, **six JVM
+static-writer acceptance cases**, and **three benchmark-harness controls**.
+The property-absent JVM case completes run-3 and retains its actual run-2
+source action and exact run-3 source seed and sink witness. The Lean build
+passes 23 jobs; its owned audit passes **218 declarations and 31 controls**,
+with no unexpected axioms. The [new receipt](../../spec/lean/run1-full-default-checks.json)
+binds those checks.
+
+The new default assertions first failed in three expected places against
+the old runtime. The first broader focused run then found six GROUP-only
+driver fixtures that relied on the previous default. Those fixtures now
+select GROUP explicitly; their semantic assertions are unchanged.
+
+The earlier full-module gates and project campaign remain historical
+results for measured b68. This follow-up runs no project benchmark and
+does not replace their outcome or make their failed acceptance gates pass.

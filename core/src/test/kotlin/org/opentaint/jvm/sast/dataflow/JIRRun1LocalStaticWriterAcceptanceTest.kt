@@ -40,8 +40,17 @@ class JIRRun1LocalStaticWriterAcceptanceTest : AnalysisTest() {
                 id = rule, meta = SinkMetaData(note = rule))))
     }
 
-    private fun run(entry: String, withModel: Boolean = false) =
-        runBidiAcceptance(config(withModel), cls, entry, listOf(1, 1, 2))
+    /** These established GROUP cases select their experiment explicitly. */
+    private fun run(entry: String, withModel: Boolean = false): BidiAcceptanceResult {
+        val property = "opentaint.bidi.run1MarkMode"
+        val previous = System.getProperty(property)
+        try {
+            System.setProperty(property, "GROUP")
+            return runBidiAcceptance(config(withModel), cls, entry, listOf(1, 1, 2))
+        } finally {
+            if (previous == null) System.clearProperty(property) else System.setProperty(property, previous)
+        }
+    }
 
     private fun isField(value: JvmObservedPath, path: List<String>) =
         value.base == AccessPathBase.ClassStatic && value.path.take(path.size) == path
@@ -149,12 +158,12 @@ class JIRRun1LocalStaticWriterAcceptanceTest : AnalysisTest() {
     }
 
     @Test
-    fun `JVM FULL run1 static argument keeps actual supply and three-run source handoff`() {
+    fun `JVM default FULL run1 static argument keeps actual supply and three-run source handoff`() {
         val property = "opentaint.bidi.run1MarkMode"
         val previous = System.getProperty(property)
         try {
-            System.setProperty(property, "FULL")
-            val r = run("staticArgument")
+            System.clearProperty(property)
+            val r = runBidiAcceptance(config(), cls, "staticArgument", listOf(1, 1, 2))
             assertPositiveHandoff(r, "staticArgument", staticInput = inputPath, run1MarkMode = MarkMode.FULL)
             assertSetterAndGetterGuidance(r)
             assertEquals(MarkMode.FULL, r.report.end.run1MarkMode)

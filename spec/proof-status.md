@@ -26,23 +26,32 @@ performance acceptance is claimed. The focused 53-job Lean build passes;
 the final owned audit passes **1,822 declarations and 75 controls**, with
 only `propext` and `Quot.sound` dependencies. The
 [check receipt](lean/run1-static-summary-erasure-checks.json) pins the
-final sources. Latest measured Thingsboard,
+final sources. Historical reference Thingsboard,
 Conductor and PDF status is reached **run-2 OOM**, latest COMPLETE/accepted
 **run-1/run-1**. OWASP reached **run-5 TIMEOUT**, latest COMPLETE **run-4**,
 latest accepted **run-3**. No new project measurement was made for this design.
 
 The selected [mark-mode extension](run1-static-summary-erasure.md#14-select-group-or-full-marks-in-run-1)
-adds a GROUP/FULL run-1 flag, default GROUP, and plans paired measurements
-on the same implemented revision. FULL keeps exact conditions, exclusions,
-cleaners and request/service keys while common structural run-1 policy
-stays fixed. The [local mode model](lean/ApSpec/Run1MarkModeExperiment.lean)
-checks selection, key identity and FULL-guide query coverage. The earlier
-75-control receipt remains scoped to its original GROUP contract;
-FULL runtime adapters have separate source controls; the experiments are
-not complete. See the
-[extension receipt](lean/run1-mark-mode-experiment-checks.json): the focused
-23-job build and owned audit pass **216 declarations and 30 controls**,
-with no unexpected axioms.
+adds a GROUP/FULL run-1 flag. The 23 October default amendment selects
+FULL for an absent flag; GROUP remains an explicit experiment. Exact
+conditions, cleaners and request/service keys use the existing selected
+mode. Structural run-1 policy and later FULL runs do not change.
+
+The [local mode model](lean/ApSpec/Run1MarkModeExperiment.lean) checks
+selection, key identity and FULL-guide query coverage. The original
+[216-declaration/30-control receipt](lean/run1-mark-mode-experiment-checks.json)
+remains a historical GROUP-default snapshot. The current
+[FULL-default receipt](lean/run1-full-default-checks.json) records the
+23-job build and audit of **218 declarations and 31 controls**, with no
+unexpected axioms. The earlier 75-control erasure model keeps its original
+scope. None of these local models proves the Kotlin engine.
+
+The explicit-mode b68 paired campaign is complete. Its
+[current report](../docs/reports/bidirectional-static-summary-erasure-performance-20261022.md)
+keeps the actual iteration labels: Thingsboard/Conductor/PDF reach run-1
+or run-2 OOM; the latest OWASP pairs reach run-8 TIMEOUT with run-7
+COMPLETE and accepted. The FULL-default amendment does not add a project
+measurement or make the failed acceptance gates pass.
 
 ## Selected 22 October specification: local writers and summary aliases
 

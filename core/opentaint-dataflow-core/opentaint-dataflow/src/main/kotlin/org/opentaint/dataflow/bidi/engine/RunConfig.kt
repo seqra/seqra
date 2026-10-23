@@ -45,7 +45,7 @@ class RunConfig(
 /** The driver captures this value once and passes it to every run configuration. */
 internal fun readRun1MarkMode(value: String? = System.getProperty("opentaint.bidi.run1MarkMode")): MarkMode =
     when (value) {
-        null, "GROUP" -> MarkMode.GROUP
-        "FULL" -> MarkMode.FULL
+        null, "FULL" -> MarkMode.FULL
+        "GROUP" -> MarkMode.GROUP
         else -> error("Invalid opentaint.bidi.run1MarkMode=$value; use GROUP or FULL")
     }

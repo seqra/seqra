@@ -1,0 +1,149 @@
+{
+  "created_utc": "2026-10-23T07:32:36.711572+00:00",
+  "base_documentation_commit": "b1160d9eb248b3d677862a14ac6f44ec3632e01a",
+  "measured_runtime_unchanged_historical": "b68b3a1c9389c8d1b8ab6ad513af0c586a546895",
+  "status": "FULL-default amendment; constructive model and focused runtime controls pass",
+  "selected_semantic_change": "An absent run-1 mode selects the existing FULL mode instead of GROUP. Explicit modes and later-run schedule remain unchanged.",
+  "flag": {
+    "property": "opentaint.bidi.run1MarkMode",
+    "default": "FULL",
+    "explicit": [
+      "GROUP",
+      "FULL"
+    ],
+    "scope": "run-1 only"
+  },
+  "sha256": {
+    "spec/lean/ApSpec/Run1MarkModeExperiment.lean": "ac7c9e1f0875ef9ad0ecc8aff55c332b310482b468035c0d9912aec60777d59a",
+    "spec/lean/run1-mark-mode-experiment-audit.lean": "5cc661a0302a5857fdf3e5f514b7f0052f39a7aa92bff00d21c4e1b052c47a17",
+    "spec/run1-static-summary-erasure.md": "89afe8995e68d12ae08d755b3c125056d5155b6ee9926f0b80d68127f2068902",
+    "spec/run1-static-summary-erasure-proofs.md": "c97038f62f4abdd7f843c76760b0fada98115e42aabb31684374a150fb0fcc48",
+    "spec/proof-status.md": "5879a020511b979932bea10d108a2eb97b6a88fa87eee594242ebbecea5c318c"
+  },
+  "historical_mode_receipt": {
+    "path": "spec/lean/run1-mark-mode-experiment-checks.json",
+    "sha256": "6a4339edcc9983a4e5e48b4355f15c8f88e18dc69604778a621f60da800ef8bf",
+    "preserved": true,
+    "scope": "Original GROUP-default snapshot; not rewritten to claim the new default."
+  },
+  "commands": [
+    {
+      "cwd": "spec/lean",
+      "argv": [
+        "lake",
+        "build",
+        "ApSpec.Run1MarkModeExperiment"
+      ],
+      "exit_code": 0,
+      "jobs": 23
+    },
+    {
+      "cwd": "spec/lean",
+      "argv": [
+        "lake",
+        "env",
+        "lean",
+        "run1-mark-mode-experiment-audit.lean"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "audit": {
+    "owned_declarations": 218,
+    "controls": 31,
+    "allowed_axioms": [
+      "propext",
+      "Quot.sound"
+    ],
+    "unexpected_axioms": 0,
+    "default_proofs": [
+      "default_is_full",
+      "default_matches_explicit_full",
+      "explicit_group_is_group"
+    ],
+    "default_proof_axioms": [],
+    "stdout": "Audited 218 experiment declarations; no unexpected axioms.\nExecutable mode controls passed: 31.\n'ApSpec.Run1MarkModeExperiment.later_runs_full' depends on axioms: [propext]\n'ApSpec.Run1MarkModeExperiment.default_is_full' does not depend on any axioms\n'ApSpec.Run1MarkModeExperiment.default_matches_explicit_full' does not depend on any axioms\n'ApSpec.Run1MarkModeExperiment.explicit_group_is_group' does not depend on any axioms\n'ApSpec.Run1MarkModeExperiment.full_keys_injective' depends on axioms: [propext]\n'ApSpec.Run1MarkModeExperiment.group_keys_merge_exactly_owners' depends on axioms: [propext]\n'ApSpec.Run1MarkModeExperiment.runtime_atom_idempotent' depends on axioms: [propext, Quot.sound]\n'ApSpec.Run1MarkModeExperiment.same_structural_policy' does not depend on any axioms\n'ApSpec.Run1MarkModeExperiment.full_cleaner_kills_only_selected' depends on axioms: [propext]\n'ApSpec.Run1MarkModeExperiment.Query.fullGuideQueryWitness' depends on axioms: [propext]\n"
+  },
+  "red_kotlin_controls": {
+    "receipt": "/drive-testcomp/opentaint-go-rules/run1-static-summary-erasure-20261022/validation/full-default-20261023/red-controls.json",
+    "sha256": "f137ad69d8d94686dfbbb200653c28d91743ce41c6eeef7d261b323d9708621c",
+    "counts": {
+      "tests": 22,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0
+    },
+    "expected_failure_scope": "Absent flag, default static-service atom identity, default driver capture; old runtime before fallback change."
+  },
+  "limits": [
+    "Local constructive model only, not a Kotlin or whole-engine proof.",
+    "No algorithms, field transfer, producer rules or GROUP/FULL runtime matching changed.",
+    "No new project measurement; previous explicit-mode results stay bound to b68."
+  ],
+  "completed_utc": "2026-10-23T07:45:09.002412+00:00",
+  "focused_runtime_checks": [
+    {
+      "name": "common",
+      "status": "PASS",
+      "tests": 369,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "receipt": "/drive-testcomp/opentaint-go-rules/run1-static-summary-erasure-20261022/validation/full-default-20261023/common-focused-receipt.json",
+      "sha256": "791e2884be60878e9245e60f7ef1f1db5ec14f6959232dc4f9eb04b84ee5d940"
+    },
+    {
+      "name": "JVM static writer/handoff",
+      "status": "PASS",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "latest_reached_and_complete": "run-3",
+      "receipt": "/drive-testcomp/opentaint-go-rules/run1-static-summary-erasure-20261022/validation/full-default-20261023/jvm-focused-receipt.json",
+      "sha256": "f73538ea84b09530932939c1ac48bc6e75d00f04351382ad2f276ca7a643b2da"
+    },
+    {
+      "name": "benchmark harness",
+      "status": "PASS",
+      "tests": 3,
+      "log": "/drive-testcomp/opentaint-go-rules/run1-static-summary-erasure-20261022/validation/full-default-20261023/harness.log",
+      "sha256": "8fbb2f6a6c405076bf6b2da12de0cc3654fb9920eb07c46f612fc6fd293a4b17"
+    }
+  ],
+  "fixture_correction": {
+    "first_focused_tests": 369,
+    "failed": 6,
+    "reason": "GROUP-only real-driver fixtures relied on the previous default; explicit GROUP restores their intended test mode without changing semantic assertions.",
+    "log": "/drive-testcomp/opentaint-go-rules/run1-static-summary-erasure-20261022/validation/full-default-20261023/implicit-group-fixture-failures.log",
+    "sha256": "3c7d38dafd278f7bd7d472411efd8bacc4f6a1bf20e466ae4aa12e891425a189"
+  },
+  "logs": {
+    "lean-build.log": {
+      "path": "/drive-testcomp/opentaint-go-rules/run1-static-summary-erasure-20261022/validation/full-default-20261023/lean-build.log",
+      "sha256": "793d0749297c2b7b296b783d6169bab83126f8c7df3695e964e45af7c5f13351"
+    },
+    "run1-full-default-lean-audit.log": {
+      "path": "/drive-testcomp/opentaint-go-rules/run1-static-summary-erasure-20261022/validation/full-default-20261023/run1-full-default-lean-audit.log",
+      "sha256": "5d6963fd3728bac4093bccb50d7ebba39d3c0b1b6810d9b08218068491ba6f3f"
+    },
+    "common-focused.log": {
+      "path": "/drive-testcomp/opentaint-go-rules/run1-static-summary-erasure-20261022/validation/full-default-20261023/common-focused.log",
+      "sha256": "f75ffda41d9754d951c53fe8fc5f4d99bfac0d3a4cd5563f69ebe1e15e818fb4"
+    },
+    "jvm-focused.log": {
+      "path": "/drive-testcomp/opentaint-go-rules/run1-static-summary-erasure-20261022/validation/full-default-20261023/jvm-focused.log",
+      "sha256": "525011b93b2106373841bd5a2862f39a4595ce0aecd81fa7823cea8be80ca9ad"
+    }
+  },
+  "production_scope": {
+    "ap_default": "FULL",
+    "direct_static_service_default": "FULL",
+    "analysis_end_metadata_default": "FULL",
+    "benchmark_option_default": "FULL",
+    "independent_FormsReference_default": "explicit unchanged GROUP",
+    "algorithms_changed": false,
+    "field_transfer_changed": false,
+    "project_measurements_added": false
+  }
+}
