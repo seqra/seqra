@@ -30,6 +30,9 @@ run_elab do
 #print axioms ApSpec.Run1FullReturnCleanup.located_serial_bulk_scalar
 #print axioms ApSpec.Run1FullReturnCleanup.located_serial_with_normalization
 #print axioms ApSpec.Run1FullReturnCleanup.flow_serial_bulk
+#print axioms ApSpec.Run1FullReturnCleanup.counted_flow_value_equal
+#print axioms ApSpec.Run1FullReturnCleanup.flow_header_operations_never_increase
+#print axioms ApSpec.Run1FullReturnCleanup.flow_header_operations_strictly_reduce
 #print axioms ApSpec.Run1FullReturnCleanup.new_attempt_has_old_occurrence
 #print axioms ApSpec.Run1FullReturnCleanup.decoded_has_executable_preimage
 #print axioms ApSpec.Run1FullReturnCleanup.history_exit_equal

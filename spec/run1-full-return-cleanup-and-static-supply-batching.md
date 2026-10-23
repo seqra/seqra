@@ -1,6 +1,6 @@
 # Run-1 FULL return cleanup and static supply batching
 
-Date: 23 October 2026. Status: **implemented; project measurements pending**.
+Date: 23 October 2026. Status: **implemented; proofs and project measurements complete within the stated scopes; acceptance gates remain failed**.
 Reference analyzer: `8ab1445b8167a4b2db73f97788653aa4e21a3933`.
 Documentation parent: `7554c06fc32b202b292a9f418108206313dae460`.
 Read the [proof dossier](run1-full-return-cleanup-and-static-supply-batching-proofs.md)
@@ -12,7 +12,12 @@ The reference already selects FULL when the run-1 flag is absent. The
 [FULL investigation](../docs/reports/bidirectional-thingsboard-full-run1-investigation-20261023.md)
 uses explicit FULL on measured runtime `b68b3a1c9`. Each Thingsboard FULL
 attempt reaches **run-1 OOM**, with no COMPLETE or accepted forward run.
-This specification adds no project measurement or performance acceptance.
+Those earlier attempts are historical motivation. The
+[current measurements](../docs/reports/bidirectional-full-work-batching-performance-20261023.md)
+use committed implementation `fb84969c0`. Thingsboard reaches run-1 OOM;
+Conductor and Stirling-PDF reach run-2 OOM with run-1 COMPLETE and accepted;
+OWASP reaches run-4 TIMEOUT with run-3 COMPLETE and accepted. The current
+measurements do not establish whole-project acceptance.
 
 ## 1. Selected changes and unchanged behavior
 
@@ -300,10 +305,11 @@ If the current base or original is static, the current layer is DEMAND.
 FULL runtime atoms obey the existing manager/mark domain.
 ```
 
-These are the current production invariants, not new field restrictions.
-Reach keeps its existing layer, subject to the same static-original rule.
-The gate needs only the existing headers and input contract; do not scan
-the entire trie to establish it.
+These are fast-path preconditions, not restrictions on all legal inputs.
+In particular, a NORMAL TAINT input remains legal and uses the scalar
+fallback. Reach keeps its existing layer, subject to the same
+static-original rule. The gate needs only the existing headers and input
+contract; do not scan the entire trie to establish it.
 
 If the gate fails for any input, execute the old one-step loop for all
 inputs. Recheck eligibility for the next raw suffix. Do not normalize
@@ -368,8 +374,8 @@ suffix. An empty suffix has no cleaner dispatch. Do not confuse it with
 a nonempty block whose marks do not occur in the input.
 
 Within a pure block there are no source/sink observations or field cuts.
-Empty-E FULL TAINT inputs are DEMAND, and selected cleanup preserves the
-collector-fixed domain. Thus replacing intermediate collector/dedup passes
+The gate requires empty-E FULL TAINT inputs to be DEMAND. Selected cleanup
+preserves that collector-fixed domain. Thus replacing intermediate collector/dedup passes
 with the final pass preserves normalized scalar results. Keep the old
 dispatcher, not a new pass-through shortcut.
 
@@ -537,6 +543,13 @@ join member; an empty premise list stays empty. It preserves logical
 source/sink occurrence keys. It does not preserve diagnostic callback
 multiplicity or internal intermediate point addresses.
 
+Compose the two changes through an intermediate analyzer: bulk cleanup
+with the ordered reference supply list. First compare its cleanup with
+the reference through atomic request-attempt and suffix witnesses. Then
+compare ordered and merged supplies under the same new address contract.
+The supply theorem compares equal commit input states. It does not claim
+equal numeric pending-point IDs across old and new cleanup schedules.
+
 Consequently, completed run-1 has the same retained normal and DEMAND
 summary rows and the same logical sink seeds. The unchanged handoff
 normalizes each retained row to the same demand entries. Its implicit
@@ -549,7 +562,7 @@ prove termination for arbitrary projects.
 ## 7. Implementation order and required checks
 
 The implementation follows this order. The validation record identifies
-the checks that have run and the remaining project measurements:
+the completed checks, project results and remaining acceptance limits:
 
 1. Build and audit the constructive models and proof controls.
 2. Add differential tests against the unchanged scalar/list reference.
@@ -581,9 +594,10 @@ behavior decision.
 
 Supply storage changes from one packet per offer to one row per complete
 region and its distinct atom set within the batch. Equal-output service
-offers disappear; actual binding and composition still run. The measured
+offers disappear; actual binding and composition still run. The historical
 two-batch duplicate count is 1,768,503 records. The 2.648x bound applies
-only to all pending supply records in that FULL run-1 snapshot.
+only to pending supply records in that earlier FULL run-1 snapshot. Use
+the current project report for measurements after implementation.
 
 For k equal-geometry cleanup steps and n trie nodes, scalar execution can
 visit the geometry k times and copy progressively larger mx headers.
@@ -591,6 +605,13 @@ The bulk kernel visits that geometry once per input and applies the exact
 mask. Mask construction, result packing and per-origin materialization
 remain work. Space includes raw steps plus linear block metadata; do not
 trade the scalar loop for quadratic suffix masks.
+
+The checked cost model uses a narrower exact claim. For one persistent
+same-base FLOW input, k scalar steps perform k logical header operations.
+A nonempty bulk block performs one. The counted executions have the same
+value, and the operation count strictly decreases when k is greater than
+one. This counts operation calls, not physical allocations or CPU time.
+It does not assume that a TAINT packet survives every scalar cleaner.
 
 Count eligible block lengths, suffix entries, scalar fallbacks, node
 visits, header copies, request atoms, pending rows, supply offers, fresh
@@ -605,3 +626,81 @@ active. Keep diagnostic heap capture separate from useful-work timing.
 Investigate every OOM; a smaller failed prefix is not acceptance. Neither
 the local proofs nor the allocation scopes establish a whole-engine 2x
 gain or guarantee run-1 completion within 60 seconds.
+
+## 9. Worked examples
+
+### 9.1 Merge temporary static supplies
+
+Code under analysis:
+
+```java
+void work() {
+    C.f = sourceT();
+    C.f = sourceT();
+    C.f = sourceU();
+}
+```
+
+The configured sources produce distinct FULL keys T and U. Consider one
+existing temporary batch in which the three bound outputs have the same
+complete region R for C.f. R includes its actual path, tail and empty E.
+The scalar relations are `ZERO -> R/T, DEMAND` and
+`ZERO -> R/U, DEMAND`. This example does not change source rules, binding,
+write handling or the time at which the batch commits.
+
+```text
+Current temporary list: [(R, {T}), (R, {T}), (R, {U})]
+New temporary map:      {R: {T, U}}
+
+Current commit: offer R/T; offer R/T again; offer R/U
+New commit:     offer R/{T, U}
+```
+
+Both commits make T and U available and answer the same logical pending
+requests. The new batch retains one region row and two memberships. A
+different tail or path creates a separate row. Producer binding still
+runs for all three outputs. Only duplicate batch storage and service
+offers disappear.
+
+### 9.2 Bulk FULL return cleanup
+
+Code under analysis:
+
+```java
+Object wrap(Object value) {
+    return configuredCall(value);
+}
+```
+
+Assume the existing return-rewriter stage contains three consecutive
+plain cleaners on the same nonstatic `value` geometry:
+`RemoveMark(T), RemoveMark(U), RemoveMark(T)`. No other operation occurs
+between them. The input is collector-fixed FLOW with empty field E and
+empty mark exclusion mx. Let j be the first raw step.
+
+```text
+Current:
+  FLOW(value, root, E={}, mx={})
+    -> mx={T};    request T at raw j
+    -> mx={T,U};  request U at raw j+1
+    -> mx={T,U};  request T at raw j+2
+
+New:
+  FLOW(value, root, E={}, mx={})
+    -> mx={T,U};  request {T,U} at active raw j
+```
+
+The root, original premise and layer stay unchanged. Each requested atom
+keeps the same FLOW image. A late scalar U reply can start at j: the T
+cleaner before its old request step cannot change U. The suffix proof
+preserves its result at block exit.
+
+For an exact packed TAINT leaf `{T,U,V}`, already in DEMAND, both routes
+remove T and U and retain V at the same path. For an abstract ANY or MUST
+leaf, both routes use the spatial PART rules in section 4.4. The block
+must retain those DEMAND complements; it must not replace this operation
+with a whole-tree mark removal.
+
+There is no new cleaner policy in either case. The change combines
+eligible existing operations and their requests. GROUP, later runs,
+ineligible steps and nonfixed inputs keep the scalar path.

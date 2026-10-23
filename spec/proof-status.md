@@ -15,18 +15,25 @@ static-service ordering remain outside the selected execution changes.
 The specification preserves all required requests and partial DEMAND
 complements. It keeps the existing result dispatcher and raw suffix resume
 addresses. Image-cohort storage, grounding and new field eligibility are
-not selected. No new project performance result is claimed: the measured
-Thingsboard FULL attempts reach run-1 OOM, with no COMPLETE or accepted
-forward iteration.
+not selected. The
+[current project report](../docs/reports/bidirectional-full-work-batching-performance-20261023.md)
+records Thingsboard run-1 OOM with no COMPLETE or accepted forward run;
+Conductor and Stirling-PDF run-2 OOM with run-1 COMPLETE and accepted;
+and OWASP run-4 TIMEOUT with run-3 COMPLETE and accepted. Project
+acceptance remains separate from the local proof result.
 
-The integrated Lean build passes 174 jobs. The combined audit checks 1,610
-owned declarations and 71 controls; the standalone supply audit adds 24
-integration controls, for 95 distinct executable controls. No forbidden
+The integrated Lean build passes 174 jobs. The combined audit checks 1,647
+owned declarations and 76 controls; the standalone supply audit adds 24
+integration controls, for 100 distinct executable controls. The counted
+FLOW model proves equal values with fewer logical header operations for
+blocks of at least two steps. It does not claim a CPU-time bound. No forbidden
 axioms occur; the permitted dependencies are `propext` and `Quot.sound`.
 The [receipt](lean/run1-full-work-batching-checks.json) pins the final
 sources. Concrete trie, collector, request-owner and later-run handoff
 controls pass. This is model checking plus runtime correspondence tests,
-not a claimed checked Kotlin theorem. Project measurements remain pending.
+not a claimed checked Kotlin theorem. All 12 fixed commands, all 12 profile
+sets and all six OOM owner scopes are closed. The report keeps the failed
+precision/performance gates and the bounded analysis limits visible.
 
 ## Selected design: run-1 static summary erasure
 

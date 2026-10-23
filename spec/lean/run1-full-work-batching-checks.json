@@ -1,6 +1,6 @@
 {
-  "status": "MODELS_AND_RUNTIME_ADAPTERS_CHECKED_PROJECT_ACCEPTANCE_PENDING",
-  "generated_utc": "2026-10-23T10:46:07.687536+00:00",
+  "status": "MODELS_RUNTIME_ADAPTERS_AND_MEASUREMENTS_COMPLETE_ACCEPTANCE_GATES_FAILED",
+  "generated_utc": "2026-10-23T14:15:11.526122+00:00",
   "reference_analyzer": "8ab1445b8167a4b2db73f97788653aa4e21a3933",
   "documentation_parent": "7554c06fc32b202b292a9f418108206313dae460",
   "selected": [
@@ -19,16 +19,16 @@
   "implementation_changed": true,
   "new_project_runs": true,
   "sha256": {
-    "spec/run1-full-return-cleanup-and-static-supply-batching.md": "175c652efbd450e9576b778810a98852a25bd09c5024199fd2d7942fb0f1bacb",
-    "spec/run1-full-return-cleanup-and-static-supply-batching-proofs.md": "20752235d15cc186e56ca69f24c25678199528fb12a05da38a920cd9b5757c45",
+    "spec/run1-full-return-cleanup-and-static-supply-batching.md": "6a99113d200a9ef4270c216f271114f3431380961461c549f8d820ece88689cb",
+    "spec/run1-full-return-cleanup-and-static-supply-batching-proofs.md": "0c93777500570858ff803638f8c5b45d68405fe35e17f3f5221595acf56aa7e3",
     "spec/lean/ApSpec/Run1TemporaryStaticSupplies.lean": "27f6486ec0291f558a339adeebe4498e1aa0c05b52051c8909f330dce6db351d",
-    "spec/lean/ApSpec/Run1FullReturnCleanup.lean": "4632e637b6c18ace44a37c255e8ec7dfa023dd95a0e11b2eea80813f08704eec",
+    "spec/lean/ApSpec/Run1FullReturnCleanup.lean": "2eceedf1a8b48256510ad1d024eb45846e69701fcf8d3aad7d306d2f85287163",
     "spec/lean/ApSpec/Run1WorkBatchingClosure.lean": "103ae146649a231603283dad51e2f0ad94b2091f078b0c4d7e740100a98228f3",
     "spec/lean/run1-temporary-static-supplies-audit.lean": "f59cad3dedc62dac4494e42b0ab3cef77acb9f9e2f3aab4216f46021335d5fde",
-    "spec/lean/run1-full-return-cleanup-audit.lean": "20828b0f235a9ecd4474416c4bc5d2f6136693ccdf36c506acfe4a5bb86a74bc",
-    "spec/lean/run1-full-work-batching-audit.lean": "850ff74060bb873b10c1bab556bac29b4bbe9c176cc27212466938d3934dd72f",
+    "spec/lean/run1-full-return-cleanup-audit.lean": "6931f20d264b0ccdbeed76f99acf9c248b47139e84a81d372c80d9fc04d85636",
+    "spec/lean/run1-full-work-batching-audit.lean": "2720d9fe23c6dbd87474cd3e8720181293ea486db69cb512af2560c532df5f98",
     "spec/lean/ApSpec.lean": "1d7f80fdc35eea7b9df58ad4020d7cb1bfbaade63bc991856f523760c46f0164",
-    "spec/proof-status.md": "e73f7ed23364bb022f09ccd7e25010959be948cba3d2fe589658098485959f67",
+    "spec/proof-status.md": "24619b043307550a08529254ecd94de35977f3d4f1bbbfe134869fdecd9b7ce4",
     "docs/design/bidirectional-thingsboard-full-next-iteration-20261023.md": "662967adc9b103917a41ea38529835848b90bd1aed824b0751686109181d1d44",
     "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/ApOps.kt": "3c78f69d73afeb2fac91b7242fdb2958944b5691831aa38cfb77c1101e3a8986",
     "core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/Clean.kt": "0b0eb7715f6a3b41b626130d52ae3e33c8934a5ccab50af331eb226cf9da63de",
@@ -47,20 +47,21 @@
     "core/opentaint-dataflow-core/opentaint-dataflow/src/test/kotlin/org/opentaint/dataflow/bidi/ReturnFullCleanupEngineTest.kt": "f1271168735407cc21e6a078d4df975ce0b95f44c19e63a92e58201f80d288f9",
     "core/opentaint-dataflow-core/opentaint-dataflow/src/test/kotlin/org/opentaint/dataflow/bidi/ReturnFullCleanupTest.kt": "c9abc9278dd85e38792c9bc89c8ca7a22496b5dd144149f10fa8885c75fea95a",
     "core/opentaint-dataflow-core/opentaint-dataflow/src/test/kotlin/org/opentaint/dataflow/bidi/Run1TemporaryStaticSuppliesTest.kt": "de267d323ac1f90bda2db38e10905c7afef00b412af5fce0ae79e87f1e9a3106",
-    "docs/reports/bidirectional-full-work-batching-validation-20261023.md": "35b9713ae2fd20a3547c5e44d953b7df8d2472eb3c4739d22f3a72a4f28a6f7b"
+    "docs/reports/bidirectional-full-work-batching-validation-20261023.md": "b8ea0b3f75e162234da21400f83356f1a78d22fb5c59f05f7db30fc4e9ea84e2",
+    "docs/reports/bidirectional-full-work-batching-performance-20261023.md": "d692cdb58ba4f71520493d06815ab6883a73eb3acd0c93571cda5408a1a8e831",
+    "docs/design/bidirectional-full-work-batching-next-iteration-20261023.md": "9077dd582d1305b7690063c022bc689e9edf1a6c982fb95a78b87c5115bec40c"
   },
   "checks": [
     {
       "argv": [
         "lake",
         "build",
-        "ApSpec.Run1TemporaryStaticSupplies",
         "ApSpec.Run1FullReturnCleanup",
         "ApSpec.Run1WorkBatchingClosure"
       ],
       "cwd": "spec/lean",
       "exit_code": 0,
-      "jobs": 4
+      "jobs": 3
     },
     {
       "argv": [
@@ -81,16 +82,16 @@
       ],
       "cwd": "spec/lean",
       "exit_code": 0,
-      "owned_declarations": 1610,
+      "owned_declarations": 1647,
       "module_declarations": {
         "Run1TemporaryStaticSupplies": 877,
-        "Run1FullReturnCleanup": 653,
+        "Run1FullReturnCleanup": 690,
         "Run1WorkBatchingClosure": 80
       },
-      "controls": 71,
+      "controls": 76,
       "control_split": {
         "supply": 24,
-        "cleanup": 38,
+        "cleanup": 43,
         "closure": 9
       }
     },
@@ -116,10 +117,10 @@
       ],
       "cwd": "spec/lean",
       "exit_code": 0,
-      "controls": 38
+      "controls": 43
     }
   ],
-  "distinct_executable_controls": 95,
+  "distinct_executable_controls": 100,
   "axiom_policy": {
     "permitted": [
       "propext",
@@ -140,17 +141,40 @@
     "No project no-FN, termination, whole-engine speedup, OOM-prefix equality or 60-second guarantee is established by these checks."
   ],
   "document_checks": {
-    "resolved_local_links": 139,
+    "files": [
+      "spec/run1-full-return-cleanup-and-static-supply-batching.md",
+      "spec/run1-full-return-cleanup-and-static-supply-batching-proofs.md",
+      "spec/proof-status.md",
+      "docs/design/bidirectional-thingsboard-full-next-iteration-20261023.md",
+      "docs/reports/bidirectional-full-work-batching-validation-20261023.md",
+      "docs/reports/bidirectional-full-work-batching-performance-20261023.md",
+      "docs/design/bidirectional-full-work-batching-next-iteration-20261023.md"
+    ],
+    "resolved_local_links": 171,
     "balanced_fences": true,
     "missing_targets": []
   },
-  "optimized_project_runs": 0,
+  "optimized_project_runs": 4,
   "fixture_correction_commit": "fa82eeda903afc7df971e8f2067e924d0787f5a2",
   "proof_history": {
     "original_receipt_commit": "8c09acac31fb9262c2920f5d405efc04964c52fc",
-    "model_and_audit_sources_unchanged": true,
+    "model_and_audit_sources_unchanged": false,
     "focused_module_build_and_all_three_audits_rerun": true,
-    "full_ApSpec_174_job_build_from_original_receipt": true
+    "full_ApSpec_174_job_build_from_original_receipt": true,
+    "full_ApSpec_174_job_build_rerun": true,
+    "cost_model_extension": {
+      "scope": "Persistent same-base FLOW; count logical header operations, not allocations, mark tests or elapsed time.",
+      "semantic_model_changed": false,
+      "new_checked_claims": [
+        "counted_flow_value_equal",
+        "counted_flow_serial_work",
+        "flow_header_operations_never_increase",
+        "flow_header_operations_strictly_reduce"
+      ],
+      "additional_executable_controls": 5,
+      "proof_review_utc": "2026-10-23T12:09:03.408065+00:00",
+      "logs": "/drive-testcomp/opentaint-go-rules/run1-full-work-batching-20261023/validation/spec-proof-review-20261023"
+    }
   },
   "runtime_validation": {
     "external_root": "/drive-testcomp/opentaint-go-rules/run1-full-work-batching-20261023/validation",
@@ -210,9 +234,43 @@
     "campaign": "/drive-testcomp/opentaint-go-rules/run1-full-work-batching-20261023",
     "main_commands_closed": 4,
     "main_thingsboard": "Prescan TIMEOUT; 14 observed locations; incomplete baseline",
-    "optimized_commands": "PENDING COMMITTED IMPLEMENTATION",
-    "latest_optimized_iteration": null,
-    "latest_complete_optimized_iteration": null,
-    "latest_accepted_optimized_forward_report": null
+    "optimized_commands": "CLOSED: four reference and four candidate; all twelve profile sets and all six primary OOM owner scopes analyzed, with explicit bounded optional probe gaps.",
+    "latest_optimized_iteration": {
+      "thingsboard": "run-1 OOM",
+      "conductor": "run-2 OOM",
+      "Stirling-PDF": "run-2 OOM",
+      "OWASP": "run-4 TIMEOUT"
+    },
+    "latest_complete_optimized_iteration": {
+      "thingsboard": null,
+      "conductor": "run-1",
+      "Stirling-PDF": "run-1",
+      "OWASP": "run-3"
+    },
+    "latest_accepted_optimized_forward_report": {
+      "thingsboard": null,
+      "conductor": "run-1",
+      "Stirling-PDF": "run-1",
+      "OWASP": "run-3"
+    },
+    "closed_comparison_receipt": "/drive-testcomp/opentaint-go-rules/run1-full-work-batching-20261023/preparation/comparison-terminal.json",
+    "profiles_analyzed": 12,
+    "primary_oom_owner_scopes_analyzed": 6,
+    "analysis_receipts": {
+      "/drive-testcomp/opentaint-go-rules/run1-full-work-batching-20261023/validation/profile-analysis/final-receipt.json": "fb48ca519af1dc9709c563579db8e5a60fd876c24f2ef62a8d5de7cda4c4bdd9",
+      "/drive-testcomp/opentaint-go-rules/run1-full-work-batching-20261023/validation/heap-final-analysis-index.json": "243d4dcc175e5fd0e1d89c91ab16305b7a6fb8d47a6fe15c8702078a0ecfab54",
+      "/drive-testcomp/opentaint-go-rules/run1-full-work-batching-20261023/validation/heap-reference-thingsboard-rule-payload-memberships/selected-normal-producer-field-and-weighted-join.json": "a1e9c3d6ab6f2b5a49213bf02bd78701109f7883fa28aff29d3d8466ddca2e67",
+      "/drive-testcomp/opentaint-go-rules/run1-full-work-batching-20261023/validation/producer-mark-closure/selected-normal-producer-independent-join.json": "edcbf03e4d5c56e09ab00aaa00b25d44e3502ecfb997b9b0285ee65d9eece5b0"
+    },
+    "remaining_acceptance_limits": [
+      "Thingsboard run-1 OOM: no complete or accepted forward report; main prescan also incomplete.",
+      "Conductor and Stirling-PDF run-1 COMPLETE then run-2 OOM.",
+      "Two strict Stirling-PDF return locations missing on both sides; branch/full-mark witness equivalence unproved.",
+      "OWASP run-1 exceeds60s; run-4 TIMEOUT after run-3 accepted; literal CI raw total9179 differs from4112.",
+      "Eleven application gates fail at both candidate and exact reference.",
+      "Exact trie-node visits and physical header-copy totals not measured; bounded optional heap details and END payload remain unknown."
+    ],
+    "next_proposal": "docs/design/bidirectional-full-work-batching-next-iteration-20261023.md",
+    "next_proposal_implemented": false
   }
 }

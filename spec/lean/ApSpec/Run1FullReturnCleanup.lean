@@ -572,6 +572,59 @@ theorem flow_serial_bulk {α : Type} (marks : List Nat) (f : Flow α) :
   | nil => simp [flowSerial,flowBulk]
   | cons mark rest ih => simp [flowSerial,ih,flowBulk,List.append_assoc]
 
+/-- Count logical header operations for a persistent same-base FLOW input.
+    This does not count allocated objects, mark membership work or CPU time.
+    FLOW survives each eligible step; shrinking TAINT packets are out of scope. -/
+structure CountedFlow (α : Type) where
+  value : Flow α
+  headerOperations : Nat
+
+def countedFlowSerial {α : Type} : List Nat → Flow α → CountedFlow α
+  | [], f => ⟨f,0⟩
+  | mark :: rest, f =>
+      let tail := countedFlowSerial rest { f with mx := f.mx ++ [mark] }
+      ⟨tail.value,tail.headerOperations + 1⟩
+
+def countedFlowBulk {α : Type} (marks : List Nat) (f : Flow α) : CountedFlow α :=
+  match marks with
+  | [] => ⟨f,0⟩
+  | _ :: _ => ⟨flowBulk marks f,1⟩
+
+theorem counted_flow_serial_value {α : Type} (marks : List Nat) (f : Flow α) :
+    (countedFlowSerial marks f).value = flowSerial marks f := by
+  induction marks generalizing f with
+  | nil => rfl
+  | cons mark rest ih => simp only [countedFlowSerial,flowSerial,ih]
+
+theorem counted_flow_bulk_value {α : Type} (marks : List Nat) (f : Flow α) :
+    (countedFlowBulk marks f).value = flowBulk marks f := by
+  cases marks <;> simp [countedFlowBulk,flowBulk]
+
+theorem counted_flow_value_equal {α : Type} (marks : List Nat) (f : Flow α) :
+    (countedFlowSerial marks f).value = (countedFlowBulk marks f).value := by
+  rw [counted_flow_serial_value,counted_flow_bulk_value,flow_serial_bulk]
+
+theorem counted_flow_serial_work {α : Type} (marks : List Nat) (f : Flow α) :
+    (countedFlowSerial marks f).headerOperations = marks.length := by
+  induction marks generalizing f with
+  | nil => rfl
+  | cons mark rest ih => simp only [countedFlowSerial,ih,List.length_cons]
+
+theorem flow_header_operations_never_increase {α : Type} (marks : List Nat) (f : Flow α) :
+    (countedFlowBulk marks f).headerOperations ≤
+      (countedFlowSerial marks f).headerOperations := by
+  rw [counted_flow_serial_work]
+  cases marks <;> simp [countedFlowBulk]
+
+theorem flow_header_operations_strictly_reduce {α : Type} (marks : List Nat) (f : Flow α)
+    (multiple : 1 < marks.length) :
+    (countedFlowBulk marks f).headerOperations <
+      (countedFlowSerial marks f).headerOperations := by
+  rw [counted_flow_serial_work]
+  cases marks with
+  | nil => simp at multiple
+  | cons mark rest => simpa only [countedFlowBulk] using multiple
+
 def flowRequests (marks : List Nat) : List Nat := marks
 
 theorem flow_request_membership (marks : List Nat) (mark : Nat) :
@@ -926,7 +979,12 @@ def controls : List Bool := [
     [(⟨[1,2],.farAny⟩,t),(⟨[1,3],.farAny⟩,t)] =
     [(⟨[1,2],.farAny⟩,t),(⟨[1,3],.farAny⟩,t)]),
   decide (eraseLocated ⟨[1,2],.atExactAny⟩ = (⟨[1,2],.atExact⟩ : Located)),
-  decide (eraseExactCarrier .atAny ≠ eraseExactCarrier .atMust)
+  decide (eraseExactCarrier .atAny ≠ eraseExactCarrier .atMust),
+  decide ((countedFlowSerial [] (Flow.mk 3 [10,11] [9])).headerOperations = 0),
+  decide ((countedFlowBulk [] (Flow.mk 3 [10,11] [9])).headerOperations = 0),
+  decide ((countedFlowSerial [t,u,t] (Flow.mk 3 [10,11] [9])).headerOperations = 3),
+  decide ((countedFlowBulk [t,u,t] (Flow.mk 3 [10,11] [9])).headerOperations = 1),
+  decide ((countedFlowBulk [t,u,t] (Flow.mk 3 [10,11] [9])).value.mx = [9,t,u,t])
 ]
 theorem controls_pass : controls.all id = true := by decide
 end Controls

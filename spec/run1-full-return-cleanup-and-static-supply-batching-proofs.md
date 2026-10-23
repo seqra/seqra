@@ -24,7 +24,7 @@ The checked constructive modules are:
 | Module | Executable model |
 | --- | --- |
 | [Run1TemporaryStaticSupplies](lean/ApSpec/Run1TemporaryStaticSupplies.lean) | Independent temporary list/map decoders, canonical service state and atomic effects, raw ordering boundary and counted commit |
-| [Run1FullReturnCleanup](lean/ApSpec/Run1FullReturnCleanup.lean) | Serial versus bulk FULL cleanup, explicit spatial PART laws, FLOW requests, raw suffixes and atomic reply histories |
+| [Run1FullReturnCleanup](lean/ApSpec/Run1FullReturnCleanup.lean) | Serial versus bulk FULL cleanup, explicit spatial PART laws, FLOW requests, raw suffixes, atomic reply histories and counted FLOW operations |
 | [Run1WorkBatchingClosure](lean/ApSpec/Run1WorkBatchingClosure.lean) | Executable finite derivation transport in both directions, logical observations and handoff membership |
 
 Finite observation membership is the comparison relation. Callback
@@ -301,6 +301,29 @@ answerable without reintroducing the old detached attempts.
 
 ## 8. Finite closure, joins and handoff
 
+Use three analyzers to compose the local proofs:
+
+```text
+A: scalar reference cleanup + ordered reference supplies
+B: bulk cleanup             + ordered reference supplies
+C: bulk cleanup             + merged canonical supplies
+```
+
+The A-to-B comparison uses atomic request attempts and suffix histories.
+It permits different pending-point addresses, as section 7 requires. It
+does not assert equal concrete service states or a PointRow bijection.
+
+The B-to-C comparison keeps that new cleanup address contract on both
+sides. For each common commit input state, including its pending owner
+IDs, section 3 gives equal service state and atomic effects after supply
+commit. Apply that law at the ordinary boundaries of the finite
+derivation. Intermediate packet counts can differ.
+
+Transitivity gives equal boundary observations for A and C. Thus the
+exact supply-state theorem is never applied across the cleanup address
+change. This composition still requires the runtime adapter controls in
+section 10; the generic closure module is not a checked Kotlin theorem.
+
 Cut the program execution at unchanged ordinary boundaries, pure-block
 exits and atomic service deliveries. Local proofs above give equal
 normalized observations at those boundaries. Source and sink conditions,
@@ -353,7 +376,24 @@ offers have constant unique membership. The cleanup model removes repeated
 applications of one spatial relation. It does not remove mask construction,
 packing, source binding or per-origin materialization.
 
-The 2.648x measurement bounds pending supply records only. The full-depth
+The executable `CountedFlow` model attaches a counter to the existing
+FLOW execution. Its serial constructor performs the same header operation
+as `flowSerial`, then adds one to the counter. Its bulk constructor uses
+`flowBulk` once for a nonempty mask and no operation for an empty mask.
+Induction gives the serial count `marks.length`. Constructor cases give
+the bulk count zero or one. The value projection equals the original
+execution on each side. Therefore equal values require fewer logical
+header operations for every block of at least two scalar steps.
+
+Checked anchors are `counted_flow_serial_value`,
+`counted_flow_bulk_value`, `counted_flow_value_equal`,
+`counted_flow_serial_work`, `flow_header_operations_never_increase` and
+`flow_header_operations_strictly_reduce`. This scope has one persistent
+same-base FLOW input. The proof does not count object allocations or
+mask membership operations. It does not use a constant input size for
+TAINT packets that can shrink or disappear during scalar cleanup.
+
+The historical 2.648x measurement bounds pending supply records only. The full-depth
 cleaner profile is a scope that includes unqualified work. No proof here
 claims a 2x whole-engine gain, a live-byte saving, or 60-second completion.
 
@@ -371,11 +411,15 @@ claims a 2x whole-engine gain, a live-byte saving, or 60-second completion.
 | Handoff | Actual run-2 marked source replay and run-3 witness, not only abstract endpoint counts |
 | Lifetime | Owning actor, counted commit/replacement/sends, cancellation and joined release |
 
-These are production refinement obligations, not hidden assumptions about
-completed implementations. The current source review is in
-`validation/selected-run1-work-spec-20261023/source-review.md` under the
-saved campaign. The selected spec lists the future TDD controls and fixed
-project measurements. Actual analyzer implementation remains unchanged.
+These are production refinement obligations, not assumptions that the
+formal models prove the runtime adapters. The design-stage source review
+is in `validation/selected-run1-work-spec-20261023/source-review.md` under
+the saved campaign. The
+[implementation validation](../docs/reports/bidirectional-full-work-batching-validation-20261023.md)
+records the implemented adapters and their completed correspondence
+controls. The selected spec keeps the required controls and fixed project
+measurements as acceptance criteria. Project acceptance is separate from
+the checked local proofs.
 
 ## 11. Checked commands and receipt
 
@@ -389,9 +433,9 @@ lake env lean run1-full-return-cleanup-audit.lean
 ```
 
 The integrated build passes **174 jobs**. The combined audit checks
-**1,610 owned declarations**: 877 supply, 653 cleanup and 80 closure
-declarations. Its 71 executable controls pass. The supply standalone audit
-adds 24 integration controls, for **95 distinct executable controls** in
+**1,647 owned declarations**: 877 supply, 690 cleanup and 80 closure
+declarations. Its 76 executable controls pass. The supply standalone audit
+adds 24 integration controls, for **100 distinct executable controls** in
 total. The standalone cleanup audit also passes.
 
 The owned-constant audits permit only `propext` and `Quot.sound`. They

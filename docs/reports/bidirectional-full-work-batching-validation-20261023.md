@@ -1,11 +1,15 @@
 # Run-1 FULL work batching: implementation validation
 
 Date: 23 October 2026.
+Measured runtime: `fb84969c0b91ccae0500389b5e25e045557b0eb3`.
 Reference revision: `3179b9a22e296aa29147dc4d03dd5e8ab093bcf4`.
 Its runtime is the [specified reference](../../spec/run1-full-return-cleanup-and-static-supply-batching.md),
 `8ab1445b8167a4b2db73f97788653aa4e21a3933`.
-The implementation commit adds this record. The project campaign records
-the full implementation commit ID before it starts the candidate.
+The fixed campaign measures these committed runtimes. All 12 commands and
+their CPU/allocation profile analyses are closed. Read the
+[current performance report](bidirectional-full-work-batching-performance-20261023.md)
+for iteration outcomes, location comparisons and completed heap-owner scopes.
+Local validation does not establish project acceptance.
 
 ## Changes
 
@@ -43,10 +47,23 @@ FULL remains the production default. No new semantic approximation is selected.
 ## Checks
 
 The [constructive proof dossier](../../spec/run1-full-return-cleanup-and-static-supply-batching-proofs.md)
-states the local model and runtime boundary. The three selected Lean
-modules build. The audits check 1,610 declarations and 95 distinct executable
-controls. They find no forbidden axiom dependency. These checks are not a
-mechanized proof of the Kotlin engine.
+states the local model and runtime boundary. The original implementation
+delivery checked 1,610 selected declarations and 95 distinct executable
+controls. Those counts describe the proof state at runtime delivery.
+
+A later specification-only review adds the executable `CountedFlow` cost
+model and its controls. It changes no Kotlin runtime or test expectation.
+The current full Lean build passes all 174 jobs. The three selected audits
+pass with 1,647 owned declarations: 877 supply, 690 cleanup and 80 closure.
+The combined audit has 76 passing controls. The standalone supply audit
+adds 24 distinct integration controls, for 100 distinct executable controls
+in total. The selected audits find no unexpected axiom dependency. These
+checks are not a mechanized proof of the Kotlin engine.
+
+The current build and three audit logs are in
+[spec-proof-review-20261023](../../../run1-full-work-batching-20261023/validation/spec-proof-review-20261023).
+The runtime test results below remain the implementation-delivery results;
+the later proof extension does not replace or clear their failed gates.
 
 | Runtime check | Result |
 | --- | --- |
@@ -103,19 +120,32 @@ loop executes one. Thus
 exact removed call count for that subset. The counters update after the
 bulk operation returns. They exclude an interrupted block.
 
+Aggregate trie-node visit totals and physical header-copy totals were not
+measured. Admitted step slots cannot replace node-visit counts. The
+`CountedFlow` model and completed singleton FLOW counters count logical
+operations, not physical header copies or object allocations. JFR samples
+and allocation weights do not provide those missing exact totals. This is
+a measurement limitation; no counts are inferred or invented. Neither the
+local operation reduction nor these profiles establishes a whole-engine
+2x gain or guarantees run-1 completion within 60 seconds.
+
 The fixed project campaign is stored at
 `/drive-testcomp/opentaint-go-rules/run1-full-work-batching-20261023`.
 It has fresh main reports, fresh reference controls, and fixed FULL
 reference/candidate commands for OWASP, Conductor, Thingsboard and
-Stirling-PDF. It uses `runProjectAnalyzer` directly. Candidate measurements
-must use the committed implementation. No candidate engine performance
-result is claimed by this validation record.
+Stirling-PDF. It uses `runProjectAnalyzer` directly. All four main commands
+and all eight paired commands are closed. All 12 profile analyses are
+complete. All six OOM owner scopes and the stated targeted followups are
+also closed. The linked performance report records the measured engine
+results, owner evidence and explicit bounded-probe limits. Command,
+profile and owner-scope closure do not mark project acceptance as passed.
 
 Main uses the legacy engine, so bidirectional run labels do not apply.
 Fresh main Thingsboard reaches a prescan timeout and retains 14 observed
 sink locations; this is an incomplete precision baseline. Candidate
-reports must state the latest reached iteration, latest COMPLETE iteration
-and latest accepted forward report. The run-1 target uses engine time.
+results in the performance report state the latest reached iteration,
+latest COMPLETE iteration and latest accepted forward report. The run-1
+target uses engine time.
 
 Validation logs, copied JUnit XML, source hashes and exact-reference
 failure receipts are under the campaign's `validation/` directory.

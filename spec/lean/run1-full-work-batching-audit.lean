@@ -41,6 +41,8 @@ run_elab do
 #print axioms ApSpec.Run1FullReturnCleanup.located_serial_with_normalization
 #print axioms ApSpec.Run1FullReturnCleanup.history_exit_equal
 #print axioms ApSpec.Run1FullReturnCleanup.static_mismatch_promotes_once
+#print axioms ApSpec.Run1FullReturnCleanup.counted_flow_value_equal
+#print axioms ApSpec.Run1FullReturnCleanup.flow_header_operations_strictly_reduce
 #print axioms ApSpec.Run1WorkBatchingClosure.transport
 #print axioms ApSpec.Run1WorkBatchingClosure.transportBack
 #print axioms ApSpec.Run1WorkBatchingClosure.finite_closures_equivalent
