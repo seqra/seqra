@@ -49,7 +49,6 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.atomic.LongAdder
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -62,7 +61,7 @@ class TaintAnalysisUnitRunnerManager(
     override val unitResolver: UnitResolver<CommonMethod>,
     private val summarySerializationContext: SummarySerializationContext,
     private val taintRulesStatsSamplingPeriod: Int?,
-    private val fieldLimit: Int?,
+    private val iterationLimit: Int?,
 ): AnalysisUnitRunnerManager, AutoCloseable {
     enum class Status {
         OK, EXCEPTION, TIMEOUT, OOM
@@ -88,7 +87,6 @@ class TaintAnalysisUnitRunnerManager(
     private val totalEventsProcessed = AtomicInteger()
     private val totalEventsEnqueued = AtomicInteger()
     private val totalDelayedUnits = AtomicInteger()
-    private val edgesDroppedOverFieldLimit = LongAdder()
 
     @OptIn(DelicateCoroutinesApi::class)
     private val analyzerDispatcher = newFixedThreadPoolContext(
@@ -133,7 +131,6 @@ class TaintAnalysisUnitRunnerManager(
         unitStorage.elements().iterator().forEach { it.resetApManager(manager) }
 
         totalDelayedUnits.set(0)
-        reachedFactDepthLimit.set(NormalMethodAnalyzer.INITIAL_ALLOWED_FACT_DEPTH)
         totalEventsEnqueued.set(0)
         totalEventsProcessed.set(0)
         analysisCompletion = CompletableDeferred()
@@ -198,8 +195,6 @@ class TaintAnalysisUnitRunnerManager(
 
                 reportRunnerProgress(currentProgress)
                 logger.info { "Analysis done in ${timeStart.elapsedNow()}" }
-                logger.info { "Fact depth ladder reached ${reachedFactDepthLimit.get()}" }
-                reportFieldLimit()
             }
         }
     }
@@ -476,7 +471,7 @@ class TaintAnalysisUnitRunnerManager(
             unitResolver = unitResolver,
             summarySerializationContext = summarySerializationContext,
             taintRulesStatsSamplingPeriod = taintRulesStatsSamplingPeriod,
-            fieldLimit = fieldLimit,
+            iterationLimit = iterationLimit,
         )
 
         startRunner(unit, runner)
@@ -520,18 +515,6 @@ class TaintAnalysisUnitRunnerManager(
         analysisCompletion.complete(Unit)
     }
 
-    fun handleEdgeDroppedOverFieldLimit() {
-        edgesDroppedOverFieldLimit.increment()
-    }
-
-    private val reachedFactDepthLimit = AtomicInteger(NormalMethodAnalyzer.INITIAL_ALLOWED_FACT_DEPTH)
-
-    fun handleFactDepthLimitRaised(limit: Int) {
-        reachedFactDepthLimit.accumulateAndGet(limit, ::maxOf)
-    }
-
-    fun reachedFactDepthLimit(): Int = reachedFactDepthLimit.get()
-
     fun handleUnitDelayed() {
         totalDelayedUnits.incrementAndGet()
     }
@@ -571,12 +554,6 @@ class TaintAnalysisUnitRunnerManager(
     }
 
     fun allUnits(): Set<UnitType> = runnerForUnit.keys
-
-    private fun reportFieldLimit() {
-        val limit = fieldLimit ?: return
-        val dropped = edgesDroppedOverFieldLimit.sumThenReset()
-        logger.info { "Field limit $limit: dropped $dropped edges over the limit" }
-    }
 
     private fun reportMemoryUsage(): String {
         val maxMemory = Runtime.getRuntime().maxMemory()

@@ -18,8 +18,6 @@ interface AnalysisRunner {
 
     fun enqueueMethodAnalyzer(analyzer: MethodAnalyzer)
     fun registerDelayedAnalyzer(analyzer: MethodAnalyzer)
-    fun handleEdgeDroppedOverFieldLimit()
-    fun reachedFactDepthLimit(): Int
     fun addNewSummaryEdges(methodEntryPoint: MethodEntryPoint, edges: List<Edge>)
     fun getPrecalculatedSummaries(methodEntryPoint: MethodEntryPoint): Pair<List<Edge>, List<InitialFactAp>>?
     fun addNewSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirements: List<InitialFactAp>)

@@ -236,7 +236,7 @@ class AccessTree(
 
     override fun splitFieldLimit(limit: Int): FinalFactAp.FieldLimitSplit {
         if (access.maxFieldDepth <= limit) return FinalFactAp.FieldLimitSplit(within = this, rest = null)
-        if (access.allFieldPathsExceed(limit)) return FinalFactAp.FieldLimitSplit(within = null, rest = this)
+        if (access.minFieldDepth > limit) return FinalFactAp.FieldLimitSplit(within = null, rest = this)
 
         val within = access.fieldLimitWithin(limit)?.let { AccessTree(apManager, base, it, exclusions) }
         val rest = access.fieldLimitRest(limit)?.let { AccessTree(apManager, base, it, exclusions) }
@@ -282,7 +282,8 @@ class AccessTree(
         @JvmField val hash: Long
         @JvmField val size: Long
         @JvmField val maxDepth: Int
-        @JvmField val maxFieldDepth: Int
+        @JvmField val maxFieldDepth: Short
+        @JvmField val minFieldDepth: Short
         @JvmField val containsStatic: Boolean
 
         init {
@@ -294,7 +295,8 @@ class AccessTree(
         init {
             var hash = 0L
             var depth = 0
-            var fieldDepth = 0
+            var maxFieldDepth = 0
+            var minFieldDepth = if (isFinal || isAbstract) 0 else Int.MAX_VALUE
             var containsStatic = false
 
             if (isAbstract) hash += 1
@@ -316,9 +318,10 @@ class AccessTree(
                 depth = accessorNodes.maxOf { it.maxDepth } + 1
 
                 for (i in accessorNodes.indices) {
-                    val childFieldDepth = accessorNodes[i].maxFieldDepth
-                    val edgeFieldDepth = if (accessors!![i].isFieldDepthAccessor()) childFieldDepth + 1 else childFieldDepth
-                    if (edgeFieldDepth > fieldDepth) fieldDepth = edgeFieldDepth
+                    val node = accessorNodes[i]
+                    val edgeFieldDepth = if (accessors!![i].isFieldDepthAccessor()) 1 else 0
+                    maxFieldDepth = maxOf(maxFieldDepth, node.maxFieldDepth + edgeFieldDepth)
+                    minFieldDepth = minOf(minFieldDepth, node.minFieldDepth + edgeFieldDepth)
                 }
 
                 containsStatic = containsStatic || accessorNodes.any { it.containsStatic }
@@ -330,7 +333,8 @@ class AccessTree(
 
             this.hash = hash
             this.maxDepth = depth
-            this.maxFieldDepth = fieldDepth
+            this.maxFieldDepth = maxFieldDepth.toShort()
+            this.minFieldDepth = (if (minFieldDepth == Int.MAX_VALUE) 0 else minFieldDepth).toShort()
             this.containsStatic = containsStatic
         }
 
@@ -753,18 +757,9 @@ class AccessTree(
         fun abstractOnly(): AccessNode =
             manager.create(isAbstract = true, isFinal = false, deepAccessorExclusion, accessors = null, accessorNodes = null)
 
-        fun allFieldPathsExceed(limit: Int): Boolean {
-            if (limit < 0) return true
-            if (maxFieldDepth <= limit || isFinal || isAbstract) return false
-
-            forEachAccessor { accessor, node ->
-                if (!node.allFieldPathsExceed(fieldLimitBelow(accessor, limit))) return false
-            }
-            return true
-        }
-
         fun fieldLimitWithin(limit: Int): AccessNode? {
             if (maxFieldDepth <= limit) return this
+            if (minFieldDepth > limit) return null
 
             return transformAccessorsNonEmpty { accessor, node ->
                 val childLimit = fieldLimitBelow(accessor, limit)
@@ -774,6 +769,7 @@ class AccessTree(
 
         fun fieldLimitRest(limit: Int): AccessNode? {
             if (maxFieldDepth <= limit) return null
+            if (minFieldDepth > limit) return this
 
             val restAccessors = transformAccessors(accessors, accessorNodes) { accessor, node ->
                 val childLimit = fieldLimitBelow(accessor, limit)

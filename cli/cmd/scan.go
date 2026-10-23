@@ -37,7 +37,7 @@ type ScanConfig struct {
 	PassthroughApproximations []string
 	DataflowApproximations    []string
 	TrackExternalMethods      bool
-	FieldLimit                int
+	IterationLimit            int
 
 	DebugFactReachabilitySarif            bool
 	DebugRunAnalysisOnSelectedEntryPoints string
@@ -148,7 +148,7 @@ func addScanFlags(cmd *cobra.Command) {
 
 	cmd.Flags().BoolVar(&scanFlags.TrackExternalMethods, "track-external-methods", false, "Write external-method coverage files next to the SARIF report")
 
-	cmd.Flags().IntVar(&scanFlags.FieldLimit, "field-limit", 0, "Cap the analyzer fact depth at N field accessors and drop edges over it (0 = unlimited)")
+	cmd.Flags().IntVar(&scanFlags.IterationLimit, "iteration-limit", 0, "Cap the iterative-deepening fact depth at N field accessors and drop facts over it (0 = unlimited)")
 }
 
 // currentScanBuilder returns a builder pre-populated with the user's current scan flags.
@@ -162,7 +162,7 @@ func currentScanBuilder(cfg ScanConfig, sourcePath string) *utils.OpentaintComma
 		WithPassthroughApproximations(cfg.PassthroughApproximations).
 		WithDataflowApproximations(cfg.DataflowApproximations).
 		WithTrackExternalMethods(cfg.TrackExternalMethods).
-		WithFieldLimit(cfg.FieldLimit)
+		WithIterationLimit(cfg.IterationLimit)
 	if !isDefaultSeverity(cfg.Severity) {
 		b.WithSeverity(cfg.Severity)
 	}
@@ -392,8 +392,8 @@ func runScan(cmd *cobra.Command, cfg ScanConfig) {
 	if cfg.TrackExternalMethods {
 		nativeBuilder.SetTrackExternalMethods(true)
 	}
-	if cfg.FieldLimit > 0 {
-		nativeBuilder.SetFieldLimit(int64(cfg.FieldLimit))
+	if cfg.IterationLimit > 0 {
+		nativeBuilder.SetIterationLimit(int64(cfg.IterationLimit))
 	}
 	if cfg.DebugFactReachabilitySarif {
 		nativeBuilder.EnableDebugFactReachabilitySarif()

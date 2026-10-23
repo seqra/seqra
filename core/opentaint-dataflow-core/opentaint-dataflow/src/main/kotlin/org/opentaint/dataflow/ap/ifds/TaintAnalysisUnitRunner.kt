@@ -34,7 +34,7 @@ class TaintAnalysisUnitRunner(
     private val unitResolver: UnitResolver<CommonMethod>,
     private val summarySerializationContext: SummarySerializationContext,
     private val taintRulesStatsSamplingPeriod: Int?,
-    private val fieldLimit: Int?,
+    private val iterationLimit: Int?,
 ) : AnalysisRunner, SummaryEdgeSubscriptionManager.SummaryEdgeProcessingCtx {
     override val apManager: ApManager
         get() = manager.apManager
@@ -332,7 +332,7 @@ class TaintAnalysisUnitRunner(
 
     private fun methodAnalyzers(method: CommonMethod): MethodAnalyzerStorage =
         methodAnalyzers.computeIfAbsent(method) {
-            MethodAnalyzerStorage(analysisManager, taintRulesStatsSamplingPeriod, fieldLimit).also {
+            MethodAnalyzerStorage(analysisManager, taintRulesStatsSamplingPeriod, iterationLimit).also {
                 analyzers.add(it)
             }
         }
@@ -349,19 +349,12 @@ class TaintAnalysisUnitRunner(
         addUnprocessedEvent(MethodAnalysisDelayed(analyzer))
     }
 
-    override fun handleEdgeDroppedOverFieldLimit() {
-        manager.handleEdgeDroppedOverFieldLimit()
-    }
-
-    override fun reachedFactDepthLimit(): Int = manager.reachedFactDepthLimit()
-
     private var factLimit = NormalMethodAnalyzer.INITIAL_ALLOWED_FACT_DEPTH
 
     private fun resumeDelayedAnalyzers(delayedAnalyzers: Collection<MethodAnalyzer>) {
         if (delayedAnalyzers.isEmpty()) return
 
         val increasedFactLimit = ++factLimit
-        manager.handleFactDepthLimitRaised(increasedFactLimit)
         logger.debug { "Increase unit $unit fact limit: $increasedFactLimit" }
 
         delayedAnalyzers.forEach { analyzer ->

@@ -14,6 +14,8 @@ import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.access.automata.AccessGraphFinalFactAp
+import org.opentaint.dataflow.ap.ifds.access.automata.AutomataApManager
 import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.util.RefManager
 import kotlin.test.Test
@@ -94,7 +96,7 @@ class FieldLimitTest {
             assertEquals(fact.exclusions, within.exclusions)
         }
         if (rest != null) {
-            assertTrue((rest as AccessTree).access.allFieldPathsExceed(limit))
+            assertTrue((rest as AccessTree).access.minFieldDepth > limit)
             assertEquals(fact.base, rest.base)
             assertEquals(fact.exclusions, rest.exclusions)
         }
@@ -209,6 +211,102 @@ class FieldLimitTest {
         val negativeSplit = finalFact().splitFieldLimit(-1)
         assertNull(negativeSplit.within)
         assertNotNull(negativeSplit.rest)
+    }
+
+    @Test
+    fun `min field depth is the shallowest terminal path`() {
+        assertEquals(0, finalFact().access.minFieldDepth.toInt())
+        assertEquals(0, abstractFact().access.minFieldDepth.toInt())
+        assertEquals(3, finalFact(FIELD_A, FIELD_B, FIELD_C).access.minFieldDepth.toInt())
+        assertEquals(2, finalFact(FIELD_A, FIELD_B, MARK).access.minFieldDepth.toInt())
+        assertEquals(1, abstractFact(FIELD_A).access.minFieldDepth.toInt())
+
+        val tree = merged(finalFact(FIELD_A, FIELD_B), finalFact(FIELD_C, FIELD_D, FIELD_A))
+        assertEquals(2, tree.access.minFieldDepth.toInt())
+        assertEquals(3, tree.access.maxFieldDepth.toInt())
+
+        val terminalAtLimit = merged(finalFact(FIELD_A), finalFact(FIELD_A, FIELD_B, FIELD_C))
+        assertEquals(1, terminalAtLimit.access.minFieldDepth.toInt())
+        assertEquals(3, terminalAtLimit.access.maxFieldDepth.toInt())
+    }
+
+    @Test
+    fun `node with every terminal path over the limit is pruned as a whole`() {
+        val tree = merged(finalFact(FIELD_A, FIELD_B), finalFact(FIELD_C, FIELD_D, FIELD_A))
+
+        assertNull(tree.access.fieldLimitWithin(1))
+        assertSame(tree.access, tree.access.fieldLimitRest(1))
+
+        val split = tree.splitFieldLimit(1)
+        assertNull(split.within)
+        assertSame(tree, split.rest)
+    }
+
+    @Test
+    fun `node within the limit is kept as a whole`() {
+        val tree = merged(finalFact(FIELD_A), finalFact(FIELD_B, FIELD_C))
+
+        assertSame(tree.access, tree.access.fieldLimitWithin(2))
+        assertNull(tree.access.fieldLimitRest(2))
+    }
+
+    @Test
+    fun `subtrees with every terminal over the limit move to rest unchanged`() {
+        val tree = merged(finalFact(FIELD_A), merged(finalFact(FIELD_A, FIELD_B, FIELD_C), finalFact(FIELD_A, FIELD_D, FIELD_B)))
+
+        val split = tree.splitFieldLimit(2)
+
+        assertEquals(setOf(".$FIELD_A.$"), split.within.paths())
+        assertEquals(setOf(".$FIELD_A.$FIELD_B.$FIELD_C.$", ".$FIELD_A.$FIELD_D.$FIELD_B.$"), split.rest.paths())
+
+        val (b, d) = with(manager) { FIELD_B.idx to FIELD_D.idx }
+        val treeChild = tree.access.getChild(with(manager) { FIELD_A.idx })
+        val restChild = (split.rest as AccessTree).access.getChild(with(manager) { FIELD_A.idx })
+        assertNotNull(treeChild)
+        assertNotNull(restChild)
+        assertFalse(restChild.isFinal)
+        assertSame(treeChild.getChild(b), restChild.getChild(b))
+        assertSame(treeChild.getChild(d), restChild.getChild(d))
+        assertSplitPartition(tree, 2, split)
+    }
+
+    @Test
+    fun `access path field count is precomputed`() {
+        val path = initialFact(FIELD_A, ElementAccessor, FIELD_B, MARK) as AccessPath
+        assertEquals(3, path.access?.fieldCount?.toInt())
+        assertTrue(path.exceedsFieldLimit(2))
+        assertFalse(path.exceedsFieldLimit(3))
+
+        val empty = initialFact() as AccessPath
+        assertNull(empty.access)
+        assertFalse(empty.exceedsFieldLimit(0))
+        assertTrue(empty.exceedsFieldLimit(-1))
+    }
+
+    @Test
+    fun `access graph counts every field accessor of the graph`() {
+        val automata = AutomataApManager(UnrollStrategy, Cancellation())
+        fun graphFact(vararg accessors: Accessor): AccessGraphFinalFactAp {
+            var fact = automata.createFinalAp(base, ExclusionSet.Empty)
+            for (accessor in accessors.reversed()) {
+                fact = fact.prependAccessor(accessor)
+            }
+            return fact as AccessGraphFinalFactAp
+        }
+
+        val chain = graphFact(FIELD_A, MARK, FIELD_B)
+        assertTrue(chain.exceedsFieldLimit(1))
+        assertFalse(chain.exceedsFieldLimit(2))
+
+        val shallow = graphFact(FIELD_A)
+        val deep = graphFact(FIELD_B, FIELD_C)
+        val branching = AccessGraphFinalFactAp(base, shallow.access.merge(deep.access), ExclusionSet.Empty)
+        assertTrue(branching.exceedsFieldLimit(2))
+        assertFalse(branching.exceedsFieldLimit(3))
+
+        val split = branching.splitFieldLimit(2)
+        assertNull(split.within)
+        assertSame(branching, split.rest)
     }
 
     @Test

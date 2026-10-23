@@ -81,7 +81,5 @@ interface FinalFactAp : FactAp, ReadableAccessorList<FinalFactAp> {
 
     data class FieldLimitSplit(val within: FinalFactAp?, val rest: FinalFactAp?)
 
-    fun splitFieldLimit(limit: Int): FieldLimitSplit =
-        if (!exceedsFieldLimit(limit)) FieldLimitSplit(within = this, rest = null)
-        else FieldLimitSplit(within = null, rest = this)
+    fun splitFieldLimit(limit: Int): FieldLimitSplit
 }

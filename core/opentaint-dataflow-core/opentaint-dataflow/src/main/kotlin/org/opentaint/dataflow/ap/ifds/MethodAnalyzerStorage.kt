@@ -8,7 +8,7 @@ import org.opentaint.dataflow.util.object2IntMap
 class MethodAnalyzerStorage(
     private val languageManager: LanguageManager,
     private val taintRulesStatsSamplingPeriod: Int?,
-    private val fieldLimit: Int?,
+    private val iterationLimit: Int?,
 ) {
     private val entryPoints = object2IntMap<MethodEntryPoint>()
     private val analyzers = arrayListOf<MethodAnalyzer?>()
@@ -19,7 +19,7 @@ class MethodAnalyzerStorage(
 
             val analyzer = if (!languageManager.isEmpty(methodEntryPoint.method)) {
                 val emptyContextAnalyzer = getOrCreateMethodAnalyzerWithEmptyContext(runner, methodEntryPoint)
-                NormalMethodAnalyzer(runner, methodEntryPoint, taintRulesStatsSamplingPeriod, emptyContextAnalyzer, fieldLimit)
+                NormalMethodAnalyzer(runner, methodEntryPoint, taintRulesStatsSamplingPeriod, emptyContextAnalyzer, iterationLimit)
                     .let { if (NormalMethodAnalyzer.DEBUG_ANALYSIS_TIME) TimedMethodAnalyzer(it) else it }
             } else {
                 val methodExitPoints = runner.graph.methodGraph(methodEntryPoint.method).exitPoints().toList()

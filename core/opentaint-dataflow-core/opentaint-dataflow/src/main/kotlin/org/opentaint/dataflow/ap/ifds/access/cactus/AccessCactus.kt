@@ -279,6 +279,11 @@ class AccessCactus(
 
     override fun exceedsFieldLimit(limit: Int): Boolean = access.exceedsFieldLimit(limit)
 
+    // todo: no precise split for the access cactus yet
+    override fun splitFieldLimit(limit: Int): FinalFactAp.FieldLimitSplit =
+        if (!exceedsFieldLimit(limit)) FinalFactAp.FieldLimitSplit(within = this, rest = null)
+        else FinalFactAp.FieldLimitSplit(within = null, rest = this)
+
     override fun toString(): String = buildString {
         access.print(this, "$base", suffix = "/$exclusions")
         if (lastIndex != -1 && this[lastIndex] == '\n') {

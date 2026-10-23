@@ -1,6 +1,6 @@
 package test.samples;
 
-public class FieldLimitSample {
+public class IterationLimitSample {
 
     static class Leaf {
         String value;

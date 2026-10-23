@@ -32,7 +32,7 @@ abstract class AbstractAnalyzerRunner : CliWithLogger() {
         .choice(ApMode.entries.associateBy { it.name })
         .default(ApMode.Tree)
 
-    protected val fieldLimit: Int? by option(help = "Cap the iterative-deepening fact depth at N field accessors and drop edges over it (unlimited by default)")
+    protected val iterationLimit: Int? by option(help = "Cap the iterative-deepening fact depth at N field accessors and drop facts over it (unlimited by default)")
         .int().restrictTo(min = 0)
 
     private val debugTaintRulesStats: Boolean by

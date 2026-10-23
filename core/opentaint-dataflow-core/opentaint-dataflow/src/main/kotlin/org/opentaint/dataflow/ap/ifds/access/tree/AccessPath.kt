@@ -238,13 +238,8 @@ class AccessPath(
     override val depth: Int get() = size
 
     override fun exceedsFieldLimit(limit: Int): Boolean {
-        var fieldDepth = 0
-        var node = access
-        while (node != null) {
-            if (node.accessor.isFieldDepthAccessor() && ++fieldDepth > limit) return true
-            node = node.next
-        }
-        return fieldDepth > limit
+        val node = access ?: return limit < 0
+        return node.fieldCount > limit
     }
 
     override fun toString(): String = "$base${access ?: ""}.*/$exclusions"
@@ -276,6 +271,7 @@ class AccessPath(
     ) {
         private val hash: Int
         val size: Int
+        @JvmField val fieldCount: Short
 
         init {
             var hash = accessor
@@ -287,6 +283,12 @@ class AccessPath(
             var size = 1
             if (next != null) size += next.size
             this.size = size
+        }
+
+        init {
+            var fieldCount = if (accessor.isFieldDepthAccessor()) 1 else 0
+            if (next != null) fieldCount += next.fieldCount
+            this.fieldCount = fieldCount.toShort()
         }
 
         override fun hashCode(): Int = hash

@@ -163,7 +163,7 @@ class NormalMethodAnalyzer(
     override val methodEntryPoint: MethodEntryPoint,
     private val taintRulesStatsSamplingPeriod: Int?,
     emptyContextAnalyzer: MethodAnalyzer?,
-    private val fieldLimit: Int?,
+    private val iterationLimit: Int?,
 ) : MethodAnalyzer {
     private val apManager: ApManager get() = runner.apManager
     private val analysisManager get() = runner.analysisManager
@@ -202,7 +202,7 @@ class NormalMethodAnalyzer(
     private var summaryEdgesHandled: Long = 0
     private val traceResolverStats = TraceResolverStats()
 
-    private var factDepthLimit = cappedFactDepthLimit(INITIAL_ALLOWED_FACT_DEPTH)
+    private var factDepthLimit = capAtIterationLimit(INITIAL_ALLOWED_FACT_DEPTH)
     private var delayedF2FInitialEdges = EdgeCollection.EdgeList(apManager, methodEntryPoint)
     private var delayedF2FSummaries = EdgeCollection.EdgeList(apManager, methodEntryPoint)
     private var delayedSequentialEdges = EdgeCollection.EdgeList(apManager, methodEntryPoint)
@@ -565,7 +565,7 @@ class NormalMethodAnalyzer(
     }
 
     override fun updateFactDepthLimit(newLimit: Int) {
-        factDepthLimit = cappedFactDepthLimit(newLimit)
+        factDepthLimit = capAtIterationLimit(newLimit)
 
         val currentDelayedInitialF2F = delayedF2FInitialEdges
         delayedF2FInitialEdges = EdgeCollection.EdgeList(apManager, methodEntryPoint)
@@ -613,7 +613,7 @@ class NormalMethodAnalyzer(
     }
 
     private inline fun delayEdgeOverLimit(edge: Edge, delay: (Edge) -> Unit) {
-        if (dropEdgeOverFieldLimit()) return
+        if (iterationLimitReached()) return
 
         registerDelayed()
         delay(edge)
@@ -626,14 +626,11 @@ class NormalMethodAnalyzer(
         is NDFactToFact -> NDFactToFact(methodEntryPoint, initialFacts, statement, factAp)
     }
 
-    private fun cappedFactDepthLimit(limit: Int): Int =
-        if (fieldLimit == null) limit else minOf(limit, fieldLimit)
+    private fun capAtIterationLimit(limit: Int): Int =
+        if (iterationLimit == null) limit else minOf(limit, iterationLimit)
 
-    private fun dropEdgeOverFieldLimit(): Boolean {
-        if (fieldLimit == null || factDepthLimit < fieldLimit) return false
-        runner.handleEdgeDroppedOverFieldLimit()
-        return true
-    }
+    private fun iterationLimitReached(): Boolean =
+        iterationLimit != null && factDepthLimit >= iterationLimit
 
     private fun addSequentialEdge(edge: Edge) {
         val admittedEdge = admitEdgeWithinLimit(edge) { delayedSequentialEdges.add(it) } ?: return
@@ -1358,7 +1355,7 @@ class NormalMethodAnalyzer(
     }
 
     override fun methodTraceResolver(): MethodTraceResolver =
-        MethodTraceResolver(runner, traceResolverStats, analysisContext, edges, methodInstGraph, cappedFactDepthLimit(runner.reachedFactDepthLimit()))
+        MethodTraceResolver(runner, traceResolverStats, analysisContext, edges, methodInstGraph, factDepthLimit)
 
     override fun resolveIntraProceduralForwardFullTrace(
         statement: CommonInst,
@@ -1401,7 +1398,7 @@ class NormalMethodAnalyzer(
 
     override fun resetApManager(apManager: ApManager) {
         zeroInitialFactProcessed = false
-        factDepthLimit = cappedFactDepthLimit(INITIAL_ALLOWED_FACT_DEPTH)
+        factDepthLimit = capAtIterationLimit(INITIAL_ALLOWED_FACT_DEPTH)
         edges = MethodAnalyzerEdges(apManager, methodEntryPoint, analysisManager)
 
         resetEdgeProcessingStorage(apManager)

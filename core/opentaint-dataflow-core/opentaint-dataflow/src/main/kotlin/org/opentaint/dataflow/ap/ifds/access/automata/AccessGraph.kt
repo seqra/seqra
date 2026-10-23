@@ -143,33 +143,15 @@ class AccessGraph(
         return hash
     }
 
-    fun exceedsFieldLimit(limit: Int): Boolean {
-        if (limit < 0) return true
-        return fieldDepth() > limit
-    }
+    fun exceedsFieldLimit(limit: Int): Boolean = fieldDepthAccessorCount() > limit
 
-    private fun fieldDepth(): Int {
-        val depth = IntArray(numNodes) { NO_NODE }
-        val onStack = nodeSet(numNodes)
-        return fieldDepth(initial, depth, onStack)
-    }
-
-    private fun fieldDepth(node: NodeMarker, depth: IntArray, onStack: NodeSet): Int {
-        val known = depth[node]
-        if (known != NO_NODE) return known
-
-        onStack.set(node)
-        var maxDepth = 0
-        nodeSucc[node]?.forEach { accessor ->
-            val successor = edges.get(accessor).to
-            val accessorDepth = if (accessor.isFieldDepthAccessor()) 1 else 0
-            val successorDepth = if (onStack.get(successor)) 0 else fieldDepth(successor, depth, onStack)
-            maxDepth = maxOf(maxDepth, accessorDepth + successorDepth)
+    private fun fieldDepthAccessorCount(): Int {
+        var count = 0
+        val accessors = edges.keys.iterator()
+        while (accessors.hasNext()) {
+            if (accessors.nextInt().isFieldDepthAccessor()) count++
         }
-        onStack.clear(node)
-
-        depth[node] = maxDepth
-        return maxDepth
+        return count
     }
 
     override fun hashCode(): Int = hash

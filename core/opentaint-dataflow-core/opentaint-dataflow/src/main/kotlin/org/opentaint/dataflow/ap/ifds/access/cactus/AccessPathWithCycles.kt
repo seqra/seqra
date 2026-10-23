@@ -98,15 +98,8 @@ class AccessPathWithCycles(
     override val depth: Int get() = size
 
     override fun exceedsFieldLimit(limit: Int): Boolean {
-        var fieldDepth = 0
-        var node = access
-        while (node != null) {
-            if (node.cycles.any { cycle -> cycle.any { it.isFieldDepthAccessor() } }) fieldDepth++
-            if (node.accessor.isFieldDepthAccessor()) fieldDepth++
-            if (fieldDepth > limit) return true
-            node = node.next
-        }
-        return fieldDepth > limit
+        val node = access ?: return limit < 0
+        return node.fieldCount > limit
     }
 
     override fun toString(): String = "$base${access ?: ""}.*/$exclusions"
@@ -185,6 +178,7 @@ class AccessPathWithCycles(
     ): Iterable<Pair<Accessor, List<Cycle>>> {
         private val hash: Int
         val size: Int
+        @JvmField val fieldCount: Short
 
         init {
             var hash = accessor.hashCode() * 31 + cycles.hashCode()
@@ -196,6 +190,14 @@ class AccessPathWithCycles(
             var size = 1
             if (next != null) size += next.size
             this.size = size
+        }
+
+        init {
+            var fieldCount = 0
+            if (cycles.any { cycle -> cycle.any { it.isFieldDepthAccessor() } }) fieldCount++
+            if (accessor.isFieldDepthAccessor()) fieldCount++
+            if (next != null) fieldCount += next.fieldCount
+            this.fieldCount = fieldCount.toShort()
         }
 
         override fun hashCode(): Int = hash

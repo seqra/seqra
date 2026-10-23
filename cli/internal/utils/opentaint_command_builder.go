@@ -206,9 +206,9 @@ func (cb *OpentaintCommandBuilder) WithTrackExternalMethods(enabled bool) *Opent
 	return cb
 }
 
-func (cb *OpentaintCommandBuilder) WithFieldLimit(limit int) *OpentaintCommandBuilder {
+func (cb *OpentaintCommandBuilder) WithIterationLimit(limit int) *OpentaintCommandBuilder {
 	if limit > 0 {
-		cb.flags["field-limit"] = strconv.Itoa(limit)
+		cb.flags["iteration-limit"] = strconv.Itoa(limit)
 	}
 	return cb
 }
