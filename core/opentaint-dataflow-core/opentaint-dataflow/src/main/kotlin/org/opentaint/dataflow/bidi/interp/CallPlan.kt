@@ -1,6 +1,10 @@
 package org.opentaint.dataflow.bidi.interp
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.bidi.ap.Cleaner
+import org.opentaint.dataflow.bidi.ap.MarkSet
+import org.opentaint.dataflow.bidi.ap.TaintMark
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.bidi.ap.GroupId
 import org.opentaint.dataflow.bidi.ap.Layer
 import org.opentaint.dataflow.bidi.ap.MarkTable
@@ -76,6 +80,77 @@ internal class ReturnGroupSchedule private constructor(private val previous: Int
     }
 }
 
+/** One immutable mask per maximal range. Raw steps are retained for invocation-local suffixes. */
+internal class FullCleanupBlock(
+    val first: Int,
+    val end: Int,
+    val geometry: Cleaner,
+    val marks: MarkSet,
+    private val raw: List<CleanStep>,
+) {
+    fun marksFrom(firstStep: Int, cancellation: Cancellation? = null): MarkSet {
+        require(firstStep in first until end)
+        if (firstStep == first) return marks
+        val selected = IntArray(end - firstStep)
+        for (index in firstStep until end) {
+            cancellation?.checkpoint()
+            selected[index - firstStep] = checkNotNull((raw[index] as CleanStep.Clean).cleaner.mark).id
+        }
+        return MarkSet(selected)
+    }
+}
+
+/** Linear raw-index directory. Rebuilding a form does not change resume addresses. */
+internal class ReturnFullCleanupSchedule private constructor(
+    private val blocks: List<FullCleanupBlock>,
+    private val byStep: IntArray,
+) {
+    fun blockContaining(step: Int): FullCleanupBlock? =
+        byStep.getOrNull(step)?.takeIf { it >= 0 }?.let { blocks[it] }
+
+    fun storage(counts: FormStorageCounts) {
+        counts.index(byStep)
+        counts.include(blocks)
+        for (block in blocks) counts.index(block.marks.data)
+    }
+
+    companion object {
+        fun compile(raw: List<CleanStep>, marks: MarkTable): ReturnFullCleanupSchedule? {
+            fun eligible(step: CleanStep): Cleaner? {
+                val cleaner = (step as? CleanStep.Clean)?.cleaner ?: return null
+                if (cleaner.base == AccessPathBase.Zero || cleaner.base == AccessPathBase.ClassStatic ||
+                    cleaner.base is AccessPathBase.CleanerTemporary) return null
+                val mark = cleaner.mark ?: return null
+                return cleaner.takeIf { marks.isFull(mark) }
+            }
+            fun same(a: Cleaner, b: Cleaner) = a.base == b.base && a.reach == b.reach &&
+                a.pathArray.contentEquals(b.pathArray)
+            val blocks = ArrayList<FullCleanupBlock>()
+            val byStep = IntArray(raw.size) { -1 }
+            var start = 0
+            while (start < raw.size) {
+                val geometry = eligible(raw[start])
+                if (geometry == null) { start++; continue }
+                var end = start + 1
+                while (end < raw.size) {
+                    val next = eligible(raw[end]) ?: break
+                    if (!same(geometry, next)) break
+                    end++
+                }
+                if (end - start >= 2) {
+                    val mask = MarkSet(IntArray(end - start) { index ->
+                        checkNotNull((raw[start + index] as CleanStep.Clean).cleaner.mark).id
+                    })
+                    for (index in start until end) byStep[index] = blocks.size
+                    blocks += FullCleanupBlock(start, end, geometry, mask, raw)
+                }
+                start = end
+            }
+            return if (blocks.isEmpty()) null else ReturnFullCleanupSchedule(ownedList(blocks), byStep)
+        }
+    }
+}
+
 sealed interface CallStage {
     val from: CallPoint
     val to: CallPoint
@@ -106,16 +181,24 @@ sealed interface CallStage {
         override val to: CallPoint,
         val steps: List<CleanStep>,
         internal val returnGroupSchedule: ReturnGroupSchedule?,
+        internal val returnFullCleanupSchedule: ReturnFullCleanupSchedule?,
     ) : CallStage {
         constructor(from: CallPoint, to: CallPoint, steps: List<CleanStep>) :
-            this(from, to, ownedList(steps), null)
+            this(from, to, ownedList(steps), null, null)
 
         companion object {
+            /** FULL forms may be shared by later runs; only the run-1 owner executes this metadata. */
+            fun run1FullReturnRewriter(steps: List<CleanStep>, marks: MarkTable): Actions {
+                val raw = ownedList(steps)
+                return Actions(CallPoint.RETURNED, CallPoint.REWRITTEN, raw, null,
+                    ReturnFullCleanupSchedule.compile(raw, marks))
+            }
+
             /** Only forward GROUP return rewriters use this factory, after ordinary lowering. */
             fun run1GroupReturnRewriter(steps: List<CleanStep>, marks: MarkTable): Actions {
                 val raw = ownedList(steps)
                 return Actions(CallPoint.RETURNED, CallPoint.REWRITTEN, raw,
-                    ReturnGroupSchedule.compile(raw, marks))
+                    ReturnGroupSchedule.compile(raw, marks), null)
             }
         }
 
@@ -177,6 +260,7 @@ class CallPlan(
             is CallStage.Actions -> {
                 counts.include(stage.steps)
                 stage.returnGroupSchedule?.storage(counts)
+                stage.returnFullCleanupSchedule?.storage(counts)
                 for (step in stage.steps) when (step) {
                     is CleanStep.Clean -> Unit
                     is CleanStep.Kill -> counts.include(step.keepEdges)

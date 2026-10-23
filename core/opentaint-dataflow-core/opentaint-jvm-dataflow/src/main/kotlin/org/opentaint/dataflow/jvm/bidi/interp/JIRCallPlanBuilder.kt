@@ -123,7 +123,7 @@ internal class JIRCallPlanBuilder(
                 add(Edges(ADDED, REWRITTEN, CONSTRUCTOR, StatementSummary.identities(boundPositions())))
             val rewriterSteps = rewriterSteps()
             add(if (forms.isRun1GroupView) Actions.run1GroupReturnRewriter(rewriterSteps, manager.marks)
-                else Actions(RETURNED, REWRITTEN, rewriterSteps))
+                else Actions.run1FullReturnRewriter(rewriterSteps, manager.marks))
             add(Edges(REWRITTEN, AFTER, BIND_BACK, back))
             aliases(back)?.let { add(Edges(REWRITTEN, AFTER, ALIASES, it, Guard.MemoryEffect)) }
         }

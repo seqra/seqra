@@ -71,6 +71,25 @@ internal fun cleanFacts(m: ApManager, c: Facts, premise: PremiseKey, cl: Cleaner
     }
 }
 
+/** Exact FULL-mask form of the selected nonstatic kernel. Geometry stays in the existing spatial walker. */
+internal fun cleanSelectedFullMask(m: ApManager, c: Facts, cl: Cleaner, selected: MarkSet,
+                                   mode: ApMode, request: (MarkSet) -> Unit, out: ApOut) {
+    require(mode.run1 && mode.direction == Direction.FORWARD && mode.markMode == MarkMode.FULL)
+    require(cl.base != STATIC && cl.base != org.opentaint.dataflow.ap.ifds.AccessPathBase.Zero)
+    m.cancellation.checkpoint()
+    if (c.base != cl.base) { out.result(c); return }
+    when (c) {
+        is Reach -> out.result(c)
+        is FlowTree -> {
+            // Selected nonstatic FLOW cleaning intentionally has no spatial test.
+            val mx = m.intern(c.markExclusion + selected)
+            request(selected) // incoming mx does not remove requested memberships
+            out.result(m.flowTree(c.base, c.layer, c.exclusion, mx, c.root, c.tail))
+        }
+        is TaintTree -> TaintClean(m, c, cl, mode, out, selected).run()
+    }
+}
+
 /** The selected-mark branch changes the header and shares every path. */
 private class FlowClean(private val m: ApManager, private val c: FlowTree, private val cl: Cleaner,
                         private val mode: ApMode, private val out: ApOut) {
@@ -133,11 +152,12 @@ private class FlowClean(private val m: ApManager, private val c: FlowTree, priva
 
 /** Concrete and all-mark cleaners retain the spatial and partial-cleaning rows. */
 private class TaintClean(private val m: ApManager, private val c: TaintTree, private val cl: Cleaner,
-                         private val mode: ApMode, private val out: ApOut) {
+                         private val mode: ApMode, private val out: ApOut, private val selected: MarkSet? = null) {
     private val results = Results(m, c.base)
     private val anyTail = c.anyTail
 
     private fun gone(marks: MarkSet): MarkSet = when {
+        selected != null -> marks intersect selected
         cl.mark == null || marks.isEmpty -> marks
         mode.markMode == MarkMode.GROUP -> MarkSet.EMPTY // selected full mark cannot kill wildcard group
         else -> marks.intersect(m.markSetOf(cl.mark))

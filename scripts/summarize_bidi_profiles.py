@@ -125,7 +125,7 @@ def summarize(directory):
         return output
     exported = directory / 'profile-events.json'
     with exported.open('w') as stream:
-        result = subprocess.run(['jfr', 'print', '--json', '--events',
+        result = subprocess.run(['jfr', 'print', '--json', '--stack-depth', '256', '--events',
                                  'jdk.ExecutionSample,jdk.ObjectAllocationSample,jdk.GarbageCollection',
                                  str(recording)], stdout=stream, stderr=subprocess.PIPE, text=True)
     if result.returncode:

@@ -1,13 +1,15 @@
 # Current proof status
 
-## Selected: FULL return cleanup and temporary static supplies
+## Implemented: FULL return cleanup and temporary static supplies
 
 The [selected specification](run1-full-return-cleanup-and-static-supply-batching.md)
 combines canonical run-1 FULL supply merging and bulk equal-geometry FULL
 return cleanup. The [proof dossier](run1-full-return-cleanup-and-static-supply-batching-proofs.md)
 separates constructive local models, finite closure/handoff transport and
-the mandatory source-to-runtime adapter checks. Actual implementation is
-unchanged. GROUP, later runs, field transfer, source/exit behavior and raw
+the mandatory source-to-runtime adapter checks. The implementation and
+its differential tests are present. Read the
+[validation record](../docs/reports/bidirectional-full-work-batching-validation-20261023.md).
+GROUP, later runs, field transfer, source/exit behavior and raw
 static-service ordering remain outside the selected execution changes.
 
 The specification preserves all required requests and partial DEMAND
@@ -22,8 +24,9 @@ owned declarations and 71 controls; the standalone supply audit adds 24
 integration controls, for 95 distinct executable controls. No forbidden
 axioms occur; the permitted dependencies are `propext` and `Quot.sound`.
 The [receipt](lean/run1-full-work-batching-checks.json) pins the final
-sources. Concrete trie/collector/request-owner correspondence remains an
-explicit implementation obligation, not a claimed checked Kotlin theorem.
+sources. Concrete trie, collector, request-owner and later-run handoff
+controls pass. This is model checking plus runtime correspondence tests,
+not a claimed checked Kotlin theorem. Project measurements remain pending.
 
 ## Selected design: run-1 static summary erasure
 

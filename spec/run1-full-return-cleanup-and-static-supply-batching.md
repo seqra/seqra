@@ -1,10 +1,12 @@
 # Run-1 FULL return cleanup and static supply batching
 
-Date: 23 October 2026. Status: **selected specification; not implemented**.
+Date: 23 October 2026. Status: **implemented; project measurements pending**.
 Reference analyzer: `8ab1445b8167a4b2db73f97788653aa4e21a3933`.
 Documentation parent: `7554c06fc32b202b292a9f418108206313dae460`.
 Read the [proof dossier](run1-full-return-cleanup-and-static-supply-batching-proofs.md)
 and [proof guide](proof-guide.md).
+Read the [implementation validation](../docs/reports/bidirectional-full-work-batching-validation-20261023.md)
+for the runtime adapters, exact-reference controls and remaining failed gates.
 
 The reference already selects FULL when the run-1 flag is absent. The
 [FULL investigation](../docs/reports/bidirectional-thingsboard-full-run1-investigation-20261023.md)
@@ -517,7 +519,8 @@ call-loop adapter and a mask overload of the existing request-owner route.
 The [dossier](run1-full-return-cleanup-and-static-supply-batching-proofs.md)
 proves the local laws and their composition. The formal models separately
 check supply state/effects, cleanup kernels/suffixes and finite derivation
-transport. They are not a proof of unimplemented Kotlin adapters.
+transport. They are not a mechanized proof of the Kotlin adapters. Their
+runtime correspondence checks are recorded in the implementation validation.
 
 For each finite supported reference derivation, construct a new one:
 
@@ -545,7 +548,8 @@ prove termination for arbitrary projects.
 
 ## 7. Implementation order and required checks
 
-Actual implementation is a later task. Use this order:
+The implementation follows this order. The validation record identifies
+the checks that have run and the remaining project measurements:
 
 1. Build and audit the constructive models and proof controls.
 2. Add differential tests against the unchanged scalar/list reference.

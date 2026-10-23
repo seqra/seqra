@@ -1,6 +1,6 @@
 # Proofs for run-1 FULL cleanup and supply batching
 
-Date: 23 October 2026. Status: **selected design proofs; runtime unchanged**.
+Date: 23 October 2026. Status: **models checked; runtime adapters implemented**.
 Contract: [complete specification](run1-full-return-cleanup-and-static-supply-batching.md).
 Reference analyzer: `8ab1445b8167a4b2db73f97788653aa4e21a3933`.
 
@@ -13,9 +13,11 @@ preserve the existing run-2 guidance and later supported witnesses.
 
 This is a relative claim. It does not establish general soundness or
 termination of the reference analyzer. It does not turn the existing
-precision failures or project OOMs into passing results. The new Kotlin
-adapters do not exist yet. Their correspondence obligations below are
-mandatory before implementation acceptance.
+precision failures or project OOMs into passing results. The Kotlin
+adapters now have source review and differential tests. Read the
+[implementation validation](../docs/reports/bidirectional-full-work-batching-validation-20261023.md)
+for their results and the remaining failed application gates. The models
+do not provide a mechanized Kotlin refinement theorem.
 
 The checked constructive modules are:
 
@@ -397,4 +399,4 @@ reject Classical choice, sorry axioms and other unproved assumptions.
 The finite witness transport functions are executable and axiom-free.
 The [check receipt](lean/run1-full-work-batching-checks.json) pins the final
 model, audit and specification hashes and separates checked claims from
-the required future runtime adapters.
+the runtime adapter checks and the remaining project acceptance gates.

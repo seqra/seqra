@@ -149,6 +149,10 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             core.config.run1 && core.forward && core.mode.markMode == MarkMode.GROUP
         }
         check(schedule == null || schedule.size == steps.size)
+        val fullSchedule = actions.returnFullCleanupSchedule.takeIf {
+            core.config.run1 && core.forward && core.mode.markMode == MarkMode.FULL &&
+                actions.from == CallPoint.RETURNED && actions.to == CallPoint.REWRITTEN
+        }
         val node = ctx.node
         fun at(input: PlanFact, step: Int, phase: CleanerPhase) = OperationInput(
             ResumeSite.CleanerInput(core.operation(node, stageOrdinal), step, phase), input.premise, input.facts,
@@ -178,9 +182,39 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
             return out
         }
         var current = listOf(fact)
-        for (stepIndex in firstStep until steps.size) {
+        var stepIndex = firstStep
+        while (stepIndex < steps.size) {
             core.ap.cancellation.checkpoint()
-            if (schedule != null && !schedule.execute(stepIndex, firstStep)) continue
+            if (schedule != null && !schedule.execute(stepIndex, firstStep)) { stepIndex++; continue }
+            val block = fullSchedule?.blockContaining(stepIndex)
+            if (block != null) {
+                val statistics = core.context.shared.n2Statistics
+                if (current.all { fullCleanupCollectorFixed(it.premise, it.facts) }) {
+                    val mask = block.marksFrom(stepIndex, core.ap.cancellation)
+                    statistics?.fullCleanupBlock(stepIndex > block.first, block.end - stepIndex, current.size)
+                    val next = LinkedHashSet<PlanFact>()
+                    for (input in current) {
+                        core.ap.cancellation.checkpoint()
+                        val address = at(input, stepIndex, CleanerPhase.CLEAN)
+                        core.ops.cleanSelectedFullMask(input.facts, input.premise, block.geometry, mask, core.mode,
+                            request = { requested ->
+                                statistics?.fullCleanupRequested(requested.size)
+                                core.needGroups(address, requested)
+                            }, out = core.collect(address) { premise, result ->
+                                if (result.base == STATIC) core.promoteStaticSummary(premise, result)
+                                else next += planFact(premise, result, input.identityCandidate)
+                            })
+                        if (statistics != null && current.size == 1 && input.facts is FlowTree &&
+                            input.facts.base == block.geometry.base) {
+                            statistics.fullCleanupSingletonFlow(block.end - stepIndex)
+                        }
+                    }
+                    current = next.toList()
+                    stepIndex = block.end
+                    continue
+                }
+                statistics?.fullCleanupFallback()
+            }
             val step = steps[stepIndex]
             val phase = if (stepIndex == firstStep) firstPhase else CleanerPhase.INPUT
             // Finish every current-step effect before merging equal inputs to the next step.
@@ -226,6 +260,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                 }
             }
             current = if (core.config.run1) next.toList() else next as ArrayList<PlanFact>
+            stepIndex++
         }
         for (result in current) { core.ap.cancellation.checkpoint(); emit(result) }
     }
@@ -510,4 +545,12 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         observed = null
         owner = null
     }
+}
+
+/** Header-only gate. The FULL actor's existing mark-domain contract needs no trie census. */
+internal fun fullCleanupCollectorFixed(premise: PremiseKey, facts: Facts): Boolean {
+    if (facts is FlowTree && facts.exclusion != ExclusionSet.Empty) return false
+    if (facts is TaintTree && (facts.exclusion != ExclusionSet.Empty || facts.layer != Layer.DEMAND)) return false
+    if ((facts.base == STATIC || Run1StaticService.hasStaticMember(premise)) && facts.layer != Layer.DEMAND) return false
+    return true
 }

@@ -35,6 +35,9 @@ class JIRReturnGroupScheduleTest : BidiJIRTestUtils() {
     private fun schedule(actions: CallStage.Actions): Any? =
         actions.javaClass.getDeclaredField("returnGroupSchedule").apply { isAccessible = true }.get(actions)
 
+    private fun fullSchedule(actions: CallStage.Actions): Any? =
+        actions.javaClass.getDeclaredField("returnFullCleanupSchedule").apply { isAccessible = true }.get(actions)
+
     private fun selected(actions: CallStage.Actions, start: Int): List<Int> {
         val schedule = schedule(actions) ?: return (start until actions.steps.size).toList()
         val execute = schedule.javaClass.getDeclaredMethod("execute", Int::class.javaPrimitiveType,
@@ -45,7 +48,7 @@ class JIRReturnGroupScheduleTest : BidiJIRTestUtils() {
     private fun sourceIds(plan: CallPlan) = plan.stages.filterIsInstance<CallStage.Edges>()
         .single { it.kind == StageKind.SOURCES }.summary.edges.filter { it.isSource }.map { it.actionId }
 
-    @Test fun `only GROUP returned rewriters gain metadata and cross-rule raw occurrences remain`() {
+    @Test fun `returned rewriters gain mode specific metadata and cross-rule raw occurrences remain`() {
         val target = method("target", owner)
         val rules = CallRules().apply {
             sources = List(2) { TaintMethodSource(target, mkTrue(),
@@ -64,9 +67,14 @@ class JIRReturnGroupScheduleTest : BidiJIRTestUtils() {
         assertNotNull(schedule(returned))
         assertNull(schedule(actions(group, CallPoint.BOUND, CallPoint.ADDED)), "Configured cleaners keep exact execution")
         assertNull(schedule(actions(full, CallPoint.RETURNED, CallPoint.REWRITTEN)))
+        assertNotNull(fullSchedule(actions(full, CallPoint.RETURNED, CallPoint.REWRITTEN)))
+        assertNull(fullSchedule(returned))
+        assertNull(fullSchedule(actions(full, CallPoint.BOUND, CallPoint.ADDED)))
         assertEquals(listOf(0, 1, 2, 3), selected(actions(full, CallPoint.RETURNED, CallPoint.REWRITTEN), 0))
         val backward = forms.call(Direction.BACKWARD, at, expression, RuleView.RUN1_GROUP)
         assertNull(schedule(actions(backward, CallPoint.REWRITTEN, CallPoint.RETURNED)))
+        val fullBackward = forms.call(Direction.BACKWARD, at, expression, RuleView.FULL)
+        assertNull(fullSchedule(actions(fullBackward, CallPoint.REWRITTEN, CallPoint.RETURNED)))
         assertEquals(2, sourceIds(group).size)
         assertEquals(2, sourceIds(group).distinct().size, "Source occurrence IDs are not compacted")
         assertEquals(sourceIds(full), sourceIds(group))
@@ -90,6 +98,13 @@ class JIRReturnGroupScheduleTest : BidiJIRTestUtils() {
         val fullPlan = forms.call(Direction.FORWARD, at, expression, RuleView.FULL)
         val group = actions(groupPlan, CallPoint.RETURNED, CallPoint.REWRITTEN)
         val full = actions(fullPlan, CallPoint.RETURNED, CallPoint.REWRITTEN)
+        val fullBlocks = assertNotNull(fullSchedule(full))
+        val blockAt = fullBlocks.javaClass.getDeclaredMethod("blockContaining", Int::class.javaPrimitiveType)
+            .apply { isAccessible = true }
+        assertNotNull(blockAt.invoke(fullBlocks, 0))
+        assertNull(blockAt.invoke(fullBlocks, 2))
+        assertNull(blockAt.invoke(fullBlocks, 3))
+        assertNotNull(blockAt.invoke(fullBlocks, 4))
         assertEquals(6, group.steps.size)
         assertEquals(full.steps.map { it.javaClass }, group.steps.map { it.javaClass })
         assertEquals(listOf(0, 2, 3, 4), selected(group, 0))

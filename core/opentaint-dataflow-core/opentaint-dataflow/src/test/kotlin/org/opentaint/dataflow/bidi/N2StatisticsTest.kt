@@ -57,6 +57,24 @@ class N2StatisticsTest {
         }
     }
 
+    @Test fun `cleanup counters separate admitted slots from completed singleton FLOW blocks`() {
+        val statistics = N2Statistics()
+        statistics.fullCleanupBlock(suffix = false, steps = 5, inputs = 4)
+        statistics.fullCleanupBlock(suffix = true, steps = 3, inputs = 1)
+        statistics.fullCleanupSingletonFlow(steps = 3)
+        statistics.fullCleanupFallback()
+        statistics.fullCleanupRequested(2)
+        val result = statistics.snapshot()
+        assertEquals(2L, result.fullCleanupBlocks)
+        assertEquals(1L, result.fullCleanupSuffixEntries)
+        assertEquals(23L, result.fullCleanupSelectedSteps)
+        assertEquals(5L, result.fullCleanupInputs)
+        assertEquals(1L, result.fullCleanupSingletonFlowInputs)
+        assertEquals(3L, result.fullCleanupSingletonFlowSteps)
+        assertEquals(1L, result.fullCleanupFallbacks)
+        assertEquals(2L, result.fullCleanupRequestMembers)
+    }
+
     @Test fun `failed replay releases its pending count and E6 census remains numeric`(): Unit {
         val steps = QueuedProtocolSteps()
         PipelineFixtures(protocol = steps).use { f ->

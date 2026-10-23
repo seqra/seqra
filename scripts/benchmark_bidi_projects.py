@@ -23,7 +23,8 @@ ASPROF = Path('/home/sobol/.local/opt/async-profiler-4.5-linux-x64/bin/asprof')
 
 
 def analyzer_jvm_args(args, directory, side, memory):
-    values = [f'-Xmx{memory}', '-XX:FlightRecorderOptions=stackdepth=256',
+    values = [f'-Xmx{memory}', '-Dorg.opentaint.ir.impl.storage.defaultBatchSize=2000',
+              '-Djdk.util.jar.enableMultiRelease=false', '-XX:FlightRecorderOptions=stackdepth=256',
               f'-XX:StartFlightRecording=filename={directory}/continuous.jfr,settings=profile,dumponexit=true,maxsize=256m',
               f'-Xlog:gc*:file={directory}/gc.log:time,uptime,level,tags:filecount=0']
     if args.heap_snapshots:

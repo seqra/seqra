@@ -71,6 +71,13 @@ class ApOps(val manager: ApManager) {
     fun clean(c: Facts, premise: PremiseKey, cl: Cleaner, mode: ApMode, out: ApOut) =
         cleanFacts(manager, c, premise, cl, mode, out.run1Policy(manager, mode))
 
+    /** Selected FULL mask; null Cleaner.mark retains its all-mark meaning on the scalar API. */
+    fun cleanSelectedFullMask(c: Facts, premise: PremiseKey, geometry: Cleaner, selected: MarkSet,
+                              mode: ApMode, request: (MarkSet) -> Unit, out: ApOut) {
+        check(geometry.mark != null) { "A FULL cleanup block must have selected-mark geometry" }
+        cleanSelectedFullMask(manager, c, geometry, selected, mode, request, out.run1Policy(manager, mode))
+    }
+
     fun filter(c: Facts, f: TypeFilter): Facts? = filterFacts(manager, c, f)
     fun limit(c: Facts, fieldLimit: Int, out: ApOut) = limitFacts(manager, c, fieldLimit, out)
     /** Pass the original initial only when the run-1 static catalog covers this check. */

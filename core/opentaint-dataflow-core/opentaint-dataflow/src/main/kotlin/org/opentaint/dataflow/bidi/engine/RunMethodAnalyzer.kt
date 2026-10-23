@@ -39,7 +39,9 @@ class RunMethodAnalyzer(
         config.demand?.staticQueryPolicy == StaticQueryPolicy.COMPLETE_RUN1_STATIC_FIELDS
     private var temporary = RequestStorage()
     private var temporarySinceNanos = 0L
-    internal var staticBatch = StaticBatch(); private set
+    private val staticSupplyProfile = if (config.run1 && config.direction == Direction.FORWARD &&
+        mode.markMode == MarkMode.FULL) SupplyProfile.CANONICAL_RUN1_FULL else SupplyProfile.ORDERED_REFERENCE
+    internal var staticBatch = StaticBatch(staticSupplyProfile, ap.cancellation, context.shared.n2Statistics); private set
     private val pointResumes = if (config.run1) Run1PointResume(this) else null
     private data class PointWork(val premise: PremiseKey, val facts: Facts,
                                  val site: ResumeSite, val state: CallResumeState?)
@@ -256,6 +258,16 @@ class RunMethodAnalyzer(
         else addMarkRequest(original, atom)
     }
 
+    /** FULL block requests share one immutable image and one raw suffix address. */
+    internal fun needGroups(at: OperationInput, marks: MarkSet) {
+        if (!config.run1 || marks.isEmpty) return
+        val original = at.premise as? InitialAp ?: return
+        if (at.facts !is FlowTree || original.mark !is MarkSlot.Star || dropsStaticField(original)) return
+        check(mode.markMode == MarkMode.FULL)
+        if (original.base == STATIC) checkNotNull(pointResumes).request(at, marks)
+        else addMarkRequests(original, RequestMarkSet.fromIds(marks.ids))
+    }
+
     internal fun reachedOperations(summary: StatementSummary, at: OperationInput) {
         if (config.run1) checkNotNull(pointResumes).reached(summary, at)
     }
@@ -424,7 +436,7 @@ class RunMethodAnalyzer(
             if (config.run1 && !staticBatch.isEmpty) {
                 val committed = staticBatch
                 val effects = checkNotNull(runnerPort.staticService) { "Run-1 needs its static service" }.commit(committed)
-                staticBatch = StaticBatch()
+                staticBatch = StaticBatch(staticSupplyProfile, ap.cancellation, context.shared.n2Statistics)
                 for (effect in effects) check(runnerPort.sendStatic(effect)) { "Static effect delivery was rejected" }
             }
             ap.cancellation.checkpoint()

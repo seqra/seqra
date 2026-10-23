@@ -3,6 +3,7 @@ package org.opentaint.dataflow.bidi.engine
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.interp.*
+import org.opentaint.dataflow.util.Cancellation
 
 /** An immutable AP slice. The selector is stored separately from group membership. */
 data class StaticRegion(val pattern: Pattern) {
@@ -29,14 +30,83 @@ data class StaticInterest(val owner: MethodKey, val id: Long, val region: Patter
 data class StaticWriterRegistration(val owner: MethodKey, val id: Long, val premise: PremiseKey, val region: Pattern)
 data class StaticFlowWriter(val owner: MethodKey, val id: Long, val region: Pattern)
 
+/** Select before collecting any supplies. Raw callers preserve first-hit packet order. */
+enum class SupplyProfile { CANONICAL_RUN1_FULL, ORDERED_REFERENCE }
+
+/** One actor-owned delta. Keys own their paths; immutable masks contain complete runtime atoms. */
+class StaticSupplies internal constructor(
+    private val profile: SupplyProfile,
+    private val cancellation: Cancellation?,
+    private val statistics: N2Statistics?,
+) : AbstractCollection<RegionGroups>() {
+    private val ordered = if (profile == SupplyProfile.ORDERED_REFERENCE) ArrayList<RegionGroups>() else null
+    private val merged = if (profile == SupplyProfile.CANONICAL_RUN1_FULL) LinkedHashMap<Pattern, MarkSet>() else null
+
+    operator fun plusAssign(supply: RegionGroups) {
+        if (ordered != null) {
+            ordered += supply
+            return
+        }
+        cancellation?.checkpoint()
+        if (supply.groups.isEmpty) {
+            statistics?.staticSupplyOffered(0, 0, false)
+            return
+        }
+        val p = supply.region
+        require(p.fact.base == STATIC && p.exclusion == ExclusionSet.Empty &&
+            (p.fact.path.size == 2 && p.fact.path[0].isClass() && !p.fact.path[1].isClass() ||
+                p.fact.path.size == 1 && p.fact.path[0].isClass() && p.fact.tail == Tail.EXACT)) {
+            "A canonical run-1 supply must be a bounded static field or exact class marker with empty E"
+        }
+        val rows = checkNotNull(merged)
+        val region = if (p.fact.mark == MarkSlot.STAR) p else Run1StaticService.region(p)
+        val old = rows[region] ?: MarkSet.EMPTY
+        if (supply.groups.isSubsetOf(old)) {
+            statistics?.staticSupplyOffered(supply.groups.size, 0, false)
+            return
+        }
+        // Snapshot only a newly retained key. Duplicate offers allocate no path copy or delta mask.
+        val key = if (old.isEmpty) region.copy(fact = region.fact.copy(path = ownedList(region.fact.path))) else region
+        val combined = old + supply.groups
+        rows[key] = combined
+        statistics?.staticSupplyOffered(supply.groups.size, combined.size - old.size, old.isEmpty)
+    }
+
+    operator fun plusAssign(supplies: Iterable<RegionGroups>) {
+        for (supply in supplies) this += supply
+    }
+
+    override val size: Int get() = ordered?.size ?: checkNotNull(merged).size
+    override fun iterator(): Iterator<RegionGroups> {
+        ordered?.let { return it.iterator() }
+        val entries = checkNotNull(merged).iterator()
+        return object : Iterator<RegionGroups> {
+            override fun hasNext(): Boolean {
+                cancellation?.checkpoint()
+                return entries.hasNext()
+            }
+            override fun next(): RegionGroups {
+                cancellation?.checkpoint()
+                val (region, groups) = entries.next()
+                return RegionGroups(region, groups)
+            }
+        }
+    }
+}
+
 /** Temporary actor-owned deltas. Commit is the only route to cumulative service membership. */
-class StaticBatch {
+class StaticBatch(val supplyProfile: SupplyProfile = SupplyProfile.ORDERED_REFERENCE,
+                  cancellation: Cancellation? = null,
+                  private val statistics: N2Statistics? = null) {
     val reads = ArrayList<StaticReadRegistration>()
     val interests = ArrayList<StaticInterest>()
     val writes = ArrayList<Pattern>()
-    val supplies = ArrayList<RegionGroups>()
+    val supplies = StaticSupplies(supplyProfile, cancellation, statistics)
     val writers = ArrayList<StaticWriterRegistration>()
     val flowWriters = ArrayList<StaticFlowWriter>()
+    internal fun committed() {
+        if (supplyProfile == SupplyProfile.CANONICAL_RUN1_FULL) statistics?.staticSupplyCommitted()
+    }
     val isEmpty: Boolean get() = reads.isEmpty() && interests.isEmpty() && writes.isEmpty() &&
         supplies.isEmpty() && writers.isEmpty() && flowWriters.isEmpty()
 }
@@ -162,6 +232,7 @@ class Run1StaticService(private val ap: ApManager, private val markMode: MarkMod
             }
         }
         replies += out.size
+        batch.committed()
         out
     }
 
