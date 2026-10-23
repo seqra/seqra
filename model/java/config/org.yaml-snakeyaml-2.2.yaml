@@ -34,7 +34,7 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
-  - from:
-    - arg(0)
-    - .*
-    to: result
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.String#<serialized-value>#java.lang.Object
