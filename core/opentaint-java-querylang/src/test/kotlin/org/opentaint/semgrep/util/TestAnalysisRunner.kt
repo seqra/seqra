@@ -4,6 +4,9 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.common.sast.dataflow.TaintAnalyzer
 import org.opentaint.common.sast.dataflow.TaintAnalyzerOptions
 import org.opentaint.config.JavaDefaultConfigLoader
+import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.ElementAccessor
+import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
@@ -69,15 +72,19 @@ class TestAnalysisRunner(
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun setupEngine(configProvider: TaintRulesProvider): TaintAnalyzer<JIRMethod, JIRInst> {
+    private fun setupEngine(
+        configProvider: TaintRulesProvider,
+        unrollStrategy: AnyAccessorUnrollStrategy,
+    ): TaintAnalyzer<JIRMethod, JIRInst> {
         val options = TaintAnalyzerOptions(
             ifdsTimeout = 1.minutes,
             ifdsApMode = ApMode.Tree
         )
 
+        val strategy = unrollStrategy
         val analyzer = object : TaintAnalyzer<JIRMethod, JIRInst>(options) {
             override val unrollStrategy: AnyAccessorUnrollStrategy
-                get() = AnyAccessorUnrollStrategy.AnyAccessorDisabled
+                get() = strategy
 
             override fun analysisGraph() = ifdsAnalysisGraph
             override fun analysisManager() = JIRAnalysisManager(cp, refManager, configProvider)
@@ -98,7 +105,8 @@ class TestAnalysisRunner(
         rule: TaintRuleFromSemgrep<SerializedItem>,
         config: SerializedTaintConfig,
         useDefaultConfig: Boolean,
-        samples: Set<String>
+        samples: Set<String>,
+        unrollStrategy: AnyAccessorUnrollStrategy = AnyAccessorUnrollStrategy.AnyAccessorDisabled,
     ): Map<String, List<VulnerabilityWithTrace>> =
         samples.associate { sample ->
             val cls = cp.findClassOrNull(sample) ?: error("No sample in CP")
@@ -106,7 +114,7 @@ class TestAnalysisRunner(
                 ?: error("No entrypoint in $sample")
 
             val rulesProvider = rulesProvider(rule, config, useDefaultConfig)
-            setupEngine(rulesProvider).use { engine ->
+            setupEngine(rulesProvider, unrollStrategy).use { engine ->
                 val traces = engine.analyzeWithIfds(listOf(ep)).first
                 sample to traces
             }
@@ -133,5 +141,18 @@ class TestAnalysisRunner(
         var cfg: TaintRulesProvider = JIRSemgrepRuleProvider(listOf(rule), taintConfig)
         cfg = JIRMethodExitRuleProvider(cfg)
         return cfg
+    }
+
+    companion object {
+        /**
+         * Mirrors the Go sample harness ([GoSampleBasedTestBase]): unrolls the whole-object
+         * any-accessor taint of a starred source/sink down to concrete field and element reads.
+         * Opt in per-sample (e.g. the starred-SOURCE sample) so a source-star's any-field taint
+         * reaches a concrete field read; the default stays [AnyAccessorUnrollStrategy.AnyAccessorDisabled].
+         */
+        val AnyAccessorEnabled: AnyAccessorUnrollStrategy = object : AnyAccessorUnrollStrategy {
+            override fun unrollAccessor(accessor: Accessor): Boolean =
+                accessor is FieldAccessor || accessor is ElementAccessor
+        }
     }
 }

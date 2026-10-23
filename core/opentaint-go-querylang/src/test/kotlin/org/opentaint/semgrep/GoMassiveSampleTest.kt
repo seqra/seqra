@@ -626,6 +626,58 @@ class GoMassiveSampleTest : GoSampleBasedTestBase("GO_MASSIVE_SAMPLES_DIR") {
 
     @Test
     fun xss20VariadicSprintf() = runSampleDefault("xss_20_variadic_sprintf")
-    
+
+    // ─── Star-operator ($*VAR) field-taint e2e samples (parity with Java StarSource/StarSink/StarSanitizer) ───
+
+    @Test
+    fun star01SinkField() = runSampleDefault("star_01_sink_field")
+
+    @Test
+    fun star02SourceField() = runSampleDefault("star_02_source_field")
+
+    @Test
+    fun star03SanitizerField() = runSampleDefault("star_03_sanitizer_field")
+
+    // ─── Deep-nesting matrix: taint hidden 5+ fields deep and/or 5+ calls deep ───
+
+    @Test
+    fun star04DeepSinkField() = runSampleDefault("star_04_deep_sink_field")
+
+    @Test
+    fun star05DeepSourceField() = runSampleDefault("star_05_deep_source_field")
+
+    @Test
+    fun star06DeepSanitizerField() = runSampleDefault("star_06_deep_sanitizer_field")
+
+    @Test
+    fun star07InterprocChain() = runSampleDefault("star_07_interproc_chain")
+
+    @Test
+    fun star08SourceAndSink() = runSampleDefault("star_08_source_and_sink")
+
+    // ─── Star matrix: 5x interproc depth combined with 5x field depth, one sample per star feature
+    //     (parity with Java StarMatrix*) ───
+
+    @Test
+    fun star09MatrixSource() = runSampleDefault("star_09_matrix_source")
+
+    @Test
+    fun star10MatrixSink() = runSampleDefault("star_10_matrix_sink")
+
+    @Test
+    fun star11MatrixPropagator() = runSampleDefault("star_11_matrix_propagator")
+
+    @Test
+    fun star12MatrixSanitizer() = runSampleDefault("star_12_matrix_sanitizer")
+
+    @Test
+    fun star13MatrixPatternNot() = runSampleDefault("star_13_matrix_pattern_not")
+
+    @Test
+    fun star14MatrixPatternInside() = runSampleDefault("star_14_matrix_pattern_inside")
+
+    @Test
+    fun star15MatrixPatternNotInside() = runSampleDefault("star_15_matrix_pattern_not_inside")
+
     private fun runSampleDefault(name: String) = runSample(name, useDefaultConfig = true)
 }

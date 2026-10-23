@@ -1,0 +1,15 @@
+rules:
+  - id: star-14-matrix-pattern-inside
+    languages: [go]
+    severity: WARNING
+    message: Starred sink gated by a pattern-inside-introduced receiver
+    mode: taint
+    pattern-sources:
+      - pattern: $*X = star_14_matrix_pattern_inside.Source()
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: |
+              $R = star_14_matrix_pattern_inside.OpenSink()
+              ...
+          - pattern: $R.Consume($*Y)
+          - focus-metavariable: $Y

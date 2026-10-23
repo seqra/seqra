@@ -12,8 +12,6 @@ sealed interface GoSerializedCondition {
 
     data class ContainsMark(val tainted: String, val pos: PositionBaseWithModifiers) : GoSerializedCondition
 
-    data class ContainsMarkOnAnyAccessor(val tainted: String, val pos: PositionBaseWithModifiers) : GoSerializedCondition
-
     data class ConstantCmp(val pos: PositionBase, val value: ConstantValue, val cmp: ConstantCmpType) : GoSerializedCondition
 
     data class ConstantMatches(val pos: PositionBase, val pattern: String) : GoSerializedCondition

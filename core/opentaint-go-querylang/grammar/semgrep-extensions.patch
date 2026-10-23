@@ -1,15 +1,16 @@
 --- a/GoLexer.g4
 +++ b/GoLexer.g4
-@@ -69,6 +69,15 @@
+@@ -69,6 +69,16 @@
  TYPE        : 'type';
  VAR         : 'var';
- 
+
 +
 +// --- Semgrep extensions ---
 +LDOTS              : '<...';
 +RDOTS              : '...>' -> mode(NLSEMI);
 +METAVAR_ELLIPSIS   : '$...' [A-Z_] [A-Z_0-9]* -> mode(NLSEMI);
 +ANONYMOUS_METAVAR  : '$_' -> mode(NLSEMI);
++METAVAR_STAR_IDENT : '$*' [A-Z_] [A-Z_0-9]* -> mode(NLSEMI);
 +METAVAR_IDENT      : '$' [A-Z_] [A-Z_0-9]* -> mode(NLSEMI);
 +// --- end semgrep extensions ---
 +
@@ -45,15 +46,16 @@
  
  // Hidden tokens
  
-@@ -210,6 +229,16 @@
+@@ -210,6 +230,17 @@
  fragment UNICODE_LETTER: [\p{L}];
- 
+
  mode NLSEMI;
 +// --- Semgrep extensions in NLSEMI mode ---
 +LDOTS_NLSEMI             : '<...'                            -> type(LDOTS), mode(DEFAULT_MODE);
 +RDOTS_NLSEMI             : '...>'                            -> type(RDOTS);
 +METAVAR_ELLIPSIS_NLSEMI  : '$...' [A-Z_] [A-Z_0-9]*           -> type(METAVAR_ELLIPSIS);
 +ANONYMOUS_METAVAR_NLSEMI : '$_'                              -> type(ANONYMOUS_METAVAR);
++METAVAR_STAR_IDENT_NLSEMI : '$*' [A-Z_] [A-Z_0-9]*           -> type(METAVAR_STAR_IDENT);
 +METAVAR_IDENT_NLSEMI     : '$' [A-Z_] [A-Z_0-9]*              -> type(METAVAR_IDENT);
 +METAVAR_LITERAL_NLSEMI   : '"' '$' [A-Z_] [A-Z_0-9]* '"'      -> type(METAVAR_LITERAL);
 +ELLIPSIS_LITERAL_NLSEMI  : '"' '...' '"'                     -> type(ELLIPSIS_LITERAL);
@@ -67,7 +69,7 @@
 @@ -39,10 +39,52 @@
      superClass = GoParserBase;
  }
- 
+
 +@parser::members {
 +    // Semgrep: enable the `operand` (composite-literal) alternative for a qualified
 +    // type literal `pkg.T{...}`. Without imports the base predicate routes `pkg.T`
@@ -122,7 +124,7 @@
      ;
  
 -identifier : IDENTIFIER ;
-+identifier : IDENTIFIER | METAVAR_IDENT | METAVAR_ELLIPSIS | ANONYMOUS_METAVAR ;
++identifier : IDENTIFIER | METAVAR_IDENT | METAVAR_STAR_IDENT | METAVAR_ELLIPSIS | ANONYMOUS_METAVAR ;
  
  importDecl
 -    : IMPORT (importSpec | L_PAREN (importSpec eos)* R_PAREN)
@@ -264,17 +266,18 @@
      ;
  
  functionType
-@@ -391,6 +440,9 @@
+@@ -391,6 +440,10 @@
  
  parameterDecl
      : identifierList? ELLIPSIS? type_
 +    | ELLIPSIS
 +    | METAVAR_ELLIPSIS
 +    | METAVAR_IDENT
++    | METAVAR_STAR_IDENT
      ;
  
  expression
-@@ -408,13 +460,15 @@
+@@ -408,13 +461,15 @@
      ) expression
      | expression LOGICAL_AND expression
      | expression LOGICAL_OR expression
@@ -291,19 +294,23 @@
      ;
  
  conversion
-@@ -424,6 +478,7 @@
+@@ -424,6 +479,9 @@
  operand
-     : literal
+-    : literal
++    : METAVAR_STAR_IDENT
++    | literal
      | operandName typeArgs?
++    | L_PAREN METAVAR_STAR_IDENT COLON type_ R_PAREN
 +    | L_PAREN METAVAR_IDENT COLON type_ R_PAREN
      | L_PAREN expression R_PAREN
      ;
- 
-@@ -451,11 +506,17 @@
+
+@@ -451,11 +507,18 @@
  
  operandName
      : IDENTIFIER
 +    | METAVAR_IDENT
++    | METAVAR_STAR_IDENT
 +    | ANONYMOUS_METAVAR
 +    | METAVAR_ELLIPSIS
      | qualifiedIdent
@@ -317,7 +324,7 @@
      ;
  
  compositeLit
-@@ -472,7 +533,7 @@
+@@ -472,7 +535,7 @@
      ;
  
  literalValue
@@ -326,7 +333,7 @@
      ;
  
  elementList
-@@ -491,6 +552,7 @@
+@@ -491,6 +554,7 @@
  element
      : expression
      | literalValue
@@ -334,7 +341,7 @@
      ;
  
  structType
-@@ -499,11 +561,14 @@
+@@ -499,11 +563,14 @@
  
  fieldDecl
      : (identifierList type_ | embeddedField) tag = string_?
@@ -349,7 +356,7 @@
      ;
  
  embeddedField
-@@ -532,6 +597,7 @@
+@@ -532,6 +599,7 @@
  
  methodExpr
      : type_ DOT IDENTIFIER

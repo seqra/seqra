@@ -1,0 +1,18 @@
+rules:
+  - id: taint-StarMatrixPatternInside
+    languages:
+      - java
+    severity: ERROR
+    message: match taint/StarMatrixPatternInside
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: $*X = src();
+          - focus-metavariable: $X
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: |
+              $R = openSink();
+              ...
+          - pattern: $R.consume($*Y);
+          - focus-metavariable: $Y

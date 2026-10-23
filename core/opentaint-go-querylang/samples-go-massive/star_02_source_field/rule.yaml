@@ -1,0 +1,10 @@
+rules:
+  - id: star-02-source-field
+    languages: [go]
+    severity: WARNING
+    message: A starred whole-object source taints every field; a field read reaches the sink
+    mode: taint
+    pattern-sources:
+      - pattern: $*X = star_02_source_field.Source()
+    pattern-sinks:
+      - pattern: star_02_source_field.Sink($Y)

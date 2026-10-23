@@ -21,9 +21,9 @@ abstract class TaintUtil<C, Src, Sink, Trace>(val apManager: ApManager) {
 
     abstract fun conditionFact(factReader: FinalFactReader): List<FinalFactReader>
 
-    open fun patchSinkConditionFactReader(factReaders: List<FinalFactReader>): List<FactReader> = factReaders
-
     abstract fun handleReachedSink(rule: Sink, factReader: FinalFactReader?, evaluatedFacts: List<InitialFactAp>)
+
+    open fun patchSinkConditionFactReader(factReaders: List<FinalFactReader>): List<FactReader> = factReaders
 
     fun applySinkRules(
         sinkRules: List<RuleWithCondition<Sink>>,
@@ -63,6 +63,7 @@ abstract class TaintUtil<C, Src, Sink, Trace>(val apManager: ApManager) {
         createFinalFact: (FinalFactAp, Trace) -> Unit,
         createEdge: (InitialFactAp, FinalFactAp, Trace) -> Unit,
         createNDEdge: (Set<InitialFactAp>, FinalFactAp, Trace) -> Unit,
+        markAfterAnyFieldResolver: FactWithMarkAfterAnyAccessorResolver? = null,
     ) {
         if (sourceRules.isEmpty()) return
 
@@ -76,7 +77,7 @@ abstract class TaintUtil<C, Src, Sink, Trace>(val apManager: ApManager) {
             apManager,
             initialFacts,
             conditionFactReaders,
-            markAfterAnyFieldResolver = null, // we don't expect such marks in source rules
+            markAfterAnyFieldResolver = markAfterAnyFieldResolver,
             assumptionsManager = sourceAssumptionsManager(),
             applyRule = { rule, evaluatedFacts ->
                 // unconditional sources handled with zero fact

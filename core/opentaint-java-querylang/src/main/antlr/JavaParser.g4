@@ -316,6 +316,7 @@ formalParameter
 formalParameterMetavar
     : METAVAR
     | ANONYMOUS_METAVAR
+    | STARRED_METAVAR
     ;
 
 lastFormalParameter
@@ -492,6 +493,7 @@ localVariableDeclaration
 identifier
     : METAVAR
     | ANONYMOUS_METAVAR
+    | STARRED_METAVAR
     | IDENTIFIER
     | MODULE
     | OPEN
@@ -513,6 +515,7 @@ identifier
 typeIdentifier // Identifiers that are not restricted for type declarations
     : METAVAR
     | ANONYMOUS_METAVAR
+    | STARRED_METAVAR
     | IDENTIFIER
     | MODULE
     | OPEN

@@ -1,5 +1,6 @@
 package org.opentaint.jvm.sast.dataflow.rules
 
+import org.opentaint.dataflow.configuration.jvm.ActionPosition
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.Result
 import org.opentaint.dataflow.configuration.jvm.TaintCleaner
@@ -209,7 +210,7 @@ class TaintConfiguration(private val cp: JIRClasspath) {
                     if (action.pos !is PositionBaseWithModifiers.BaseOnly || action.pos.base !is PositionBase.Result) {
                         TODO("Complex field action position")
                     }
-                    actions += AssignMark(taintMarkManager.taintMark(action.kind), Result)
+                    actions += AssignMark(taintMarkManager.taintMark(action.kind), ActionPosition.Exact(Result))
                 }
                 return listOf(TaintStaticFieldSource(field, mkTrue(), actions, info, serializedId))
             }

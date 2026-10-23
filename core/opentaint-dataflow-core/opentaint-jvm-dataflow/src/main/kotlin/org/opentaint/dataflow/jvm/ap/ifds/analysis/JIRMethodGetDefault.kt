@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
 import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisContext.RuleWithCondition
+import org.opentaint.dataflow.configuration.jvm.ActionPosition.Exact
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.PositionAccessor
 import org.opentaint.dataflow.configuration.jvm.PositionWithAccess
@@ -27,11 +28,11 @@ class JIRMethodGetDefault(
     private fun TypeName.mayBeArray(): Boolean = isArray || this == objectTypeName
 
     private val getDefaultActions = listOf(
-        CopyAllMarks(from = This, to = Result)
+        CopyAllMarks(from = Exact(This), to = Exact(Result))
     )
 
     private val getDefaultArrayActions = listOf(
-        CopyAllMarks(from = This, to = PositionWithAccess(Result, PositionAccessor.ElementAccessor))
+        CopyAllMarks(from = Exact(This), to = Exact(PositionWithAccess(Result, PositionAccessor.ElementAccessor)))
     )
 
     fun defaultPropagationRules(method: JIRMethod): List<RuleWithCondition<TaintPassThrough>> {

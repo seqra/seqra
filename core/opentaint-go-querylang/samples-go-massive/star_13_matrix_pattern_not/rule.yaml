@@ -1,0 +1,13 @@
+rules:
+  - id: star-13-matrix-pattern-not
+    languages: [go]
+    severity: WARNING
+    message: Starred sink with a starred pattern-not exclusion — flagged mode fires, safe mode is excluded
+    mode: taint
+    pattern-sources:
+      - pattern: $*X = star_13_matrix_pattern_not.Source()
+    pattern-sinks:
+      - patterns:
+          - pattern: star_13_matrix_pattern_not.Emit($*Y, $MODE)
+          - pattern-not: star_13_matrix_pattern_not.Emit($*Y, "safe")
+          - focus-metavariable: $Y

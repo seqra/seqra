@@ -23,10 +23,6 @@ sealed interface PositionAccessor {
         override fun toString(): String = javaClass.simpleName
     }
 
-    data object AnyFieldAccessor : PositionAccessor {
-        override fun toString(): String = javaClass.simpleName
-    }
-
     data class FieldAccessor(
         val className: String,
         val fieldName: String,

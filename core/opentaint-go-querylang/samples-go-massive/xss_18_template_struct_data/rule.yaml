@@ -8,5 +8,5 @@ rules:
       - pattern: os.Getenv($K)
     pattern-sinks:
       - patterns:
-          - pattern: $T.Execute($W, $D)
+          - pattern: $T.Execute($W, $*D)
           - focus-metavariable: $D

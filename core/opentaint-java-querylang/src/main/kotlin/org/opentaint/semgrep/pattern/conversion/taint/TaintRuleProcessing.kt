@@ -506,6 +506,15 @@ private fun forkState(
     return newState
 }
 
+// True when this edge assigns a whole-object (`$*X`) metavar. Used to propagate the star onto the
+// synthesized `generated_source` mark for focus-free source patterns (e.g. `$*X = src()`), so the
+// generated source taints the value AND all of its nested fields, matching the starred intent.
+private fun EdgeEffect.assignsStarredMetaVar(): Boolean =
+    assignMetaVar.values.asSequence().flatten().any {
+        val constraint = it.predicate.constraint
+        constraint is ParamConstraint && (constraint.condition as? IsMetavar)?.star == true
+    }
+
 private fun ensureSourceStateVars(
     automata: TaintRegisterStateAutomata,
     focusMetaVars: Set<MetavarAtom>
@@ -529,7 +538,10 @@ private fun ensureSourceStateVars(
                     val effectVars = edge.effect.assignMetaVar.toMutableMap()
 
                     // todo: currently we taint only result, but semgrep taint all subexpr by default
-                    val condition = ParamConstraint(Position.Result, IsMetavar(freshVar))
+                    val condition = ParamConstraint(
+                        Position.Result,
+                        IsMetavar(freshVar, star = edge.effect.assignsStarredMetaVar())
+                    )
                     val predicate = Predicate(positivePredicate.signature, condition)
                     effectVars[freshVar] = listOf(MethodPredicate(predicate, negated = false))
                     val effect = EdgeEffect(effectVars)
@@ -544,7 +556,7 @@ private fun ensureSourceStateVars(
 
                     val condition = ParamConstraint(
                         Position.Argument(Position.ArgumentIndex.Any("tainted")),
-                        IsMetavar(freshVar)
+                        IsMetavar(freshVar, star = edge.effect.assignsStarredMetaVar())
                     )
                     val predicate = Predicate(positivePredicate.signature, condition)
                     effectVars[freshVar] = listOf(MethodPredicate(predicate, negated = false))
@@ -560,7 +572,7 @@ private fun ensureSourceStateVars(
 
                     val condition = ParamConstraint(
                         Position.Argument(Position.ArgumentIndex.Concrete(idx = 0)),
-                        IsMetavar(freshVar)
+                        IsMetavar(freshVar, star = edge.effect.assignsStarredMetaVar())
                     )
                     val predicate = Predicate(positivePredicate.signature, condition)
                     effectVars[freshVar] = listOf(MethodPredicate(predicate, negated = false))

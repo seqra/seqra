@@ -11,6 +11,7 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.CommonCondition
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
+import org.opentaint.dataflow.configuration.jvm.ActionPosition
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.TaintCleaner
@@ -142,7 +143,7 @@ private fun createTestConfig(
             TaintMethodSource(
                 method = method,
                 condition = mkTrue(),
-                actionsAfter = listOf(AssignMark(mark, specializePosition(it, source.position).single())),
+                actionsAfter = listOf(AssignMark(mark, ActionPosition.Exact(specializePosition(it, source.position).single()))),
                 info = null
             )
         }

@@ -8,6 +8,7 @@ import org.opentaint.semgrep.pattern.Metavar
 import org.opentaint.semgrep.pattern.MetavarName
 import org.opentaint.semgrep.pattern.Name
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
+import org.opentaint.semgrep.pattern.StarMetavarName
 
 fun tryExtractPatternDotSeparatedParts(pattern: SemgrepJavaPattern): List<Name>? {
     // note: don't match single metavar as dot separated
@@ -36,6 +37,7 @@ fun tryExtractConcreteNames(names: List<Name>): List<String>? {
         when (name) {
             is ConcreteName -> result.add(name.name)
             is MetavarName,
+            is StarMetavarName,
             is AnonymousName -> return null
         }
     }

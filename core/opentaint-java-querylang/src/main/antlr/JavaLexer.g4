@@ -212,6 +212,8 @@ LINE_COMMENT : '//' ~[\r\n]*    -> channel(HIDDEN);
 
 IDENTIFIER: LetterNoDollar LetterOrDigit*;
 
+STARRED_METAVAR: [$] '*' MetavarFirstLetter MetavarLetter*;
+
 METAVAR: [$] MetavarFirstLetter MetavarLetter*;
 
 ANONYMOUS_METAVAR: [$] '_';

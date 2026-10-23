@@ -14,6 +14,7 @@ import org.opentaint.dataflow.configuration.go.serialized.GoSerializedTaintConfi
 import org.opentaint.dataflow.configuration.isFalse
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.jvm.serialized.beforeFirstAnyField
 import org.opentaint.dataflow.go.GoFieldSignature
 import org.opentaint.dataflow.go.GoFunctionSignature
 import org.opentaint.dataflow.go.GoGlobalFieldSignature
@@ -238,19 +239,8 @@ class GoTaintConfiguration : GoTaintRulesProvider {
         return TaintRule.Sink(signature.name, condition, trackFacts, id, meta, rule.info, rule.serializedId)
     }
 
-    private fun List<GoSerializedAssignAction>.specialize(signature: GoFunctionSignature) = flatMap { t ->
-        when (t) {
-            is GoSerializedAssignAction.Direct -> t.pos.resolve(signature)
-                .map { GoAssignAction.Direct(t.kind, it) }
-
-            is GoSerializedAssignAction.AnyAccessor -> t.pos.resolve(signature)
-                .flatMap {
-                    listOf(
-                        GoAssignAction.AnyAccessor(t.kind, it),
-                        GoAssignAction.Direct(t.kind, it), // todo: remove this hack after fact fix
-                    )
-                }
-        }
+    private fun List<GoSerializedAssignAction>.specialize(signature: GoFunctionSignature) = flatMap { action ->
+        action.pos.resolveActionPosition(signature).map { GoAssignAction(action.kind, it) }
     }
 
     private fun specialize(rule: GoSerializedRule.PassThrough, signature: GoFunctionSignature): TaintRule.PassThrough? {
@@ -267,18 +257,35 @@ class GoTaintConfiguration : GoTaintRulesProvider {
     }
 
     private fun GoSerializedPassAction.toTaintAction(signature: GoFunctionSignature): List<GoTaintAction> =
-        from.resolve(signature).flatMap { f ->
-            to.resolve(signature).map { t ->
-                val kind = taintKind
-                if (kind == null) CopyData(f, t) else CopyTaintMark(kind, f, t)
+        from.resolveActionPosition(signature).flatMap { source ->
+            val sources = buildList {
+                add(source)
+                val exact = source as? ActionPosition.Exact
+                val argument = exact?.position as? Position.Argument
+                if (argument != null && argument.index in signature.variadicArgumentIndexes) {
+                    add(ActionPosition.Exact(PositionWithAccess(argument, PositionAccessor.ElementAccessor)))
+                }
+            }
+            sources.flatMap { f ->
+                to.resolveActionPosition(signature).map { t ->
+                    val kind = taintKind
+                    if (kind == null) CopyData(f, t) else CopyTaintMark(kind, f, t)
+                }
             }
         }
 
     private fun GoSerializedCleanAction.toTaintAction(signature: GoFunctionSignature): List<GoTaintAction> =
-        pos.resolve(signature).map {
+        pos.resolveActionPosition(signature).map {
             val kind = taintKind
             if (kind == null) RemoveAllMarks(it) else RemoveMark(kind, it)
         }
+
+    private fun PositionBaseWithModifiers.resolveActionPosition(signature: GoFunctionSignature): List<ActionPosition> {
+        val (position, hasAnyField) = beforeFirstAnyField()
+        return position.resolve(signature).map {
+            if (hasAnyField) ActionPosition.AnyAccessorAfter(it) else ActionPosition.Exact(it)
+        }
+    }
 
     private fun generateRuleId(rule: GoSerializedRule.Sink): String {
         rule.meta?.cwe?.firstOrNull()?.let { return "CWE-$it" }
@@ -297,7 +304,6 @@ class GoTaintConfiguration : GoTaintRulesProvider {
             is GoSerializedCondition.Not -> validateConditionForFieldSource(condition.not)
 
             is GoSerializedCondition.ContainsMark -> validatePositionWithModifiersForFieldSource(condition.pos)
-            is GoSerializedCondition.ContainsMarkOnAnyAccessor -> validatePositionWithModifiersForFieldSource(condition.pos)
 
             is GoSerializedCondition.ConstantCmp -> validatePositionBaseForFieldSource(condition.pos)
             is GoSerializedCondition.ConstantMatches -> validatePositionBaseForFieldSource(condition.pos)
@@ -308,11 +314,7 @@ class GoTaintConfiguration : GoTaintRulesProvider {
     }
 
     private fun validateAssignActionForFieldSource(action: GoSerializedAssignAction) {
-        val pos = when (action) {
-            is GoSerializedAssignAction.AnyAccessor -> action.pos
-            is GoSerializedAssignAction.Direct -> action.pos
-        }
-        check(pos.base is PositionBase.Result) { "Unsupported field-source taint target: ${pos.base}" }
+        check(action.pos.base is PositionBase.Result) { "Unsupported field-source taint target: ${action.pos.base}" }
     }
 
     private fun validatePositionWithModifiersForFieldSource(pos: PositionBaseWithModifiers) {

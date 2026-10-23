@@ -1,0 +1,12 @@
+rules:
+  - id: star-04-deep-sink-field
+    languages: [go]
+    severity: WARNING
+    message: Taint hidden 5 fields deep reaches a starred whole-object sink
+    mode: taint
+    pattern-sources:
+      - pattern: star_04_deep_sink_field.Source(...)
+    pattern-sinks:
+      - patterns:
+          - pattern: star_04_deep_sink_field.Sink_L0($*Y)
+          - focus-metavariable: $Y

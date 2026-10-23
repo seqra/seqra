@@ -1,0 +1,12 @@
+rules:
+  - id: star-08-source-and-sink
+    languages: [go]
+    severity: WARNING
+    message: A whole-object source and a whole-object sink compose across a nested extraction
+    mode: taint
+    pattern-sources:
+      - pattern: $*X = star_08_source_and_sink.Source()
+    pattern-sinks:
+      - patterns:
+          - pattern: star_08_source_and_sink.Sink_Inner($*Y)
+          - focus-metavariable: $Y

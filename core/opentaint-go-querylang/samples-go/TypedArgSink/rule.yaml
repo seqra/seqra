@@ -8,5 +8,5 @@ rules:
       - pattern: "TypedArgSink.Source(...)"
     pattern-sinks:
       - patterns:
-          - pattern: "fmt.Fprint(($W : io.Writer), $A)"
+          - pattern: "fmt.Fprint(($W : io.Writer), $*A)"
           - focus-metavariable: $A

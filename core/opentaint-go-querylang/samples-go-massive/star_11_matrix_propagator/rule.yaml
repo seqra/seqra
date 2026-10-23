@@ -1,0 +1,14 @@
+rules:
+  - id: star-11-matrix-propagator
+    languages: [go]
+    severity: WARNING
+    message: A doubly-starred propagator moves whole-object taint into a fresh object mid-chain
+    mode: taint
+    pattern-sources:
+      - pattern: $*X = star_11_matrix_propagator.Source()
+    pattern-propagators:
+      - pattern: $*T = star_11_matrix_propagator.Pass($*F)
+        from: $F
+        to: $T
+    pattern-sinks:
+      - pattern: star_11_matrix_propagator.Sink($Y)

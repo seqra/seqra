@@ -9,14 +9,18 @@ import org.opentaint.dataflow.configuration.go.serialized.GoSerializedPassAction
 import org.opentaint.dataflow.configuration.go.serialized.GoSerializedRule
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
+import org.opentaint.dataflow.go.rules.ActionPosition
 import org.opentaint.dataflow.go.GoFunctionSignature
 import org.opentaint.dataflow.go.rules.GoTaintConfiguration
 import org.opentaint.dataflow.go.rules.Position
+import org.opentaint.dataflow.go.rules.RemoveMark
 import org.opentaint.ir.go.type.GoIRUnsafePointerType
 import org.opentaint.semgrep.go.pattern.conversion.loadGoTaintConfiguration
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class GoTaintRuleEmitterTest {
@@ -46,7 +50,7 @@ class GoTaintRuleEmitterTest {
         val src = cfg.sourceForFunction("util.Source".signature(0), allRelevant = false).single()
         assertEquals("util.Source", src.function)
         assertEquals("taint", src.actionsAfter.single().mark)
-        assertEquals(Position.Result, src.actionsAfter.single().rawPosition())
+        assertEquals(ActionPosition.Exact(Position.Result), src.actionsAfter.single().pos)
     }
 
     @Test
@@ -113,7 +117,7 @@ class GoTaintRuleEmitterTest {
                 pkg = GoNameMatcher.Simple("util"),
                 function = GoNameMatcher.Pattern(".*"),
                 condition = null,
-                taint = listOf(GoSerializedAssignAction.Direct("taint", baseOnly(PositionBase.Result))),
+                taint = listOf(GoSerializedAssignAction("taint", baseOnly(PositionBase.Result))),
                 info = null
             ),
         )
@@ -141,6 +145,44 @@ class GoTaintRuleEmitterTest {
         val cfg = GoTaintConfiguration().loadGoTaintConfiguration(rule)
         assertEquals(1, cfg.cleanerForFunction("util.Clean".signature(1), allRelevant = false).size)
         assertEquals("util.Clean", cfg.cleanerForFunction("util.Clean".signature(1), allRelevant = false).single().function)
+    }
+
+    @Test
+    fun `any-accessor cleaner lowers to RemoveMark with specialized position while direct stays exact`() {
+        val pos = baseOnly(PositionBase.Argument(0))
+        val anyPos = PositionBaseWithModifiers.WithModifiers(
+            PositionBase.Argument(0),
+            listOf(PositionModifier.AnyField),
+        )
+
+        val anyRule = rule(
+            GoSerializedRule.Cleaner(
+                pkg = GoNameMatcher.Simple("util"),
+                function = GoNameMatcher.Simple("Clean"),
+                cleans = listOf(GoSerializedCleanAction("taint", anyPos)),
+                info = null,
+            ),
+        )
+        val anyCfg = GoTaintConfiguration().loadGoTaintConfiguration(anyRule)
+        val anyAction = anyCfg.cleanerForFunction("util.Clean".signature(1), allRelevant = false)
+            .single().actionsAfter.filterIsInstance<RemoveMark>().single()
+        assertEquals("taint", anyAction.mark)
+        assertEquals(ActionPosition.AnyAccessorAfter(Position.Argument(0)), anyAction.pos)
+
+        // Direct position must remain exact.
+        val directRule = rule(
+            GoSerializedRule.Cleaner(
+                pkg = GoNameMatcher.Simple("util"),
+                function = GoNameMatcher.Simple("Clean"),
+                cleans = listOf(GoSerializedCleanAction("taint", pos)),
+                info = null,
+            ),
+        )
+        val directCfg = GoTaintConfiguration().loadGoTaintConfiguration(directRule)
+        val directAction = directCfg.cleanerForFunction("util.Clean".signature(1), allRelevant = false)
+            .single().actionsAfter.filterIsInstance<RemoveMark>().single()
+        assertEquals("taint", directAction.mark)
+        assertEquals(ActionPosition.Exact(Position.Argument(0)), directAction.pos)
     }
 
     private val anyType = GoIRUnsafePointerType

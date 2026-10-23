@@ -11,6 +11,7 @@ import org.opentaint.dataflow.configuration.go.serialized.GoSinkMetaData
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase.Result
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase.This
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
 import org.opentaint.go.config.GoDefaultConfigLoader
 import kotlin.test.Test
 
@@ -31,7 +32,7 @@ class CmdInjEnvSinkDiagTest : AnalysisTest() {
     private val combinedOutputSink = Sink(
         pkg = GoNameMatcher.Pattern("(.*/)?exec\\.Cmd\\)"),
         function = GoNameMatcher.Simple("CombinedOutput"),
-        condition = GoSerializedCondition.ContainsMarkOnAnyAccessor("taint", PositionBaseWithModifiers.BaseOnly(This)),
+        condition = GoSerializedCondition.ContainsMark("taint", PositionBaseWithModifiers.WithModifiers(This, listOf(PositionModifier.AnyField))),
         trackFactsReachAnalysisEnd = emptyList(),
         id = "cmdinj-test",
         meta = GoSinkMetaData("Taint sink: CombinedOutput"),

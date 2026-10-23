@@ -9,7 +9,15 @@ rules:
           - pattern: os.Getenv($K)
     pattern-sinks:
       - pattern-either:
-          - pattern: $C.CombinedOutput()
-          - pattern: $C.Run()
-          - pattern: $C.Output()
-          - pattern: $C.Start()
+          - patterns:
+              - pattern: $*C.CombinedOutput()
+              - focus-metavariable: $C
+          - patterns:
+              - pattern: $*C.Run()
+              - focus-metavariable: $C
+          - patterns:
+              - pattern: $*C.Output()
+              - focus-metavariable: $C
+          - patterns:
+              - pattern: $*C.Start()
+              - focus-metavariable: $C

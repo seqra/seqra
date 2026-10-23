@@ -1,0 +1,14 @@
+rules:
+  - id: star-06-deep-sanitizer-field
+    languages: [go]
+    severity: WARNING
+    message: Deep struct-field taint reaches the sink unless a starred sanitizer clears the whole object
+    mode: taint
+    pattern-sources:
+      - pattern: star_06_deep_sanitizer_field.Source(...)
+    pattern-sanitizers:
+      - patterns:
+          - pattern: star_06_deep_sanitizer_field.Clean($*C)
+          - focus-metavariable: $C
+    pattern-sinks:
+      - pattern: star_06_deep_sanitizer_field.Sink($Y)

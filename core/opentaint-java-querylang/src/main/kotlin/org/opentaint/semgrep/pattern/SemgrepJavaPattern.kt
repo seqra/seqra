@@ -8,7 +8,7 @@ data object AnonymousMetavar : SemgrepJavaPattern {
     override val children: List<SemgrepJavaPattern> = emptyList()
 }
 
-data class Metavar(val name: String) : SemgrepJavaPattern {
+data class Metavar(val name: String, val star: Boolean = false) : SemgrepJavaPattern {
     override val children: List<SemgrepJavaPattern> = emptyList()
 }
 
@@ -16,7 +16,7 @@ data class EllipsisMetavar(val name: String) : SemgrepJavaPattern {
     override val children: List<SemgrepJavaPattern> = emptyList()
 }
 
-data class TypedMetavar(val name: String, val type: TypeName) : SemgrepJavaPattern {
+data class TypedMetavar(val name: String, val type: TypeName, val star: Boolean = false) : SemgrepJavaPattern {
     override val children: List<SemgrepJavaPattern> = emptyList()
 }
 
@@ -190,6 +190,7 @@ sealed interface Name
 
 data class ConcreteName(val name: String) : Name
 data class MetavarName(val metavarName: String) : Name
+data class StarMetavarName(val metavarName: String) : Name
 data object AnonymousName: Name
 
 sealed interface TypeName {

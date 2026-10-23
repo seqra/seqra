@@ -23,7 +23,7 @@ import java.util.BitSet
 import java.util.LinkedList
 import java.util.Queue
 
-private data class MetavarUnificationContext private constructor(
+private data class MetavarAtomUnificationContext private constructor(
     private val metavarMappings: Map<MetavarAtom.Basic, MetavarAtom>
 ) {
     fun transform(metavar: MetavarAtom): MetavarAtom {
@@ -38,7 +38,7 @@ private data class MetavarUnificationContext private constructor(
             ?: error("Ambiguous transform for metavar $metavar")
     }
 
-    fun unifyMetavars(metavars: Collection<MetavarAtom>): MetavarUnificationContext {
+    fun unifyMetavars(metavars: Collection<MetavarAtom>): MetavarAtomUnificationContext {
         // Note: size == 1 can be interesting because this can be already unified metavar
         if (metavars.isEmpty()) {
             return this
@@ -63,12 +63,12 @@ private data class MetavarUnificationContext private constructor(
         val newMetavarMappings = metavarMappings.toMutableMap().apply {
             basicsToUnify.forEach { put(it, unifiedMetavar) }
         }
-        return MetavarUnificationContext(newMetavarMappings)
+        return MetavarAtomUnificationContext(newMetavarMappings)
     }
 
-    fun addMetavar(metavar: MetavarAtom): MetavarUnificationContext = unifyMetavars(listOf(metavar))
+    fun addMetavar(metavar: MetavarAtom): MetavarAtomUnificationContext = unifyMetavars(listOf(metavar))
 
-    fun intersect(other: MetavarUnificationContext): MetavarUnificationContext {
+    fun intersect(other: MetavarAtomUnificationContext): MetavarAtomUnificationContext {
         val resultMetavarMappings = buildMap {
             metavarMappings.forEach { (metavar, thisMapping) ->
                 val otherMapping = other.metavarMappings[metavar] ?: return@forEach
@@ -79,18 +79,49 @@ private data class MetavarUnificationContext private constructor(
             }
         }
 
-        return MetavarUnificationContext(resultMetavarMappings)
+        return MetavarAtomUnificationContext(resultMetavarMappings)
     }
 
     companion object {
-        val EMPTY: MetavarUnificationContext
-            get() = MetavarUnificationContext(emptyMap())
+        val EMPTY: MetavarAtomUnificationContext
+            get() = MetavarAtomUnificationContext(emptyMap())
+    }
+}
+
+private data class StarredMetaVar(val mv: MetavarAtom, val star: Boolean)
+
+private data class MetavarUnificationContext(
+    private val nonStarred: MetavarAtomUnificationContext,
+    private val starred: MetavarAtomUnificationContext,
+) {
+    fun transform(metavar: StarredMetaVar): MetavarAtom =
+        if (metavar.star) starred.transform(metavar.mv) else nonStarred.transform(metavar.mv)
+
+    fun addMetavar(smv: StarredMetaVar): MetavarUnificationContext =
+        if (smv.star) {
+            copy(starred = starred.addMetavar(smv.mv))
+        } else {
+            copy(nonStarred = nonStarred.addMetavar(smv.mv))
+        }
+
+    fun intersect(other: MetavarUnificationContext): MetavarUnificationContext =
+        MetavarUnificationContext(
+            nonStarred = nonStarred.intersect(other.nonStarred),
+            starred = starred.intersect(other.starred)
+        )
+
+    fun unifyMetavars(metavars: Collection<StarredMetaVar>): MetavarUnificationContext {
+        val (starMv, nonStarMv) = metavars.partition { it.star }
+        return MetavarUnificationContext(
+            nonStarred = nonStarred.unifyMetavars(nonStarMv.map { it.mv }),
+            starred = starred.unifyMetavars(starMv.map { it.mv })
+        )
     }
 }
 
 fun AutomataBuilderCtx.unifyMetavars(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
     val newInitialNode = AutomataNode()
-    val initialContext = MetavarUnificationContext.EMPTY
+    val initialContext = MetavarUnificationContext(MetavarAtomUnificationContext.EMPTY, MetavarAtomUnificationContext.EMPTY)
 
     val nodeMapping: MutableMap<Pair<AutomataNode, MetavarUnificationContext>, AutomataNode> = hashMapOf()
     val nodeQueue: Queue<Pair<AutomataNode, MetavarUnificationContext>> = LinkedList()
@@ -226,8 +257,8 @@ private fun Predicate.transform(context: MetavarUnificationContext): Predicate {
     val condition = constraint.condition
 
     val newCondition = when (condition) {
-        is IsMetavar -> IsMetavar(context.transform(condition.metavar))
-        is StringValueMetaVar -> StringValueMetaVar(context.transform(condition.metaVar))
+        is IsMetavar -> IsMetavar(context.transform(StarredMetaVar(condition.metavar, condition.star)), condition.star)
+        is StringValueMetaVar -> StringValueMetaVar(context.transform(StarredMetaVar(condition.metaVar, star = false)))
         else -> return this
     }
 
@@ -295,7 +326,7 @@ private fun MetavarUnificationContext.extendByPositivePredicates(
         .fold(initial = this, MetavarUnificationContext::unifyMetavars)
 }
 
-private fun Predicate.metavarWithPosition(): Pair<MetavarAtom, Position>? {
+private fun Predicate.metavarWithPosition(): Pair<StarredMetaVar, Position>? {
     if (constraint !is ParamConstraint) {
         return null
     }
@@ -304,9 +335,9 @@ private fun Predicate.metavarWithPosition(): Pair<MetavarAtom, Position>? {
     val condition = constraint.condition
 
     if (condition is IsMetavar) {
-        return condition.metavar to position
+        return StarredMetaVar(condition.metavar, condition.star) to position
     } else if (condition is StringValueMetaVar) {
-        return condition.metaVar to position
+        return StarredMetaVar(condition.metaVar, star = false) to position
     }
     return null
 }

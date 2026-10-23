@@ -343,7 +343,7 @@ data class StringConcatCtx(
         return when (condition) {
             is IsMetavar -> {
                 val newMetavars = metavarMapping[condition.metavar] ?: return listOf(condition)
-                val modified = newMetavars.map(::IsMetavar)
+                val modified = newMetavars.map { IsMetavar(it, condition.star) }
 
                 if (condition.metavar !in newMetavars || newMetavars.size > 1) {
                     return modified + ParamCondition.TypeIs(stringType)
@@ -393,7 +393,7 @@ fun eliminateStringConcat(
             val predCondition = it.asConditionOnStringConcat<Position.Result>()
                 ?: return@any false
 
-            check(predCondition == IsMetavar(metavar)) { "Unexpected condition" }
+            check(predCondition is IsMetavar && predCondition.metavar == metavar) { "Unexpected condition" }
             !it.negated
         }
 
@@ -405,7 +405,7 @@ fun eliminateStringConcat(
             val predCondition = it.asConditionOnStringConcat<Position.Argument>()
                 ?: return@any false
 
-            check(predCondition == IsMetavar(metavar)) { "Unexpected condition" }
+            check(predCondition is IsMetavar && predCondition.metavar == metavar) { "Unexpected condition" }
             !it.negated
         }
 

@@ -1,0 +1,12 @@
+rules:
+  - id: star-10-matrix-sink
+    languages: [go]
+    severity: WARNING
+    message: Whole-object taint wrapped 5 field levels deep reaches a starred sink 5 calls deep
+    mode: taint
+    pattern-sources:
+      - pattern: $*X = star_10_matrix_sink.Source()
+    pattern-sinks:
+      - patterns:
+          - pattern: star_10_matrix_sink.Sink_L0($*Y)
+          - focus-metavariable: $Y

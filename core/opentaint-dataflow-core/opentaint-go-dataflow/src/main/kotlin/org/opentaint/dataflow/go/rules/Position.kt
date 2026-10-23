@@ -12,6 +12,8 @@ sealed interface Position {
     data object Result : Simple {
         override fun toString(): String = javaClass.simpleName
     }
+
+    data class ClassStatic(val className: String) : Simple
 }
 
 sealed interface PositionAccessor {
@@ -24,8 +26,6 @@ sealed interface PositionAccessor {
         val fieldName: String,
         val fieldType: String
     ) : PositionAccessor
-
-    data object AnyAccessor : PositionAccessor
 }
 
 data class PositionWithAccess(

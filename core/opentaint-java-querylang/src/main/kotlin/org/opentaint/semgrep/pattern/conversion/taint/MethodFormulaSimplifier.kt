@@ -11,7 +11,6 @@ import org.opentaint.semgrep.pattern.MetaVarConstraintFormulaCube
 import org.opentaint.semgrep.pattern.MetaVarConstraints
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
-import org.opentaint.semgrep.pattern.conversion.MetavarAtom
 import org.opentaint.semgrep.pattern.conversion.ParamCondition.Atom
 import org.opentaint.semgrep.pattern.conversion.LanguageTypeOps
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureName
@@ -313,7 +312,6 @@ fun MethodFormulaManager.simplifyMethodFormulaCube(
 }
 
 private class MethodConstraintsSolver {
-    private val positiveMetaVars = hashMapOf<Position, MutableSet<MetavarAtom.Basic>>()
     private val positiveParams = hashMapOf<Position, MutableSet<Atom>>()
     private var positiveNumberOfArgs: NumberOfArgsConstraint? = null
     private val positiveMethodModifiers = hashSetOf<MethodModifierConstraint>()
@@ -333,12 +331,26 @@ private class MethodConstraintsSolver {
     fun addPositive(constraint: MethodConstraint): Unit? {
         when (constraint) {
             is ParamConstraint -> {
-                positiveParams.getOrPut(constraint.position, ::hashSetOf).add(constraint.condition)
+                val posSet = positiveParams.getOrPut(constraint.position, ::hashSetOf)
+                val cond = constraint.condition
+                if (cond is IsMetavar) {
+                    val condBasics = cond.metavar.basics
+                    val relatedMetaVars = posSet
+                        .filterIsInstance<IsMetavar>()
+                        .filter { it.metavar.basics.any { b -> b in condBasics } }
 
-                if (constraint.condition is IsMetavar) {
-                    positiveMetaVars.getOrPut(constraint.position, ::hashSetOf)
-                        .addAll(constraint.condition.metavar.basics)
+                    // A (base, star=false) implies A* (base OR any-field, star=true), so A subsumes
+                    // A* at the same position: `A ^ A*` == A. Keep only the base literal.
+                    if (!cond.star) {
+                        posSet.removeAll(relatedMetaVars.filterTo(hashSetOf()) { it.star })
+                    } else {
+                        if (relatedMetaVars.any { !it.star }) {
+                            // A* is redundant when a coinciding base A is already required.
+                            return Unit
+                        }
+                    }
                 }
+                posSet.add(cond)
             }
 
             is NumberOfArgsConstraint -> {
@@ -366,9 +378,24 @@ private class MethodConstraintsSolver {
                 val currentPositive = positiveParams[constraint.position].orEmpty()
                 if (constraint.condition in currentPositive) return null
 
-                if (constraint.condition is IsMetavar) {
-                    val posMetaVars = positiveMetaVars[constraint.position].orEmpty()
-                    if (constraint.condition.metavar.basics.any { it in posMetaVars }) return null
+                val negCond = constraint.condition
+                if (negCond is IsMetavar) {
+                    val positiveMetaVars = currentPositive
+                        .filterIsInstance<IsMetavar>()
+                        .filter { pos ->
+                            pos.metavar.basics.any { it in negCond.metavar.basics }
+                        }
+
+                    // Contradiction (whole-match exclusion) per the A => A* truth table:
+                    //   !A* is UNSAT if A or A* is positive (A => A*);
+                    //   !A  is UNSAT only if A (star=false) is positive -- if ONLY A* (star=true)
+                    //       is positive, `!A ^ A*` is SAT (field-only) and must be kept below.
+                    val contradiction = if (negCond.star) {
+                        positiveMetaVars.isNotEmpty()
+                    } else {
+                        positiveMetaVars.any { !it.star }
+                    }
+                    if (contradiction) return null
                 }
             }
 

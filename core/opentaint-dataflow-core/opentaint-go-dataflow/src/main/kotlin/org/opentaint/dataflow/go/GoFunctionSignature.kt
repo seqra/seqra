@@ -8,6 +8,7 @@ data class GoFunctionSignature(
     val paramTypes: List<GoIRType>,
     val resultType: GoIRType,
     val pkgName: String? = null,
+    val variadicArgumentIndexes: Set<Int> = emptySet(),
 ) {
     val arity: Int get() = paramTypes.size
     val hasReceiver: Boolean get() = receiverType != null

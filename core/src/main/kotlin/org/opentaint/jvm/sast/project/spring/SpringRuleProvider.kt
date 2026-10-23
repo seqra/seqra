@@ -5,6 +5,7 @@ import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.CommonConditionRewriter
+import org.opentaint.dataflow.configuration.jvm.ActionPosition
 import org.opentaint.dataflow.configuration.jvm.Argument
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
@@ -70,10 +71,14 @@ class SpringRuleProvider(
         // todo: better handling of suspend functions
         if (paramTypeName.isKotlinContinuation()) return emptyList()
 
-        val allFieldsPosition = PositionWithAccess(assign.position, PositionAccessor.AnyFieldAccessor)
-        val allFieldsAssign = AssignMark(assign.mark, allFieldsPosition)
+        return when (val p = assign.position) {
+            is ActionPosition.AnyAccessorAfter -> listOf(assign)
+            is ActionPosition.Exact -> {
+                val allFieldsAssign = AssignMark(assign.mark, ActionPosition.AnyAccessorAfter(p.position))
 
-        return listOf(assign, allFieldsAssign)
+                listOf(assign, allFieldsAssign)
+            }
+        }
     }
 
     override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean): Iterable<TaintMethodSource> {
@@ -117,7 +122,7 @@ class SpringRuleProvider(
 
             val cleaner = TaintCleaner(
                 method, mkTrue(),
-                cleanupPositions.map { RemoveAllMarks(it) },
+                cleanupPositions.map { RemoveAllMarks(ActionPosition.Exact(it)) },
                 info = null
             )
 
@@ -169,7 +174,7 @@ class SpringRuleProvider(
     private fun RepositoryMethodInfo.actions(): List<CopyAllMarks>? {
         val actions = mutableListOf<CopyAllMarks>()
         val repoPos = PositionWithAccess(This, repositoryContent)
-        actions += CopyAllMarks(This, This)
+        actions += CopyAllMarks(ActionPosition.Exact(This), ActionPosition.Exact(This))
 
         when (kind) {
             SpringRepoQueryKind.SAVE -> {
@@ -181,18 +186,18 @@ class SpringRuleProvider(
                     is SpringRepoQueryReturn.Unknown -> return null
                     is SpringRepoQueryReturn.Primitive,
                     is SpringRepoQueryReturn.Single -> {
-                        actions += CopyAllMarks(from = entityPos, to = repoPos)
+                        actions += CopyAllMarks(from = ActionPosition.Exact(entityPos), to = ActionPosition.Exact(repoPos))
                     }
 
                     is SpringRepoQueryReturn.Iterable -> {
                         actions += CopyAllMarks(
-                            from = PositionWithAccess(entityPos, iterableElement),
-                            to = repoPos
+                            from = ActionPosition.Exact(PositionWithAccess(entityPos, iterableElement)),
+                            to = ActionPosition.Exact(repoPos)
                         )
                     }
                 }
 
-                actions += CopyAllMarks(from = entityPos, to = Result)
+                actions += CopyAllMarks(from = ActionPosition.Exact(entityPos), to = ActionPosition.Exact(Result))
             }
 
             SpringRepoQueryKind.FIND ->
@@ -205,20 +210,20 @@ class SpringRuleProvider(
                     is SpringRepoQueryReturn.Primitive -> {}
 
                     is SpringRepoQueryReturn.Entity -> {
-                        actions += CopyAllMarks(from = repoPos, to = Result)
+                        actions += CopyAllMarks(from = ActionPosition.Exact(repoPos), to = ActionPosition.Exact(Result))
                     }
 
                     is SpringRepoQueryReturn.Iterable -> {
                         actions += CopyAllMarks(
-                            from = repoPos,
-                            to = PositionWithAccess(Result, iterableElement)
+                            from = ActionPosition.Exact(repoPos),
+                            to = ActionPosition.Exact(PositionWithAccess(Result, iterableElement))
                         )
                     }
 
                     is SpringRepoQueryReturn.Optional -> {
                         actions += CopyAllMarks(
-                            from = repoPos,
-                            to = PositionWithAccess(Result, optionalElement)
+                            from = ActionPosition.Exact(repoPos),
+                            to = ActionPosition.Exact(PositionWithAccess(Result, optionalElement))
                         )
                     }
                 }

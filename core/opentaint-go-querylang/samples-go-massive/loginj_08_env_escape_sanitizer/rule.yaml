@@ -7,6 +7,8 @@ rules:
     pattern-sources:
       - pattern: os.Getenv("TRACE_ID")
     pattern-sinks:
-      - pattern: log.Printf($FMT, $X)
+      - patterns:
+          - pattern: log.Printf($FMT, $*X)
+          - focus-metavariable: $X
     pattern-sanitizers:
       - pattern: escapeNewlines($V)

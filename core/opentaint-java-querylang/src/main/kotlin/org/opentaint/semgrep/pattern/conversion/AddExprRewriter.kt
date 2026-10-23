@@ -6,6 +6,7 @@ import org.opentaint.semgrep.pattern.MetavarName
 import org.opentaint.semgrep.pattern.MethodInvocation
 import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
+import org.opentaint.semgrep.pattern.StarMetavarName
 
 // todo: rewrite all AddExpr as string concat for now
 // we can consider split on string/non-string
@@ -40,6 +41,7 @@ private fun flatStringConcat(pattern: SemgrepJavaPattern): List<SemgrepJavaPatte
         }
 
         is MetavarName,
+        is StarMetavarName,
         is AnonymousName -> {}
     }
 

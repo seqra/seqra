@@ -121,7 +121,8 @@ class JIRMethodCallFlowFunction(
                 final.forEachSourceFactWithAliases {
                     addUnchecked(CallToReturnNonDistributiveFact(initial, it, trace))
                 }
-            }
+            },
+            markAfterAnyFieldResolver = markAfterAnyFieldResolver,
         )
 
         JIRMethodCallFactMapper.mapMethodCallToStartFlowFact(
@@ -239,6 +240,7 @@ class JIRMethodCallFlowFunction(
         createFinalFact: (FinalFactAp, TraceInfo) -> Unit,
         createEdge: (InitialFactAp, FinalFactAp, TraceInfo) -> Unit,
         createNDEdge: (Set<InitialFactAp>, FinalFactAp, TraceInfo) -> Unit,
+        markAfterAnyFieldResolver: FactWithMarkAfterAnyAccessorResolver? = null,
     ) {
         val sourceRules = taintCtx.sourceRulesForCallStatement(statement, callExpr, returnValue, factReader?.factAp)
         if (sourceRules.isEmpty()) return
@@ -246,7 +248,8 @@ class JIRMethodCallFlowFunction(
         val taintUtil = JIRMethodCallTaintUtil(apManager, statement, callExpr, analysisContext, generateTrace)
         taintUtil.applySourceRules(
             sourceRules, initialFacts, factReader, exclusion,
-            createFinalFact, createEdge, createNDEdge
+            createFinalFact, createEdge, createNDEdge,
+            markAfterAnyFieldResolver
         )
     }
 

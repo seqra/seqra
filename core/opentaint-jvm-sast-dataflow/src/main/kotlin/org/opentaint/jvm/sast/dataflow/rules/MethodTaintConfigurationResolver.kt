@@ -6,6 +6,9 @@ import org.opentaint.dataflow.configuration.CommonCondition
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.isFalse
 import org.opentaint.dataflow.configuration.jvm.Action
+import org.opentaint.dataflow.configuration.jvm.ActionPosition
+import org.opentaint.dataflow.configuration.jvm.ActionPosition.AnyAccessorAfter
+import org.opentaint.dataflow.configuration.jvm.ActionPosition.Exact
 import org.opentaint.dataflow.configuration.jvm.Argument
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
@@ -20,7 +23,6 @@ import org.opentaint.dataflow.configuration.jvm.ConstantMatches
 import org.opentaint.dataflow.configuration.jvm.ConstantStringValue
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
-import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.configuration.jvm.CopyMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
 import org.opentaint.dataflow.configuration.jvm.IsNull
@@ -62,11 +64,13 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMat
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SourceRule
+import org.opentaint.dataflow.configuration.jvm.serialized.beforeFirstAnyField
 import org.opentaint.dataflow.configuration.mkAnd
 import org.opentaint.dataflow.configuration.mkFalse
 import org.opentaint.dataflow.configuration.mkOr
 import org.opentaint.dataflow.configuration.mkTrue
 import org.opentaint.dataflow.configuration.simplify
+import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRClassType
@@ -200,7 +204,7 @@ class MethodTaintConfigurationResolver(
         is SerializedRule.Sink -> {
             TaintMethodSink(
                 method, condition,
-                trackFactsReachAnalysisEnd?.flatMap { it.resolveNoArray(ctx) }.orEmpty(),
+                trackFactsReachAnalysisEnd?.flatMap { it.resolve(ctx) }.orEmpty(),
                 ruleId(), meta(), info, serializedId
             )
         }
@@ -208,7 +212,7 @@ class MethodTaintConfigurationResolver(
         is SerializedRule.MethodExitSink -> {
             TaintMethodExitSink(
                 method, condition,
-                trackFactsReachAnalysisEnd?.flatMap { it.resolveNoArray(ctx) }.orEmpty(),
+                trackFactsReachAnalysisEnd?.flatMap { it.resolve(ctx) }.orEmpty(),
                 ruleId(), meta(), info, serializedId
             )
         }
@@ -216,7 +220,7 @@ class MethodTaintConfigurationResolver(
         is SerializedRule.MethodEntrySink -> {
             TaintMethodEntrySink(
                 method, condition,
-                trackFactsReachAnalysisEnd?.flatMap { it.resolveNoArray(ctx) }.orEmpty(),
+                trackFactsReachAnalysisEnd?.flatMap { it.resolve(ctx) }.orEmpty(),
                 ruleId(), meta(), info, serializedId
             )
         }
@@ -444,18 +448,20 @@ class MethodTaintConfigurationResolver(
             }
         }
 
-        is SerializedCondition.ContainsMark -> mkOr(
-            pos.resolvePosition(ctx)
-                .flatMap { it.resolveArrayPosition() }
-                .map { position ->
-                    val mark = taintMarkManager.taintMark(tainted)
-                    if (position is PositionWithAccess && position.access == PositionAccessor.AnyFieldAccessor) {
-                        ContainsMarkOnAnyField(position.base, mark).atom()
+        is SerializedCondition.ContainsMark -> {
+            val (position, hasAnyField) = pos.beforeFirstAnyField()
+            val mark = taintMarkManager.taintMark(tainted)
+            mkOr(
+                position.resolvePosition(ctx).map {
+                    if (hasAnyField) {
+                        ContainsMarkOnAnyField(it, mark).atom()
                     } else {
-                        ContainsMark(position, mark).atom()
+                        ContainsMark(it, mark).atom()
                     }
                 }
-        )
+            )
+        }
+
 
         is SerializedCondition.IsType -> resolveIsType(ctx)
 
@@ -542,15 +548,22 @@ class MethodTaintConfigurationResolver(
         return classType.declaredMethods.find { it.method == method }
     }
 
-    private fun SerializedTaintAssignAction.resolveWithArray(ctx: AnyArgSpecializationCtx): List<AssignMark> =
-        pos.resolvePositionWithAnnotationConstraint(ctx, annotatedWith?.asAnnotationConstraint())
-            .flatMap { it.resolveArrayPosition() }
+    private fun SerializedTaintAssignAction.resolve(ctx: AnyArgSpecializationCtx): List<AssignMark> =
+        pos.resolveActionPosition(ctx, annotatedWith?.asAnnotationConstraint())
             .map { AssignMark(taintMarkManager.taintMark(kind), it) }
 
-    private fun SerializedTaintAssignAction.resolveNoArray(ctx: AnyArgSpecializationCtx): List<AssignMark> =
-        pos.resolvePositionWithAnnotationConstraint(ctx, annotatedWith?.asAnnotationConstraint())
-            .flatMap { it.resolveArrayPosition() }
+    // Source actions on an array- or Object-typed position taint the element as well as the
+    // position itself. The starred rules that express this explicitly land in 3-rules; until
+    // then the duplication has to stay here or array sources lose their element taint.
+    private fun SerializedTaintAssignAction.resolveWithArray(ctx: AnyArgSpecializationCtx): List<AssignMark> =
+        pos.resolveActionPosition(ctx, annotatedWith?.asAnnotationConstraint())
+            .flatMap { it.resolveArrayActionPosition() }
             .map { AssignMark(taintMarkManager.taintMark(kind), it) }
+
+    private fun ActionPosition.resolveArrayActionPosition(): List<ActionPosition> = when (this) {
+        is Exact -> position.resolveArrayPosition().map { Exact(it) }
+        is AnyAccessorAfter -> listOf(this)
+    }
 
     private fun Position.resolveArrayPosition(): List<Position> = when (this) {
         is ClassStatic -> listOf(this)
@@ -571,8 +584,8 @@ class MethodTaintConfigurationResolver(
     }
 
     private fun SerializedTaintPassAction.resolve(ctx: AnyArgSpecializationCtx): List<Action> =
-        from.resolvePosition(ctx).flatMap { fromPos ->
-            to.resolvePosition(ctx).map { toPos ->
+        from.resolveActionPosition(ctx).flatMap { fromPos ->
+            to.resolveActionPosition(ctx).map { toPos ->
                 val taintKind = taintKind
                 if (taintKind == null) {
                     CopyAllMarks(fromPos, toPos)
@@ -583,15 +596,19 @@ class MethodTaintConfigurationResolver(
         }
 
     private fun SerializedTaintCleanAction.resolve(ctx: AnyArgSpecializationCtx): List<Action> =
-        pos.resolvePosition(ctx)
-            .map { pos ->
-                val taintKind = taintKind
-                if (taintKind == null) {
-                    RemoveAllMarks(pos)
-                } else {
-                    RemoveMark(taintMarkManager.taintMark(taintKind), pos, reach)
-                }
-            }
+        pos.resolveActionPosition(ctx).map { pos ->
+            taintKind?.let { RemoveMark(taintMarkManager.taintMark(it), pos) } ?: RemoveAllMarks(pos)
+        }
+
+    private fun PositionBaseWithModifiers.resolveActionPosition(
+        ctx: AnyArgSpecializationCtx,
+        annotation: AnnotationConstraint? = null,
+    ): List<ActionPosition> {
+        val (position, hasAnyField) = beforeFirstAnyField()
+        return position.resolvePositionWithAnnotationConstraint(ctx, annotation).map {
+            if (hasAnyField) AnyAccessorAfter(it) else Exact(it)
+        }
+    }
 
     private fun PositionBaseWithModifiers.resolvePosition(
         ctx: AnyArgSpecializationCtx,
@@ -617,7 +634,7 @@ class MethodTaintConfigurationResolver(
                 resolvedBase.map { b ->
                     modifiers.fold(b) { basePos, modifier ->
                         val accessor = when (modifier) {
-                            PositionModifier.AnyField -> PositionAccessor.AnyFieldAccessor
+                            PositionModifier.AnyField -> error("AnyField must be resolved before ordinary positions")
                             PositionModifier.ArrayElement -> PositionAccessor.ElementAccessor
                             is PositionModifier.Field -> {
                                 PositionAccessor.FieldAccessor(

@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.go.analysis
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
@@ -8,7 +9,7 @@ import org.opentaint.dataflow.configuration.go.serialized.GoUserDefinedRuleInfo
 import org.opentaint.dataflow.go.GoCallExpr
 import org.opentaint.dataflow.go.GoFlowFunctionUtils.resolvePosAccess
 import org.opentaint.dataflow.go.GoFunctionSignature
-import org.opentaint.dataflow.go.rules.Position
+import org.opentaint.dataflow.go.rules.ActionPosition
 import org.opentaint.dataflow.go.rules.RemoveMark
 import org.opentaint.dataflow.go.rules.TaintRule
 import org.opentaint.dataflow.go.signature
@@ -31,9 +32,14 @@ class GoCallRuleBasedSummaryRewriter(
     private val callSignature: GoFunctionSignature?
         get() = callExpr.signature()
 
+    private fun ActionPosition.cleanReach(): TaintCleanReach = when (this) {
+        is ActionPosition.Exact -> TaintCleanReach.Exact
+        is ActionPosition.AnyAccessorAfter -> TaintCleanReach.ExactAndAnyField
+    }
+
     private data class UserRuleDefinedAction(
         val rule: TaintRule,
-        val positions: Set<Position>,
+        val positions: Set<ActionPosition>,
         val controlledMarks: Set<String>
     )
 
@@ -47,7 +53,7 @@ class GoCallRuleBasedSummaryRewriter(
 
             if (sourceRuleWithCond.condition.isFalse) continue
 
-            val positions = sourceRule.actionsAfter.mapTo(hashSetOf()) { it.rawPosition() }
+            val positions = sourceRule.actionsAfter.mapTo(hashSetOf()) { it.pos }
             result += UserRuleDefinedAction(sourceRule, positions, ruleInfo.relevantTaintMarks)
         }
 
@@ -72,7 +78,7 @@ class GoCallRuleBasedSummaryRewriter(
         val cleanedFact = userRuleDefinedActions.applyCleanerActions(
             evalAction = { f, rule, action ->
                 val pos = action.pos.resolvePosAccess()
-                cleanEvaluator.removeFinalFact(f, pos, TaintMarkAccessor(action.mark), rule, action, TaintCleanReach.Exact)
+                cleanEvaluator.removeFinalFact(f, pos, TaintMarkAccessor(action.mark), rule, action, action.pos.cleanReach())
             },
             itemRule = { it.rule },
             itemActions = { action ->

@@ -2,16 +2,16 @@ rules:
   - id: cmd-typed-receiver-sink
     languages: [go]
     severity: ERROR
-    message: Tainted user input reaches OS command execution via a typed *exec.Cmd receiver
+    message: Tainted user input reaches OS command execution via an *exec.Cmd receiver
     mode: taint
     pattern-sources:
       - pattern-either:
           - pattern: os.Getenv($K)
     pattern-sinks:
       - pattern-either:
-          - pattern: |
-              import "os/exec"
-              ($C : *exec.Cmd).Run()
-          - pattern: |
-              import "os/exec"
-              ($C : *exec.Cmd).CombinedOutput()
+          - patterns:
+              - pattern: "($*C : *exec.Cmd).Run()"
+              - focus-metavariable: $C
+          - patterns:
+              - pattern: "($*C : *exec.Cmd).CombinedOutput()"
+              - focus-metavariable: $C

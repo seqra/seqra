@@ -8,7 +8,8 @@ rules:
       - pattern: "ShellExecArgConstraint.Source(...)"
     pattern-sinks:
       - patterns:
-          - pattern: 'exec.Command("$NAME", ...)'
+          - pattern: 'exec.Command("$NAME", ..., $*UNTRUSTED, ...)'
+          - focus-metavariable: $UNTRUSTED
           - metavariable-regex:
               metavariable: $NAME
               regex: ^(.*/)?(sh|bash|zsh|dash)$

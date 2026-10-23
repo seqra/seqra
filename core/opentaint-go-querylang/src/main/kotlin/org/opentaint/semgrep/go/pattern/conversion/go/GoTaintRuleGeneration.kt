@@ -249,8 +249,17 @@ private fun GoTaintRuleGenerationCtx.buildGoStateAssignActions(
     val requiredVariables = stateAfter.register.assignedVars.keys
     val result = requiredVariables.flatMapTo(mutableListOf()) { varName ->
         val varPosition = edgeCondition.accessedVarPosition[varName] ?: return@flatMapTo emptyList()
-        varPosition.positions.flatMap { stateAssignMark(varPosition.varName, stateAfter, it) }
+        varPosition.positions.flatMap { sp ->
+            sp.bases().flatMap {
+                stateAssignMark(varPosition.varName, stateAfter, it)
+            }
+        }
     }
+
+    if (stateAfter in globalStateAssignStates) {
+        result += globalStateMarkName(stateAfter).mkGoAssignMark(goStateVarPosition)
+    }
+
     return result
 }
 
@@ -260,11 +269,23 @@ private fun GoTaintRuleGenerationCtx.buildGoStateCleanActions(
     edgeCondition: GoEvaluatedEdgeCondition
 ): List<GoSerializedCleanAction> {
     val result = edgeCondition.accessedVarPosition.values.flatMapTo(mutableListOf()) { varPosition ->
-        varPosition.positions.flatMap { stateCleanMark(varPosition.varName, stateAfter, stateBefore, it) }
+        varPosition.positions.flatMap { sp ->
+            sp.bases().flatMap {
+                stateCleanMark(varPosition.varName, stateAfter, stateBefore, it)
+            }
+        }
     }
     result += stateCleanMark(varName = null, stateAfter, stateBefore, position = null)
+
+    if (stateBefore in globalStateAssignStates) {
+        result += globalStateMarkName(stateBefore).mkGoCleanMark(goStateVarPosition)
+    }
+
     return result
 }
+
+private val GoTaintRuleGenerationCtx.goStateVarPosition: PositionBaseWithModifiers
+    get() = PositionBase.ClassStatic(prefix.artificialState("pos").taintMarkStr()).baseGo()
 
 private fun GoEvaluatedEdgeCondition.addGoStateCheck(
     ctx: GoTaintRuleGenerationCtx,
@@ -273,13 +294,13 @@ private fun GoEvaluatedEdgeCondition.addGoStateCheck(
 ): GoEvaluatedEdgeCondition {
     val stateChecks = mutableListOf<GoSerializedCondition>()
     if (checkGlobalState) {
-        stateChecks += ctx.globalStateMarkName(stateOfEdge).mkGoContainsMark(
-            PositionBase.ClassStatic(ctx.prefix.artificialState("pos").taintMarkStr()).baseGo()
-        )
+        stateChecks += ctx.globalStateMarkName(stateOfEdge).mkGoContainsMark(ctx.goStateVarPosition)
     } else {
         for (metaVar in stateOfEdge.register.assignedVars.keys) {
-            for (pos in accessedVarPosition[metaVar]?.positions.orEmpty()) {
-                stateChecks += ctx.containsStateMark(metaVar, stateOfEdge, pos)
+            for (sp in accessedVarPosition[metaVar]?.positions.orEmpty()) {
+                sp.bases().forEach {
+                    stateChecks += ctx.containsStateMark(metaVar, stateOfEdge, it)
+                }
             }
         }
     }
@@ -609,7 +630,7 @@ private fun findGoMetaVarPositionUtil(
     val varPosition = varPositions.getOrPut(condition.metavar) {
         GoRegisterVarPosition(condition.metavar, hashSetOf())
     }
-    varPosition.positions.add(position)
+    varPosition.positions.add(GoStarredPosition(position, condition.star))
 }
 
 private fun evaluateGoParamCondition(
@@ -627,7 +648,11 @@ private fun evaluateGoParamCondition(
                 // todo: semantic metavar constraint
                 semgrepRuleTrace.error(IgnoredMetavarConstraint(condition.metavar))
             }
-            return ctx.containsMarkWithAnyStateBefore(edgeState, condition.metavar, position)
+            val contains = ctx.containsMarkWithAnyStateBefore(edgeState, condition.metavar, position)
+            if (!condition.star) return contains
+
+            val containsAnyField = ctx.containsMarkWithAnyStateBefore(edgeState, condition.metavar, position.withAnyField())
+            return GoSerializedCondition.or(listOf(contains, containsAnyField))
         }
         is ParamCondition.TypeIs -> {
             return ctx.goTypeMatcher(condition.typeName, semgrepRuleTrace)
@@ -744,3 +769,6 @@ private fun List<String>.toSerializedPosModifiers(): List<PositionModifier> = ma
         else -> PositionModifier.Field("", it, "")
     }
 }
+
+private fun GoStarredPosition.bases(): List<PositionBaseWithModifiers> =
+    if (star) listOf(position, position.withAnyField()) else listOf(position)

@@ -1,0 +1,12 @@
+rules:
+  - id: star-01-sink-field
+    languages: [go]
+    severity: WARNING
+    message: Tainted struct field reaches a starred whole-object sink
+    mode: taint
+    pattern-sources:
+      - pattern: star_01_sink_field.Source(...)
+    pattern-sinks:
+      - patterns:
+          - pattern: star_01_sink_field.Sink_Box($*Y)
+          - focus-metavariable: $Y

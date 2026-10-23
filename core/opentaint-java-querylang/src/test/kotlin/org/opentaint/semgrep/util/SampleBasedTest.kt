@@ -1,6 +1,7 @@
 package org.opentaint.semgrep.util
 
 import base.RuleSample
+import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
@@ -21,12 +22,14 @@ abstract class SampleBasedTest(
 ) {
     inline fun <reified T : RuleSample> runTest(
         expectStateVar: Boolean = false,
+        unrollStrategy: AnyAccessorUnrollStrategy = AnyAccessorUnrollStrategy.AnyAccessorDisabled,
         noinline provideAdditionalRules: (SerializedTaintConfig) -> SerializedTaintConfig = { it }
-    ) = runClassTest(getFullyQualifiedClassName<T>(), expectStateVar, provideAdditionalRules)
+    ) = runClassTest(getFullyQualifiedClassName<T>(), expectStateVar, unrollStrategy, provideAdditionalRules)
 
     fun runClassTest(
         sampleClassName: String,
         expectStateVar: Boolean,
+        unrollStrategy: AnyAccessorUnrollStrategy,
         provideAdditionalRules: (SerializedTaintConfig) -> SerializedTaintConfig
     ) {
         val data = sampleData[sampleClassName] ?: error("No sample data for $sampleClassName")
@@ -57,7 +60,7 @@ abstract class SampleBasedTest(
 
         val configWithExtraRules = provideAdditionalRules(SerializedTaintConfig())
 
-        val results = runner.run(javaRule, configWithExtraRules, configurationRequired, allSamples)
+        val results = runner.run(javaRule, configWithExtraRules, configurationRequired, allSamples, unrollStrategy)
 
         val missedPositive = hashSetOf<PositiveCase>()
         for (sample in data.positiveClasses) {

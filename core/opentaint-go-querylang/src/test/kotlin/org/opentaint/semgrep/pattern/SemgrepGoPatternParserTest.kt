@@ -108,6 +108,90 @@ class SemgrepGoPatternParserTest {
         assertNotNull(find(ast) { it is FuncDecl })
     }
 
+    /** Collects every pattern node in the AST (self + descendants). */
+    private fun collect(p: SemgrepGoPattern): List<SemgrepGoPattern> =
+        listOf(p) + p.children.flatMap { collect(it) }
+
+    private fun metavars(pattern: String): List<Metavar> =
+        collect(parse(pattern)).filterIsInstance<Metavar>()
+
+    @Test fun starredMetavarInCallArgument() {
+        val y = metavars("Sink(\$*Y)").single { it.name == "\$Y" }
+        assertTrue(y.star, "expected \$*Y to be starred")
+    }
+
+    /** Star count tolerating a parse failure (a retired/invalid form yields no starred metavar). */
+    private fun starCount(pattern: String): Int {
+        val r = parser.parseSemgrepGoPattern(pattern)
+        return if (r is SemgrepGoPatternParsingResult.Ok)
+            collect(r.pattern).filterIsInstance<Metavar>().count { it.star }
+        else 0
+    }
+
+    @Test fun prefixStarNotSuffixMarksTheMetavar() {
+        // The star is a `$*` prefix bound into the metavar token. `$Y * z` stays multiplication,
+        // and the retired suffix form `$Y*` is no longer a starred metavar.
+        assertEquals(1, starCount("Sink(\$*Y)"), "\$*Y must be a star")
+        assertEquals(0, starCount("Sink(\$Y * z)"), "\$Y * z must not be a star")
+        assertEquals(0, starCount("Sink(\$Y*)"), "retired suffix \$Y* must not be a star")
+    }
+
+    @Test fun plainMetavarIsNotStarred() {
+        val y = metavars("Sink(\$Y)").single { it.name == "\$Y" }
+        assertTrue(!y.star, "plain \$Y must not be starred")
+    }
+
+    @Test fun starredMetavarOnAssignmentLhs() {
+        val x = metavars("\$*X = Source()").single { it.name == "\$X" }
+        assertTrue(x.star, "expected LHS \$*X to be starred")
+    }
+
+    private fun typedMetavars(pattern: String): List<org.opentaint.semgrep.go.pattern.TypedMetavar> =
+        collect(parse(pattern)).filterIsInstance<org.opentaint.semgrep.go.pattern.TypedMetavar>()
+
+    @Test fun starredTypedMetavar() {
+        // `($*Y : SomeType)` parses to a starred typed metavar carrying its type constraint.
+        val tm = typedMetavars("Sink((\$*Y : SomeType))").single { it.name == "\$Y" }
+        assertTrue(tm.star, "expected (\$*Y : SomeType) to be a starred typed metavar")
+    }
+
+    @Test fun plainTypedMetavarIsNotStarred() {
+        // `($Y : SomeType)` stays an unstarred typed metavar (byte-identical to before).
+        val tm = typedMetavars("Sink((\$Y : SomeType))").single { it.name == "\$Y" }
+        assertTrue(!tm.star, "plain (\$Y : SomeType) must not be starred")
+    }
+
+    @Test fun retiredSuffixTypedMetavarIsNotStarred() {
+        // The retired suffix forms `($Y* : T)` and the spaced `($Y * : T)` no longer denote a
+        // starred typed metavar: the star is now a `$*` prefix, so neither parses as one.
+        for (p in listOf("Sink((\$Y* : SomeType))", "Sink((\$Y * : SomeType))")) {
+            val r = parser.parseSemgrepGoPattern(p)
+            val starred = r is SemgrepGoPatternParsingResult.Ok &&
+                typedMetavars(p).any { it.star }
+            assertTrue(!starred, "`$p` must not parse as a starred typed metavar; got $r")
+        }
+    }
+
+    @Test fun starredTypedReceiverParses() {
+        // Typed receiver form `($*C : *exec.Cmd).Run()` parses with both star and the type restored.
+        // The `*` in `*exec.Cmd` is a pointer type, distinct from the metavar's `$*` star prefix.
+        val tm = typedMetavars("(\$*C : *exec.Cmd).Run()").single { it.name == "\$C" }
+        assertTrue(tm.star, "expected (\$*C : *exec.Cmd) receiver to be a starred typed metavar")
+    }
+
+    @Test fun prefixDerefStillParses() {
+        // `*p` is a prefix deref (STAR precedes the operand), not a starred metavar.
+        val ast = parse("*p")
+        assertEquals(0, collect(ast).filterIsInstance<Metavar>().count { it.star })
+    }
+
+    @Test fun binaryMulStillParses() {
+        // `a*b` is multiplication; no starred metavars and still a valid parse.
+        val ast = parse("a*b")
+        assertTrue(ast !is SemgrepGoPattern.Raw)
+        assertEquals(0, collect(ast).filterIsInstance<Metavar>().count { it.star })
+    }
+
     @Test fun structuralSmokeTest() {
         // 5 representative patterns -> AST non-Raw
         val patterns = listOf(

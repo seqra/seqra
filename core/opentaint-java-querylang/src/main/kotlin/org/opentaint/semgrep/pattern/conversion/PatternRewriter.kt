@@ -236,7 +236,7 @@ interface PatternRewriter {
         createStringLiteral(content.rewriteName())
 
     fun TypedMetavar.rewriteTypedMetavar(): List<SemgrepJavaPattern> =
-        createTypedMetavar(name, type.rewriteTypeName())
+        createTypedMetavar(name, type.rewriteTypeName(), star)
 
     fun VariableAssignment.rewriteVariableAssignment(): List<SemgrepJavaPattern> {
         val newType = type?.rewriteTypeName()
@@ -329,7 +329,8 @@ interface PatternRewriter {
 
     fun createReturnStmt(value: SemgrepJavaPattern?): List<SemgrepJavaPattern> = listOf(ReturnStmt(value))
     fun createStringLiteral(content: Name): List<SemgrepJavaPattern> = listOf(StringLiteral(content))
-    fun createTypedMetavar(name: String, type: TypeName): List<SemgrepJavaPattern> = listOf(TypedMetavar(name, type))
+    fun createTypedMetavar(name: String, type: TypeName, star: Boolean = false): List<SemgrepJavaPattern> =
+        listOf(TypedMetavar(name, type, star))
 
     fun createVariableAssignment(
         type: TypeName?,
