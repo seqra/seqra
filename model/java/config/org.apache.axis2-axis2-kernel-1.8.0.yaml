@@ -12,7 +12,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis2.addressing.EndpointReference#<rule-storage>#java.lang.Object
+    - .org.apache.axis2.addressing.EndpointReference#endpointData#java.lang.Object
 - function: org.apache.axis2.addressing.EndpointReference#addReferenceParameter
   copy:
   - from: arg(*)
@@ -20,7 +20,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis2.addressing.EndpointReference#<rule-storage>#java.lang.Object
+    - .org.apache.axis2.addressing.EndpointReference#endpointData#java.lang.Object
 - function: org.apache.axis2.builder.Builder#processDocument
   copy:
   - from: arg(*)
@@ -32,7 +32,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis2.addressing.EndpointReference#<rule-storage>#java.lang.Object
+    - .org.apache.axis2.addressing.EndpointReference#endpointData#java.lang.Object
 - function: org.apache.axis2.addressing.EndpointReference#addExtensibleElement
   copy:
   - from: arg(*)
@@ -40,7 +40,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis2.addressing.EndpointReference#<rule-storage>#java.lang.Object
+    - .org.apache.axis2.addressing.EndpointReference#endpointData#java.lang.Object
 - function: org.apache.axis2.addressing.EndpointReference#addMetaData
   copy:
   - from: arg(*)
@@ -48,7 +48,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis2.addressing.EndpointReference#<rule-storage>#java.lang.Object
+    - .org.apache.axis2.addressing.EndpointReference#endpointData#java.lang.Object
 - function: org.apache.axis2.addressing.EndpointReference#setName
   copy:
   - from: arg(*)
@@ -56,4 +56,4 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis2.addressing.EndpointReference#<rule-storage>#java.lang.Object
+    - .org.apache.axis2.addressing.EndpointReference#endpointData#java.lang.Object

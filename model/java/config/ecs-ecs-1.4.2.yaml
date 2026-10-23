@@ -7,7 +7,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.ecs.storage.Array#<rule-storage>#java.lang.Object
+    - .org.apache.ecs.storage.Array#elements#java.lang.Object
     to: result
   - from: this
     to: result
@@ -19,7 +19,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.ecs.storage.Array#<rule-storage>#java.lang.Object
+    - .org.apache.ecs.storage.Array#elements#java.lang.Object
     to: result
   - from: this
     to: result
@@ -28,7 +28,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.ecs.ElementContainer#<rule-storage>#java.lang.Object
+    - .org.apache.ecs.ElementContainer#children#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.ecs.ElementRegistry#addElementToRegistry
@@ -40,7 +40,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.ecs.ElementRegistry#<rule-storage>#java.lang.Object
+    - .org.apache.ecs.ElementRegistry#elements#java.lang.Object
 - function: org.apache.ecs.Attributes#setAttributeFilter
   copy:
   - from: arg(*)
@@ -50,14 +50,14 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.ecs.Attributes#<rule-storage>#java.lang.Object
+    - .org.apache.ecs.Attributes#attributeValues#java.lang.Object
 - function: org.apache.ecs.ElementRegistry#removeElementFromRegistry
   copy:
   - from: this
     to: result
   - from:
     - this
-    - .org.apache.ecs.ElementRegistry#<rule-storage>#java.lang.Object
+    - .org.apache.ecs.ElementRegistry#elements#java.lang.Object
     to: result
 - function: org.apache.ecs.Filter#addAttribute
   copy:
@@ -68,7 +68,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.ecs.Filter#<rule-storage>#java.lang.Object
+    - .org.apache.ecs.Filter#replacementData#java.lang.Object
 - function: org.apache.ecs.StringElement#addElement
   copy:
   - from: arg(0)
@@ -76,7 +76,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.ecs.StringElement#<rule-storage>#java.lang.Object
+    - .org.apache.ecs.StringElement#text#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.ecs.storage.Array#add
@@ -88,7 +88,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.ecs.storage.Array#<rule-storage>#java.lang.Object
+    - .org.apache.ecs.storage.Array#elements#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.ecs.ConcreteElement#elements
@@ -102,14 +102,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.ecs.StringElement#<rule-storage>#java.lang.Object
+    - .org.apache.ecs.StringElement#text#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.ecs.StringElement#removeElement
   copy:
   - from:
     - this
-    - .org.apache.ecs.StringElement#<rule-storage>#java.lang.Object
+    - .org.apache.ecs.StringElement#text#java.lang.Object
     to: result
   - from: this
     to: result
@@ -120,7 +120,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.ecs.ElementContainer#<rule-storage>#java.lang.Object
+    - .org.apache.ecs.ElementContainer#children#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.ecs.storage.Array#add
@@ -134,7 +134,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.apache.ecs.storage.Array#<rule-storage>#java.lang.Object
+    - .org.apache.ecs.storage.Array#elements#java.lang.Object
   - from: arg(1)
     to: this
 - function: org.apache.ecs.StringElement#<init>
@@ -142,6 +142,6 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.ecs.StringElement#<rule-storage>#java.lang.Object
+    - .org.apache.ecs.StringElement#text#java.lang.Object
   - from: arg(0)
     to: this

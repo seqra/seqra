@@ -12,7 +12,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#<rule-storage>#java.lang.Object
+    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#messageData#java.lang.Object
     to: result
 - function: org.springframework.ws.soap.axiom.AxiomSoapMessage#<init>
   signature:
@@ -37,7 +37,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#<rule-storage>#java.lang.Object
+    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#messageData#java.lang.Object
 - function: org.springframework.ws.soap.axiom.AxiomSoapMessage#<init>
   signature:
     params:
@@ -73,15 +73,15 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#<rule-storage>#java.lang.Object
+    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#messageData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#<rule-storage>#java.lang.Object
+    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#messageData#java.lang.Object
   - from: arg(2)
     to:
     - this
-    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#<rule-storage>#java.lang.Object
+    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#messageData#java.lang.Object
   - from: arg(0)
     to:
     - this
@@ -90,7 +90,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#<rule-storage>#java.lang.Object
+    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#messageData#java.lang.Object
     to: result
 - function: org.springframework.ws.soap.axiom.AxiomSoapMessage#getAxiomMessage
   taintCopyOnly: true
@@ -106,7 +106,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#<rule-storage>#java.lang.Object
+    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#messageData#java.lang.Object
     to: result
 - function: org.springframework.ws.soap.axiom.AxiomSoapMessage#setSoapAction
   signature:
@@ -144,13 +144,13 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#<rule-storage>#java.lang.Object
+    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#messageData#java.lang.Object
 - function: org.springframework.ws.soap.axiom.AxiomSoapMessage#setStreamingPayload
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#<rule-storage>#java.lang.Object
+    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#messageData#java.lang.Object
 - function: org.springframework.ws.soap.axiom.AxiomSoapMessage#getDocument
   signature:
     return: org.w3c.dom.Document
@@ -164,12 +164,12 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#<rule-storage>#java.lang.Object
+    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#messageData#java.lang.Object
 - function: org.springframework.ws.soap.axiom.AxiomSoapMessage#getAttachment
   copy:
   - from:
     - this
-    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#<rule-storage>#java.lang.Object
+    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#messageData#java.lang.Object
     to: result
 - function: org.springframework.ws.soap.axiom.AxiomSoapMessage#<init>
   signature:
@@ -199,7 +199,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#<rule-storage>#java.lang.Object
+    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#messageData#java.lang.Object
     to: result
 - function: org.springframework.ws.soap.axiom.AxiomSoapMessage#setStreamingPayload
   taintCopyOnly: true
@@ -234,7 +234,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#<rule-storage>#java.lang.Object
+    - .org.springframework.ws.soap.axiom.AxiomSoapMessage#messageData#java.lang.Object
     to: result
 - function: org.springframework.ws.soap.axiom.AxiomSoapMessage#setDocument
   signature:

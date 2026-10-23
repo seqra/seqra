@@ -24,17 +24,17 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from: arg(2)
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from:
     - arg(2)
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from:
     - arg(2)
     - '[*]'
@@ -44,29 +44,29 @@ passThrough:
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.SortResponseControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.SortResponseControl#failedAttributeId#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.SortResponseControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.SortResponseControl#failedAttributeId#java.lang.Object
   - from:
     - arg(2)
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
   - from: arg(2)
     to:
     - this
-    - .javax.naming.ldap.SortResponseControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.SortResponseControl#failedAttributeId#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
   - from: arg(2)
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
 - function: javax.naming.ldap.SortKey#<init>
   signature:
     params:
@@ -117,11 +117,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
 - function: javax.naming.ldap.ExtendedRequest#createExtendedResponse
   signature: (*, *, *, *) javax.naming.ldap.ExtendedResponse
   copy:
@@ -174,21 +174,21 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from: arg(2)
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from: arg(2)
     to:
     - this
-    - .javax.naming.ldap.PagedResultsResponseControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.PagedResultsResponseControl#cookie#java.lang.Object
   - from:
     - arg(2)
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from:
     - arg(2)
     - '[*]'
@@ -198,25 +198,25 @@ passThrough:
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.PagedResultsResponseControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.PagedResultsResponseControl#cookie#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.PagedResultsResponseControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.PagedResultsResponseControl#cookie#java.lang.Object
   - from:
     - arg(2)
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
   - from: arg(2)
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
 - function: javax.naming.ldap.SortKey#getMatchingRuleID
   signature: () java.lang.String
   taintCopyOnly: true
@@ -246,7 +246,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.naming.ldap.ExtendedRequest#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.ExtendedRequest#requestData#java.lang.Object
     to: result
   - from:
     - this
@@ -274,15 +274,15 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.naming.ldap.SortResponseControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.SortResponseControl#failedAttributeId#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
     to: result
   - from:
     - this
@@ -302,7 +302,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.naming.ldap.SortKey#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.SortKey#sortKeyData#java.lang.Object
     to: result
 - function: javax.naming.ldap.Rdn#<init>
   signature: (javax.naming.directory.Attributes) void
@@ -310,7 +310,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .javax.naming.ldap.Rdn#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Rdn#rdnValue#java.lang.Object
 - function: javax.naming.ldap.ExtendedResponse#getID
   signature:
     return: java.lang.String
@@ -385,17 +385,17 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from: arg(2)
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from:
     - arg(2)
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from:
     - arg(2)
     - '[*]'
@@ -405,15 +405,15 @@ passThrough:
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
   - from: arg(2)
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
 - function: javax.naming.ldap.PagedResultsResponseControl#<init>
   signature: (java.lang.String, boolean, byte[]) void
   taintCopyOnly: true
@@ -434,15 +434,15 @@ passThrough:
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.ExtendedRequest#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.ExtendedRequest#requestData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.ExtendedRequest#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.ExtendedRequest#requestData#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .javax.naming.ldap.ExtendedRequest#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.ExtendedRequest#requestData#java.lang.Object
 - function: javax.naming.ldap.Rdn#<init>
   signature: (java.lang.String, java.lang.Object) void
   taintCopyOnly: true
@@ -497,7 +497,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .javax.naming.ldap.Rdn#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Rdn#rdnValue#java.lang.Object
 - function: javax.naming.ldap.LdapName#getRdns
   signature: () java.util.List
   taintCopyOnly: true
@@ -520,7 +520,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .javax.naming.ldap.Rdn#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Rdn#rdnValue#java.lang.Object
 - function: javax.naming.ldap.BasicControl#<init>
   signature: (java.lang.String, boolean, byte[]) void
   taintCopyOnly: true
@@ -545,21 +545,21 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.SortControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.SortControl#sortKeys#java.lang.Object
 - function: javax.naming.ldap.Rdn#toAttributes
   signature: () javax.naming.directory.Attributes
   copy:
   - from:
     - this
-    - .javax.naming.ldap.Rdn#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Rdn#rdnValue#java.lang.Object
     to: result
 - function: javax.naming.ldap.ExtendedRequest#createExtendedResponse
   signature:
@@ -582,7 +582,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.SortKey#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.SortKey#sortKeyData#java.lang.Object
 - function: javax.naming.ldap.Control#getID
   signature: () java.lang.String
   taintCopyOnly: true
@@ -633,7 +633,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .javax.naming.ldap.Rdn#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Rdn#rdnValue#java.lang.Object
 - function: javax.naming.ldap.SortResponseControl#getAttributeID
   signature: () java.lang.String
   taintCopyOnly: true
@@ -676,33 +676,33 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.SortControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.SortControl#sortKeys#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.SortControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.SortControl#sortKeys#java.lang.Object
 - function: javax.naming.ldap.ExtendedRequest#createExtendedResponse
   signature:
     params:
@@ -718,7 +718,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.naming.ldap.SortKey#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.SortKey#sortKeyData#java.lang.Object
     to: result
 - function: javax.naming.ldap.Rdn#getValue
   signature: () java.lang.Object
@@ -750,39 +750,39 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.BasicControl#controlData#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .javax.naming.ldap.SortControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.SortControl#sortKeys#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Control#controlData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.SortControl#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.SortControl#sortKeys#java.lang.Object
 - function: javax.naming.ldap.Rdn#getValue
   signature: () java.lang.Object
   copy:
   - from:
     - this
-    - .javax.naming.ldap.Rdn#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Rdn#rdnValue#java.lang.Object
     to: result
 - function: javax.naming.ldap.SortControl#<init>
   signature: (javax.naming.ldap.SortKey[], boolean) void
@@ -802,7 +802,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .javax.naming.ldap.Rdn#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.Rdn#rdnValue#java.lang.Object
 - function: javax.naming.ldap.BasicControl#<init>
   signature:
     params:
@@ -836,8 +836,8 @@ passThrough:
   - from: arg(2)
     to:
     - this
-    - .javax.naming.ldap.SortKey#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.SortKey#sortKeyData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.naming.ldap.SortKey#<rule-storage>#java.lang.Object
+    - .javax.naming.ldap.SortKey#sortKeyData#java.lang.Object

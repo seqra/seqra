@@ -6,7 +6,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.axiom.om.OMComment#<rule-storage>#java.lang.Object
+    - .org.apache.axiom.om.OMComment#text#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.axiom.soap.SOAPHeader#examineMustUnderstandHeaderBlocks
@@ -23,7 +23,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.axiom.om.OMComment#<rule-storage>#java.lang.Object
+    - .org.apache.axiom.om.OMComment#text#java.lang.Object
     to: result
 - function: org.apache.axiom.om.OMElement#toStringWithConsume
   copy:
@@ -31,14 +31,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.axiom.om.OMElement#<rule-storage>#java.lang.Object
+    - .org.apache.axiom.om.OMElement#elementData#java.lang.Object
     to: result
 - function: org.apache.axiom.om.OMElement#setText
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.apache.axiom.om.OMElement#<rule-storage>#java.lang.Object
+    - .org.apache.axiom.om.OMElement#elementData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.axiom.soap.SOAPHeaderBlock#getRole
@@ -47,7 +47,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.axiom.soap.SOAPHeaderBlock#<rule-storage>#java.lang.Object
+    - .org.apache.axiom.soap.SOAPHeaderBlock#headerData#java.lang.Object
     to: result
 - function: org.apache.axiom.soap.SOAPHeader#examineAllHeaderBlocks
   copy:
@@ -64,14 +64,14 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axiom.soap.SOAPHeaderBlock#<rule-storage>#java.lang.Object
+    - .org.apache.axiom.soap.SOAPHeaderBlock#headerData#java.lang.Object
 - function: org.apache.axiom.om.OMElement#cloneOMElement
   copy:
   - from: this
     to: result
   - from:
     - this
-    - .org.apache.axiom.om.OMElement#<rule-storage>#java.lang.Object
+    - .org.apache.axiom.om.OMElement#elementData#java.lang.Object
     to: result
 - function: org.apache.axiom.soap.SOAPHeader#examineHeaderBlocks
   copy:
@@ -86,7 +86,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.axiom.om.OMElement#<rule-storage>#java.lang.Object
+    - .org.apache.axiom.om.OMElement#elementData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.axiom.soap.SOAPFault#setException
@@ -96,12 +96,12 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.axiom.soap.SOAPFault#<rule-storage>#java.lang.Object
+    - .org.apache.axiom.soap.SOAPFault#faultData#java.lang.Object
 - function: org.apache.axiom.soap.SOAPEnvelope#getHeader
   copy:
   - from:
     - this
-    - .org.apache.axiom.soap.SOAPEnvelope#<rule-storage>#java.lang.Object
+    - .org.apache.axiom.soap.SOAPEnvelope#envelopeContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -118,7 +118,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.apache.axiom.om.OMElement#<rule-storage>#java.lang.Object
+    - .org.apache.axiom.om.OMElement#elementData#java.lang.Object
   - from: arg(1)
     to: this
 - function: org.apache.axiom.soap.SOAPHeader#getHeaderBlocksWithNSURI
@@ -137,7 +137,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.axiom.soap.SOAPFault#<rule-storage>#java.lang.Object
+    - .org.apache.axiom.soap.SOAPFault#faultData#java.lang.Object
     to: result
   - from: this
     to: result

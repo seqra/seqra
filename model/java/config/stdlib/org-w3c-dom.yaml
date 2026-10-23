@@ -4,7 +4,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.Document#createEntityReference
   taintCopyOnly: true
@@ -15,11 +15,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Document#nodes#java.lang.Object
     to: result
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.Node#setNodeValue
   taintCopyOnly: true
@@ -42,17 +42,17 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.Document#getDocumentElement
   copy:
   - from:
     - this
-    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Document#nodes#java.lang.Object
     to: result
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.NamedNodeMap#getNamedItemNS
   signature:
@@ -97,7 +97,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.Document#importNode
   signature:
@@ -139,7 +139,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.Node#getChildNodes
   taintCopyOnly: true
@@ -176,11 +176,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Document#nodes#java.lang.Object
     to: result
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.Document#getElementById
   taintCopyOnly: true
@@ -199,7 +199,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.NamedNodeMap#getNamedItemNS
   taintCopyOnly: true
@@ -217,13 +217,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.Node#getOwnerDocument
   copy:
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.Document#createCDATASection
   taintCopyOnly: true
@@ -274,7 +274,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.NamedNodeMap#item
   signature:
@@ -290,7 +290,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.Node#getParentNode
   copy:
@@ -298,7 +298,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.Node#getTextContent
   signature:
@@ -317,11 +317,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Document#nodes#java.lang.Object
     to: result
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.NamedNodeMap#setNamedItem
   taintCopyOnly: true
@@ -333,12 +333,12 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
 - function: org.w3c.dom.Node#getTextContent
   copy:
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.Document#createAttributeNS
   taintCopyOnly: true
@@ -349,7 +349,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result
 - function: org.w3c.dom.Document#getDocumentElement
   taintCopyOnly: true
@@ -397,11 +397,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Document#nodes#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
 - function: org.w3c.dom.Node#getNodeValue
   signature:
     return: java.lang.String
@@ -414,5 +414,5 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    - .org.w3c.dom.Node#nodeData#java.lang.Object
     to: result

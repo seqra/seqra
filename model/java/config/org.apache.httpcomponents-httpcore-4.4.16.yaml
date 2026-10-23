@@ -7,11 +7,11 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.http.impl.io.AbstractSessionInputBuffer#<rule-storage>#java.lang.Object
+    - .org.apache.http.impl.io.AbstractSessionInputBuffer#buffer#java.lang.Object
     to: result
   - from:
     - this
-    - .org.apache.http.impl.io.AbstractSessionInputBuffer#<rule-storage>#java.lang.Object
+    - .org.apache.http.impl.io.AbstractSessionInputBuffer#buffer#java.lang.Object
     to: arg(0)
   - from: this
     to: arg(0)
@@ -28,7 +28,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.impl.io.AbstractSessionOutputBuffer#<rule-storage>#java.lang.Object
+    - .org.apache.http.impl.io.AbstractSessionOutputBuffer#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.NameValuePair#getName
@@ -37,7 +37,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.http.NameValuePair#<rule-storage>#java.lang.Object
+    - .org.apache.http.NameValuePair#pairData#java.lang.Object
     to: result
 - function:
     package: org.apache.http
@@ -47,7 +47,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.http.HeaderElement#<rule-storage>#java.lang.Object
+    - .org.apache.http.HeaderElement#elementData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -73,7 +73,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.entity.AbstractHttpEntity#<rule-storage>#java.lang.Object
+    - .org.apache.http.entity.AbstractHttpEntity#entityData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.impl.io.AbstractSessionInputBuffer#init
@@ -81,7 +81,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.impl.io.AbstractSessionInputBuffer#<rule-storage>#java.lang.Object
+    - .org.apache.http.impl.io.AbstractSessionInputBuffer#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.HttpEntity#<init>
@@ -89,7 +89,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.HttpEntity#<rule-storage>#java.lang.Object
+    - .org.apache.http.HttpEntity#content#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.HeaderElement#<init>
@@ -97,7 +97,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.http.HeaderElement#<rule-storage>#java.lang.Object
+    - .org.apache.http.HeaderElement#elementData#java.lang.Object
   - from: arg(*)
     to: this
 - function: org.apache.http.util.Args#notNull
@@ -112,7 +112,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.http.HeaderIterator#<rule-storage>#java.lang.Object
+    - .org.apache.http.HeaderIterator#headers#java.lang.Object
 - function:
     package: org.apache.http
     class: HeaderIterator
@@ -123,21 +123,21 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.http.HeaderIterator#<rule-storage>#java.lang.Object
+    - .org.apache.http.HeaderIterator#headers#java.lang.Object
     to: result
 - function: org.apache.http.HttpHost#<init>
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.HttpHost#<rule-storage>#java.lang.Object
+    - .org.apache.http.HttpHost#hostData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.HttpEntity#getContent
   copy:
   - from:
     - this
-    - .org.apache.http.HttpEntity#<rule-storage>#java.lang.Object
+    - .org.apache.http.HttpEntity#content#java.lang.Object
     to: result
   - from: this
     to: result
@@ -146,7 +146,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.message.BasicTokenIterator#<rule-storage>#java.lang.Object
+    - .org.apache.http.message.BasicTokenIterator#tokens#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.Header#<init>
@@ -156,7 +156,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.http.Header#<rule-storage>#java.lang.Object
+    - .org.apache.http.Header#headerData#java.lang.Object
 - function: org.apache.http.NameValuePair#<init>
   copy:
   - from: arg(*)
@@ -164,7 +164,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.http.NameValuePair#<rule-storage>#java.lang.Object
+    - .org.apache.http.NameValuePair#pairData#java.lang.Object
 - function: org.apache.http.RequestLine#getUri
   copy:
   - from: this
@@ -173,7 +173,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.http.HttpEntity#<rule-storage>#java.lang.Object
+    - .org.apache.http.HttpEntity#content#java.lang.Object
     to: result
   - from: this
     to: result
@@ -182,7 +182,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.util.ByteArrayBuffer#<rule-storage>#java.lang.Object
+    - .org.apache.http.util.ByteArrayBuffer#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function:
@@ -208,14 +208,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.http.NameValuePair#<rule-storage>#java.lang.Object
+    - .org.apache.http.NameValuePair#pairData#java.lang.Object
     to: result
 - function: org.apache.http.message.BasicStatusLine#<init>
   copy:
   - from: arg(2)
     to:
     - this
-    - .org.apache.http.message.BasicStatusLine#<rule-storage>#java.lang.Object
+    - .org.apache.http.message.BasicStatusLine#statusLine#java.lang.Object
   - from: arg(2)
     to: this
 - function: org.apache.http.params.HttpParams#getLongParameter
@@ -235,7 +235,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.util.CharArrayBuffer#<rule-storage>#java.lang.Object
+    - .org.apache.http.util.CharArrayBuffer#buffer#java.lang.Object
 - function: org.apache.http.util.EntityUtils#toString
   signature:
     params:
@@ -248,7 +248,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.http.Header#<rule-storage>#java.lang.Object
+    - .org.apache.http.Header#headerData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -259,7 +259,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.http.HeaderElementIterator#<rule-storage>#java.lang.Object
+    - .org.apache.http.HeaderElementIterator#headerElements#java.lang.Object
 - function: org.apache.http.util.Args#notEmpty
   signature: (*, java.lang.String) *
   copy:
@@ -273,7 +273,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.http.Header#<rule-storage>#java.lang.Object
+    - .org.apache.http.Header#headerData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -283,7 +283,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.http.NameValuePair#<rule-storage>#java.lang.Object
+    - .org.apache.http.NameValuePair#pairData#java.lang.Object
     to: result
 - function: org.apache.http.util.EntityUtils#updateEntity
   copy:
@@ -295,11 +295,11 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.http.impl.io.AbstractSessionInputBuffer#<rule-storage>#java.lang.Object
+    - .org.apache.http.impl.io.AbstractSessionInputBuffer#buffer#java.lang.Object
     to: result
   - from:
     - this
-    - .org.apache.http.impl.io.AbstractSessionInputBuffer#<rule-storage>#java.lang.Object
+    - .org.apache.http.impl.io.AbstractSessionInputBuffer#buffer#java.lang.Object
     to: arg(0)
   - from: this
     to: arg(0)
@@ -316,7 +316,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.http.HeaderElementIterator#<rule-storage>#java.lang.Object
+    - .org.apache.http.HeaderElementIterator#headerElements#java.lang.Object
     to: result
   - from: this
     to: result
@@ -324,7 +324,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.http.HeaderElement#<rule-storage>#java.lang.Object
+    - .org.apache.http.HeaderElement#elementData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -332,7 +332,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.http.HttpEntity#<rule-storage>#java.lang.Object
+    - .org.apache.http.HttpEntity#content#java.lang.Object
     to: arg(0)
   - from: this
     to: arg(0)
@@ -344,7 +344,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.http.util.CharArrayBuffer#<rule-storage>#java.lang.Object
+    - .org.apache.http.util.CharArrayBuffer#buffer#java.lang.Object
     to: result
   - from: this
     to: result
@@ -365,14 +365,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.impl.io.AbstractSessionOutputBuffer#<rule-storage>#java.lang.Object
+    - .org.apache.http.impl.io.AbstractSessionOutputBuffer#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.util.CharArrayBuffer#substringTrimmed
   copy:
   - from:
     - this
-    - .org.apache.http.util.CharArrayBuffer#<rule-storage>#java.lang.Object
+    - .org.apache.http.util.CharArrayBuffer#buffer#java.lang.Object
     to: result
   - from: this
     to: result
@@ -381,7 +381,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.impl.io.AbstractSessionOutputBuffer#<rule-storage>#java.lang.Object
+    - .org.apache.http.impl.io.AbstractSessionOutputBuffer#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.message.BasicRequestLine#<init>
@@ -391,12 +391,12 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.apache.http.message.BasicRequestLine#<rule-storage>#java.lang.Object
+    - .org.apache.http.message.BasicRequestLine#requestLine#java.lang.Object
 - function: org.apache.http.NameValuePair#toString
   copy:
   - from: this
     to: result
   - from:
     - this
-    - .org.apache.http.NameValuePair#<rule-storage>#java.lang.Object
+    - .org.apache.http.NameValuePair#pairData#java.lang.Object
     to: result

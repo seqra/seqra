@@ -5,7 +5,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.hadoop.record.BinaryRecordInput#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.record.BinaryRecordInput#recordData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -13,7 +13,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.hadoop.record.BinaryRecordInput#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.record.BinaryRecordInput#recordData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -28,7 +28,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.hadoop.record.BinaryRecordInput#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.record.BinaryRecordInput#recordData#java.lang.Object
 - function: org.apache.hadoop.record.CsvRecordOutput#writeString
   copy:
   - from: arg(0)
@@ -49,7 +49,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.hadoop.record.BinaryRecordInput#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.record.BinaryRecordInput#recordData#java.lang.Object
     to: result
   - from: this
     to: result

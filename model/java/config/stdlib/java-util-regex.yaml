@@ -67,7 +67,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from: this
     to: result
@@ -89,7 +89,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from: this
     to: result
@@ -139,14 +139,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
 - function: java.util.regex.Matcher#group
   signature: () java.lang.String
   copy:
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from:
     - this
@@ -249,7 +249,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from: this
     to: result
@@ -299,7 +299,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
 - function: java.util.regex.Matcher#group
   signature: (int) java.lang.String
@@ -308,7 +308,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
 - function: java.util.regex.Matcher#replaceFirst
   signature: (java.lang.String) java.lang.String
@@ -329,13 +329,13 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from: this
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: arg(0)
 - function: java.util.regex.Matcher#end
   signature: (int) int
@@ -344,7 +344,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from: this
     to: result
@@ -353,7 +353,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from:
     - this
@@ -427,7 +427,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from: this
     to: result
@@ -450,7 +450,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
 - function: java.util.regex.Matcher#appendTail
   signature: (*) java.lang.StringBuffer
@@ -525,7 +525,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
 - function: java.util.regex.Matcher#start
   signature: (java.lang.String) int
@@ -534,7 +534,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from: this
     to: result
@@ -543,7 +543,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from: this
     to: result
@@ -697,7 +697,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
 - function: java.util.regex.Matcher#replaceFirst
   signature: (*) java.lang.String
@@ -771,18 +771,18 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: arg(0)
 - function: java.util.regex.Matcher#lookingAt
   signature: () boolean
   copy:
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from: this
     to: result
@@ -823,7 +823,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
 - function: java.util.regex.Matcher#reset
   signature:
     params:
@@ -845,7 +845,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from: this
     to: result
@@ -862,13 +862,13 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from: this
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: arg(0)
 - function: java.util.regex.Matcher#useAnchoringBounds
   signature: (*) java.util.regex.Matcher
@@ -910,11 +910,11 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: arg(0)
 - function: java.util.regex.Pattern#pattern
   signature: () java.lang.String
@@ -929,7 +929,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from: this
     to: result
@@ -946,7 +946,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.util.regex.Matcher#<rule-storage>#java.lang.Object
+    - .java.util.regex.Matcher#input#java.lang.Object
     to: result
   - from: this
     to: result

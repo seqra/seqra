@@ -8,7 +8,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#fields#java.lang.Object
 - function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchStringField
   copy:
   - from: this
@@ -20,7 +20,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#fields#java.lang.Object
 - function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#storeIntField
   copy:
   - from: arg(1)
@@ -28,7 +28,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#fields#java.lang.Object
 - function: javax.jdo.spi.StateManager#setShortField
   copy:
   - from: arg(3)
@@ -44,7 +44,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#fields#java.lang.Object
 - function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchBooleanField
   copy:
   - from: this
@@ -92,7 +92,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#fields#java.lang.Object
 - function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchLongField
   copy:
   - from: this
@@ -104,7 +104,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#fields#java.lang.Object
 - function: javax.jdo.Extent#iterator
   copy:
   - from: this
@@ -116,7 +116,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#fields#java.lang.Object
 - function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#storeByteField
   copy:
   - from: arg(1)
@@ -124,7 +124,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#fields#java.lang.Object
 - function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#storeLongField
   copy:
   - from: arg(1)
@@ -132,7 +132,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#fields#java.lang.Object
 - function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchShortField
   copy:
   - from: this
@@ -142,7 +142,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.jdo.spi.PersistenceCapable#<rule-storage>#java.lang.Object
+    - .javax.jdo.spi.PersistenceCapable#persistentFields#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchDoubleField
@@ -252,4 +252,4 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#fields#java.lang.Object

@@ -11,13 +11,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.jms.BytesMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.BytesMessage#body#java.lang.Object
     to: result
 - function: javax.jms.MapMessage#getChar
   copy:
   - from:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
     to: result
   - from: this
     to: result
@@ -25,7 +25,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
     to: result
   - from: this
     to: result
@@ -38,7 +38,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jms.Message#<rule-storage>#java.lang.Object
+    - .javax.jms.Message#messageProperties#java.lang.Object
   - from: arg(1)
     to: this
 - function:
@@ -52,12 +52,12 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.jms.Message#<rule-storage>#java.lang.Object
+    - .javax.jms.Message#messageProperties#java.lang.Object
 - function: javax.jms.MapMessage#getString
   copy:
   - from:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
     to: result
   - from: this
     to: result
@@ -66,7 +66,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
   - from: arg(1)
     to: this
 - function: javax.jms.MapMessage#setBoolean
@@ -74,7 +74,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
   - from: arg(1)
     to: this
 - function: javax.jms.ObjectMessage#setObject
@@ -82,7 +82,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.jms.ObjectMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.ObjectMessage#body#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.jms.Session#createTextMessage
@@ -93,7 +93,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
     to: result
   - from: this
     to: result
@@ -101,7 +101,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
     to: result
   - from: this
     to: result
@@ -109,7 +109,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
     to: result
   - from: this
     to: result
@@ -118,14 +118,14 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
   - from: arg(1)
     to: this
 - function: javax.jms.MapMessage#getShort
   copy:
   - from:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
     to: result
   - from: this
     to: result
@@ -133,7 +133,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.jms.ObjectMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.ObjectMessage#body#java.lang.Object
     to: result
   - from: this
     to: result
@@ -142,7 +142,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
   - from: arg(1)
     to: this
 - function:
@@ -153,7 +153,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.jms.Message#<rule-storage>#java.lang.Object
+    - .javax.jms.Message#messageProperties#java.lang.Object
     to: result
   - from: this
     to: result
@@ -169,7 +169,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
     to: result
   - from: this
     to: result
@@ -177,7 +177,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.jms.TextMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.TextMessage#text#java.lang.Object
     to: result
   - from: this
     to: result
@@ -185,7 +185,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
     to: result
   - from: this
     to: result
@@ -197,7 +197,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.jms.StreamMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.StreamMessage#buffer#java.lang.Object
     to: result
   - from: this
     to: result
@@ -209,7 +209,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.jms.Message#<rule-storage>#java.lang.Object
+    - .javax.jms.Message#messageProperties#java.lang.Object
     to: result
   - from: this
     to: result
@@ -222,14 +222,14 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
   - from: arg(1)
     to: this
 - function: javax.jms.MapMessage#getObject
   copy:
   - from:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
     to: result
   - from: this
     to: result
@@ -238,7 +238,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
   - from: arg(1)
     to: this
 - function:
@@ -250,7 +250,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.jms.StreamMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.StreamMessage#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.jms.MapMessage#setObject
@@ -258,14 +258,14 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
   - from: arg(1)
     to: this
 - function: javax.jms.MapMessage#getFloat
   copy:
   - from:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
     to: result
   - from: this
     to: result
@@ -274,7 +274,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
   - from: arg(1)
     to: this
 - function: javax.jms.MapMessage#setShort
@@ -282,7 +282,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
   - from: arg(1)
     to: this
 - function: javax.jms.MapMessage#setDouble
@@ -290,7 +290,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
   - from: arg(1)
     to: this
 - function: javax.jms.BytesMessage#getBodyLength
@@ -299,7 +299,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.jms.BytesMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.BytesMessage#body#java.lang.Object
     to: result
 - function:
     package: javax.jms
@@ -316,7 +316,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.jms.TextMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.TextMessage#text#java.lang.Object
 - function:
     package: javax.jms
     class: BytesMessage
@@ -326,7 +326,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.jms.BytesMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.BytesMessage#body#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.jms.MapMessage#setString
@@ -334,6 +334,6 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    - .javax.jms.MapMessage#body#java.lang.Object
   - from: arg(1)
     to: this

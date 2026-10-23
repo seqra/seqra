@@ -7,14 +7,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpMethod#setQueryString
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.NameValuePair#<init>
@@ -22,7 +22,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.commons.httpclient.NameValuePair#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NameValuePair#pairData#java.lang.Object
   - from: arg(*)
     to: this
 - function: org.apache.commons.httpclient.HttpMethodBase#getURI
@@ -31,7 +31,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.cookie.CookieSpec#formatCookieHeader
   copy:
@@ -43,13 +43,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HostConfiguration#getHost
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HostConfiguration#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HostConfiguration#host#java.lang.Object
     to: result
   - from: this
     to: result
@@ -59,7 +59,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HeaderElement#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HeaderElement#elementData#java.lang.Object
     to: result
 - function:
     package: org.apache.commons.httpclient
@@ -72,14 +72,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpConnection#connectionData#java.lang.Object
 - function: org.apache.commons.httpclient.HttpMethodBase#getResponseStream
   copy:
   - from: this
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpMethod#setRequestHeader
   copy:
@@ -88,13 +88,13 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
 - function: org.apache.commons.httpclient.HostConfiguration#setHost
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HostConfiguration#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HostConfiguration#host#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.HttpMethodBase#setHostConfiguration
@@ -102,7 +102,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.HttpConnection#setLastResponseInputStream
@@ -112,7 +112,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpConnection#connectionData#java.lang.Object
 - function: org.apache.commons.httpclient.cookie.CookieSpec#formatCookie
   copy:
   - from: arg(0)
@@ -122,14 +122,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.StatusLine#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.StatusLine#statusText#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.HttpMethod#getResponseBodyAsString
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -138,7 +138,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.UsernamePasswordCredentials#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.UsernamePasswordCredentials#credentialData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.Cookie#getDomain
@@ -153,7 +153,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HeaderGroup#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HeaderGroup#headers#java.lang.Object
     to: result
   - from: this
     to: result
@@ -173,7 +173,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -184,14 +184,14 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.commons.httpclient.Header#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.Header#headerData#java.lang.Object
 - function: org.apache.commons.httpclient.HttpMethodBase#getResponseBodyAsString
   copy:
   - from: this
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.util.URIUtil#getQuery
   copy:
@@ -203,7 +203,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HeaderElement#getParameters
   copy:
@@ -211,7 +211,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HeaderElement#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HeaderElement#elementData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpMethodBase#getRequestCharSet
   copy:
@@ -219,7 +219,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpConstants#getContentBytes
   copy:
@@ -230,7 +230,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.util.URIUtil#getPath
@@ -242,14 +242,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.HttpMethod#getRequestHeaders
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -262,7 +262,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.NameValuePair#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NameValuePair#pairData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.Cookie#getPath
@@ -274,14 +274,14 @@ passThrough:
   - from: arg(2)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpState#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpState#credentialData#java.lang.Object
   - from: arg(2)
     to: this
 - function: org.apache.commons.httpclient.HttpMethod#getRequestHeader
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -291,7 +291,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HeaderElement#<init>
   copy:
@@ -300,14 +300,14 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.commons.httpclient.HeaderElement#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HeaderElement#elementData#java.lang.Object
 - function: org.apache.commons.httpclient.HttpMethodBase#getResponseHeaderGroup
   copy:
   - from: this
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpState#getProxyCredentials
   copy:
@@ -315,7 +315,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpState#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpState#credentialData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpConnection#getHost
   copy:
@@ -323,7 +323,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpConnection#connectionData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.NTCredentials#getHost
   copy:
@@ -331,13 +331,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NTCredentials#credentialData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HeaderGroup#getHeaders
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HeaderGroup#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HeaderGroup#headers#java.lang.Object
     to: result
   - from: this
     to: result
@@ -347,14 +347,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.UsernamePasswordCredentials#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.UsernamePasswordCredentials#credentialData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.NTCredentials#setHost
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NTCredentials#credentialData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.HeaderGroup#setHeaders
@@ -362,14 +362,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HeaderGroup#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HeaderGroup#headers#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.HttpMethod#getQueryString
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -377,7 +377,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.Header#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.Header#headerData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -385,7 +385,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -393,7 +393,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -406,7 +406,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.NameValuePair#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NameValuePair#pairData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.HeaderElement#getParameterByName
@@ -415,7 +415,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HeaderElement#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HeaderElement#elementData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpMethodBase#setRequestHeader
   copy:
@@ -424,20 +424,20 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(*)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
 - function: org.apache.commons.httpclient.UsernamePasswordCredentials#getUserName
   copy:
   - from: this
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.UsernamePasswordCredentials#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.UsernamePasswordCredentials#credentialData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.NTCredentials#getDomain
   copy:
@@ -445,13 +445,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NTCredentials#credentialData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpMethod#getResponseBody
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -461,7 +461,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.util.URIUtil#getFromPath
   copy:
@@ -477,7 +477,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpConnection#connectionData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpConstants#getString
   copy:
@@ -488,7 +488,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.UsernamePasswordCredentials#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.UsernamePasswordCredentials#credentialData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.HttpConstants#getAsciiBytes
@@ -500,7 +500,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.HttpConnection#<init>
@@ -518,7 +518,7 @@ passThrough:
   - from: arg(2)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpConnection#connectionData#java.lang.Object
   - from: arg(2)
     to: this
   - from: arg(0)
@@ -526,14 +526,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpConnection#connectionData#java.lang.Object
 - function: org.apache.commons.httpclient.HttpMethodBase#getRequestHeader
   copy:
   - from: this
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpState#toString
   copy:
@@ -541,7 +541,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpState#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpState#credentialData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpConnection#setProxyHost
   copy:
@@ -550,20 +550,20 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpConnection#connectionData#java.lang.Object
 - function: org.apache.commons.httpclient.HttpMethodBase#getResponseFooter
   copy:
   - from: this
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpMethod#getPath
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -571,7 +571,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HostConfiguration#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HostConfiguration#host#java.lang.Object
     to: result
   - from: this
     to: result
@@ -582,14 +582,14 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.commons.httpclient.UsernamePasswordCredentials#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.UsernamePasswordCredentials#credentialData#java.lang.Object
 - function: org.apache.commons.httpclient.NTCredentials#toString
   copy:
   - from: this
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NTCredentials#credentialData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpMethodBase#addRequestHeader
   copy:
@@ -598,13 +598,13 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
 - function: org.apache.commons.httpclient.HttpMethodBase#addResponseFooter
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.HttpConnection#setHost
@@ -614,7 +614,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpConnection#connectionData#java.lang.Object
 - function: org.apache.commons.httpclient.cookie.CookieSpec#parse
   copy:
   - from: arg(*)
@@ -625,7 +625,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.cookie.CookieSpec#parseAttribute
   copy:
@@ -637,14 +637,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpConnection#connectionData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpMethod#setPath
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.util.URIUtil#getPathQuery
@@ -657,7 +657,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.NameValuePair#getValue
   copy:
@@ -665,7 +665,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.NameValuePair#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NameValuePair#pairData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpMethodBase#getResponseFooters
   copy:
@@ -673,14 +673,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpMethodBase#setPath
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.NameValuePair#getName
@@ -689,13 +689,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.NameValuePair#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NameValuePair#pairData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HeaderGroup#getFirstHeader
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HeaderGroup#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HeaderGroup#headers#java.lang.Object
     to: result
   - from: this
     to: result
@@ -705,7 +705,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpMethodBase#getResponseBody
   copy:
@@ -713,7 +713,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.util.URIUtil#getName
   copy:
@@ -725,7 +725,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.NameValuePair#toString
   copy:
@@ -733,7 +733,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.NameValuePair#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NameValuePair#pairData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HttpConnection#<init>
   signature:
@@ -750,7 +750,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpConnection#connectionData#java.lang.Object
   - from: arg(1)
     to: this
   - from: arg(0)
@@ -758,12 +758,12 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpConnection#connectionData#java.lang.Object
 - function: org.apache.commons.httpclient.HttpMethod#getURI
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -773,21 +773,21 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethodBase#exchangeData#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.NTCredentials#setDomain
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NTCredentials#credentialData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.Header#getValues
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.Header#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.Header#headerData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -795,7 +795,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -806,17 +806,17 @@ passThrough:
   - from: arg(2)
     to:
     - this
-    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NTCredentials#credentialData#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NTCredentials#credentialData#java.lang.Object
   - from: arg(1)
     to: this
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NTCredentials#credentialData#java.lang.Object
   - from: arg(2)
     to: this
   - from: arg(0)
@@ -824,7 +824,7 @@ passThrough:
   - from: arg(3)
     to:
     - this
-    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.NTCredentials#credentialData#java.lang.Object
 - function: org.apache.commons.httpclient.HttpMethod#addRequestHeader
   copy:
   - from: arg(*)
@@ -832,12 +832,12 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
 - function: org.apache.commons.httpclient.HttpMethod#getResponseHeaders
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -845,7 +845,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpMethod#exchangeData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -855,13 +855,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.httpclient.StatusLine#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.StatusLine#statusText#java.lang.Object
     to: result
 - function: org.apache.commons.httpclient.HostConfiguration#toString
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HostConfiguration#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HostConfiguration#host#java.lang.Object
     to: result
   - from: this
     to: result
@@ -869,7 +869,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.HeaderGroup#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HeaderGroup#headers#java.lang.Object
     to: result
   - from: this
     to: result
@@ -881,7 +881,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.httpclient.Header#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.Header#headerData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -890,7 +890,7 @@ passThrough:
   - from: arg(2)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpState#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpState#credentialData#java.lang.Object
   - from: arg(2)
     to: this
 - function: org.apache.commons.httpclient.HeaderGroup#addHeader
@@ -898,7 +898,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HeaderGroup#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HeaderGroup#headers#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.httpclient.HttpConnection#<init>
@@ -922,11 +922,11 @@ passThrough:
   - from: arg(2)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpConnection#connectionData#java.lang.Object
   - from: arg(3)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpConnection#connectionData#java.lang.Object
   - from: arg(2)
     to: this
   - from: arg(0)
@@ -934,7 +934,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    - .org.apache.commons.httpclient.HttpConnection#connectionData#java.lang.Object
 - function: org.apache.commons.httpclient.HttpMethodBase#getContentCharSet
   copy:
   - from: arg(0)

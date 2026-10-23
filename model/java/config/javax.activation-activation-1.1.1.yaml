@@ -5,7 +5,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.activation.DataHandler#<rule-storage>#java.lang.Object
+    - .javax.activation.DataHandler#data#java.lang.Object
     to: arg(0)
   - from: this
     to: arg(0)
@@ -14,7 +14,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.activation.FileDataSource#<rule-storage>#java.lang.Object
+    - .javax.activation.FileDataSource#path#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.activation.DataHandler#getInputStream
@@ -23,7 +23,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.activation.DataHandler#<rule-storage>#java.lang.Object
+    - .javax.activation.DataHandler#data#java.lang.Object
     to: result
 - function: javax.activation.DataContentHandler#getContent
   copy:
@@ -39,7 +39,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.activation.DataHandler#<rule-storage>#java.lang.Object
+    - .javax.activation.DataHandler#data#java.lang.Object
     to: result
 - function: javax.activation.DataHandler#getDataSource
   copy:
@@ -47,7 +47,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.activation.DataHandler#<rule-storage>#java.lang.Object
+    - .javax.activation.DataHandler#data#java.lang.Object
     to: result
 - function: javax.activation.DataContentHandler#getTransferData
   copy:
@@ -62,7 +62,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.activation.DataHandler#<rule-storage>#java.lang.Object
+    - .javax.activation.DataHandler#data#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.activation.URLDataSource#<init>
@@ -70,6 +70,6 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.activation.URLDataSource#<rule-storage>#java.lang.Object
+    - .javax.activation.URLDataSource#path#java.lang.Object
   - from: arg(0)
     to: this

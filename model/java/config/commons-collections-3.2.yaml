@@ -176,7 +176,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.collections.LRUMap#<rule-storage>#java.lang.Object
+    - .org.apache.commons.collections.LRUMap#entries#java.lang.Object
     to: result
   - from: this
     to: result
@@ -185,11 +185,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.collections.LRUMap#<rule-storage>#java.lang.Object
+    - .org.apache.commons.collections.LRUMap#entries#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .org.apache.commons.collections.LRUMap#<rule-storage>#java.lang.Object
+    - .org.apache.commons.collections.LRUMap#entries#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.collections.map.LinkedMap#remove
@@ -313,7 +313,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.collections.map.AbstractHashedMap#<rule-storage>#java.lang.Object
+    - .org.apache.commons.collections.map.AbstractHashedMap#entries#java.lang.Object
     to: result
 - function: org.apache.commons.collections.map.LinkedMap#get
   signature: (int) *
@@ -646,7 +646,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.collections.map.AbstractHashedMap#<rule-storage>#java.lang.Object
+    - .org.apache.commons.collections.map.AbstractHashedMap#entries#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.collections.CollectionUtils#selectRejected
@@ -1227,7 +1227,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.collections.LRUMap#<rule-storage>#java.lang.Object
+    - .org.apache.commons.collections.LRUMap#entries#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.collections.MapUtils#fixedSizeSortedMap
@@ -1725,7 +1725,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.collections.LRUMap#<rule-storage>#java.lang.Object
+    - .org.apache.commons.collections.LRUMap#entries#java.lang.Object
     to: arg(0)
   - from: this
     to: arg(0)
@@ -1973,7 +1973,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.collections.LRUMap#<rule-storage>#java.lang.Object
+    - .org.apache.commons.collections.LRUMap#entries#java.lang.Object
     to: result
   - from: this
     to: result

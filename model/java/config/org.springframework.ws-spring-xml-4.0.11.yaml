@@ -6,7 +6,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.xml.transform.StringSource#<rule-storage>#java.lang.Object
+    - .org.springframework.xml.transform.StringSource#text#java.lang.Object
 - function: org.springframework.xml.transform.StringSource#<init>
   signature:
     params:

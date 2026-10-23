@@ -125,17 +125,17 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.util.concurrent.Future#<rule-storage>#java.lang.Object
+    - .java.util.concurrent.Future#completedValue#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.util.concurrent.CompletableFuture#<rule-storage>#java.lang.Object
+    - .java.util.concurrent.CompletableFuture#completionResult#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .java.util.concurrent.CompletionStage#<rule-storage>#java.lang.Object
+    - .java.util.concurrent.CompletionStage#result#java.lang.Object
 - function: java.util.concurrent.ConcurrentHashMap#replace
   signature: (java.lang.Object, java.lang.Object) java.lang.Object
   copy:
@@ -173,15 +173,15 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.util.concurrent.CompletionStage#<rule-storage>#java.lang.Object
+    - .java.util.concurrent.CompletionStage#result#java.lang.Object
     to: result
   - from:
     - this
-    - .java.util.concurrent.Future#<rule-storage>#java.lang.Object
+    - .java.util.concurrent.Future#completedValue#java.lang.Object
     to: result
   - from:
     - this
-    - .java.util.concurrent.CompletableFuture#<rule-storage>#java.lang.Object
+    - .java.util.concurrent.CompletableFuture#completionResult#java.lang.Object
     to: result
 - function: java.util.concurrent.CompletableFuture#complete
   signature: (java.lang.Object) boolean
@@ -260,17 +260,17 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.util.concurrent.Future#<rule-storage>#java.lang.Object
+    - .java.util.concurrent.Future#completedValue#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.util.concurrent.CompletableFuture#<rule-storage>#java.lang.Object
+    - .java.util.concurrent.CompletableFuture#completionResult#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .java.util.concurrent.CompletionStage#<rule-storage>#java.lang.Object
+    - .java.util.concurrent.CompletionStage#result#java.lang.Object
 - function: java.util.concurrent.ConcurrentHashMap#elements
   signature: () java.util.Enumeration
   copy:
@@ -336,15 +336,15 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.util.concurrent.CompletionStage#<rule-storage>#java.lang.Object
+    - .java.util.concurrent.CompletionStage#result#java.lang.Object
     to: result
   - from:
     - this
-    - .java.util.concurrent.Future#<rule-storage>#java.lang.Object
+    - .java.util.concurrent.Future#completedValue#java.lang.Object
     to: result
   - from:
     - this
-    - .java.util.concurrent.CompletableFuture#<rule-storage>#java.lang.Object
+    - .java.util.concurrent.CompletableFuture#completionResult#java.lang.Object
     to: result
 - function: java.util.concurrent.ConcurrentHashMap#reduceKeys
   signature: (long, java.util.function.BiFunction) java.lang.Object

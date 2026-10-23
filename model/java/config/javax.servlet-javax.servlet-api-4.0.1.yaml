@@ -137,7 +137,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.ServletRequestWrapper#<rule-storage>#java.lang.Object
+    - .javax.servlet.ServletRequestWrapper#request#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.servlet.http.Cookie#setComment

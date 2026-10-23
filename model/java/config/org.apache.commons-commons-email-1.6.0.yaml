@@ -12,7 +12,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.mail.util.MimeMessageParser#<rule-storage>#java.lang.Object
+    - .org.apache.commons.mail.util.MimeMessageParser#messageData#java.lang.Object
 - function: org.apache.commons.mail.util.MimeMessageUtils#createMimeMessage
   copy:
   - from: arg(1)
@@ -23,7 +23,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.mail.util.MimeMessageParser#<rule-storage>#java.lang.Object
+    - .org.apache.commons.mail.util.MimeMessageParser#messageData#java.lang.Object
     to: result
 - function:
     package: org.apache.commons.mail.util
@@ -35,5 +35,5 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.mail.util.MimeMessageParser#<rule-storage>#java.lang.Object
+    - .org.apache.commons.mail.util.MimeMessageParser#messageData#java.lang.Object
     to: result

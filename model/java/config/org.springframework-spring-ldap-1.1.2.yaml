@@ -15,7 +15,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.springframework.ldap.support.LdapRdn#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.LdapRdn#rdnData#java.lang.Object
 - function: org.springframework.ldap.support.control.PagedResult#getResultList
   taintCopyOnly: true
   copy:
@@ -46,7 +46,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.support.DefaultDnParserFactory#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.DefaultDnParserFactory#parserConfiguration#java.lang.Object
 - function: org.springframework.ldap.support.LdapRdn#addComponent
   signature:
     params:
@@ -83,18 +83,18 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.ldap.support.LdapRdn#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.LdapRdn#rdnData#java.lang.Object
     to: result
 - function: org.springframework.ldap.support.filter.CompareFilter#<init>
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.support.filter.CompareFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.CompareFilter#comparisonData#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .org.springframework.ldap.support.filter.CompareFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.CompareFilter#comparisonData#java.lang.Object
 - function: org.springframework.ldap.support.filter.NotFilter#<init>
   taintCopyOnly: true
   copy:
@@ -131,7 +131,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.ldap.support.LdapRdn#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.LdapRdn#rdnData#java.lang.Object
     to: result
 - function: org.springframework.ldap.support.control.PagedResultsRequestControl#<init>
   taintCopyOnly: true
@@ -165,11 +165,11 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.springframework.ldap.support.filter.EqualsFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.EqualsFilter#comparisonData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.support.filter.EqualsFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.EqualsFilter#comparisonData#java.lang.Object
 - function: org.springframework.ldap.support.filter.GreaterThanOrEqualsFilter#<init>
   signature:
     params:
@@ -195,7 +195,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.support.control.PagedResultsCookie#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.control.PagedResultsCookie#encodedCookie#java.lang.Object
 - function: org.springframework.ldap.support.LdapRdnComponent#getValue
   taintCopyOnly: true
   copy:
@@ -229,17 +229,17 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.springframework.ldap.support.filter.WhitespaceWildcardsFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.WhitespaceWildcardsFilter#comparisonData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.support.filter.WhitespaceWildcardsFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.WhitespaceWildcardsFilter#comparisonData#java.lang.Object
 - function: org.springframework.ldap.support.filter.AndFilter#and
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.support.filter.AndFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.AndFilter#filters#java.lang.Object
 - function: org.springframework.ldap.support.control.PagedResult#getResultList
   signature:
     return: java.util.List
@@ -265,11 +265,11 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.springframework.ldap.support.filter.LessThanOrEqualsFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.LessThanOrEqualsFilter#comparisonData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.support.filter.LessThanOrEqualsFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.LessThanOrEqualsFilter#comparisonData#java.lang.Object
 - function: org.springframework.ldap.support.LdapRdnComponent#setValue
   signature:
     params:
@@ -294,31 +294,31 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.springframework.ldap.support.control.PagedResult#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.control.PagedResult#pageData#java.lang.Object
 - function: org.springframework.ldap.support.control.PagedResultsRequestControl#getCookie
   copy:
   - from:
     - this
-    - .org.springframework.ldap.support.control.PagedResultsRequestControl#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.control.PagedResultsRequestControl#cookie#java.lang.Object
     to: result
 - function: org.springframework.ldap.CollectingNameClassPairCallbackHandler#getList
   copy:
   - from:
     - this
-    - .org.springframework.ldap.CollectingNameClassPairCallbackHandler#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.CollectingNameClassPairCallbackHandler#nameClassPairs#java.lang.Object
     to: result
 - function: org.springframework.ldap.CollectingNameClassPairCallbackHandler#handleNameClassPair
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.CollectingNameClassPairCallbackHandler#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.CollectingNameClassPairCallbackHandler#nameClassPairs#java.lang.Object
 - function: org.springframework.ldap.support.LdapRdnComponent#setKey
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.support.LdapRdnComponent#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.LdapRdnComponent#componentData#java.lang.Object
 - function: org.springframework.ldap.support.LdapRdnComponent#<init>
   signature:
     params:
@@ -334,7 +334,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.support.filter.NotFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.NotFilter#filter#java.lang.Object
 - function: org.springframework.ldap.support.filter.GreaterThanOrEqualsFilter#<init>
   signature:
     params:
@@ -397,28 +397,28 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.ldap.support.LdapRdnComponent#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.LdapRdnComponent#componentData#java.lang.Object
     to: result
 - function: org.springframework.ldap.support.filter.LikeFilter#<init>
   copy:
   - from: arg(1)
     to:
     - this
-    - .org.springframework.ldap.support.filter.LikeFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.LikeFilter#comparisonData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.support.filter.LikeFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.LikeFilter#comparisonData#java.lang.Object
 - function: org.springframework.ldap.support.filter.GreaterThanOrEqualsFilter#<init>
   copy:
   - from: arg(1)
     to:
     - this
-    - .org.springframework.ldap.support.filter.GreaterThanOrEqualsFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.GreaterThanOrEqualsFilter#comparisonData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.support.filter.GreaterThanOrEqualsFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.GreaterThanOrEqualsFilter#comparisonData#java.lang.Object
 - function: org.springframework.ldap.support.filter.EqualsFilter#<init>
   taintCopyOnly: true
   copy:
@@ -430,7 +430,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.ldap.support.LdapRdnComponent#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.LdapRdnComponent#componentData#java.lang.Object
     to: result
 - function: org.springframework.ldap.support.LdapRdnComponent#setValue
   taintCopyOnly: true
@@ -476,7 +476,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.springframework.ldap.support.LdapRdn#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.LdapRdn#rdnData#java.lang.Object
 - function: org.springframework.ldap.support.filter.CompareFilter#<init>
   taintCopyOnly: true
   copy:
@@ -536,7 +536,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.ldap.support.control.PagedResultsCookie#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.control.PagedResultsCookie#encodedCookie#java.lang.Object
     to: result
 - function: org.springframework.ldap.support.filter.CompareFilter#<init>
   signature:
@@ -585,7 +585,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.ldap.support.control.PagedResult#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.control.PagedResult#pageData#java.lang.Object
     to: result
 - function: org.springframework.ldap.support.DirContextOperations#getDn
   signature:
@@ -670,7 +670,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.ldap.support.control.PagedResult#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.control.PagedResult#pageData#java.lang.Object
     to: result
 - function: org.springframework.ldap.CollectingNameClassPairCallbackHandler#getList
   taintCopyOnly: true
@@ -687,7 +687,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.support.filter.OrFilter#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.filter.OrFilter#filters#java.lang.Object
 - function: org.springframework.ldap.support.LdapRdn#getComponent
   signature: (*) org.springframework.ldap.support.LdapRdnComponent
   copy:
@@ -709,11 +709,11 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.springframework.ldap.support.LdapRdnComponent#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.LdapRdnComponent#componentData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.support.LdapRdnComponent#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.LdapRdnComponent#componentData#java.lang.Object
 - function: org.springframework.ldap.support.LdapRdnComponent#getKey
   signature:
     return: java.lang.String
@@ -737,7 +737,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.springframework.ldap.support.control.PagedResultsRequestControl#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.control.PagedResultsRequestControl#cookie#java.lang.Object
 - function: org.springframework.ldap.support.control.PagedResultsRequestControl#getCookie
   signature:
     return: org.springframework.ldap.support.control.PagedResultsCookie
@@ -751,7 +751,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.ldap.support.LdapRdnComponent#<rule-storage>#java.lang.Object
+    - .org.springframework.ldap.support.LdapRdnComponent#componentData#java.lang.Object
 - function: org.springframework.ldap.support.filter.AndFilter#and
   taintCopyOnly: true
   copy:

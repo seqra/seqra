@@ -21,12 +21,12 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.springframework.web.multipart.commons.CommonsFileUploadSupport$MultipartParsingResult#<rule-storage>#java.lang.Object
+    - .org.springframework.web.multipart.commons.CommonsFileUploadSupport$MultipartParsingResult#multipartData#java.lang.Object
 - function: org.springframework.web.multipart.commons.CommonsFileUploadSupport$MultipartParsingResult#getMultipartParameters
   copy:
   - from:
     - this
-    - .org.springframework.web.multipart.commons.CommonsFileUploadSupport$MultipartParsingResult#<rule-storage>#java.lang.Object
+    - .org.springframework.web.multipart.commons.CommonsFileUploadSupport$MultipartParsingResult#multipartData#java.lang.Object
     to: result
 - function: org.springframework.web.multipart.commons.CommonsFileUploadSupport$MultipartParsingResult#<init>
   signature:
@@ -73,7 +73,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.web.multipart.commons.CommonsFileUploadSupport$MultipartParsingResult#<rule-storage>#java.lang.Object
+    - .org.springframework.web.multipart.commons.CommonsFileUploadSupport$MultipartParsingResult#multipartData#java.lang.Object
     to: result
 - function: org.springframework.web.multipart.commons.CommonsFileUploadSupport#parseFileItems
   taintCopyOnly: true

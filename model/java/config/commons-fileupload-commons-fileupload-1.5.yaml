@@ -11,7 +11,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.commons.fileupload.FileItemHeadersSupport#<rule-storage>#java.lang.Object
+    - .org.apache.commons.fileupload.FileItemHeadersSupport#entries#java.lang.Object
     to: result
 - function: org.apache.commons.fileupload.ParameterParser#parse
   copy:
@@ -28,7 +28,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.fileupload.FileItemHeadersSupport#<rule-storage>#java.lang.Object
+    - .org.apache.commons.fileupload.FileItemHeadersSupport#entries#java.lang.Object
 - function: org.apache.commons.fileupload.FileItem#getInputStream
   copy:
   - from: this

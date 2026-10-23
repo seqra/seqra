@@ -38,7 +38,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.google.gson.stream.JsonReader#<rule-storage>#java.lang.Object
+    - .com.google.gson.stream.JsonReader#inputContent#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.google.gson.stream.JsonWriter#endArray
@@ -47,7 +47,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    - .com.google.gson.stream.JsonWriter#buffer#java.lang.Object
     to: result
 - function: com.google.gson.JsonStreamParser#<init>
   signature:
@@ -61,7 +61,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.google.gson.JsonStreamParser#<rule-storage>#java.lang.Object
+    - .com.google.gson.JsonStreamParser#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.google.gson.stream.JsonWriter#beginArray
@@ -70,7 +70,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    - .com.google.gson.stream.JsonWriter#buffer#java.lang.Object
     to: result
 - function: com.google.gson.JsonElement#getAsCharacter
   copy:
@@ -90,7 +90,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    - .com.google.gson.stream.JsonWriter#buffer#java.lang.Object
     to: result
 - function: com.google.gson.Gson#fromJson
   condition:
@@ -124,7 +124,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    - .com.google.gson.stream.JsonWriter#buffer#java.lang.Object
     to: result
 - function: com.google.gson.Gson#toJson
   signature:
@@ -139,7 +139,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    - .com.google.gson.stream.JsonWriter#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.google.gson.JsonObject#get
@@ -208,7 +208,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.google.gson.stream.JsonReader#<rule-storage>#java.lang.Object
+    - .com.google.gson.stream.JsonReader#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -233,7 +233,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    - .com.google.gson.stream.JsonWriter#buffer#java.lang.Object
     to: result
 - function: com.google.gson.JsonObject#add
   copy:
@@ -271,7 +271,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.google.gson.stream.JsonReader#<rule-storage>#java.lang.Object
+    - .com.google.gson.stream.JsonReader#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -281,7 +281,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    - .com.google.gson.stream.JsonWriter#buffer#java.lang.Object
     to: result
 - function: com.google.gson.JsonStreamParser#<init>
   signature:
@@ -292,7 +292,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.google.gson.JsonStreamParser#<rule-storage>#java.lang.Object
+    - .com.google.gson.JsonStreamParser#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.google.gson.JsonElement#getAsJsonArray
@@ -303,7 +303,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.google.gson.stream.JsonReader#<rule-storage>#java.lang.Object
+    - .com.google.gson.stream.JsonReader#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -317,7 +317,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    - .com.google.gson.stream.JsonWriter#buffer#java.lang.Object
     to: result
 - function: com.google.gson.Gson#toJsonTree
   copy:

@@ -9,14 +9,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonReader#readObject
   signature: () javax.json.JsonObject
@@ -34,7 +34,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -71,14 +71,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.stream.JsonGenerator#write
   signature: (java.lang.String, java.math.BigDecimal) javax.json.stream.JsonGenerator
@@ -90,18 +90,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -123,7 +123,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -137,15 +137,15 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: arg(1)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from: this
     to: result
   - from: arg(1)
@@ -179,15 +179,15 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: arg(1)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from: this
     to: result
   - from: arg(1)
@@ -218,7 +218,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.stream.JsonGenerator#writeStartArray
   signature: (java.lang.String) javax.json.stream.JsonGenerator
@@ -230,18 +230,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -253,14 +253,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.stream.JsonGenerator#write
   signature: (java.lang.String, boolean) javax.json.stream.JsonGenerator
@@ -272,18 +272,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -295,14 +295,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonObjectBuilder#add
   signature: (java.lang.String, long) javax.json.JsonObjectBuilder
@@ -314,15 +314,15 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: arg(1)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from: this
     to: result
   - from: arg(1)
@@ -365,18 +365,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -398,7 +398,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonPatchBuilder#remove
   signature: (java.lang.String) javax.json.JsonPatchBuilder
@@ -416,18 +416,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -439,7 +439,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonObject#getInt
   signature: (java.lang.String, int) int
@@ -466,7 +466,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.stream.JsonGenerator#write
   signature: (java.lang.String, long) javax.json.stream.JsonGenerator
@@ -478,18 +478,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -514,18 +514,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -539,15 +539,15 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: arg(1)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from: this
     to: result
   - from: arg(1)
@@ -561,7 +561,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#set
   signature: (int, javax.json.JsonArrayBuilder) javax.json.JsonArrayBuilder
@@ -571,7 +571,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonPatchBuilder#copy
   signature: (java.lang.String, java.lang.String) javax.json.JsonPatchBuilder
@@ -598,14 +598,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonPatchBuilder#test
   signature: (java.lang.String, java.lang.String) javax.json.JsonPatchBuilder
@@ -621,7 +621,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonPatchBuilder#add
   signature: (java.lang.String, java.lang.String) javax.json.JsonPatchBuilder
@@ -639,18 +639,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -669,18 +669,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -692,7 +692,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonObjectBuilder#add
   signature: (java.lang.String, javax.json.JsonArrayBuilder) javax.json.JsonObjectBuilder
@@ -700,7 +700,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -712,14 +712,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonObjectBuilder#add
   signature: (java.lang.String, javax.json.JsonArrayBuilder) javax.json.JsonObjectBuilder
@@ -731,15 +731,15 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: arg(1)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from: this
     to: result
   - from: arg(1)
@@ -752,7 +752,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -762,7 +762,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -774,7 +774,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#set
   signature: (int, javax.json.JsonObjectBuilder) javax.json.JsonArrayBuilder
@@ -784,7 +784,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#set
   signature: (int, javax.json.JsonValue) javax.json.JsonArrayBuilder
@@ -794,7 +794,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#add
   signature: (long) javax.json.JsonArrayBuilder
@@ -804,14 +804,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#set
   signature: (int, java.lang.String) javax.json.JsonArrayBuilder
@@ -821,7 +821,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.stream.JsonGenerator#write
   signature: (long) javax.json.stream.JsonGenerator
@@ -833,18 +833,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -856,7 +856,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.stream.JsonGenerator#write
   signature: (java.math.BigInteger) javax.json.stream.JsonGenerator
@@ -868,18 +868,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -889,7 +889,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -901,7 +901,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonObjectBuilder#addNull
   signature: (java.lang.String) javax.json.JsonObjectBuilder
@@ -909,7 +909,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -958,14 +958,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#add
   signature: (javax.json.JsonObjectBuilder) javax.json.JsonArrayBuilder
@@ -975,14 +975,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonPatchBuilder#test
   signature: (java.lang.String, javax.json.JsonValue) javax.json.JsonPatchBuilder
@@ -996,7 +996,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonWriter#<rule-storage>#java.lang.Object
+    - .javax.json.JsonWriter#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.json.stream.JsonGenerator#write
@@ -1009,18 +1009,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -1035,7 +1035,7 @@ passThrough:
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.stream.JsonGenerator#write
   signature: (java.lang.String) javax.json.stream.JsonGenerator
@@ -1047,18 +1047,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -1076,7 +1076,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#set
   signature: (int, java.math.BigInteger) javax.json.JsonArrayBuilder
@@ -1086,7 +1086,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonObjectBuilder#add
   signature: (java.lang.String, java.math.BigInteger) javax.json.JsonObjectBuilder
@@ -1098,15 +1098,15 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: arg(1)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from: this
     to: result
   - from: arg(1)
@@ -1123,10 +1123,10 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -1140,7 +1140,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -1175,7 +1175,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#add
   signature: (javax.json.JsonArrayBuilder) javax.json.JsonArrayBuilder
@@ -1185,7 +1185,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonObjectBuilder#add
   signature: (java.lang.String, long) javax.json.JsonObjectBuilder
@@ -1193,7 +1193,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -1205,7 +1205,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonObject#getBoolean
   signature: (java.lang.String) boolean
@@ -1219,7 +1219,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonWriter#<rule-storage>#java.lang.Object
+    - .javax.json.JsonWriter#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.json.JsonArray#getJsonString
@@ -1247,7 +1247,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#add
   signature: (int, java.math.BigDecimal) javax.json.JsonArrayBuilder
@@ -1257,7 +1257,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonWriter#writeArray
   signature: (javax.json.JsonArray) void
@@ -1265,7 +1265,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonWriter#<rule-storage>#java.lang.Object
+    - .javax.json.JsonWriter#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.json.JsonObject#getJsonObject
@@ -1281,7 +1281,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#addAll
   signature: (javax.json.JsonArrayBuilder) javax.json.JsonArrayBuilder
@@ -1291,7 +1291,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#build
   signature: () javax.json.JsonArray
@@ -1300,7 +1300,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#add
   signature: (java.math.BigDecimal) javax.json.JsonArrayBuilder
@@ -1310,14 +1310,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArray#getString
   signature: (int, java.lang.String) java.lang.String
@@ -1333,14 +1333,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArray#getBoolean
   signature: (int) boolean
@@ -1384,14 +1384,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#add
   signature: (int, long) javax.json.JsonArrayBuilder
@@ -1401,7 +1401,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonObjectBuilder#add
   signature: (java.lang.String, java.math.BigDecimal) javax.json.JsonObjectBuilder
@@ -1409,7 +1409,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -1423,18 +1423,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -1446,7 +1446,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.stream.JsonGenerator#writeStartObject
   signature: () javax.json.stream.JsonGenerator
@@ -1458,18 +1458,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -1481,14 +1481,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonPatchBuilder#test
   signature: (java.lang.String, int) javax.json.JsonPatchBuilder
@@ -1510,7 +1510,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonObjectBuilder#addAll
   signature: (javax.json.JsonObjectBuilder) javax.json.JsonObjectBuilder
@@ -1520,7 +1520,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -1545,7 +1545,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonObjectBuilder#add
   signature: (java.lang.String, boolean) javax.json.JsonObjectBuilder
@@ -1553,7 +1553,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -1565,7 +1565,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#add
   signature: (int, javax.json.JsonValue) javax.json.JsonArrayBuilder
@@ -1575,7 +1575,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.stream.JsonGenerator#write
   signature: (boolean) javax.json.stream.JsonGenerator
@@ -1587,18 +1587,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -1610,7 +1610,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonReaderFactory#createReader
   signature: (java.io.InputStream) javax.json.JsonReader
@@ -1635,18 +1635,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -1660,18 +1660,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -1692,7 +1692,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -1706,18 +1706,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -1746,7 +1746,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.Json#createReader
   signature: (java.io.Reader) javax.json.JsonReader
@@ -1774,7 +1774,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonObjectBuilder#add
   signature: (java.lang.String, double) javax.json.JsonObjectBuilder
@@ -1786,15 +1786,15 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: arg(1)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from: this
     to: result
   - from: arg(1)
@@ -1807,7 +1807,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonWriter#<rule-storage>#java.lang.Object
+    - .javax.json.JsonWriter#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.json.JsonArray#getValuesAs
@@ -1823,14 +1823,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#add
   signature: (int, javax.json.JsonArrayBuilder) javax.json.JsonArrayBuilder
@@ -1840,14 +1840,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#add
   signature: (boolean) javax.json.JsonArrayBuilder
@@ -1857,7 +1857,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#add
   signature: (int, javax.json.JsonArrayBuilder) javax.json.JsonArrayBuilder
@@ -1867,7 +1867,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.stream.JsonGenerator#write
   signature: (int) javax.json.stream.JsonGenerator
@@ -1879,18 +1879,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -1902,14 +1902,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArray#getJsonNumber
   signature: (int) javax.json.JsonNumber
@@ -1929,7 +1929,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#add
   signature: (int, javax.json.JsonValue) javax.json.JsonArrayBuilder
@@ -1939,14 +1939,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonObject#getBoolean
   signature: (java.lang.String, boolean) boolean
@@ -1980,14 +1980,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.stream.JsonGenerator#write
   signature: (java.lang.String, double) javax.json.stream.JsonGenerator
@@ -1999,18 +1999,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -2047,7 +2047,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
     to: result
@@ -2061,15 +2061,15 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: arg(1)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from: this
     to: result
   - from: arg(1)
@@ -2086,18 +2086,18 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
   - from:
     - this
-    - .javax.json.stream.JsonGenerator#<rule-storage>#java.lang.Object
+    - .javax.json.stream.JsonGenerator#buffer#java.lang.Object
     to: result
   - from: arg(0)
     to: this
@@ -2109,14 +2109,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
   - from: this
     to: result
   - from: arg(0)
     to: this
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#set
   signature: (int, boolean) javax.json.JsonArrayBuilder
@@ -2126,7 +2126,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.json.JsonArrayBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonObjectBuilder#add
   signature: (java.lang.String, boolean) javax.json.JsonObjectBuilder
@@ -2138,15 +2138,15 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: arg(1)
     to:
     - this
-    - .javax.json.JsonObjectBuilder#<rule-storage>#java.lang.Object
+    - .javax.json.JsonObjectBuilder#members#java.lang.Object
   - from: this
     to: result
   - from: arg(1)

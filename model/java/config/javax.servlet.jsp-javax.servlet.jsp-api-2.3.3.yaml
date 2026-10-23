@@ -9,17 +9,17 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspFactory#getPageContext
   signature: (javax.servlet.Servlet, javax.servlet.ServletRequest, javax.servlet.ServletResponse,
     java.lang.String, boolean, int, boolean) javax.servlet.jsp.PageContext
@@ -38,23 +38,23 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from:
@@ -62,11 +62,11 @@ passThrough:
     - '[*]'
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#println
   signature: (char[]) void
   copy:
@@ -77,23 +77,23 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from:
@@ -101,280 +101,280 @@ passThrough:
     - '[*]'
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#print
   signature: (java.lang.String) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#println
   signature: (boolean) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#println
   signature: () void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#println
   signature: (double) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#println
   signature: (int) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#print
   signature: (char) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#print
   signature: (java.lang.Object) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#print
   signature: (double) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#print
   signature: (int) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#println
   signature: (java.lang.String) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#println
   signature: (long) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#println
   signature: (char) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#println
   signature: (java.lang.Object) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#println
   signature: (float) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#print
   signature: (boolean) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object
 - function: javax.servlet.jsp.JspWriter#print
   signature: (float) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
   - from: arg(0)
     to:
     - this
-    - .javax.servlet.jsp.JspWriter#<rule-storage>#java.lang.Object
+    - .javax.servlet.jsp.JspWriter#buffer#java.lang.Object

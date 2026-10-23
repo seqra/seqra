@@ -14,7 +14,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
 - function: java.io.Writer#<init>
   signature: (java.lang.Object) void
@@ -22,11 +22,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.io.Writer#<rule-storage>#java.lang.Object
+    - .java.io.Writer#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: java.io.Reader#read
@@ -36,14 +36,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.io.Reader#<rule-storage>#java.lang.Object
+    - .java.io.Reader#content#java.lang.Object
     to: result
 - function: java.io.File#getName
   signature: () java.lang.String
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
 - function: java.io.Reader#read
   signature: (char[], int, int) int
@@ -52,7 +52,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.io.Reader#<rule-storage>#java.lang.Object
+    - .java.io.Reader#content#java.lang.Object
     to: result
 - function: java.io.File#<init>
   signature:
@@ -75,7 +75,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
 - function: java.io.File#<init>
   signature: (java.lang.String, java.io.File) void
@@ -85,17 +85,17 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
 - function: java.io.ByteArrayOutputStream#toByteArray
   signature: () byte[]
   copy:
   - from:
     - this
-    - .java.io.ByteArrayOutputStream#<rule-storage>#java.lang.Object
+    - .java.io.ByteArrayOutputStream#buffer#java.lang.Object
     to: result
   - from:
     - this
-    - .java.io.OutputStream#<rule-storage>#java.lang.Object
+    - .java.io.OutputStream#content#java.lang.Object
     to: result
 - function: java.io.ByteArrayOutputStream#write
   signature: (byte[], int, int) void
@@ -124,7 +124,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
 - function: java.io.InputStream#read
   signature:
@@ -154,7 +154,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
 - function:
     package: java.io
@@ -167,7 +167,7 @@ passThrough:
     - '[*]'
     to:
     - this
-    - .java.io.ObjectOutput#<rule-storage>#java.lang.Object
+    - .java.io.ObjectOutput#content#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
@@ -175,13 +175,13 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.io.ObjectOutput#<rule-storage>#java.lang.Object
+    - .java.io.ObjectOutput#content#java.lang.Object
 - function: java.io.InputStream#read
   signature: (byte[]) int
   copy:
   - from:
     - this
-    - .java.io.InputStream#<rule-storage>#java.lang.Object
+    - .java.io.InputStream#buffer#java.lang.Object
     to: result
   - from: this
     to: result
@@ -253,7 +253,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.io.Reader#<rule-storage>#java.lang.Object
+    - .java.io.Reader#content#java.lang.Object
     to: result
 - function: java.io.ByteArrayOutputStream#toByteArray
   signature:
@@ -268,7 +268,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.InputStream#<rule-storage>#java.lang.Object
+    - .java.io.InputStream#buffer#java.lang.Object
     to: result
   - from: this
     to: result
@@ -290,7 +290,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
   - from: this
     to: result
@@ -299,25 +299,25 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
 - function: java.io.File#listFiles
   signature: (java.io.FilenameFilter) java.io.File[]
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
 - function: java.io.ByteArrayInputStream#<init>
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.ByteArrayInputStream#<rule-storage>#java.lang.Object
+    - .java.io.ByteArrayInputStream#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.io.InputStream#<rule-storage>#java.lang.Object
+    - .java.io.InputStream#buffer#java.lang.Object
 - function: java.io.File#getPath
   signature:
     return: java.lang.String
@@ -345,11 +345,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
 - function: java.io.StringReader#<init>
   signature: (java.lang.String) void
   taintCopyOnly: true
@@ -362,7 +362,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
   - from: arg(0)
     to: this
 - function:
@@ -382,7 +382,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.InputStream#<rule-storage>#java.lang.Object
+    - .java.io.InputStream#buffer#java.lang.Object
     to: arg(0)
 - function: java.io.ByteArrayInputStream#<init>
   signature:
@@ -399,7 +399,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
   - from: this
     to: result
@@ -408,14 +408,14 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
 - function: java.io.File#getPath
   signature: () java.lang.String
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
 - function: java.io.File#<init>
   signature: (java.net.URI) void
@@ -423,7 +423,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
 - function:
     package: java.io
     class: InputStream
@@ -432,7 +432,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.InputStream#<rule-storage>#java.lang.Object
+    - .java.io.InputStream#buffer#java.lang.Object
     to: result
 - function: java.io.File#getAbsolutePath
   signature:
@@ -512,7 +512,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.io.Reader#<rule-storage>#java.lang.Object
+    - .java.io.Reader#content#java.lang.Object
     to: result
 - function: java.io.BufferedReader#lines
   signature: () java.util.stream.Stream
@@ -526,18 +526,18 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.io.Reader#<rule-storage>#java.lang.Object
+    - .java.io.Reader#content#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.io.StringReader#<rule-storage>#java.lang.Object
+    - .java.io.StringReader#text#java.lang.Object
 - function: java.io.Reader#<init>
   signature: (java.lang.Object) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.io.Reader#<rule-storage>#java.lang.Object
+    - .java.io.Reader#content#java.lang.Object
   - from: arg(0)
     to: this
 - function: java.io.File#getParentFile
@@ -545,7 +545,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
   - from: this
     to: result
@@ -554,7 +554,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
 - function: java.io.File#getName
   signature:
@@ -577,21 +577,21 @@ passThrough:
     - '[*]'
     to:
     - this
-    - .java.io.ByteArrayOutputStream#<rule-storage>#java.lang.Object
+    - .java.io.ByteArrayOutputStream#buffer#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .java.io.OutputStream#<rule-storage>#java.lang.Object
+    - .java.io.OutputStream#content#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.io.ByteArrayOutputStream#<rule-storage>#java.lang.Object
+    - .java.io.ByteArrayOutputStream#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.io.OutputStream#<rule-storage>#java.lang.Object
+    - .java.io.OutputStream#content#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
@@ -613,7 +613,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
 - function: java.io.ByteArrayOutputStream#write
   signature: (int) void
@@ -621,11 +621,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.io.ByteArrayOutputStream#<rule-storage>#java.lang.Object
+    - .java.io.ByteArrayOutputStream#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.io.OutputStream#<rule-storage>#java.lang.Object
+    - .java.io.OutputStream#content#java.lang.Object
   - from: arg(0)
     to: this
 - function: java.io.File#listFiles
@@ -659,7 +659,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
 - function: java.io.File#listFiles
   signature: (java.io.FileFilter) java.io.File[]
   taintCopyOnly: true
@@ -677,7 +677,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
     to: result
 - function: java.io.Reader#read
   signature: (java.nio.CharBuffer) int
@@ -686,7 +686,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.io.Reader#<rule-storage>#java.lang.Object
+    - .java.io.Reader#content#java.lang.Object
     to: result
 - function: java.io.OutputStream#write
   signature: (byte[]) void
@@ -708,11 +708,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.io.StringBufferInputStream#<rule-storage>#java.lang.Object
+    - .java.io.StringBufferInputStream#buffer#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.io.InputStream#<rule-storage>#java.lang.Object
+    - .java.io.InputStream#buffer#java.lang.Object
 - function: java.io.File#toPath
   signature: () java.nio.file.Path
   taintCopyOnly: true
@@ -727,11 +727,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .java.io.File#<rule-storage>#java.lang.Object
+    - .java.io.File#path#java.lang.Object
 - function: java.io.File#toURL
   signature: () java.net.URL
   taintCopyOnly: true
@@ -746,11 +746,11 @@ passThrough:
     - '[*]'
     to:
     - this
-    - .java.io.OutputStream#<rule-storage>#java.lang.Object
+    - .java.io.OutputStream#content#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.io.OutputStream#<rule-storage>#java.lang.Object
+    - .java.io.OutputStream#content#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
@@ -772,7 +772,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.io.InputStream#<rule-storage>#java.lang.Object
+    - .java.io.InputStream#buffer#java.lang.Object
     to: result
   - from: this
     to: result
