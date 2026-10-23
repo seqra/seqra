@@ -76,11 +76,12 @@ FULL uses less run-1 time in all three Conductor and OWASP pairs. The
 Stirling-PDF direction changes in pair 3. These observations do not control
 for host effects or the different condition and cleaner policies.
 
-Keep GROUP as the default for the next iteration. FULL reduces observed
-allocation on the completed project pairs, but it cannot complete
-Thingsboard run-1 within the configured heap. Keep FULL as an experiment
-option. This decision preserves run-1 coverage; it does not imply that
-GROUP always uses fewer resources.
+On 23 October, the user selected FULL as the run-1 default. GROUP remains
+an explicit experiment. This replaces the initial GROUP-default
+recommendation; it does not change these measurements. FULL cannot
+complete Thingsboard run-1 within the configured heap. The
+[FULL investigation](bidirectional-thingsboard-full-run1-investigation-20261023.md)
+and its next-iteration proposal address that failure.
 
 | Commands | Latest reached | Latest COMPLETE | Latest accepted forward |
 | --- | --- | --- | --- |
@@ -229,10 +230,11 @@ the same normalized observations. Control `d2ad8e335` has the same core
 bytes as pre-patch `30c1b8460`. They remain failures. This is not
 project parity or a new precision acceptance.
 
-The [next-iteration proposal](../design/bidirectional-static-summary-erasure-next-iteration-20261022.md)
-targets removal of whole repeated work. None of these changes is implemented.
-The first two run-1 proposals are recommended. The other run-1 candidates
-need evidence or have a small measured scope.
+The [original next-iteration proposal](../design/bidirectional-static-summary-erasure-next-iteration-20261022.md)
+records the candidate scopes below. None is implemented. The
+[FULL proposal](../design/bidirectional-thingsboard-full-next-iteration-20261023.md)
+replaces that selection after the default decision and exact heap follow-up.
+GROUP normalization is outside the default FULL path.
 
 | Priority / phase | Proposed change | Expected work removed and limit |
 | --- | --- | --- |

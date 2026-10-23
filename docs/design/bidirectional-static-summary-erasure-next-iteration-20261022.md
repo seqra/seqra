@@ -3,6 +3,9 @@
 Date: 23 October 2026. Status: **proposal; paired measurements and
 representative heap analysis are complete**. No proposal below is implemented.
 Measured candidate: `b68b3a1c9389c8d1b8ab6ad513af0c586a546895`.
+The [FULL next-iteration proposal](bidirectional-thingsboard-full-next-iteration-20261023.md)
+supersedes the selection and ranking below after the 23 October default
+decision. Keep the detailed algorithms below as reference designs.
 Read the [current report](../reports/bidirectional-static-summary-erasure-performance-20261022.md)
 and [proof guide](../../spec/proof-guide.md).
 
@@ -49,7 +52,7 @@ comes from duplicate backfill.
 | 3, measure before selection | Merge pending callee inputs before delivery | May remove repeated receiver admission; use the exact smaller run-1 input projection | Pending-key multiplicity and input-admission execution share; event payloads are not a dominant measured owner |
 | 4, defer | Select the end-action-free rule view through Spring before binding | Avoid small ignored list construction; measured global end-list scope is 102.7 MB, mostly empty lists | Engine-time effect is unmeasured; nonempty end-list retained union is only 480 bytes |
 
-Recommend the first two entries for the next implementation. Keep input
+The initial recommendation selected the first two entries. Keep input
 batching as an investigation until pending-key multiplicity is measured.
 Defer the Spring view change: it does not address a large measured owner.
 The four entries concern run-1. Backfill of newly permitted backward

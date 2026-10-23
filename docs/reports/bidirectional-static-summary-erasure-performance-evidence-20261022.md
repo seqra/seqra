@@ -643,8 +643,11 @@ FULL 1's temporary store admitted 7,810,137 fresh memberships, but only
 for a failed prefix. All three FULL attempts already do
 substantially more membership work and run out of memory in run-1. The three
 GROUP attempts complete run-1 but still fail in run-2. These observations
-support retaining GROUP while the repetitions run; they do not establish
-a mode-wide speedup factor or output equivalence.
+do not establish a mode-wide speedup factor or output equivalence. On
+23 October, the user selected FULL as the run-1 default. The
+[FULL follow-up](bidirectional-thingsboard-full-run1-investigation-20261023.md)
+investigates the remaining Thingsboard failure without changing this
+closed cohort.
 
 The 3,005,812 direct computed-supply leaves are **not** ZERO-to-static
 relay counts. The counter increments in the canonical concrete static
