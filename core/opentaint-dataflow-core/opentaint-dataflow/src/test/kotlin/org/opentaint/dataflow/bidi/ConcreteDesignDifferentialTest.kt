@@ -76,7 +76,7 @@ class ConcreteDesignDifferentialTest {
         val expected = DirectCurrentIteration(f.program, listOf(root), limits).run()
         val barriers = ArrayList<ProgramRunInputs>()
         val reportBuilder = ReportBuilder()
-        val report = f.driver(FixedLimits(limits), guardBarrier = { shared, body ->
+        val report = f.driver(FixedLimits(limits), run1MarkMode = MarkMode.GROUP, guardBarrier = { shared, body ->
             val next = body()
             val config = f.configs.last()
             val result = f.results.last()
@@ -421,7 +421,7 @@ class ConcreteDesignDifferentialTest {
             val reference = DirectCurrentIteration(f.program, listOf(root), limits).run()
             val actualBarriers = ArrayList<ProgramRunInputs>()
             val actualReport = ReportBuilder()
-            val driver = f.driver(FixedLimits(limits), guardBarrier = { shared, body ->
+            val driver = f.driver(FixedLimits(limits), run1MarkMode = MarkMode.GROUP, guardBarrier = { shared, body ->
                 val next = body()
                 val config = f.configs.last()
                 val result = f.results.last()

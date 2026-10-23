@@ -297,7 +297,7 @@ class PredicateClosureTest {
             val p = program(f)
             val limits = listOf(1, 1, 2)
             val reference = RawPredicateIteration(f.program, listOf(p.root), limits).run()
-            val report = f.driver(FixedLimits(limits)).analyze(listOf(p.root))
+            val report = f.driver(FixedLimits(limits), run1MarkMode = MarkMode.GROUP).analyze(listOf(p.root))
             assertEquals(RunStatus.COMPLETE, report.end.status)
             assertEquals(3, report.end.run)
             assertEquals(Direction.FORWARD, report.end.direction)

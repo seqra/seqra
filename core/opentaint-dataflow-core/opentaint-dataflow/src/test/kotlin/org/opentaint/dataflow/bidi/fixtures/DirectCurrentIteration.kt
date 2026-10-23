@@ -40,7 +40,8 @@ class DirectCurrentIteration(private val program: FiniteProgramFixtures, private
             val index = offset + 1
             val config = RunConfig(index, limit,
                 if (index == 1) null else DemandStore.Builder(program.ap).build(),
-                PersistentRecordStore(program.ap), SeedIndex.of(seeds), roots)
+                PersistentRecordStore(program.ap), SeedIndex.of(seeds), roots,
+                run1MarkMode = MarkMode.GROUP)
             val inputs = ProgramRunInputs(roots.toList(), demand.toList(), records.toList(), seeds.toList())
             HistoricalF71.validate(program, inputs, allowEndFacts, allowMustSources)
             var observation = RawCurrentClosure(program, config, inputs).run()

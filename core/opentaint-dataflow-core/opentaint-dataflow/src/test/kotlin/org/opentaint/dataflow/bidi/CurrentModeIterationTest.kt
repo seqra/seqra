@@ -101,7 +101,8 @@ class CurrentModeIterationTest {
                 assertEquals(ReportState.DEMAND, report.entries.single { it.key == key }.state)
                 assertEquals(3, report.entries.single { it.key == key }.run)
             }
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE,
+                run1MarkMode = MarkMode.GROUP), report.end)
         }
     }
 
@@ -141,7 +142,8 @@ class CurrentModeIterationTest {
             assertTrue(f.actual.results.drop(1).all { blocked !in it.witnessesByKey() })
             assertTrue(report.entries.none { it.key == blocked })
             assertEquals(ReportState.DEMAND, report.entries.single { it.key == reportKey(c, 1) }.state)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE,
+                run1MarkMode = MarkMode.GROUP), report.end)
         }
     }
 }

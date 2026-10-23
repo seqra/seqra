@@ -46,7 +46,8 @@ class HistoricalConcreteIteration(private val program: FiniteProgramFixtures, pr
             val index = offset + 1
             val config = RunConfig(index, limit,
                 if (index == 1) null else DemandStore.Builder(program.ap).build(),
-                PersistentRecordStore(program.ap), SeedIndex.of(seeds), roots)
+                PersistentRecordStore(program.ap), SeedIndex.of(seeds), roots,
+                run1MarkMode = MarkMode.GROUP)
             val inputs = ProgramRunInputs(roots.toList(), demand.toList(), records.toList(), seeds.toList())
             var observation = HistoricalConcreteClosure(program, config, inputs, allowEndFacts, allowMustSources).run()
             if (config.direction == Direction.FORWARD) {

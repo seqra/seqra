@@ -56,7 +56,7 @@ class StaticGroupProtocolHandoffTest {
             p.call(main, 1, call(f, setter)); p.call(main, 2, call(f, wrapper, local))
             p.call(wrapper, 1, call(f, getter, returned))
 
-            val report = f.driver(FixedLimits(listOf(1, 1, 2)), 20.seconds).analyze(listOf(main))
+            val report = f.driver(FixedLimits(listOf(1, 1, 2)), 20.seconds, run1MarkMode = MarkMode.GROUP).analyze(listOf(main))
             assertEquals(RunStatus.COMPLETE, report.end.status)
             val run1 = f.results.first()
             assertEquals(RunStatus.COMPLETE, run1.status)

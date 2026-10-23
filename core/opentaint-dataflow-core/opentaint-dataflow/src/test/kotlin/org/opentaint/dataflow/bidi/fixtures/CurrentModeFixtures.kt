@@ -77,7 +77,9 @@ class CurrentModeFixtures : AutoCloseable {
         return RunManager(config, shared, factory, quantum = 1).run(timeout).also(actual.results::add)
     }
 
-    fun driver(): IterationDriver = actual.driver(FixedLimits(listOf(1, 1, 2)), 15.seconds, this::run)
+    /** These reference observations explicitly compare the established GROUP run-1 contract. */
+    fun driver(): IterationDriver = actual.driver(FixedLimits(listOf(1, 1, 2)), 15.seconds, this::run,
+        run1MarkMode = MarkMode.GROUP)
     fun actor(run: Int, method: MethodKey): RunMethodAnalyzer =
         actual.results.single { it.runIndex == run }.analyzers.single { it.key == method }
     fun summaries(run: Int, method: MethodKey, selected: Boolean = false): Set<CurrentSummary> {

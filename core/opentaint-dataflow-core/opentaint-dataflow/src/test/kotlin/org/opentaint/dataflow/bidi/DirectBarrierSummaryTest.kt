@@ -34,7 +34,7 @@ class DirectBarrierSummaryTest {
             assertEquals(listOf(1, 2, 3), reference.runs.map { it.index }, "Raw summaries count as demand objects at the barrier")
             assertEquals(mapOf(HistoricalFinding(sink.rule, f.program.inst(root, 1)) to HistoricalState.DEMAND), reference.findings)
         }
-        val report = f.driver(FixedLimits(listOf(1, 1, 2))).analyze(listOf(root))
+        val report = f.driver(FixedLimits(listOf(1, 1, 2)), run1MarkMode = MarkMode.GROUP).analyze(listOf(root))
         assertEquals(listOf(1, 2, 3), f.configs.map { it.index })
         assertTrue(f.results.first().demandLayerEdges > 0)
         assertEquals(EndReason.POLICY, report.end.reason)

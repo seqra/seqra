@@ -81,8 +81,10 @@ class DriverFixtures(threads: Int = 1) : AutoCloseable {
 
     fun driver(policy: IterationPolicy, budget: Duration = 5.seconds,
                invokeRun: (RunConfig, SharedObjects, Duration) -> RunResult<RunMethodAnalyzer> = this::run,
+               run1MarkMode: MarkMode? = null,
                guardBarrier: (SharedObjects, () -> Next) -> Next = { _, body -> body() }): IterationDriver =
-        IterationDriver(policy, shared, budget, invokeRun, guardBarrier)
+        if (run1MarkMode == null) IterationDriver(policy, shared, budget, invokeRun, guardBarrier)
+        else withRun1MarkMode(run1MarkMode) { IterationDriver(policy, shared, budget, invokeRun, guardBarrier) }
 
     fun rule(id: String): RuleId = object : CommonTaintConfigurationSink {
         override val id = id

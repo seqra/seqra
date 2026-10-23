@@ -73,7 +73,8 @@ class CallPlanTest {
                          index: Int = 1, L: Int = maxOf(1, index - 1), atBound: (List<PlanItem>) -> List<Pair<SinkRule, Layer>> = { emptyList() }):
             Set<Pair<Set<Pattern>, Conclusion>> {
         val directed = if (index % 2 == 1) plan else plan.reversed()
-        val mode = ApMode(index == 1, if (index % 2 == 1) Direction.FORWARD else Direction.BACKWARD, L)
+        val mode = ApMode(index == 1, if (index % 2 == 1) Direction.FORWARD else Direction.BACKWARD, L,
+            markMode = if (index == 1) MarkMode.GROUP else MarkMode.FULL)
         val hooks = PlanHooks(guards = index % 2 == 1, atBound = atBound,
             clean = { cl, item -> (if (index == 1) GroupedScalarMarks(f.manager.marks).clean(cl, item.c) else cleanRes(cl, item.c)).facts.map { item.copy(c = it) } },
             statementCut = { it.copy(c = limit(it.c, L)) }, exit = { it.copy(c = limit(it.c, L)) })

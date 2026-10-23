@@ -14,7 +14,7 @@ class DriverIntegrationTest {
     fun `limits one one two carry selected demand sink seed source hit and final raw record through joined barriers`(): Unit {
         DriverFixtures().use { f ->
             val program = f.refining()
-            val driver = f.driver(FixedLimits(listOf(1, 1, 2)))
+            val driver = f.driver(FixedLimits(listOf(1, 1, 2)), run1MarkMode = MarkMode.GROUP)
             val report = driver.analyze(listOf(program.root))
             val mark = program.source.to.mark
             val path = program.source.to.path
@@ -56,7 +56,8 @@ class DriverIntegrationTest {
             assertEquals(listOf(key), report.entries.map { it.key })
             assertEquals(ReportState.DEMAND, report.entries.single().state)
             assertEquals(3, report.entries.single().run)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE,
+                run1MarkMode = MarkMode.GROUP), report.end)
             assertEquals(listOf(1, 1, 1), driver.frontiers.map { it.seeds })
             assertTrue(driver.frontiers.last().demandEdges.isEmpty())
         }

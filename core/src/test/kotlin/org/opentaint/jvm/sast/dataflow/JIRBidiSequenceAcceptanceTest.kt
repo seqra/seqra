@@ -1,6 +1,8 @@
 package org.opentaint.jvm.sast.dataflow
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.parallel.ResourceLock
+import org.junit.jupiter.api.parallel.Resources
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.*
@@ -15,7 +17,8 @@ import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRStaticCallExpr
 import kotlin.test.*
 
-/** Actual JVM entry with independent current-spec vectors and joined-run observations. */
+/** Actual JVM entry with independent GROUP vectors and joined-run observations. */
+@ResourceLock(Resources.SYSTEM_PROPERTIES)
 class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
     override val sourceFileExtension = "java"
     private val cls = "test.samples.bidi.BidiAcceptanceSample"
@@ -39,8 +42,17 @@ class JIRBidiSequenceAcceptanceTest : AnalysisTest() {
     private fun mayPass() = SerializedRule.PassThrough(functionMatcher(cls, "mayPass"),
         condition = SerializedCondition.ContainsMark(t, at(Argument(0))),
         copy = listOf(SerializedTaintPassAction(t, from = at(Argument(0)), to = any(Result))))
-    private fun run(config: SerializedTaintConfig, entry: String, limits: List<Int> = listOf(1, 1, 2)) =
-        runBidiAcceptance(config, cls, entry, limits)
+    /** These vectors compare GROUP run-1 guidance with the later full-mark iterations. */
+    private fun run(config: SerializedTaintConfig, entry: String, limits: List<Int> = listOf(1, 1, 2)): BidiAcceptanceResult {
+        val property = "opentaint.bidi.run1MarkMode"
+        val previous = System.getProperty(property)
+        try {
+            System.setProperty(property, "GROUP")
+            return runBidiAcceptance(config, cls, entry, limits)
+        } finally {
+            if (previous == null) System.clearProperty(property) else System.setProperty(property, previous)
+        }
+    }
     private fun findings(r: BidiAcceptanceResult) = r.report.entries.associate { it.key.rule.id to it.state }
     private fun assertFinding(r: BidiAcceptanceResult, expected: Map<String, ReportState>,
                               normalRules: Set<String> = expected.keys) {

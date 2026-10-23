@@ -88,7 +88,7 @@ class AnyTaintIterationTest {
             val earlier = historicalGolden?.let {
                 HistoricalConcreteIteration(f.program, listOf(root), limits, allowMustSources = true).run()
             }
-            val driver = f.driver(FixedLimits(limits), invokeRun = ::run, guardBarrier = { shared, body ->
+            val driver = f.driver(FixedLimits(limits), invokeRun = ::run, run1MarkMode = MarkMode.GROUP, guardBarrier = { shared, body ->
                 val next = body()
                 val config = f.configs.last()
                 val joined = f.results.last()
@@ -273,7 +273,8 @@ class AnyTaintIterationTest {
             assertContains(runs.barriers[2].records, Native(get, Direction.FORWARD, narrowMust,
                 Conclusion(PathFact(result, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, false)))
             assertEquals(ReportState.DEMAND, report.entries.single { it.key == finding(f, rule, root, 2) }.state)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE,
+                run1MarkMode = MarkMode.GROUP), report.end)
         }
     }
 
@@ -309,7 +310,8 @@ class AnyTaintIterationTest {
             })
             assertEquals(ReportState.DEMAND, report.entries.single { it.key == finding(f, rule, use, 1) }.state)
             assertEquals(listOf(1, 2, 3), frontiers.map { it.run })
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE,
+                run1MarkMode = MarkMode.GROUP), report.end)
         }
     }
 
@@ -344,7 +346,8 @@ class AnyTaintIterationTest {
             assertEquals(1, frontiers.last().demandVulnerabilities)
             assertEquals(0, frontiers.last().confirmedVulnerabilities)
             assertEquals(ReportState.DEMAND, report.entries.single().state)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE,
+                run1MarkMode = MarkMode.GROUP), report.end)
         }
     }
 
@@ -390,7 +393,8 @@ class AnyTaintIterationTest {
             assertEquals(listOf(finding(f, admitted, root, 2)), report.entries.map { it.key })
             assertEquals(ReportState.DEMAND, report.entries.single().state)
             assertEquals(1, frontiers.last().seeds)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE,
+                run1MarkMode = MarkMode.GROUP), report.end)
         }
     }
     @Test
@@ -491,7 +495,8 @@ class AnyTaintIterationTest {
             assertTrue(frontiers[2].recordCrossings > 0L)
             assertEquals(setOf(finding(f, admittedT, root, 8), finding(f, admittedU, root, 8)), report.entries.map { it.key }.toSet())
             assertTrue(report.entries.all { it.state == ReportState.DEMAND && it.run == 3 })
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE,
+                run1MarkMode = MarkMode.GROUP), report.end)
         }
     }
 
@@ -595,7 +600,8 @@ class AnyTaintIterationTest {
                 conclusions(runs.barriers[2].observation.rawSummaries, root, result))
             assertTrue(frontiers[2].recordCrossings > 0L)
             assertEquals(ReportState.DEMAND, report.entries.single().state)
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE,
+                run1MarkMode = MarkMode.GROUP), report.end)
         }
     }
 }

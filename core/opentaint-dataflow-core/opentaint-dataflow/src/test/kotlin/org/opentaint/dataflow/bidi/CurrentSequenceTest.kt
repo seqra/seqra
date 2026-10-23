@@ -168,9 +168,10 @@ class CurrentSequenceTest {
                 CallStage.Actions(RETURNED, REWRITTEN, emptyList()),
                 CallStage.Edges(REWRITTEN, AFTER, BIND_BACK, keep),
             ), listOf(finding), BEFORE, AFTER))
-            val driver = f.driver(FixedLimits(listOf(1, 1, 2)))
+            val driver = f.driver(FixedLimits(listOf(1, 1, 2)), run1MarkMode = MarkMode.GROUP)
             val report = driver.analyze(listOf(root))
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE,
+                run1MarkMode = MarkMode.GROUP), report.end)
             val sinkSeeds = f.configs[1].seeds.at(worker, p.inst(worker, 1))
             assertTrue(sinkSeeds.any { it is Seed.Sink && it.rule === finding.rule &&
                 it.requirement == p.pattern(argument, mark = t) }, "F1 prepares the exact nonreturning-worker sink seed")
@@ -323,12 +324,13 @@ class CurrentSequenceTest {
             val badSink = sink(f, "CONJ missing second input", p.pattern(bad, mark = t))
             exit(f, root, 6, goodSink, badSink)
             val control = if (normalReversal) normalConjunctionReversal(f, m) else null
-            val driver = f.driver(FixedLimits(listOf(1, 1, 2)), invokeRun = { config, owner, timeout ->
+            val driver = f.driver(FixedLimits(listOf(1, 1, 2)), run1MarkMode = MarkMode.GROUP, invokeRun = { config, owner, timeout ->
                 f.run(config, control ?: owner, timeout)
             })
             val report = try { driver.analyze(listOf(root)) } finally { control?.close() }
             assertEquals(listOf(1, 2, 3), f.configs.map { it.index })
-            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE), report.end)
+            assertEquals(AnalysisEnd(RunStatus.COMPLETE, 3, Direction.FORWARD, EndReason.NO_DEMAND_EDGE,
+                run1MarkMode = MarkMode.GROUP), report.end)
             assertEquals(if (normalReversal) setOf(goodSink.rule, badSink.rule) else setOf(goodSink.rule),
                 report.entries.map { it.key.rule }.toSet())
             assertTrue(report.entries.all { it.state == ReportState.DEMAND && it.run == 3 })

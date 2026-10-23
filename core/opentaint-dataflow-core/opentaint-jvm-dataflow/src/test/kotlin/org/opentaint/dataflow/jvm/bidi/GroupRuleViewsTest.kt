@@ -135,7 +135,7 @@ class GroupRuleViewsTest : BasicTestUtils() {
         val current = fixture.manager.factsOf(PathFact(base, emptyList(), Tail.ANY, MarkSlot.Concrete(mark)), ExclusionSet.Empty, Layer.DEMAND)
         val wrong = CollectingOut()
         fixture.ops.applyEdge(current, initial, source.transfer(source.predicate.leaves.single(), source.actions.first()).edge,
-            statementEdge = true, mode = ApMode(true, Direction.FORWARD, 1), out = wrong)
+            statementEdge = true, mode = ApMode(true, Direction.FORWARD, 1, MarkMode.GROUP), out = wrong)
         assertTrue(wrong.results.isNotEmpty())
         assertTrue(wrong.results.flatMap { fixture.ops.leaves(it) }.all { it.fact.tail == Tail.ANY })
         val correct = fixture.ops.targetTree(source.actions.first().target, Layer.DEMAND)

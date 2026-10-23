@@ -269,7 +269,7 @@ class JIRTypeFiltersTest : BasicTestUtils() {
 
     @Test
     fun `JVM primitive filters and their conjunctions commute with owning GROUP projection`(): Unit {
-        val groupMode = ApMode(true, Direction.FORWARD, 1)
+        val groupMode = ApMode(true, Direction.FORWARD, 1, MarkMode.GROUP)
         val names = listOf("int", "boolean", "char", "java.lang.Integer", "java.lang.Character",
             "java.lang.Object", "java.lang.String", "int[]", "int[][]", "java.lang.Integer[]",
             "java.lang.Character[][]", "java.lang.Object[][]", "java.lang.String[][]")
