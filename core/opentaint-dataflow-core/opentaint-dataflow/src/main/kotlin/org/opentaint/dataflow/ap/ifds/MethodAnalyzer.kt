@@ -905,7 +905,7 @@ class NormalMethodAnalyzer(
                 methodInitialFactBase = sub.methodInitialFactBase,
                 sideEffectSummaries = sideEffectSummaries,
             ) { currentFactAp, summaryEffect, kind ->
-                handler.handleFactToFact(sub.currentEdge.initialFactAp, currentFactAp, summaryEffect, kind)
+                handler.handleFactToFact(methodEntryPoint, sub.currentEdge.initialFactAp, currentFactAp, summaryEffect, kind)
             }
         }
     }

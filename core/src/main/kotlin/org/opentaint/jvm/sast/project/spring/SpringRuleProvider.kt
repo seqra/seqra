@@ -4,15 +4,10 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.configuration.CommonConditionRewriter
 import org.opentaint.dataflow.configuration.jvm.ActionPosition
 import org.opentaint.dataflow.configuration.jvm.Argument
-import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
-import org.opentaint.dataflow.configuration.jvm.Condition
-import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
-import org.opentaint.dataflow.configuration.jvm.JirCondition
 import org.opentaint.dataflow.configuration.jvm.Position
 import org.opentaint.dataflow.configuration.jvm.PositionAccessor
 import org.opentaint.dataflow.configuration.jvm.PositionWithAccess
@@ -29,15 +24,11 @@ import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
 import org.opentaint.dataflow.configuration.jvm.This
 import org.opentaint.dataflow.configuration.mkTrue
-import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
-import org.opentaint.dataflow.jvm.ap.ifds.taint.resolveBaseAp
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.TypeName
-import org.opentaint.ir.impl.cfg.util.isClass
 
 class SpringRuleProvider(
     private val base: TaintRulesProvider,
@@ -45,40 +36,7 @@ class SpringRuleProvider(
 ) : TaintRulesProvider by base {
     override fun entryPointRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean): Iterable<TaintEntryPointSource> {
         if (method is SpringGeneratedMethod) return emptyList()
-
-        val baseRules =  base.entryPointRulesForMethod(method, statement, fact, allRelevant)
-        if (method !is JIRMethod || method.isStatic || method.isPrivate || !method.isSpringControllerMethod()) {
-            return baseRules
-        }
-
-        return baseRules.map { taintObjectFields(method, it) }
-    }
-
-    private fun taintObjectFields(method: JIRMethod, rule: TaintEntryPointSource): TaintEntryPointSource {
-        val actions = rule.actionsAfter.flatMap { taintObjectFields(method, it) }
-        return rule.copy(actionsAfter = actions)
-    }
-
-    private fun taintObjectFields(method: JIRMethod, assign: AssignMark): List<AssignMark> {
-        val base = assign.position.resolveBaseAp()
-        if (base !is AccessPathBase.Argument) return listOf(assign)
-
-        val paramTypeName = method.parameters.getOrNull(base.idx)?.type
-            ?: return emptyList()
-
-        if (!paramTypeName.isClass) return listOf(assign)
-
-        // todo: better handling of suspend functions
-        if (paramTypeName.isKotlinContinuation()) return emptyList()
-
-        return when (val p = assign.position) {
-            is ActionPosition.AnyAccessorAfter -> listOf(assign)
-            is ActionPosition.Exact -> {
-                val allFieldsAssign = AssignMark(assign.mark, ActionPosition.AnyAccessorAfter(p.position))
-
-                listOf(assign, allFieldsAssign)
-            }
-        }
+        return base.entryPointRulesForMethod(method, statement, fact, allRelevant)
     }
 
     override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean): Iterable<TaintMethodSource> {
@@ -241,34 +199,23 @@ class SpringRuleProvider(
         initialFacts: Set<InitialFactAp>?,
         allRelevant: Boolean
     ): Iterable<TaintMethodExitSink> {
+        if (method is SpringGeneratedMethod) return emptyList()
         if (method !is JIRMethod || !method.isSpringControllerMethod()) {
             return base.sinkRulesForMethodExit(method, statement, fact, initialFacts, allRelevant)
         }
 
-        val allBaseRules = base.sinkRulesForMethodExit(method, statement, fact, initialFacts = null, allRelevant)
-        return allBaseRules.map { unfoldSpringExitObject(it) }
+        // Pass initialFacts = null for controller-return sinks to bypass the Z2F gate in
+        // JIRMethodExitRuleProvider (which drops exit rules when initialFacts is non-empty).
+        // Controller-return XSS sinks must still fire on F2F edges, i.e. STORED / second-order
+        // flows where taint enters the GET handler as an initial fact (e.g. POST writes tainted
+        // data into a repository, GET returns repo.findById(...)). This reproduces the load-bearing
+        // null bypass of the removed unfoldSpringExitObject hack; the $*VAR stars in the rules now
+        // handle the any-field widening that the deleted ContainsMarkRewriter used to do.
+        return base.sinkRulesForMethodExit(method, statement, fact, initialFacts = null, allRelevant)
     }
-
-    private fun unfoldSpringExitObject(rule: TaintMethodExitSink): TaintMethodExitSink =
-        rule.copy(condition = unfoldObjectContainsMark(position = Result, rule.condition))
-
-    private fun unfoldObjectContainsMark(position: Position, condition: Condition): Condition =
-        condition.accept(ContainsMarkRewriter(position))
-
-    private class ContainsMarkRewriter(val position: Position) : CommonConditionRewriter<JirCondition> {
-        override fun rewriteAtom(atom: JirCondition): JirCondition {
-            if (atom !is ContainsMark) return atom
-
-            if (atom.position != position) return atom
-            return ContainsMarkOnAnyField(position, atom.mark)
-        }
-    }
-
-    private fun TypeName.isKotlinContinuation(): Boolean = typeName == kotlinContinuation
 
     companion object {
         private const val javaObject = "java.lang.Object"
-        private const val kotlinContinuation = "kotlin.coroutines.Continuation"
 
         private val iterableElement = PositionAccessor.FieldAccessor(
             className = "java.lang.Iterable",

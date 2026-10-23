@@ -1,7 +1,5 @@
 package org.opentaint.dataflow.jvm.ap.ifds.taint
 
-import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
@@ -16,10 +14,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.accept
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
 import org.opentaint.dataflow.jvm.util.callee
-import org.opentaint.dataflow.taint.FactReader
 import org.opentaint.dataflow.taint.FinalFactReader
-import org.opentaint.dataflow.taint.FinalFactReaderWithPrefix
-import org.opentaint.dataflow.taint.PositionAccess
 import org.opentaint.dataflow.taint.TaintSourceActionEvaluator
 import org.opentaint.dataflow.taint.TaintUtil
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
@@ -182,25 +177,6 @@ class JIRMethodCallTaintUtil(
     private fun InitialFactAp.mapExitToReturnFact(): InitialFactAp? =
         JIRMethodCallFactMapper.mapMethodExitToReturnFlowFact(statement, this)
             .singleOrNull()
-
-    override fun patchSinkConditionFactReader(factReaders: List<FinalFactReader>): List<FactReader> {
-        val arrayElementFactReaders = factReaders.arrayElementConditionReaders(callExpr)
-        return factReaders + arrayElementFactReaders
-    }
-
-    private fun List<FinalFactReader>.arrayElementConditionReaders(callExpr: JIRCallExpr): List<FactReader> =
-        mapNotNull {
-            val base = it.factAp.base as? AccessPathBase.Argument ?: return@mapNotNull null
-
-            if (!analysisContext.factTypeChecker.callArgumentMayBeArray(callExpr, base)) {
-                return@mapNotNull null
-            }
-
-            val arrayElementPosition = PositionAccess.Complex(PositionAccess.Simple(base), ElementAccessor)
-            if (!it.containsPosition(arrayElementPosition)) return@mapNotNull null
-
-            FinalFactReaderWithPrefix(it, ElementAccessor)
-        }
 
     private inline fun storeInfo(body: () -> Unit) {
         if (generateTrace) return

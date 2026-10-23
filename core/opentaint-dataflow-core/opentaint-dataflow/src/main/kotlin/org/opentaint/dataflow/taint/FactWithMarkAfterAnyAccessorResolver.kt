@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.taint
 
+import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.SideEffectKind
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
@@ -12,7 +13,8 @@ interface FactWithMarkAfterAnyAccessorResolver {
 data class TaintMarkFieldUnfoldRequest(
     val method: MethodEntryPoint,
     val fact: InitialFactAp,
-    val mark: TaintMarkAccessor
+    val mark: TaintMarkAccessor,
+    val suffix: Accessor?
 ) : SideEffectKind
 
 data class DefaultFactWithMarkAfterAnyFieldResolver(
@@ -21,7 +23,7 @@ data class DefaultFactWithMarkAfterAnyFieldResolver(
     private val addSideEffect: (InitialFactAp, SideEffectKind) -> Unit
 ): FactWithMarkAfterAnyAccessorResolver {
     override fun resolve(mark: TaintMarkAccessor) {
-        addSideEffect(initialFact, TaintMarkFieldUnfoldRequest(method, initialFact, mark))
+        addSideEffect(initialFact, TaintMarkFieldUnfoldRequest(method, initialFact, mark, suffix = null))
     }
 
     companion object {

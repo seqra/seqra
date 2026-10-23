@@ -16,6 +16,7 @@ class TaintCleanCompositionStrategy<Item, Cond, Assign, Clean>(
     private val rule: TaintAutomataEdges,
     private val bySideEffect: Boolean,
     private val cleans: Set<Mark.GeneratedMark>,
+    private val focusMetaVars: Set<MetavarAtom>,
     val strategy: TaintRuleStrategy<Item, Cond, Assign, Clean>
 ) : TaintRuleGenerationCtx.CompositionStrategy<Item, Cond, Assign, Clean> {
     override fun stateClean(
@@ -26,12 +27,29 @@ class TaintCleanCompositionStrategy<Item, Cond, Assign, Clean>(
     ): List<Clean>? {
         if (state !in rule.automata.finalAcceptStates) return null
 
-        val cleanerPos = cleanerPositions(pos)
+        val cleanerPos = cleanerPositions(varName, pos)
 
         return cleans.flatMap { c -> cleanerPos.map { strategy.createCleanAction(c, it) } }
     }
 
-    private fun cleanerPositions(pos: PositionBaseWithModifiers?): List<PositionBaseWithModifiers> {
+    /**
+     * `stateClean` is invoked once per metavariable the edge accesses, so [pos] is *some* position the
+     * pattern mentions -- for `$URI = ($REQ).getRequestURI()` it is `Result` on one invocation and
+     * `This` on another. When the rule names a focus metavariable, that metavariable is the sanitized
+     * value and the others are only there to constrain the match, so [pos] must be emitted for the
+     * focus invocation alone. Emitting it for every metavariable is what made an accessor sanitizer
+     * clean its own receiver, i.e. untaint `request` itself.
+     */
+    private fun isFocusPosition(varName: MetavarAtom?): Boolean {
+        if (focusMetaVars.isEmpty()) return true
+        val basics = varName?.basics ?: return false
+        return basics.any { basic -> focusMetaVars.any { basic in it.basics } }
+    }
+
+    private fun cleanerPositions(
+        varName: MetavarAtom?,
+        pos: PositionBaseWithModifiers?
+    ): List<PositionBaseWithModifiers> {
         val cleanerPos = mutableListOf(PositionBase.Result.base())
         if (bySideEffect) {
             cleanerPos += PositionBase.AnyArgument(classifier = "tainted").base()
@@ -52,7 +70,8 @@ class TaintCleanCompositionStrategy<Item, Cond, Assign, Clean>(
         // removes the taint on the flow entering the call; it is flow-specific, so a separate use of
         // the same variable outside this call stays tainted. For a star clean `pos` already carries
         // the AnyField modifier, so this stays coherent with the plain-value arm's base.
-        val emitPositions = (cleanerEmitPositions + listOfNotNull(pos)).distinct()
+        val focusPos = pos.takeIf { isFocusPosition(varName) }
+        val emitPositions = (cleanerEmitPositions + listOfNotNull(focusPos)).distinct()
         return emitPositions
     }
 

@@ -1,0 +1,18 @@
+rules:
+  - id: phase3-star-source-getter
+    languages:
+      - java
+    severity: ERROR
+    message: starred source reaches sink through a field-sensitive external getter
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: $*P = ncpSrc();
+          - focus-metavariable: $P
+      - patterns:
+          - pattern: $P = ncpSrcPlain();
+          - focus-metavariable: $P
+    pattern-sinks:
+      - patterns:
+          - pattern: strSink($Y);
+          - focus-metavariable: $Y

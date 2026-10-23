@@ -162,7 +162,7 @@ class JIRMethodCallFlowFunction(
             markAfterAnyAccessorResolver = null // we don't expect such marks in pass rules
         )
 
-        val cleaner = JIRTaintCleanActionEvaluator(typeResolver)
+        val cleaner = JIRTaintCleanActionEvaluator()
 
         val factReaderBeforeCleaner = FinalFactReader(callerFact, apManager)
         val cleanRules = taintCtx.cleanRulesForCallStatement(statement, callExpr, returnValue, callerFact)
@@ -297,11 +297,12 @@ class JIRMethodCallFlowFunction(
                 }
             }
 
-            analysisContext.analysisManager.params.defaultGetModel?.run {
-                /*todo: fix owasp, propagate default only if  passThroughFacts.isNone */
-                val defaultRules = defaultPropagationRules(method)
-                val defaultPass = applyPassThrough(defaultRules, conditionEvaluator, passEvaluator)
-                passThroughFacts = passThroughFacts.merge(defaultPass)
+            if (passThroughFacts.isNone) {
+                analysisContext.analysisManager.params.defaultGetModel?.run {
+                    val defaultRules = defaultPropagationRules(method)
+                    val defaultPass = applyPassThrough(defaultRules, conditionEvaluator, passEvaluator)
+                    passThroughFacts = passThroughFacts.merge(defaultPass)
+                }
             }
 
             passThroughFacts.onSome { evaluatedPass ->

@@ -165,7 +165,7 @@ class GoAnalysisManager(
         statement: CommonInst,
         runner: AnalysisRunner,
     ): MethodSideEffectSummaryHandler {
-        return GoMethodSideEffectHandler(runner)
+        return GoMethodSideEffectHandler(runner, analysisContext)
     }
 
     override fun getMethodStartPrecondition(
