@@ -1,6 +1,7 @@
 # Run-1 static summary erasure: implementation validation
 
-Date: 22 October 2026. Status: implementation complete; project measurements pending.
+Date: 22 October 2026. Status: implementation complete. Project results
+are in the [performance report](bidirectional-static-summary-erasure-performance-20261022.md).
 Selected contract: [run1-static-summary-erasure.md](../../spec/run1-static-summary-erasure.md).
 The implementation receipt records the immutable runtime revision. Project
 measurements and a next-iteration proposal remain separate deliverables.
@@ -98,5 +99,16 @@ the obsolete storage assertion is corrected.
 Fresh main at `f945f92c5ae554ff4f5fc7696ee5a269210478bb` completed all four
 fixed project commands. OWASP produced the expected 4,112 trace attempts.
 Main uses the legacy engine; a latest bidi iteration is not applicable.
-No candidate project engine has started yet. Do not label these unit
-controls as a completed candidate project run-1 or as a performance gain.
+Candidate project commands started after these implementation gates.
+Their phases, findings and OOM analysis are in the separate performance
+report. These unit controls alone do not establish project completion
+or a performance gain.
+
+The paired candidate campaign is now CLOSED24, with unchanged runtime
+source and configured inputs. All 24 whole commands are incomplete:
+18 end with OOM and six with timeout. Run-1 completes in 21 attempts;
+12 meet the 60-second engine target. The latest OWASP commands reach
+run-8 and retain an accepted run-7 report. Other projects end in run-1 or
+run-2, as listed per command in the performance report. The two missing
+Stirling-PDF baseline return locations and all eleven inherited precision
+test failures remain explicit failed acceptance results.

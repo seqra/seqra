@@ -1,13 +1,19 @@
 # Run-1 without static-to-static summaries
 
-Date: 22 October 2026. Status: **implemented; project measurements pending**.
+Date: 22 October 2026. Status: **implemented and measured;
+acceptance limits are reported**.
 Reference runtime: `30c1b84606695070a79d7ae467703267b9f931c1`.
+Implemented runtime: `b68b3a1c9389c8d1b8ab6ad513af0c586a546895`.
 Revision: add the run-1 mark-mode experiment in sections 14 and 15.
 Read the [proof dossier](run1-static-summary-erasure-proofs.md),
 [proof guide](proof-guide.md), and
 [implementation validation](../docs/reports/bidirectional-static-summary-erasure-validation-20261022.md).
 
 ## 1. Purpose and comparison
+
+**Run-1 must not send S-to-S summaries to callers.** Keep the required
+effects at the producer, then erase the row before publication. This rule
+applies in both GROUP and FULL modes. See section 4.1 for the call boundary.
 
 Do not store or propagate a run-1 method summary whose nonzero input and
 output are both static. Keep its required producer effects. At the
@@ -34,7 +40,7 @@ policy. The flag does not require equal GROUP and FULL candidate sets.
 
 This document supersedes the per-method static/static relation-preservation
 requirement of [the previous protocol-removal spec](run1-static-group-protocol-removal.md)
-for this selected design only. That spec still describes the implemented
+for this selected design only. That spec describes the reference
 runtime. All unmodified behavior comes from that runtime and
 [the grouped-static contract](grouped-run1-statics.md).
 
@@ -182,6 +188,9 @@ batch, handoff pair list, or persisted native records. Do not recreate
 those rows as a permanent global relation directory.
 
 ### 4.1 No S-to-S summary propagation to callers
+
+Here, S-to-S means a nonzero all-static premise and a static result. It
+includes different fields such as `C.in -> C.out`, not only `S.* -> S.*`.
 
 **Do not propagate S-to-S method summaries to callers in run-1.** Do not
 publish or deliver those rows, enqueue caller summary applications for
@@ -355,7 +364,8 @@ method-owned and deduplicated, as they are now.
 5. On an actual GROUP answer, execute the saved point and unchanged AP
    transfer. Process computed effects before erasing a static result.
 6. Publish retained static-to-nonstatic and other ordinary summaries.
-   Calls apply these with their exact saved caller/stage.
+   Calls apply these with their exact saved caller/stage. An erased
+   S-to-S result produces no caller notification or caller work item.
 7. Flush retained publications at the existing method-queue barrier.
    Keep pending static effect batches and service sends counted as work.
 8. Complete the run only after required admitted work drains. Clear
@@ -903,5 +913,8 @@ existing no-FN/allowed-FP gates and later-run checks. State unresolved
 differences explicitly.
 
 Use the results to decide whether GROUP remains the default and which
-work explains the gap. These experiments are planned. No new measurement
-or improvement claim is made here.
+work explains the gap. The required paired campaign is complete for the
+implemented runtime above. The
+[measurement report](../docs/reports/bidirectional-static-summary-erasure-performance-20261022.md)
+records the outcomes, limits and default-mode decision. This specification
+does not assert a performance gain.
