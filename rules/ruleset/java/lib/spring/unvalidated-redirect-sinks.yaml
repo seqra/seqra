@@ -10,29 +10,39 @@ rules:
       provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/audit/spring-unvalidated-redirect.yaml
     languages:
       - java
-    pattern-either:
-      - pattern: new RedirectView($UNTRUSTED);
-      - pattern: new ModelAndView("redirect:" + $UNTRUSTED);
+    mode: taint
+    pattern-sanitizers:
       - patterns:
-        - pattern: |
-            @$ANNOTATION(...)
-            $RETURNTYPE $METHOD(...) {
-              ...
-              return "$REDIRECT" + $UNTRUSTED;
-              ...
-            }
+          - pattern: $*URI = (HttpServletRequest $REQ).getRequestURI();
+          - focus-metavariable: $URI
+    pattern-sinks:
+      - patterns:
+          - pattern: new RedirectView($UNTRUSTED);
+          - focus-metavariable: $UNTRUSTED
+      - patterns:
+          - pattern: new ModelAndView("redirect:" + $UNTRUSTED);
+          - focus-metavariable: $UNTRUSTED
+      - patterns:
+          - pattern: |
+              @$ANNOTATION(...)
+              $RETURNTYPE $METHOD(...) {
+                ...
+                return "$REDIRECT" + $*UNTRUSTED;
+                ...
+              }
 
-        - metavariable-regex:
-            metavariable: $REDIRECT
-            regex: "redirect:.*"
+          - metavariable-regex:
+              metavariable: $REDIRECT
+              regex: "redirect:.*"
 
-        - metavariable-pattern:
-            metavariable: $ANNOTATION
-            patterns:
-              - pattern-either:
-                - pattern: RequestMapping
-                - pattern: DeleteMapping
-                - pattern: GetMapping
-                - pattern: PatchMapping
-                - pattern: PostMapping
-                - pattern: PutMapping
+          - metavariable-pattern:
+              metavariable: $ANNOTATION
+              patterns:
+                - pattern-either:
+                    - pattern: RequestMapping
+                    - pattern: DeleteMapping
+                    - pattern: GetMapping
+                    - pattern: PatchMapping
+                    - pattern: PostMapping
+                    - pattern: PutMapping
+          - focus-metavariable: $UNTRUSTED

@@ -29,10 +29,10 @@ rules:
               - pattern: "($O : *context.BeegoOutput).Body($UNTRUSTED)"
               - pattern: "($O : *context.BeegoOutput).JSON($UNTRUSTED, ...)"
               - pattern: "($UNTRUSTED : *web.Controller).ServeJSON()"
-              - pattern: "fmt.Fprint($W, $UNTRUSTED)"
+              - pattern: "fmt.Fprint($W, $*UNTRUSTED)"
               - pattern: "fmt.Fprintf($W, $UNTRUSTED, ...)"
-              - pattern: "fmt.Fprintf($W, $FORMAT, ..., $UNTRUSTED, ...)"
-              - pattern: "fmt.Fprintln($W, $UNTRUSTED)"
+              - pattern: "fmt.Fprintf($W, $FORMAT, ..., $*UNTRUSTED, ...)"
+              - pattern: "fmt.Fprintln($W, $*UNTRUSTED)"
               - pattern: "io.WriteString($W, $UNTRUSTED)"
               - pattern: "json.NewEncoder($W).Encode($UNTRUSTED)"
           - focus-metavariable: $UNTRUSTED

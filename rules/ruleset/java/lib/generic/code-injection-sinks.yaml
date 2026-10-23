@@ -12,46 +12,47 @@ rules:
       - java
     patterns:
       - pattern-either:
-          - pattern: ognl.Ognl.getValue($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getGetMethod($T, $UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getSetMethod($T, $UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getField($T, $UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).setProperties($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).setProperty($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getValue($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).setValue($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getGetMethod($T, $UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getSetMethod($T, $UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getField($T, $UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).setProperties($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).setProperty($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getValue($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).setValue($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).translateVariables($UNTRUSTED,...);
-          - pattern: com.opensymphony.xwork2.util.TextParseUtil.translateVariables($UNTRUSTED, ...);
-          - pattern: com.opensymphony.xwork2.util.TextParseUtil.translateVariablesCollection($UNTRUSTED,...);
-          - pattern: com.opensymphony.xwork2.util.TextParseUtil.shallBeIncluded($UNTRUSTED,...);
+          - pattern: ognl.Ognl.getValue($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getGetMethod($T, $*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getSetMethod($T, $*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getField($T, $*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).setProperties($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).setProperty($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getValue($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).setValue($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getGetMethod($T, $*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getSetMethod($T, $*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getField($T, $*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).setProperties($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).setProperty($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getValue($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).setValue($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).translateVariables($*UNTRUSTED,...);
+          - pattern: com.opensymphony.xwork2.util.TextParseUtil.translateVariables($*UNTRUSTED, ...);
+          - pattern: com.opensymphony.xwork2.util.TextParseUtil.translateVariablesCollection($*UNTRUSTED,...);
+          - pattern: com.opensymphony.xwork2.util.TextParseUtil.shallBeIncluded($*UNTRUSTED,...);
     # TODO: commaDelimitedStringToSet is propagator!
-          - pattern: com.opensymphony.xwork2.util.TextParseUtil.commaDelimitedStringToSet($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.util.OgnlTextParser $P).evaluate($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.util.OgnlTextParser $P).setProperties($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).setProperty($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).getValue($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).setValue($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).callMethod($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).compile($UNTRUSTED,...);
-          - pattern: (org.apache.struts2.util.VelocityStrutsUtil $P).evaluate($UNTRUSTED,...);
-          - pattern: (org.apache.struts2.util.StrutsUtil $P).isTrue($UNTRUSTED,...);
-          - pattern: (org.apache.struts2.util.StrutsUtil $P).findString($UNTRUSTED,...);
-          - pattern: (org.apache.struts2.util.StrutsUtil $P).findValue($UNTRUSTED,...);
-          - pattern: (org.apache.struts2.util.StrutsUtil $P).getText($UNTRUSTED,...);
-          - pattern: (org.apache.struts2.util.StrutsUtil $P).translateVariables($UNTRUSTED,...);
-          - pattern: (org.apache.struts2.util.StrutsUtil $P).makeSelectList($UNTRUSTED,...);
-          - pattern: (org.apache.struts2.views.jsp.ui.OgnlTool $P).findValue($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.util.ValueStack $P).findString($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.util.ValueStack $P).findValue($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.util.ValueStack $P).setValue($UNTRUSTED,...);
-          - pattern: (com.opensymphony.xwork2.util.ValueStack $P).setParameter($UNTRUSTED,...);
+          - pattern: com.opensymphony.xwork2.util.TextParseUtil.commaDelimitedStringToSet($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.util.OgnlTextParser $P).evaluate($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.util.OgnlTextParser $P).setProperties($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).setProperty($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).getValue($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).setValue($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).callMethod($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).compile($*UNTRUSTED,...);
+          - pattern: (org.apache.struts2.util.VelocityStrutsUtil $P).evaluate($*UNTRUSTED,...);
+          - pattern: (org.apache.struts2.util.StrutsUtil $P).isTrue($*UNTRUSTED,...);
+          - pattern: (org.apache.struts2.util.StrutsUtil $P).findString($*UNTRUSTED,...);
+          - pattern: (org.apache.struts2.util.StrutsUtil $P).findValue($*UNTRUSTED,...);
+          - pattern: (org.apache.struts2.util.StrutsUtil $P).getText($*UNTRUSTED,...);
+          - pattern: (org.apache.struts2.util.StrutsUtil $P).translateVariables($*UNTRUSTED,...);
+          - pattern: (org.apache.struts2.util.StrutsUtil $P).makeSelectList($*UNTRUSTED,...);
+          - pattern: (org.apache.struts2.views.jsp.ui.OgnlTool $P).findValue($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.util.ValueStack $P).findString($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.util.ValueStack $P).findValue($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.util.ValueStack $P).setValue($*UNTRUSTED,...);
+          - pattern: (com.opensymphony.xwork2.util.ValueStack $P).setParameter($*UNTRUSTED,...);
+      - focus-metavariable: $UNTRUSTED
 
   - id: dangerous-groovy-shell
     options:
@@ -96,7 +97,11 @@ rules:
       provenance: https://find-sec-bugs.github.io/bugs.htm#SCRIPT_ENGINE_INJECTION
     languages:
       - java
-    pattern-either:
-      - pattern: (javax.script.ScriptEngine $SE).eval($UNTRUSTED)
-      - pattern: (javax.script.Invocable $INVC).invokeFunction(..., $UNTRUSTED)
-      - pattern: (javax.script.Invocable $INVC).invokeMethod(..., $UNTRUSTED)
+    patterns:
+      - pattern-either:
+          - pattern: (javax.script.ScriptEngine $SE).eval($UNTRUSTED)
+          # invokeFunction/invokeMethod pass args via an Object... vararg, so a tainted arg lands
+          # as a slice element — star to observe it via any-field.
+          - pattern: (javax.script.Invocable $INVC).invokeFunction(..., $*UNTRUSTED)
+          - pattern: (javax.script.Invocable $INVC).invokeMethod(..., $*UNTRUSTED)
+      - focus-metavariable: $UNTRUSTED

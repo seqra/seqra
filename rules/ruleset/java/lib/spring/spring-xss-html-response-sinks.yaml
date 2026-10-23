@@ -12,20 +12,22 @@ rules:
     languages:
       - java
     mode: taint
-
-
+    pattern-propagators:
+      - pattern: $RES = (Object $*OBJ).toString();
+        from: $OBJ
+        to: $RES
     pattern-sanitizers:
       - patterns:
           - pattern-either:
-              - pattern: Encode.forHtml(..., $UNTRUSTED, ...)
-              - pattern: (PolicyFactory $POLICY).sanitize(..., $UNTRUSTED, ...)
-              - pattern: (AntiSamy $AS).scan(..., $UNTRUSTED, ...)
-              - pattern: JSoup.clean(..., $UNTRUSTED, ...)
-              - pattern: HtmlUtils.htmlEscape(..., $UNTRUSTED, ...)
-              - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(..., $UNTRUSTED, ...)
-              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(..., $UNTRUSTED, ...)
-              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(..., $UNTRUSTED, ...)
-              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $UNTRUSTED, ...)
+              - pattern: Encode.forHtml(..., $*UNTRUSTED, ...)
+              - pattern: (PolicyFactory $POLICY).sanitize(..., $*UNTRUSTED, ...)
+              - pattern: (AntiSamy $AS).scan(..., $*UNTRUSTED, ...)
+              - pattern: JSoup.clean(..., $*UNTRUSTED, ...)
+              - pattern: HtmlUtils.htmlEscape(..., $*UNTRUSTED, ...)
+              - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(..., $*UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(..., $*UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(..., $*UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $*UNTRUSTED, ...)
           - focus-metavariable: $UNTRUSTED
 
 
@@ -34,23 +36,23 @@ rules:
               - pattern: |
                   $H.setContentType(MediaType.APPLICATION_JSON);
                   ...
-                  new ResponseEntity($UNTRUSTED, $H, ...);
+                  new ResponseEntity($*UNTRUSTED, $H, ...);
               - pattern: |
                   $H.setContentType(MediaType.APPLICATION_PDF);
                   ...
-                  new ResponseEntity($UNTRUSTED, $H, ...);
+                  new ResponseEntity($*UNTRUSTED, $H, ...);
               - pattern: |
                   $H.setContentType(MediaType.APPLICATION_OCTET_STREAM);
                   ...
-                  new ResponseEntity($UNTRUSTED, $H, ...);
+                  new ResponseEntity($*UNTRUSTED, $H, ...);
               - pattern: |
                   $H.setContentType(MediaType.TEXT_PLAIN);
                   ...
-                  new ResponseEntity($UNTRUSTED, $H, ...);
+                  new ResponseEntity($*UNTRUSTED, $H, ...);
               - pattern: |
                   $H.setContentType(MediaType.APPLICATION_XML);
                   ...
-                  new ResponseEntity($UNTRUSTED, $H, ...);
+                  new ResponseEntity($*UNTRUSTED, $H, ...);
           - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:
@@ -69,11 +71,11 @@ rules:
               - patterns:
                   - pattern-either:
                       - pattern: |
-                          return ResponseEntity.ok($UNTRUSTED);
+                          return ResponseEntity.ok($*UNTRUSTED);
                       - pattern: |
-                            return new ResponseEntity($UNTRUSTED, (HttpStatusCode $STATUS));
+                            return new ResponseEntity($*UNTRUSTED, (HttpStatusCode $STATUS));
                       - pattern: |
-                            return new ResponseEntity($UNTRUSTED, (HttpStatus $STATUS));
+                            return new ResponseEntity($*UNTRUSTED, (HttpStatus $STATUS));
                       - patterns:
                           - patterns:
                               - pattern-not-inside: | 
@@ -174,7 +176,7 @@ rules:
                                   $X = ResponseEntity.unprocessableEntity();
                                   ...
                           - pattern: |
-                              return $X.body($UNTRUSTED);
+                              return $X.body($*UNTRUSTED);
 
                       - patterns:
                           - patterns:
@@ -207,7 +209,7 @@ rules:
                                   $H = new HttpHeaders(...);
                                   ...
                           - pattern: |
-                              return new ResponseEntity($UNTRUSTED, $H, ...);
+                              return new ResponseEntity($*UNTRUSTED, $H, ...);
                   - pattern-either:
                       - pattern-inside: |
                           @$ANNOTATION(...)
@@ -342,7 +344,7 @@ rules:
                           CompletableFuture<UrlResource> $METHOD(...) {
                             ...
                           }
-                  - pattern: return $UNTRUSTED;
+                  - pattern: return $*UNTRUSTED;
               - patterns:
                   - pattern-either:
                       - pattern-inside: |
@@ -407,6 +409,8 @@ rules:
                         - pattern: '"application/octet-stream"'
                         - pattern: '"application/xml"'
                         - pattern: '"text/xml"'
+                        - pattern: '"application/linkset"'
+                        - pattern: '"application/linkset+json"'
                         - pattern: '"image/png"'
                         - pattern: '"image/jpeg"'
                         - pattern: '"image/gif"'
@@ -435,6 +439,8 @@ rules:
                         - pattern: '"application/octet-stream"'
                         - pattern: '"application/xml"'
                         - pattern: '"text/xml"'
+                        - pattern: '"application/linkset"'
+                        - pattern: '"application/linkset+json"'
                         - pattern: '"image/png"'
                         - pattern: '"image/jpeg"'
                         - pattern: '"image/gif"'
@@ -463,7 +469,7 @@ rules:
                     - pattern: '"image/svg+xml"'
                     - pattern: MediaType.TEXT_HTML_VALUE
                     - pattern: MediaType.IMAGE_SVG_XML_VALUE
-          - pattern: return $UNTRUSTED;
+          - pattern: return $*UNTRUSTED;
           - focus-metavariable: $UNTRUSTED
 
       - patterns:
@@ -483,6 +489,6 @@ rules:
                   ...
                 }
           - pattern-either:
-              - pattern: return $X.contentType(MediaType.TEXT_HTML).body($UNTRUSTED);
-              - pattern: return $X.contentType(MediaType.IMAGE_SVG_XML).body($UNTRUSTED);
+              - pattern: return $X.contentType(MediaType.TEXT_HTML).body($*UNTRUSTED);
+              - pattern: return $X.contentType(MediaType.IMAGE_SVG_XML).body($*UNTRUSTED);
           - focus-metavariable: $UNTRUSTED

@@ -2,20 +2,19 @@ rules:
   - id: bean-injection
     severity: ERROR
     message: >-
-      An attacker can set arbitrary bean properties that can compromise system integrity.
-      An attacker can leverage this functionality to access special bean properties like class.classLoader
-      that will allow them to override system properties and potentially execute arbitrary code.
+      Untrusted request data reaches generic bean population and may modify security-sensitive properties.
     metadata:
       cwe: CWE-15
-      short-description: An attacker can set arbitrary bean properties
+      short-description: Untrusted request data reaches generic bean population
       full-description: |-
-        When untrusted data is passed directly into `org.apache.commons.beanutils.BeanUtilsBean.populate(...)`,
-        an attacker can control which bean properties are set and to what values.
-        Because BeanUtils uses reflection and supports nested property paths,
-        this can lead to a *mass assignment* (over-posting) vulnerability:
-        users can modify fields that should be server-controlled (e.g., roles, flags, internal configuration),
-        and, in some environments and older BeanUtils versions, even reach sensitive objects via special properties like `class`
-        (e.g., `class.classLoader...`) and chain this into more severe attacks.
+        `org.apache.commons.beanutils.BeanUtilsBean.populate(...)` converts and assigns map values
+        through reflection. Request-controlled map keys can produce a *mass assignment* (over-posting)
+        vulnerability by selecting fields that should remain server-controlled (for example roles,
+        flags, or internal configuration). Request-controlled values under server-selected keys still
+        require validation before they reach this generic binding API.
+
+        In some environments and older BeanUtils versions, attacker-selected nested property paths
+        can reach sensitive objects through special properties such as `class.classLoader`.
 
         ```java
         import org.apache.commons.beanutils.BeanUtilsBean;
@@ -41,9 +40,11 @@ rules:
 
         To remediate this issue, never pass raw, unvalidated, or unfiltered external input directly to `BeanUtilsBean.populate`. Use one or more of the following strategies:
 
-        1. **Whitelist properties before populating** (recommended pattern)
+        1. **Allowlist properties and validate their values before populating**
 
-          Only allow a fixed set of safe property names to be set from user input.
+          Only allow a fixed set of safe property names and convert each request value into a
+          validated domain value before adding it to the map. Allowlisting keys alone prevents
+          arbitrary-property selection but does not validate their values.
 
           ```java
           import org.apache.commons.beanutils.BeanUtilsBean;
@@ -58,8 +59,7 @@ rules:
                   if (rawParams.containsKey(name)) {
                       String[] values = rawParams.get(name);
                       if (values != null && values.length > 0) {
-                          // Add any additional validation/sanitization here
-                          safeParams.put(name, values[0]);
+                      safeParams.put(name, validateProperty(name, values[0]));
                       }
                   }
               }
@@ -138,15 +138,11 @@ rules:
     message: Beans are populated from untrusted user-controlled data
     languages:
       - java
-    pattern-propagators:
-      - pattern: $MAP = (javax.servlet.http.HttpServletRequest $REQ).getParameterMap()
-        from: $REQ
-        to: $MAP
     pattern-sinks:
       - patterns:
           - pattern-either:
-              - pattern: (BeanUtilsBean $B).populate(..., $UNTRUSTED);
-              - pattern: org.apache.commons.beanutils.BeanUtils.populate(..., $UNTRUSTED);
+              - pattern: (BeanUtilsBean $B).populate(..., $*UNTRUSTED);
+              - pattern: org.apache.commons.beanutils.BeanUtils.populate(..., $*UNTRUSTED);
           - focus-metavariable: $UNTRUSTED
 
   - id: sql-catalog-external-manipulation

@@ -74,20 +74,46 @@ rules:
                         - pattern: doPost
                         - pattern: doDelete
                         - pattern: doTrace
+          # Star the assigned result so an array-typed request value (e.g.
+          # getParameterValues() -> String[]) taints its elements too; for a scalar
+          # result $* is base-or-any-field, so the base still matches. Focus pins the
+          # tainted value to $RESULT; at IR level every used call result is an
+          # assignment, so this single form also covers calls used directly as
+          # arguments. getSession is excluded as a $FUNC name constraint (the session
+          # object is trusted-side state, not untrusted input). The receiver carries its
+          # type in the pattern instead of relying on the $REQ bound by pattern-inside:
+          # that binding is not enforced across sibling patterns, so an untyped $REQ also
+          # matches session.getAttribute(..) - reading back out of the session became a
+          # source and the getSession exclusion never saw the call it was meant to stop.
           - pattern: |
-              $REQ.$FUNC(...)
-          - pattern-not: |
-              $REQ.getSession()
+              $*RESULT = (HttpServletRequest $REQ).$FUNC(...)
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: ^(?!getSession$).*
+          - focus-metavariable: $RESULT
     pattern-propagators:
       - pattern: $RES = org.owasp.esapi.ESAPI.encoder().encodeForHTML($IN)
         from: $IN
         to: $RES
     pattern-sinks:
+      # CWE-501 covers BOTH argument positions: user-controlled data stored as the attribute
+      # NAME crosses the trust boundary just like the stored VALUE (OWASP Benchmark's
+      # trustbound true positives are mostly setAttribute(taintedName, "constant")). One
+      # focused+starred sink per position keeps the check per-argument (no generic
+      # any-argument collapse) and lets each observe taint buried in a field/element of the
+      # stored object.
       - patterns:
-          - pattern: (HttpServletRequest $REQ).getSession().$FUNC($NAME, $VALUE);
+          - pattern: (HttpServletRequest $REQ).getSession().$FUNC($*NAME, $VALUE);
           - metavariable-regex:
               metavariable: $FUNC
               regex: ^(putValue|setAttribute)$
+          - focus-metavariable: $NAME
+      - patterns:
+          - pattern: (HttpServletRequest $REQ).getSession().$FUNC($NAME, $*VALUE);
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: ^(putValue|setAttribute)$
+          - focus-metavariable: $VALUE
 
   - id: cookie-missing-httponly
     severity: WARNING

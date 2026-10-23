@@ -129,11 +129,19 @@ rules:
               - pattern: "($X : *context.BeegoInput).RequestBody"
               - pattern: "($X : *context.BeegoInput).Bind($PTR)"
     pattern-sinks:
+      # Star $C so a tainted cookie FIELD (Value/Path set from user input) is observed on the
+      # whole *http.Cookie via the any-field check.
       - patterns:
           - pattern-inside: |
               import "net/http"
               import web "github.com/beego/beego/v2/server/web"
               ...
-          - pattern-either:
-              - pattern: "http.SetCookie($W, $C)"
-              - pattern: "($C : *web.Controller).SetSession($K, $V)"
+          - pattern: "http.SetCookie($W, $*C)"
+          - focus-metavariable: $C
+      - patterns:
+          - pattern-inside: |
+              import "net/http"
+              import web "github.com/beego/beego/v2/server/web"
+              ...
+          - pattern: "($C : *web.Controller).SetSession($K, $*V)"
+          - focus-metavariable: $V

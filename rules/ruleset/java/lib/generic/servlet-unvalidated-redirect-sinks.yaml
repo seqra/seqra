@@ -20,5 +20,8 @@ rules:
           - focus-metavariable: $UNTRUSTED
     pattern-sanitizers:
       - patterns:
-        - pattern: $UNTRUSTED = (HttpServletRequest $REQ).getContextPath();
+        - pattern: $*URI = (HttpServletRequest $REQ).getRequestURI();
+        - focus-metavariable: $URI
+      - patterns:
+        - pattern: $*UNTRUSTED = (HttpServletRequest $REQ).getContextPath();
         - focus-metavariable: $UNTRUSTED

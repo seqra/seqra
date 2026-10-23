@@ -51,6 +51,24 @@ public class InsecureDesignSamples {
         request.getSession().setAttribute("userProfile", username + ":" + theme);
     }
 
+    @GetMapping("/insecure-design/trust-boundary-violation/unsafe-wrapped")
+    public void storesWrappedUntrustedInSessionInsecure(HttpServletRequest request) {
+        // Insecure design: the untrusted value is buried inside a fresh container, so only a
+        // whole-object ($*) sink check observes it at the session store
+        String theme = request.getParameter("theme"); // untrusted
+        java.util.Map<String, String> profile = new java.util.HashMap<>();
+        profile.put("theme", theme);
+        request.getSession().setAttribute("userProfile", profile);
+    }
+
+    @GetMapping("/insecure-design/trust-boundary-violation/unsafe-name")
+    public void storesUntrustedAttributeNameInSessionInsecure(HttpServletRequest request) {
+        // Insecure design: the untrusted value is the attribute NAME — the attacker seeds
+        // arbitrary session keys (the dominant OWASP Benchmark trustbound shape)
+        String key = request.getParameter("key"); // untrusted
+        request.getSession().setAttribute(key, "constant");
+    }
+
     @GetMapping("/insecure-design/trust-boundary-violation/safe")
     public void validateBeforeCrossingTrustBoundarySecure(HttpServletRequest request) {
         String username = (String) request.getSession().getAttribute("username");
