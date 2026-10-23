@@ -17,7 +17,10 @@ passThrough:
   taintCopyOnly: true
   copy:
   - from: arg(0)
-    to: this
+    to:
+    - this
+    - .javax.sql.rowset.JoinRowSet#rowSets#javax.sql.RowSet[]
+    - '[*]'
 - function: javax.sql.rowset.WebRowSet#writeXml
   signature: (java.sql.ResultSet, java.io.OutputStream) void
   copy:
@@ -104,7 +107,8 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.sql.rowset.JoinRowSet#rowSets#java.lang.Object
+    - .javax.sql.rowset.JoinRowSet#rowSets#javax.sql.RowSet[]
+    - '[*]'
   - from: arg(0)
     to:
     - this
@@ -130,7 +134,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.sql.rowset.JoinRowSet#rowSets#java.lang.Object
+    - .javax.sql.rowset.JoinRowSet#rowSets#javax.sql.RowSet[]
     to: result
 - function: javax.sql.rowset.JoinRowSet#addRowSet
   signature: (javax.sql.rowset.Joinable) void
@@ -142,7 +146,8 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.sql.rowset.JoinRowSet#rowSets#java.lang.Object
+    - .javax.sql.rowset.JoinRowSet#rowSets#javax.sql.RowSet[]
+    - '[*]'
   - from: arg(0)
     to:
     - this
@@ -219,7 +224,10 @@ passThrough:
   taintCopyOnly: true
   copy:
   - from: arg(0)
-    to: this
+    to:
+    - this
+    - .javax.sql.rowset.JoinRowSet#rowSets#javax.sql.RowSet[]
+    - '[*]'
 - function: javax.sql.rowset.CachedRowSet#getOriginalRow
   signature:
     return: java.sql.ResultSet
@@ -245,7 +253,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.sql.rowset.JoinRowSet#rowSets#java.lang.Object
+    - .javax.sql.rowset.JoinRowSet#rowSets#javax.sql.RowSet[]
     to: result
 - function: javax.sql.rowset.JoinRowSet#addRowSet
   signature: (javax.sql.RowSet[], int[]) void
@@ -307,7 +315,10 @@ passThrough:
   taintCopyOnly: true
   copy:
   - from: arg(0)
-    to: this
+    to:
+    - this
+    - .javax.sql.rowset.JoinRowSet#rowSets#javax.sql.RowSet[]
+    - '[*]'
 - function: javax.sql.rowset.WebRowSet#writeXml
   signature: (java.sql.ResultSet, java.io.Writer) void
   copy:
@@ -333,7 +344,8 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.sql.rowset.JoinRowSet#rowSets#java.lang.Object
+    - .javax.sql.rowset.JoinRowSet#rowSets#javax.sql.RowSet[]
+    - '[*]'
   - from: arg(0)
     to:
     - this
@@ -412,11 +424,11 @@ passThrough:
     - '[*]'
     to:
     - this
-    - .javax.sql.rowset.JoinRowSet#rowSets#java.lang.Object
+    - .javax.sql.rowset.JoinRowSet#rowSets#javax.sql.RowSet[]
   - from: arg(0)
     to:
     - this
-    - .javax.sql.rowset.JoinRowSet#rowSets#java.lang.Object
+    - .javax.sql.rowset.JoinRowSet#rowSets#javax.sql.RowSet[]
   - from:
     - arg(0)
     - '[*]'
@@ -455,11 +467,11 @@ passThrough:
     - '[*]'
     to:
     - this
-    - .javax.sql.rowset.JoinRowSet#rowSets#java.lang.Object
+    - .javax.sql.rowset.JoinRowSet#rowSets#javax.sql.RowSet[]
   - from: arg(0)
     to:
     - this
-    - .javax.sql.rowset.JoinRowSet#rowSets#java.lang.Object
+    - .javax.sql.rowset.JoinRowSet#rowSets#javax.sql.RowSet[]
   - from:
     - arg(0)
     - '[*]'
