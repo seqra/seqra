@@ -376,31 +376,12 @@ passThrough:
   - from: arg(0)
     to: this
 - function: javax.sql.rowset.CachedRowSet#setTableName
-  signature: (java.lang.String) *
+  signature: (java.lang.String) void
   copy:
-  - from:
-    - arg(0)
-    - .java.lang.String#bytes#byte[]
+  - from: arg(0)
     to:
     - this
-    - .javax.sql.rowset.CachedRowSet#originalResultSet#java.sql.ResultSet
-    - .java.sql.ResultSet#rawBytes#byte[]
-  - from:
-    - arg(0)
-    - .java.lang.String#bytes#byte[]
-    to:
-    - this
-    - .javax.sql.rowset.CachedRowSet#originalResultSet#java.sql.ResultSet
-    - .java.sql.ResultSet#blob#java.sql.Blob
-    - .java.sql.Blob#data#byte[]
-  - from:
-    - arg(0)
-    - .java.lang.String#bytes#byte[]
-    to:
-    - this
-    - .javax.sql.rowset.CachedRowSet#originalResultSet#java.sql.ResultSet
-    - .java.sql.ResultSet#columnText#java.lang.String
-    - .java.lang.String#bytes#byte[]
+    - .javax.sql.rowset.CachedRowSet#tableName#java.lang.String
 - function: javax.sql.rowset.CachedRowSet#toCollection
   signature: (java.lang.String) java.util.Collection
   taintCopyOnly: true
@@ -516,4 +497,11 @@ passThrough:
   - from:
     - this
     - .java.sql.ResultSet#columnValues#java.lang.Object
+    to: result
+- function: javax.sql.rowset.CachedRowSet#getTableName
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.sql.rowset.CachedRowSet#tableName#java.lang.String
     to: result

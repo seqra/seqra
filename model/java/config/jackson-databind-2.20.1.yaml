@@ -14,23 +14,20 @@ passThrough:
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.databind.util.ObjectBuffer#completeAndClearBuffer
-  signature:
-    params:
-    - index: 0
-      type: java.lang.Object[]
-    - index: 1
-      type: int
-    - index: 2
-      type: java.util.List
+  signature: (java.lang.Object[], int, java.util.List) void
   copy:
-  - from: arg(0)
-    to: arg(2)
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - arg(2)
+    - .java.lang.Iterable#Element#java.lang.Object
   - from:
     - this
     - .com.fasterxml.jackson.databind.util.ObjectBuffer#buffer#java.lang.Object
-    to: arg(2)
-  - from: this
-    to: arg(2)
+    to:
+    - arg(2)
+    - .java.lang.Iterable#Element#java.lang.Object
 - function: com.fasterxml.jackson.databind.node.ObjectNode#path
   copy:
   - from: this
@@ -1558,13 +1555,13 @@ passThrough:
   signature:
     params:
     - index: 0
-      type: .byte[]
+      type: byte[]
   copy:
-  - from: arg(0)
-    to: result
   - from:
     - arg(0)
-    - .java.lang.String#<serialized-value>#java.lang.Object
+    - '[*]'
+    to: result
+  - from: arg(0)
     to: result
 - function: com.fasterxml.jackson.databind.node.TextNode#valueOf
   copy:

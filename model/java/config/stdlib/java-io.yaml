@@ -48,22 +48,22 @@ passThrough:
 - function: java.io.Reader#read
   signature: (char[], int, int) int
   copy:
-  - from: this
-    to: result
   - from:
     - this
     - .java.io.Reader#content#java.lang.Object
-    to: result
-- function: java.io.File#<init>
-  signature:
-    params:
-    - index: 0
-      type: java.net.URI
-  copy:
-  - from: arg(0)
-    to:
+    to: arg(0)
+  - from:
     - this
-    - .java.io.File#uri#java.net.URI
+    - .java.io.Reader#content#java.lang.Object
+    to:
+    - arg(0)
+    - '[*]'
+  - from: this
+    to: arg(0)
+  - from: this
+    to:
+    - arg(0)
+    - '[*]'
 - function: java.io.File#getAbsolutePath
   signature: () java.lang.String
   taintCopyOnly: true
@@ -249,12 +249,22 @@ passThrough:
 - function: java.io.Reader#read
   signature: (char[]) int
   copy:
-  - from: this
-    to: result
   - from:
     - this
     - .java.io.Reader#content#java.lang.Object
-    to: result
+    to: arg(0)
+  - from:
+    - this
+    - .java.io.Reader#content#java.lang.Object
+    to:
+    - arg(0)
+    - '[*]'
+  - from: this
+    to: arg(0)
+  - from: this
+    to:
+    - arg(0)
+    - '[*]'
 - function: java.io.ByteArrayOutputStream#toByteArray
   signature:
     return: byte[]
@@ -420,7 +430,9 @@ passThrough:
 - function: java.io.File#<init>
   signature: (java.net.URI) void
   copy:
-  - from: arg(0)
+  - from:
+    - arg(0)
+    - .java.net.URI#path#java.lang.String
     to:
     - this
     - .java.io.File#path#java.lang.Object
@@ -598,12 +610,6 @@ passThrough:
     to: this
 - function: java.io.File#<init>
   signature: (java.lang.String, java.io.File) void
-  taintCopyOnly: true
-  copy:
-  - from: arg(0)
-    to: this
-- function: java.io.File#<init>
-  signature: (java.net.URI) void
   taintCopyOnly: true
   copy:
   - from: arg(0)
@@ -787,4 +793,15 @@ passThrough:
   taintCopyOnly: true
   copy:
   - from: this
+    to: result
+- function: java.io.StringWriter#toString
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.io.Writer#content#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.io.Writer#buffer#java.lang.Object
     to: result

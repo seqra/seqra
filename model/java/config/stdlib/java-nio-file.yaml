@@ -184,9 +184,10 @@ passThrough:
     to: result
 - function: java.nio.file.FileSystem#getPath
   signature: (java.lang.String, java.lang.String[]) java.nio.file.Path
-  taintCopyOnly: true
   copy:
   - from: arg(0)
     to: result
-  - from: arg(1)
+  - from:
+    - arg(1)
+    - '[*]'
     to: result

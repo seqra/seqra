@@ -5257,6 +5257,25 @@ passThrough:
   copy:
   - from: this
     to: result
+- function: java.util.Properties#store
+  signature: (java.io.Writer, java.lang.String) void
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - arg(0)
+    - .java.io.Writer#content#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - arg(0)
+    - .java.io.Writer#content#java.lang.Object
+  - from: arg(1)
+    to:
+    - arg(0)
+    - .java.io.Writer#content#java.lang.Object
 - function: java.util.Arrays#spliterator
   signature: (long[]) java.util.Spliterator$OfLong
   overrides: false

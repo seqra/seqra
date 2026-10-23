@@ -1379,19 +1379,15 @@ passThrough:
 - function: javax.json.JsonArrayBuilder#add
   signature: (int, java.lang.String) javax.json.JsonArrayBuilder
   copy:
-  - from: arg(0)
-    to: result
-  - from: arg(0)
+  - from: arg(1)
     to:
     - this
     - .javax.json.JsonArrayBuilder#elements#java.lang.Object
-  - from: this
-    to: result
-  - from: arg(0)
-    to: this
-  - from:
-    - this
+  - from: arg(1)
+    to:
+    - result
     - .javax.json.JsonArrayBuilder#elements#java.lang.Object
+  - from: this
     to: result
 - function: javax.json.JsonArrayBuilder#add
   signature: (int, long) javax.json.JsonArrayBuilder
@@ -1556,16 +1552,6 @@ passThrough:
     - .javax.json.JsonObjectBuilder#members#java.lang.Object
     to: result
   - from: this
-    to: result
-- function: javax.json.JsonArrayBuilder#add
-  signature: (int, java.lang.String) javax.json.JsonArrayBuilder
-  overrides: false
-  copy:
-  - from: this
-    to: result
-  - from:
-    - this
-    - .javax.json.JsonArrayBuilder#elements#java.lang.Object
     to: result
 - function: javax.json.JsonArrayBuilder#add
   signature: (int, javax.json.JsonValue) javax.json.JsonArrayBuilder

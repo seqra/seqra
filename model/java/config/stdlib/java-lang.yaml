@@ -210,6 +210,10 @@ passThrough:
   copy:
   - from: arg(1)
     to: result
+  - from:
+    - arg(2)
+    - '[*]'
+    to: result
 - function: java.lang.String#getBytes
   signature: () byte[]
   taintCopyOnly: true
@@ -407,9 +411,12 @@ passThrough:
     to: result
 - function: java.lang.String#join
   signature: (java.lang.CharSequence, java.lang.Iterable) java.lang.String
-  taintCopyOnly: true
   copy:
-  - from: arg(*)
+  - from: arg(0)
+    to: result
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
     to: result
 - function: java.lang.Class#getProtectionDomain
   signature: () java.security.ProtectionDomain
@@ -1484,6 +1491,21 @@ passThrough:
     to: result
 - function: java.lang.Object#toString
   signature: () java.lang.String
+  condition:
+    not:
+      anyOf:
+      - typeIs: java.nio.ByteBuffer
+        pos: this
+      - typeIs: java.nio.ShortBuffer
+        pos: this
+      - typeIs: java.nio.IntBuffer
+        pos: this
+      - typeIs: java.nio.LongBuffer
+        pos: this
+      - typeIs: java.nio.FloatBuffer
+        pos: this
+      - typeIs: java.nio.DoubleBuffer
+        pos: this
   copy:
   - from: this
     to: result
@@ -1554,12 +1576,6 @@ passThrough:
     to:
     - result
     - .java.util.Iterator#Element#java.lang.Object
-- function: java.lang.String#format
-  signature: (java.util.Locale, java.lang.String, java.lang.Object[]) java.lang.String
-  taintCopyOnly: true
-  copy:
-  - from: arg(2)
-    to: result
 - function: java.lang.String#<init>
   signature: (byte[], java.nio.charset.Charset) void
   taintCopyOnly: true

@@ -159,21 +159,9 @@ passThrough:
   - from: arg(0)
     to: result
   - from:
-    - this
-    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
+    - arg(1)
+    - '[*]'
     to: result
-  - from:
-    - this
-    - .java.text.Format#formatConfiguration#java.lang.Object
-    to: result
-  - from:
-    - this
-    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
-    to: arg(1)
-  - from:
-    - this
-    - .java.text.Format#formatConfiguration#java.lang.Object
-    to: arg(1)
 - function: java.text.ChoiceFormat#<init>
   signature: (java.lang.String) void
   taintCopyOnly: true
@@ -274,18 +262,6 @@ passThrough:
     to:
     - this
     - .java.text.ChoiceFormat#pattern#java.lang.String
-- function: java.text.MessageFormat#format
-  signature: (java.lang.String, java.lang.Object[]) java.lang.String
-  taintCopyOnly: true
-  copy:
-  - from: arg(0)
-    to: arg(1)
-  - from: arg(1)
-    to: result
-  - from: this
-    to: result
-  - from: this
-    to: arg(1)
 - function: java.text.NumberFormat#format
   signature: (double, java.lang.StringBuffer, java.text.FieldPosition) java.lang.StringBuffer
   taintCopyOnly: true

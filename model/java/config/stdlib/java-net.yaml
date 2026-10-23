@@ -558,10 +558,37 @@ passThrough:
   - from: this
     to: result
 - function: java.net.URI#<init>
-  signature: (java.lang.String, java.lang.String, java.lang.String, java.lang.String)
-    void
+  signature: (java.lang.String, java.lang.String, java.lang.String, java.lang.String) void
   copy:
-  - from: arg(*)
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URI#scheme#java.lang.String
+  - from: arg(1)
+    to:
+    - this
+    - .java.net.URI#host#java.lang.String
+  - from: arg(2)
+    to:
+    - this
+    - .java.net.URI#path#java.lang.String
+  - from: arg(3)
+    to:
+    - this
+    - .java.net.URI#fragment#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URI#value#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.net.URI#value#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .java.net.URI#value#java.lang.Object
+  - from: arg(3)
     to:
     - this
     - .java.net.URI#value#java.lang.Object
@@ -793,13 +820,6 @@ passThrough:
   copy:
   - from: this
     to: result
-- function: java.net.URI#<init>
-  signature: (java.lang.String, java.lang.String, java.lang.String, java.lang.String)
-    void
-  taintCopyOnly: true
-  copy:
-  - from: arg(*)
-    to: this
 - function: java.net.URL#getHost
   signature:
     return: java.lang.String
