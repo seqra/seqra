@@ -14,13 +14,13 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.mybatis.spring.support.SqlSessionDaoSupport#<rule-storage>#java.lang.Object
+    - .org.mybatis.spring.support.SqlSessionDaoSupport#sessionConfiguration#java.lang.Object
 - function: org.mybatis.spring.support.SqlSessionDaoSupport#setSqlSessionFactory
   copy:
   - from: arg(0)
     to:
     - this
-    - .org.mybatis.spring.support.SqlSessionDaoSupport#<rule-storage>#java.lang.Object
+    - .org.mybatis.spring.support.SqlSessionDaoSupport#sessionConfiguration#java.lang.Object
 - function: org.mybatis.spring.support.SqlSessionDaoSupport#setSqlSessionFactory
   signature:
     params:
@@ -40,7 +40,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.mybatis.spring.support.SqlSessionDaoSupport#<rule-storage>#java.lang.Object
+    - .org.mybatis.spring.support.SqlSessionDaoSupport#sessionConfiguration#java.lang.Object
     to: result
 - function: org.mybatis.spring.support.SqlSessionDaoSupport#setSqlSessionTemplate
   signature:

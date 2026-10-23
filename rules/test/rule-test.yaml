@@ -47,6 +47,189 @@ tests:
       - security.commandinjection.CommandInjectionServletSamples$UnsafeCommandServlet#doGet
       - security.commandinjection.CommandInjectionSpringSamples$UnsafeCommandInjectionController#unsafePing
       - security.commandinjection.CommandInjectionSpringSamples$UnsafeCommandInjectionController#unsafePingList
+      # passThrough model regressions - one entry per library slot under test
+      - security.passthrough.PassthroughValueFlowSamples#stringBuilderAppendUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#stringBuilderAppendCharsUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#stringBufferInsertUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#stringFormatUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#stringFormatLocaleUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#stringJoinerAddUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#stringJoinerDelimiterUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#matcherGroupUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#matcherAppendTailUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#messageFormatUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#byteArrayOutputStreamUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#stringReaderUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#uriFilePathUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#byteBufferUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#byteBufferCharViewUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#charBufferUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#stringGetCharsUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#byteBufferGetUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#charBufferGetUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#basicControlIdUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#rdnTypeUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#sortKeyMatchingRuleUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#referenceClassNameUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#qNameLocalPartUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#qNamePrefixUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#httpHeadersUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#messageFormatStaticPatternUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#messageFormatStaticArgumentUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#choiceFormatFormatsUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#objectBufferListUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#jsonGeneratorBinaryUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#jsonArrayBuilderIndexedUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#jsonObjectBuilderNestedUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#listReplaceAllUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#concurrentMapReplaceAllUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#fileSystemPathVarargsUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#searchControlsAttributesUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#basicControlPayloadUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#sortControlArrayUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#cachedRowSetTableNameUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#facesArrayDataModelUnsafe
+      - security.passthrough.PassthroughValueFlowSamples#facesSelectItemGroupUnsafe
+      - security.passthrough.PassthroughServletAccessorSamples$RequestUriServlet#doGet
+      - security.passthrough.PassthroughServletAccessorSamples$QueryStringServlet#doGet
+      - security.passthrough.PassthroughServletAccessorSamples$ServletPathServlet#doGet
+      - security.passthrough.PassthroughServletAccessorSamples$PathInfoServlet#doGet
+      - security.passthrough.PassthroughServletAccessorSamples$RequestUrlServlet#doGet
+      - security.passthrough.PassthroughServletAccessorSamples$RemoteUserServlet#doGet
+      - security.passthrough.PassthroughServletAccessorSamples$ParameterMapServlet#doGet
+      - security.passthrough.PassthroughServletAccessorSamples$ParameterValuesServlet#doGet
+      - security.passthrough.PassthroughServletAccessorSamples$CookiesServlet#doGet
+      - security.passthrough.PassthroughServletAccessorSamples$HeaderNamesServlet#doGet
+      - security.passthrough.PassthroughServletAccessorSamples$ReaderServlet#doPost
+      - security.passthrough.PassthroughServletAccessorSamples$InputStreamServlet#doPost
+      - security.passthrough.PassthroughServletAccessorSamples$RequestAttributeRoundTripServlet#doGet
+      - security.passthrough.PassthroughServletAccessorSamples$SessionAttributeRoundTripServlet#doGet
+      - security.passthrough.PassthroughServletAccessorSamples$PushBuilderPathServlet#doGet
+      - security.passthrough.PassthroughServletAccessorSamples$PushBuilderHeaderServlet#doGet
+      - security.passthrough.PassthroughServletAccessorSamples$PushBuilderHeaderNameServlet#doGet
+      - security.passthrough.PassthroughContainerSamples#arrayElementUnsafe
+      - security.passthrough.PassthroughContainerSamples#arraysCopyOfUnsafe
+      - security.passthrough.PassthroughContainerSamples#systemArrayCopyUnsafe
+      - security.passthrough.PassthroughContainerSamples#arraysAsListUnsafe
+      - security.passthrough.PassthroughContainerSamples#listOfVarargsUnsafe
+      - security.passthrough.PassthroughContainerSamples#setOfVarargsUnsafe
+      - security.passthrough.PassthroughContainerSamples#streamOfVarargsUnsafe
+      - security.passthrough.PassthroughContainerSamples#listGetUnsafe
+      - security.passthrough.PassthroughContainerSamples#listIterateUnsafe
+      - security.passthrough.PassthroughContainerSamples#listCopyUnsafe
+      - security.passthrough.PassthroughContainerSamples#listUnmodifiableUnsafe
+      - security.passthrough.PassthroughContainerSamples#listToArrayUnsafe
+      - security.passthrough.PassthroughContainerSamples#listJoinUnsafe
+      - security.passthrough.PassthroughContainerSamples#listStreamUnsafe
+      - security.passthrough.PassthroughContainerSamples#linkedListUnsafe
+      - security.passthrough.PassthroughContainerSamples#setIterateUnsafe
+      - security.passthrough.PassthroughContainerSamples#mapValueUnsafe
+      - security.passthrough.PassthroughContainerSamples#mapKeyUnsafe
+      - security.passthrough.PassthroughContainerSamples#mapValuesUnsafe
+      - security.passthrough.PassthroughContainerSamples#mapEntryUnsafe
+      - security.passthrough.PassthroughContainerSamples#propertiesUnsafe
+      - security.passthrough.PassthroughContainerSamples#mapGetOrDefaultUnsafe
+      - security.passthrough.PassthroughContainerSamples#nestedMapUnsafe
+      - security.passthrough.PassthroughContainerSamples#listAddAllUnsafe
+      - security.passthrough.PassthroughContainerSamples#collectionsAddAllUnsafe
+      - security.passthrough.PassthroughContainerSamples#mapPutAllUnsafe
+      - security.passthrough.PassthroughContainerSamples#dequePollUnsafe
+      - security.passthrough.PassthroughSerializationSamples#jacksonWriteUnsafe
+      - security.passthrough.PassthroughSerializationSamples#jacksonReadUnsafe
+      - security.passthrough.PassthroughSerializationSamples#jacksonReadBytesUnsafe
+      - security.passthrough.PassthroughSerializationSamples#jacksonReadTreeUnsafe
+      - security.passthrough.PassthroughSerializationSamples#jacksonConvertUnsafe
+      - security.passthrough.PassthroughSerializationSamples#yamlDumpUnsafe
+      - security.passthrough.PassthroughSerializationSamples#yamlLoadUnsafe
+      - security.passthrough.PassthroughSerializationSamples#propertiesStoreUnsafe
+    negative:
+      - security.passthrough.PassthroughContainerSamples#arrayElementSafe
+      - security.passthrough.PassthroughContainerSamples#arraysCopyOfSafe
+      - security.passthrough.PassthroughContainerSamples#systemArrayCopySafe
+      - security.passthrough.PassthroughContainerSamples#arraysAsListSafe
+      - security.passthrough.PassthroughContainerSamples#listOfVarargsSafe
+      - security.passthrough.PassthroughContainerSamples#setOfVarargsSafe
+      - security.passthrough.PassthroughContainerSamples#streamOfVarargsSafe
+      - security.passthrough.PassthroughContainerSamples#listGetSafe
+      - security.passthrough.PassthroughContainerSamples#listIterateSafe
+      - security.passthrough.PassthroughContainerSamples#listCopySafe
+      - security.passthrough.PassthroughContainerSamples#listUnmodifiableSafe
+      - security.passthrough.PassthroughContainerSamples#listToArraySafe
+      - security.passthrough.PassthroughContainerSamples#listJoinSafe
+      - security.passthrough.PassthroughContainerSamples#listStreamSafe
+      - security.passthrough.PassthroughContainerSamples#linkedListSafe
+      - security.passthrough.PassthroughContainerSamples#setIterateSafe
+      - security.passthrough.PassthroughContainerSamples#mapValueSafe
+      - security.passthrough.PassthroughContainerSamples#mapKeySafe
+      - security.passthrough.PassthroughContainerSamples#mapValuesSafe
+      - security.passthrough.PassthroughContainerSamples#mapEntrySafe
+      - security.passthrough.PassthroughContainerSamples#propertiesSafe
+      - security.passthrough.PassthroughContainerSamples#mapGetOrDefaultSafe
+      - security.passthrough.PassthroughContainerSamples#nestedMapSafe
+      - security.passthrough.PassthroughContainerSamples#listAddAllSafe
+      - security.passthrough.PassthroughContainerSamples#collectionsAddAllSafe
+      - security.passthrough.PassthroughContainerSamples#mapPutAllSafe
+      - security.passthrough.PassthroughContainerSamples#dequePollSafe
+      - security.passthrough.PassthroughSerializationSamples#jacksonWriteSafe
+      - security.passthrough.PassthroughSerializationSamples#jacksonReadSafe
+      - security.passthrough.PassthroughSerializationSamples#jacksonReadBytesSafe
+      - security.passthrough.PassthroughSerializationSamples#jacksonReadTreeSafe
+      - security.passthrough.PassthroughSerializationSamples#jacksonConvertSafe
+      - security.passthrough.PassthroughSerializationSamples#yamlDumpSafe
+      - security.passthrough.PassthroughSerializationSamples#yamlLoadSafe
+      - security.passthrough.PassthroughSerializationSamples#propertiesStoreSafe
+      - security.passthrough.PassthroughValueFlowSamples#stringBuilderAppendSafe
+      - security.passthrough.PassthroughValueFlowSamples#stringBuilderAppendCharsSafe
+      - security.passthrough.PassthroughValueFlowSamples#stringBufferInsertSafe
+      - security.passthrough.PassthroughValueFlowSamples#stringFormatSafe
+      - security.passthrough.PassthroughValueFlowSamples#stringFormatLocaleSafe
+      - security.passthrough.PassthroughValueFlowSamples#primitiveResultSafe
+      - security.passthrough.PassthroughValueFlowSamples#mapValueDoesNotReachKeySafe
+      - security.passthrough.PassthroughValueFlowSamples#mapKeyDoesNotReachValueSafe
+      - security.passthrough.PassthroughValueFlowSamples#stringJoinerAddSafe
+      - security.passthrough.PassthroughValueFlowSamples#stringJoinerDelimiterSafe
+      - security.passthrough.PassthroughValueFlowSamples#matcherGroupSafe
+      - security.passthrough.PassthroughValueFlowSamples#matcherAppendTailSafe
+      - security.passthrough.PassthroughValueFlowSamples#messageFormatSafe
+      - security.passthrough.PassthroughValueFlowSamples#byteArrayOutputStreamSafe
+      - security.passthrough.PassthroughValueFlowSamples#stringReaderSafe
+      - security.passthrough.PassthroughValueFlowSamples#uriFragmentDoesNotReachFilePathSafe
+      - security.passthrough.PassthroughValueFlowSamples#byteBufferSafe
+      - security.passthrough.PassthroughValueFlowSamples#byteBufferContentDoesNotReachMetadataSafe
+      - security.passthrough.PassthroughValueFlowSamples#byteBufferCharViewSafe
+      - security.passthrough.PassthroughValueFlowSamples#byteBufferViewContentDoesNotReachMetadataSafe
+      - security.passthrough.PassthroughValueFlowSamples#charBufferSafe
+      - security.passthrough.PassthroughValueFlowSamples#stringGetCharsSafe
+      - security.passthrough.PassthroughValueFlowSamples#byteBufferGetSafe
+      - security.passthrough.PassthroughValueFlowSamples#charBufferGetSafe
+      - security.passthrough.PassthroughValueFlowSamples#basicControlIdSafe
+      - security.passthrough.PassthroughValueFlowSamples#rdnTypeSafe
+      - security.passthrough.PassthroughValueFlowSamples#sortKeyMatchingRuleSafe
+      - security.passthrough.PassthroughValueFlowSamples#referenceClassNameSafe
+      - security.passthrough.PassthroughValueFlowSamples#qNameNamespaceDoesNotReachLocalPartSafe
+      - security.passthrough.PassthroughValueFlowSamples#qNamePrefixDoesNotReachNamespaceSafe
+      - security.passthrough.PassthroughValueFlowSamples#httpHeadersSafe
+      - security.passthrough.PassthroughValueFlowSamples#messageFormatStaticPatternSafe
+      - security.passthrough.PassthroughValueFlowSamples#messageFormatStaticArgumentSafe
+      - security.passthrough.PassthroughValueFlowSamples#messageFormatDoesNotFlowBackToArgumentsSafe
+      - security.passthrough.PassthroughValueFlowSamples#choiceFormatFormatsSafe
+      - security.passthrough.PassthroughValueFlowSamples#choiceFormatFormatsDoNotReachLimitsSafe
+      - security.passthrough.PassthroughValueFlowSamples#objectBufferListSafe
+      - security.passthrough.PassthroughValueFlowSamples#jsonGeneratorBinarySafe
+      - security.passthrough.PassthroughValueFlowSamples#jsonArrayBuilderIndexSafe
+      - security.passthrough.PassthroughValueFlowSamples#jsonObjectBuilderRemoveKeySafe
+      - security.passthrough.PassthroughValueFlowSamples#listReplaceAllSafe
+      - security.passthrough.PassthroughValueFlowSamples#concurrentMapReplaceAllSafe
+      - security.passthrough.PassthroughValueFlowSamples#concurrentMapReplaceAllDoesNotMixKeysSafe
+      - security.passthrough.PassthroughValueFlowSamples#fileSystemPathVarargsSafe
+      - security.passthrough.PassthroughValueFlowSamples#searchControlsAttributesSafe
+      - security.passthrough.PassthroughValueFlowSamples#basicControlPayloadSafe
+      - security.passthrough.PassthroughValueFlowSamples#basicControlIdDoesNotReachPayloadSafe
+      - security.passthrough.PassthroughValueFlowSamples#sortControlArraySafe
+      - security.passthrough.PassthroughValueFlowSamples#cachedRowSetTableNameSafe
+      - security.passthrough.PassthroughValueFlowSamples#facesArrayDataModelSafe
+      - security.passthrough.PassthroughValueFlowSamples#facesSelectItemGroupSafe
+      - security.passthrough.PassthroughServletAccessorSamples$SafeAccessorsServlet#doGet
   - rule-id: java/security/crlf-injection.yaml#http-response-splitting
     positive:
       - security.crlfinjection.HttpResponseSplittingServletSamples$UnsafeHeaderServlet#doGet
@@ -355,7 +538,24 @@ tests:
       - security.pathtraversal.PathTraversalSpringSamples$UnsafeFileDownloadController#unsafeHeaderDownload
       - security.pathtraversal.PathTraversalSpringSamples$UnsafeFileDownloadController#unsafeParamDownload
       - security.pathtraversal.PathTraversalSpringSamples$UnsafeFileDownloadController#unsafePathVariableDownload
+      # java.io.File model regressions - one entry per constructor/accessor slot pair
+      - security.passthrough.PassthroughFileModelSamples#fileGetNameUnsafe
+      - security.passthrough.PassthroughFileModelSamples#fileCanonicalPathUnsafe
+      - security.passthrough.PassthroughFileModelSamples#fileParentUnsafe
+      - security.passthrough.PassthroughFileModelSamples#fileGetParentFileUnsafe
+      - security.passthrough.PassthroughFileModelSamples#fileToPathUnsafe
+      - security.passthrough.PassthroughFileModelSamples#fileFromUriUnsafe
+      - security.passthrough.PassthroughFileModelSamples#fileToStringUnsafe
+      - security.passthrough.PassthroughFileModelSamples#fileSystemGetPathUnsafe
     negative:
+      - security.passthrough.PassthroughFileModelSamples#fileGetNameSafe
+      - security.passthrough.PassthroughFileModelSamples#fileCanonicalPathSafe
+      - security.passthrough.PassthroughFileModelSamples#fileParentSafe
+      - security.passthrough.PassthroughFileModelSamples#fileGetParentFileSafe
+      - security.passthrough.PassthroughFileModelSamples#fileToPathSafe
+      - security.passthrough.PassthroughFileModelSamples#fileFromUriSafe
+      - security.passthrough.PassthroughFileModelSamples#fileToStringSafe
+      - security.passthrough.PassthroughFileModelSamples#fileSystemGetPathSafe
       - security.pathtraversal.PathTraversalServletSamples$SafeFileCreateTempFilePrefixSuffixServlet#doGet
       - security.pathtraversal.PathTraversalServletSamples$SafeFilesCreateTempDirectoryPrefixServlet#doGet
       - security.pathtraversal.PathTraversalServletSamples$SafeFilesCreateTempFilePrefixSuffixServlet#doGet
@@ -434,6 +634,7 @@ tests:
     positive:
       - security.ssrf.SsrfSamples$SsrfSpringController#unsafeProxy
       - security.ssrf.SsrfSamples$UnsafeProxyServlet#doGet
+      - security.ssrf.SsrfSamples$UnsafeBytesRoundTripProxyServlet#doGet
     negative:
       - security.ssrf.SsrfSamples$SafeProxyServlet#doGet
   - rule-id: java/security/strings.yaml#format-string-external-manipulation
@@ -612,6 +813,7 @@ tests:
       - security.xss.XssHtmlResponseServletSamples$SafeHtmlServlet#doGet
       - security.xss.XssHtmlResponseServletSamples$SafeOutputStreamOctetServlet#doGet
       - security.xss.XssServletSamples$SafeGreetingServlet#doGet
+      - security.xss.XssServletSamples$SafeGreetingBytesRoundTripServlet#doGet
 
   - rule-id: java/security/xss.yaml#xssrequestwrapper-is-insecure
     positive:

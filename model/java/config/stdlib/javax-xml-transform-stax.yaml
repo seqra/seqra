@@ -5,22 +5,22 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.xml.transform.stax.StAXResult#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.stax.StAXResult#writer#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Result#resultData#java.lang.Object
     to: result
 - function: javax.xml.transform.stax.StAXSource#getXMLEventReader
   signature: () javax.xml.stream.XMLEventReader
   copy:
   - from:
     - this
-    - .javax.xml.transform.stax.StAXSource#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.stax.StAXSource#reader#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Source#sourceData#java.lang.Object
     to: result
 - function: javax.xml.transform.stax.StAXSource#getXMLStreamReader
   signature:
@@ -69,11 +69,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.xml.transform.stax.StAXResult#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.stax.StAXResult#writer#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Result#resultData#java.lang.Object
     to: result
 - function: javax.xml.transform.stax.StAXSource#<init>
   signature: (javax.xml.stream.XMLStreamReader) void
@@ -95,11 +95,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Result#resultData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.stax.StAXResult#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.stax.StAXResult#writer#java.lang.Object
 - function: javax.xml.transform.stax.StAXSource#<init>
   signature: (javax.xml.stream.XMLEventReader) void
   taintCopyOnly: true
@@ -118,11 +118,11 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Source#sourceData#java.lang.Object
   - from: arg(*)
     to:
     - this
-    - .javax.xml.transform.stax.StAXSource#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.stax.StAXSource#reader#java.lang.Object
 - function: javax.xml.transform.stax.StAXResult#getXMLEventWriter
   signature:
     return: javax.xml.stream.XMLEventWriter
@@ -137,22 +137,22 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Source#sourceData#java.lang.Object
   - from: arg(*)
     to:
     - this
-    - .javax.xml.transform.stax.StAXSource#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.stax.StAXSource#reader#java.lang.Object
 - function: javax.xml.transform.stax.StAXResult#<init>
   signature: (javax.xml.stream.XMLEventWriter) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Result#resultData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.stax.StAXResult#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.stax.StAXResult#writer#java.lang.Object
 - function: javax.xml.transform.stax.StAXResult#<init>
   signature:
     params:
@@ -168,11 +168,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.xml.transform.stax.StAXSource#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.stax.StAXSource#reader#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Source#sourceData#java.lang.Object
     to: result
 - function: javax.xml.transform.stax.StAXResult#getXMLStreamWriter
   signature: () javax.xml.stream.XMLStreamWriter

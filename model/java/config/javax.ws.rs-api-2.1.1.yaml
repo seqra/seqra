@@ -8,7 +8,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.Response$ResponseBuilder#allow
   signature: (java.lang.String[]) javax.ws.rs.core.Response$ResponseBuilder
@@ -22,7 +22,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.Response$ResponseBuilder#entity
   signature: (java.lang.Object) javax.ws.rs.core.Response$ResponseBuilder
@@ -69,7 +69,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.ws.rs.core.UriBuilder#buildFromEncodedMap
@@ -84,7 +84,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.UriBuilder#port
   signature: (int) javax.ws.rs.core.UriBuilder
@@ -94,7 +94,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
 - function: javax.ws.rs.core.UriBuilder#schemeSpecificPart
   signature: (java.lang.String) javax.ws.rs.core.UriBuilder
   copy:
@@ -102,7 +102,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.UriBuilder#buildFromEncoded
   signature: (java.lang.Object[]) java.net.URI
@@ -154,7 +154,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.Response$ResponseBuilder#language
   signature: (java.lang.String) javax.ws.rs.core.Response$ResponseBuilder
@@ -178,7 +178,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.Response$ResponseBuilder#type
   signature: (javax.ws.rs.core.MediaType) javax.ws.rs.core.Response$ResponseBuilder
@@ -192,7 +192,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.GenericEntity#<init>
   signature: (java.lang.Object) void
@@ -200,7 +200,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.ws.rs.core.GenericEntity#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.GenericEntity#entity#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.ws.rs.core.UriBuilder#buildFromMap
@@ -239,7 +239,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.Response$ResponseBuilder#allow
   signature: (java.util.Set) javax.ws.rs.core.Response$ResponseBuilder
@@ -258,7 +258,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.UriBuilder#resolveTemplates
   signature: (java.util.Map) javax.ws.rs.core.UriBuilder
@@ -267,7 +267,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.Response$ResponseBuilder#expires
   signature: (java.util.Date) javax.ws.rs.core.Response$ResponseBuilder
@@ -281,7 +281,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.UriBuilder#host
   signature: (java.lang.String) javax.ws.rs.core.UriBuilder
@@ -290,7 +290,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.UriBuilder#matrixParam
   signature: (java.lang.String, java.lang.Object[]) javax.ws.rs.core.UriBuilder
@@ -299,7 +299,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.Form#param
   signature: (java.lang.String, java.lang.String) javax.ws.rs.core.Form
@@ -313,7 +313,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.Response$ResponseBuilder#status
   signature: (javax.ws.rs.core.Response$Status) javax.ws.rs.core.Response$ResponseBuilder
@@ -327,7 +327,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.UriBuilder#build
   signature: (java.lang.Object[]) java.net.URI
@@ -346,7 +346,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.Response$ResponseBuilder#variant
   signature: (javax.ws.rs.core.Variant) javax.ws.rs.core.Response$ResponseBuilder
@@ -387,7 +387,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.Response$ResponseBuilder#cacheControl
   signature: (javax.ws.rs.core.CacheControl) javax.ws.rs.core.Response$ResponseBuilder
@@ -401,7 +401,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.UriBuilder#resolveTemplates
   signature: (java.util.Map, boolean) javax.ws.rs.core.UriBuilder
@@ -410,7 +410,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.Response$ResponseBuilder#links
   signature: (javax.ws.rs.core.Link[]) javax.ws.rs.core.Response$ResponseBuilder
@@ -434,7 +434,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.UriBuilder#path
   signature: (java.lang.String) javax.ws.rs.core.UriBuilder
@@ -443,7 +443,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.Response$ResponseBuilder#tag
   signature: (java.lang.String) javax.ws.rs.core.Response$ResponseBuilder
@@ -456,7 +456,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.ws.rs.core.Response$ResponseBuilder#variants
@@ -471,7 +471,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.MultivaluedHashMap#<init>
   signature: (javax.ws.rs.core.MultivaluedMap) void
@@ -503,7 +503,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.UriBuilder#userInfo
   signature: (java.lang.String) javax.ws.rs.core.UriBuilder
@@ -512,7 +512,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.GenericEntity#<init>
   signature: (java.lang.Object, java.lang.reflect.Type) void
@@ -520,7 +520,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.ws.rs.core.GenericEntity#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.GenericEntity#entity#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.ws.rs.core.MultivaluedMap#addAll
@@ -545,7 +545,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
 - function: javax.ws.rs.core.MultivaluedMap#getFirst
   signature: (java.lang.Object) java.lang.Object
   copy:
@@ -571,7 +571,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    - .javax.ws.rs.core.UriBuilder#uri#java.lang.Object
     to: result
 - function: javax.ws.rs.core.Response$ResponseBuilder#status
   signature: (javax.ws.rs.core.Response$StatusType) javax.ws.rs.core.Response$ResponseBuilder

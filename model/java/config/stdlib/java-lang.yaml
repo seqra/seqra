@@ -10,7 +10,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.lang.Character#<rule-storage>#java.lang.Object
+    - .java.lang.Character#value#java.lang.Object
     to: result
   - from: this
     to: result
@@ -54,10 +54,10 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .java.lang.ProcessBuilder#<rule-storage>#java.lang.Object
+    - .java.lang.ProcessBuilder#command#java.lang.Object
   - from:
     - this
-    - .java.lang.ProcessBuilder#<rule-storage>#java.lang.Object
+    - .java.lang.ProcessBuilder#command#java.lang.Object
     to: result
 - function: java.lang.Class#getConstructors
   signature: () java.lang.reflect.Constructor[]
@@ -91,7 +91,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
     to: result
   - from: this
     to: result
@@ -131,7 +131,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
     to: result
   - from: this
     to: result
@@ -175,7 +175,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.lang.Enum#<rule-storage>#java.lang.Object
+    - .java.lang.Enum#name#java.lang.Object
     to: result
 - function: java.lang.ProcessBuilder#command
   signature: (java.util.List) java.lang.ProcessBuilder
@@ -185,10 +185,10 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .java.lang.ProcessBuilder#<rule-storage>#java.lang.Object
+    - .java.lang.ProcessBuilder#command#java.lang.Object
   - from:
     - this
-    - .java.lang.ProcessBuilder#<rule-storage>#java.lang.Object
+    - .java.lang.ProcessBuilder#command#java.lang.Object
     to: result
 - function: java.lang.Thread#<init>
   signature: (java.lang.String) void
@@ -209,6 +209,10 @@ passThrough:
   signature: (java.util.Locale, java.lang.String, java.lang.Object[]) java.lang.String
   copy:
   - from: arg(1)
+    to: result
+  - from:
+    - arg(2)
+    - '[*]'
     to: result
 - function: java.lang.String#getBytes
   signature: () byte[]
@@ -311,7 +315,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.lang.ProcessBuilder#<rule-storage>#java.lang.Object
+    - .java.lang.ProcessBuilder#command#java.lang.Object
     to: result
 - function: java.lang.Long#toOctalString
   signature: (long) java.lang.String
@@ -407,9 +411,12 @@ passThrough:
     to: result
 - function: java.lang.String#join
   signature: (java.lang.CharSequence, java.lang.Iterable) java.lang.String
-  taintCopyOnly: true
   copy:
-  - from: arg(*)
+  - from: arg(0)
+    to: result
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
     to: result
 - function: java.lang.Class#getProtectionDomain
   signature: () java.security.ProtectionDomain
@@ -550,7 +557,7 @@ passThrough:
     - .java.lang.Throwable#cause#java.lang.Object
   - from:
     - this
-    - .java.lang.Throwable#<rule-storage>#java.lang.Object
+    - .java.lang.Throwable#exceptionDetails#java.lang.Object
     to: result
   - from: this
     to: result
@@ -618,7 +625,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .java.lang.ProcessBuilder#<rule-storage>#java.lang.Object
+    - .java.lang.ProcessBuilder#command#java.lang.Object
 - function: java.lang.Class#getClasses
   signature: () java.lang.Class[]
   taintCopyOnly: true
@@ -638,7 +645,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.lang.ProcessBuilder#<rule-storage>#java.lang.Object
+    - .java.lang.ProcessBuilder#command#java.lang.Object
     to: result
 - function: java.lang.String#substring
   signature: (int, int) java.lang.String
@@ -707,7 +714,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .java.lang.Enum#<rule-storage>#java.lang.Object
+    - .java.lang.Enum#name#java.lang.Object
 - function: java.lang.Class#getFields
   signature: () java.lang.reflect.Field[]
   taintCopyOnly: true
@@ -790,10 +797,10 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .java.lang.ProcessBuilder#<rule-storage>#java.lang.Object
+    - .java.lang.ProcessBuilder#command#java.lang.Object
   - from:
     - this
-    - .java.lang.ProcessBuilder#<rule-storage>#java.lang.Object
+    - .java.lang.ProcessBuilder#command#java.lang.Object
     to: result
 - function: java.lang.String#<init>
   signature:
@@ -1232,7 +1239,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.Throwable#<rule-storage>#java.lang.Object
+    - .java.lang.Throwable#exceptionDetails#java.lang.Object
 - function: java.lang.ProcessBuilder#command
   signature: (java.lang.String[]) java.lang.ProcessBuilder
   taintCopyOnly: true
@@ -1352,7 +1359,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.Throwable#<rule-storage>#java.lang.Object
+    - .java.lang.Throwable#exceptionDetails#java.lang.Object
 - function: java.lang.String#getBytes
   signature:
     params:
@@ -1438,7 +1445,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+    - .java.lang.Appendable#buffer#java.lang.Object
     to: result
   - from: this
     to: result
@@ -1454,7 +1461,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.Character#<rule-storage>#java.lang.Object
+    - .java.lang.Character#value#java.lang.Object
   - from: arg(0)
     to: this
 - function: java.lang.String#<init>
@@ -1484,6 +1491,21 @@ passThrough:
     to: result
 - function: java.lang.Object#toString
   signature: () java.lang.String
+  condition:
+    not:
+      anyOf:
+      - typeIs: java.nio.ByteBuffer
+        pos: this
+      - typeIs: java.nio.ShortBuffer
+        pos: this
+      - typeIs: java.nio.IntBuffer
+        pos: this
+      - typeIs: java.nio.LongBuffer
+        pos: this
+      - typeIs: java.nio.FloatBuffer
+        pos: this
+      - typeIs: java.nio.DoubleBuffer
+        pos: this
   copy:
   - from: this
     to: result
@@ -1554,12 +1576,6 @@ passThrough:
     to:
     - result
     - .java.util.Iterator#Element#java.lang.Object
-- function: java.lang.String#format
-  signature: (java.util.Locale, java.lang.String, java.lang.Object[]) java.lang.String
-  taintCopyOnly: true
-  copy:
-  - from: arg(2)
-    to: result
 - function: java.lang.String#<init>
   signature: (byte[], java.nio.charset.Charset) void
   taintCopyOnly: true
@@ -1586,7 +1602,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.Throwable#<rule-storage>#java.lang.Object
+    - .java.lang.Throwable#exceptionDetails#java.lang.Object
 - function: java.lang.String#<init>
   signature: (char[], int, int) void
   copy:

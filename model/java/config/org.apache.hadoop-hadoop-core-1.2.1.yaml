@@ -17,7 +17,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#jobHistoryData#java.lang.Object
     to: result
 - function: org.apache.hadoop.mapred.JobHistory$ReduceAttempt#getLong
   copy:
@@ -34,14 +34,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.hadoop.record.XmlRecordInput#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.record.XmlRecordInput#recordData#java.lang.Object
 - function: org.apache.hadoop.record.XmlRecordInput#readByte
   copy:
   - from: this
     to: result
   - from:
     - this
-    - .org.apache.hadoop.record.XmlRecordInput#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.record.XmlRecordInput#recordData#java.lang.Object
     to: result
 - function: org.apache.hadoop.mapred.FileOutputFormat#getPathForCustomFile
   copy:
@@ -106,11 +106,11 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#jobHistoryData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#jobHistoryData#java.lang.Object
   - from: arg(1)
     to: this
   - from: arg(0)
@@ -120,7 +120,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#jobHistoryData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.hadoop.mapred.JobHistory$JobInfo#getAllTasks
@@ -136,11 +136,11 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#jobHistoryData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#jobHistoryData#java.lang.Object
   - from: arg(1)
     to: this
   - from: arg(0)
@@ -164,14 +164,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.hadoop.record.CsvRecordInput#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.record.CsvRecordInput#recordData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.hadoop.record.CsvRecordInput#readByte
   copy:
   - from:
     - this
-    - .org.apache.hadoop.record.CsvRecordInput#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.record.CsvRecordInput#recordData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -193,7 +193,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.hadoop.record.CsvRecordInput#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.record.CsvRecordInput#recordData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -217,7 +217,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.hadoop.record.XmlRecordInput#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.record.XmlRecordInput#recordData#java.lang.Object
     to: result
 - function: org.apache.hadoop.mapred.JobHistory$TaskAttempt#getInt
   copy:
@@ -283,18 +283,18 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.hadoop.record.XmlRecordInput#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.record.XmlRecordInput#recordData#java.lang.Object
     to: result
 - function: org.apache.hadoop.mapred.JobHistory$JobInfo#getJobHistoryLogLocation
   copy:
   - from: arg(1)
     to:
     - this
-    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#jobHistoryData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#jobHistoryData#java.lang.Object
   - from: arg(1)
     to: this
   - from: arg(0)
@@ -303,7 +303,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.hadoop.record.CsvRecordInput#<rule-storage>#java.lang.Object
+    - .org.apache.hadoop.record.CsvRecordInput#recordData#java.lang.Object
     to: result
   - from: this
     to: result

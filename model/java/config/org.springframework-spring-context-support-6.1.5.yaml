@@ -13,12 +13,12 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.mail.javamail.InternetAddressEditor#<rule-storage>#java.lang.Object
+    - .org.springframework.mail.javamail.InternetAddressEditor#address#java.lang.Object
 - function: org.springframework.mail.javamail.InternetAddressEditor#getAsText
   copy:
   - from:
     - this
-    - .org.springframework.mail.javamail.InternetAddressEditor#<rule-storage>#java.lang.Object
+    - .org.springframework.mail.javamail.InternetAddressEditor#address#java.lang.Object
     to: result
 - function: org.springframework.mail.javamail.InternetAddressEditor#setAsText
   taintCopyOnly: true

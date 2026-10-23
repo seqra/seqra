@@ -11,7 +11,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.sql.rowset.serial.SerialDatalink#<rule-storage>#java.lang.Object
+    - .javax.sql.rowset.serial.SerialDatalink#url#java.lang.Object
     to: result
 - function: javax.sql.rowset.serial.SerialDatalink#<init>
   signature:
@@ -28,7 +28,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.sql.rowset.serial.SerialJavaObject#<rule-storage>#java.lang.Object
+    - .javax.sql.rowset.serial.SerialJavaObject#serializedObject#java.lang.Object
     to: result
 - function: javax.sql.rowset.serial.SerialDatalink#getDatalink
   signature: () java.net.URL
@@ -42,7 +42,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.sql.rowset.serial.SerialDatalink#<rule-storage>#java.lang.Object
+    - .javax.sql.rowset.serial.SerialDatalink#url#java.lang.Object
 - function: javax.sql.rowset.serial.SerialJavaObject#getObject
   signature:
     return: java.lang.Object
@@ -76,7 +76,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.sql.rowset.serial.SerialJavaObject#<rule-storage>#java.lang.Object
+    - .javax.sql.rowset.serial.SerialJavaObject#serializedObject#java.lang.Object
     to: result
 - function: javax.sql.rowset.serial.SerialJavaObject#<init>
   signature: (java.lang.Object) void
@@ -84,6 +84,6 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.sql.rowset.serial.SerialJavaObject#<rule-storage>#java.lang.Object
+    - .javax.sql.rowset.serial.SerialJavaObject#serializedObject#java.lang.Object
   - from: arg(0)
     to: this

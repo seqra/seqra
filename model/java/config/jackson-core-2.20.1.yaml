@@ -5,7 +5,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.util.TextBuffer#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.util.TextBuffer#buffer#java.lang.Object
     to: result
   - from: this
     to: result
@@ -16,7 +16,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
 - function: com.fasterxml.jackson.core.JsonGenerator#writeStringField
   copy:
   - from: arg(*)
@@ -24,13 +24,13 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
 - function: com.fasterxml.jackson.core.base.GeneratorBase#writeBinary
   copy:
   - from: arg(1)
     to:
     - this
-    - .com.fasterxml.jackson.core.base.GeneratorBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.GeneratorBase#buffer#java.lang.Object
   - from: arg(1)
     to: this
 - function: com.fasterxml.jackson.core.TreeCodec#treeAsTokens
@@ -43,7 +43,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.TreeNode#get
   copy:
@@ -55,13 +55,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.base.ParserBase#getBinaryValue
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -72,28 +72,28 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
 - function: com.fasterxml.jackson.core.JsonParser#getText
   copy:
   - from: this
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.base.GeneratorBase#writeObject
   copy:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.base.GeneratorBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.GeneratorBase#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.base.ParserBase#getCurrentToken
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -105,7 +105,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.SerializableString#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.SerializableString#value#java.lang.Object
     to: arg(0)
   - from: this
     to: arg(0)
@@ -113,7 +113,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -144,14 +144,14 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .com.fasterxml.jackson.core.Base64Variant#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.Base64Variant#alphabet#java.lang.Object
 - function: com.fasterxml.jackson.core.base.ParserMinimalBase#getBinaryValue
   copy:
   - from: this
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.SerializableString#asQuotedUTF8
   copy:
@@ -159,14 +159,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.SerializableString#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.SerializableString#value#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.util.JsonGeneratorDelegate#copyCurrentEvent
   copy:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.util.JsonGeneratorDelegate#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.util.JsonGeneratorDelegate#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.Base64Variant#encodeBase64BitsAsChar
@@ -178,14 +178,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonFactory#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonFactory#inputContent#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.base.ParserBase#nextFieldName
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -193,7 +193,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.SerializableString#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.SerializableString#value#java.lang.Object
     to: arg(0)
   - from: this
     to: arg(0)
@@ -211,7 +211,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.SerializableString#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.SerializableString#value#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.base.ParserMinimalBase#getCurrentToken
   copy:
@@ -219,7 +219,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.base.ParserMinimalBase#readBinaryValue
   signature:
@@ -229,7 +229,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: arg(0)
   - from: this
     to: arg(0)
@@ -237,7 +237,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -254,7 +254,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.JsonFactory#createJsonParser
@@ -279,7 +279,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -290,7 +290,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
 - function: com.fasterxml.jackson.core.JsonFactory#createParser
   signature:
     params:
@@ -305,13 +305,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.base.ParserBase#getInputSource
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -321,14 +321,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.util.TextBuffer#resetWithString
   copy:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.util.TextBuffer#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.util.TextBuffer#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.base.ParserMinimalBase#getCurrentName
@@ -337,21 +337,21 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonGenerator#writeUTF8String
   copy:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.base.ParserBase#getValueAsString
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -359,7 +359,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -369,7 +369,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonParser#getCurrentToken
   copy:
@@ -377,13 +377,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.base.ParserBase#getText
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -393,7 +393,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonFactory#createJsonGenerator
   copy:
@@ -405,13 +405,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.base.ParserMinimalBase#releaseBuffered
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: arg(1)
   - from: this
     to: arg(1)
@@ -421,7 +421,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonGenerator#writeNullField
   copy:
@@ -430,7 +430,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
 - function: com.fasterxml.jackson.core.JsonFactory#createParser
   signature:
     params:
@@ -444,7 +444,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.base.GeneratorBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.GeneratorBase#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.JsonGenerator#writeTree
@@ -454,12 +454,12 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
 - function: com.fasterxml.jackson.core.base.ParserBase#releaseBuffered
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: arg(1)
   - from: this
     to: arg(1)
@@ -474,14 +474,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.util.JsonGeneratorDelegate#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.util.JsonGeneratorDelegate#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.base.ParserBase#getObjectId
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -494,14 +494,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.util.TextBuffer#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.util.TextBuffer#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.base.ParserBase#getEmbeddedObject
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -515,7 +515,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: arg(1)
   - from: this
     to: arg(1)
@@ -525,14 +525,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonGenerator#setCharacterEscapes
   copy:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.JsonGenerator#writeObjectId
@@ -542,20 +542,20 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
 - function: com.fasterxml.jackson.core.SerializableString#appendQuoted
   copy:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.SerializableString#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.SerializableString#value#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.io.MergedStream#read
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.io.MergedStream#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.io.MergedStream#buffer#java.lang.Object
     to: arg(0)
   - from: this
     to: arg(0)
@@ -563,7 +563,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.util.TextBuffer#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.util.TextBuffer#buffer#java.lang.Object
     to: result
   - from: this
     to: result
@@ -571,7 +571,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.util.TextBuffer#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.util.TextBuffer#buffer#java.lang.Object
     to: result
   - from: this
     to: result
@@ -580,7 +580,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.SerializableString#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.SerializableString#value#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.Base64Variant#<init>
@@ -594,7 +594,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.Base64Variant#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.Base64Variant#alphabet#java.lang.Object
 - function: com.fasterxml.jackson.core.JsonFactory#createJsonParser
   signature:
     params:
@@ -609,7 +609,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.base.ParserMinimalBase#readValueAsTree
   copy:
@@ -617,13 +617,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.base.ParserBase#getCurrentName
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -633,7 +633,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.base.ParserMinimalBase#nextFieldName
   copy:
@@ -641,7 +641,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonParser#readBinaryValue
   signature:
@@ -653,7 +653,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: arg(1)
   - from: this
     to: arg(1)
@@ -663,7 +663,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.base.ParserMinimalBase#getParsingContext
   copy:
@@ -671,7 +671,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.TreeNode#path
   copy:
@@ -683,7 +683,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonParser#nextTextValue
   copy:
@@ -691,14 +691,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.util.TextBuffer#resetWithCopy
   copy:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.util.TextBuffer#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.util.TextBuffer#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.JsonGenerator#writeOmittedField
@@ -708,13 +708,13 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
 - function: com.fasterxml.jackson.core.util.TextBuffer#append
   copy:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.util.TextBuffer#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.util.TextBuffer#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.JsonFactory#setRootValueSeparator
@@ -722,7 +722,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonFactory#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonFactory#inputContent#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.JsonParser#getTextCharacters
@@ -731,7 +731,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.base.ParserMinimalBase#getLastClearedToken
   copy:
@@ -739,13 +739,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.util.TextBuffer#expandCurrentSegment
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.util.TextBuffer#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.util.TextBuffer#buffer#java.lang.Object
     to: result
   - from: this
     to: result
@@ -754,7 +754,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.JsonParser#nextToken
@@ -763,7 +763,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonParser#readBinaryValue
   signature:
@@ -773,7 +773,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: arg(0)
   - from: this
     to: arg(0)
@@ -799,7 +799,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.SerializableString#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.SerializableString#value#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonParser#nextValue
   copy:
@@ -807,14 +807,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.SerializableString#appendUnquotedUTF8
   copy:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.SerializableString#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.SerializableString#value#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.JsonGenerator#writeRaw
@@ -822,7 +822,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.JsonGenerator#writeRawValue
@@ -830,7 +830,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.Base64Variant#encode
@@ -842,7 +842,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.base.GeneratorBase#writeFieldName
@@ -850,7 +850,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.base.GeneratorBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.GeneratorBase#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.TreeCodec#writeTree
@@ -864,12 +864,12 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
 - function: com.fasterxml.jackson.core.base.ParserBase#getLastClearedToken
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -880,13 +880,13 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
 - function: com.fasterxml.jackson.core.base.ParserBase#overrideCurrentName
   copy:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.base.ParserMinimalBase#getObjectId
@@ -895,7 +895,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonGenerator#writeBinary
   signature:
@@ -906,7 +906,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
   - from: arg(1)
     to: this
 - function: com.fasterxml.jackson.core.JsonGenerator#writeBinary
@@ -920,14 +920,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.JsonParser#releaseBuffered
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: arg(1)
   - from: this
     to: arg(1)
@@ -936,7 +936,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.base.GeneratorBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.GeneratorBase#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.base.GeneratorBase#writeString
@@ -944,14 +944,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.base.GeneratorBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.GeneratorBase#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.base.ParserBase#getTextCharacters
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -965,7 +965,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.base.ParserBase#readBinaryValue
   signature:
@@ -977,7 +977,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: arg(1)
   - from: this
     to: arg(1)
@@ -985,7 +985,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -999,7 +999,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.Base64Variant#encodeBase64Partial
   copy:
@@ -1011,14 +1011,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonGenerator#setRootValueSeparator
   copy:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.io.MergedStream#<init>
@@ -1030,16 +1030,16 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .com.fasterxml.jackson.core.io.MergedStream#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.io.MergedStream#buffer#java.lang.Object
   - from: arg(2)
     to:
     - this
-    - .com.fasterxml.jackson.core.io.MergedStream#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.io.MergedStream#buffer#java.lang.Object
 - function: com.fasterxml.jackson.core.base.ParserBase#nextValue
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -1047,7 +1047,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: result
   - from: this
     to: result
@@ -1056,14 +1056,14 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.SerializableString#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.SerializableString#value#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.SerializableString#putQuotedUTF8
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.SerializableString#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.SerializableString#value#java.lang.Object
     to: arg(0)
   - from: this
     to: arg(0)
@@ -1073,7 +1073,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.Base64Variant#encodeBase64BitsAsByte
   copy:
@@ -1090,7 +1090,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
 - function: com.fasterxml.jackson.core.base.ParserBase#readBinaryValue
   signature:
     params:
@@ -1099,7 +1099,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserBase#inputContent#java.lang.Object
     to: arg(0)
   - from: this
     to: arg(0)
@@ -1109,7 +1109,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.SerializableString#getValue
   copy:
@@ -1117,21 +1117,21 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.SerializableString#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.SerializableString#value#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonGenerator#writeString
   copy:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.util.TextBuffer#getTextBuffer
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.util.TextBuffer#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.util.TextBuffer#buffer#java.lang.Object
     to: result
   - from: this
     to: result
@@ -1141,7 +1141,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonParser#readValuesAs
   copy:
@@ -1149,14 +1149,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonParser#overrideCurrentName
   copy:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonParser#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonParser#inputContent#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.JsonFactory#createJsonParser
@@ -1190,7 +1190,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.SerializableString#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.SerializableString#value#java.lang.Object
   - from: arg(0)
     to: this
 - function: com.fasterxml.jackson.core.base.ParserMinimalBase#nextValue
@@ -1199,7 +1199,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.JsonGenerator#writeArrayFieldStart
   copy:
@@ -1208,12 +1208,12 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .com.fasterxml.jackson.core.JsonGenerator#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.JsonGenerator#buffer#java.lang.Object
 - function: com.fasterxml.jackson.core.util.TextBuffer#finishCurrentSegment
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.util.TextBuffer#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.util.TextBuffer#buffer#java.lang.Object
     to: result
   - from: this
     to: result
@@ -1221,7 +1221,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .com.fasterxml.jackson.core.SerializableString#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.SerializableString#value#java.lang.Object
     to: arg(0)
   - from: this
     to: arg(0)
@@ -1231,13 +1231,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.core.base.ParserMinimalBase#overrideCurrentName
   copy:
   - from: arg(0)
     to:
     - this
-    - .com.fasterxml.jackson.core.base.ParserMinimalBase#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.core.base.ParserMinimalBase#inputContent#java.lang.Object
   - from: arg(0)
     to: this

@@ -10,7 +10,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.w3c.tools.codec.Base64Decoder#<rule-storage>#java.lang.Object
+    - .org.w3c.tools.codec.Base64Decoder#encodedInput#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.w3c.tools.codec.Base64Encoder#<init>
@@ -22,6 +22,6 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.w3c.tools.codec.Base64Encoder#<rule-storage>#java.lang.Object
+    - .org.w3c.tools.codec.Base64Encoder#inputData#java.lang.Object
   - from: arg(0)
     to: this

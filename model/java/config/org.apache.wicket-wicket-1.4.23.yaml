@@ -7,7 +7,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    - .org.apache.wicket.Component#componentState#java.lang.Object
     to: result
 - function: org.apache.wicket.PageParameters#toRequestParameters
   copy:
@@ -19,13 +19,13 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    - .org.apache.wicket.Component#componentState#java.lang.Object
     to: result
   - from: this
     to: result
   - from:
     - this
-    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    - .org.apache.wicket.Component#componentState#java.lang.Object
     to: result
 - function: org.apache.wicket.Component#setMarkupStream
   copy:
@@ -33,7 +33,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    - .org.apache.wicket.Component#componentState#java.lang.Object
     to: result
 - function: org.apache.wicket.Component#findMarkupStream
   copy:
@@ -41,7 +41,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    - .org.apache.wicket.Component#componentState#java.lang.Object
     to: result
 - function: org.apache.wicket.Response#encodeURL
   copy:

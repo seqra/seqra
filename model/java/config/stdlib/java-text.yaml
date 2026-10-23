@@ -48,30 +48,30 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
+    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
 - function: java.text.MessageFormat#<init>
   signature: (java.lang.String, java.util.Locale) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
+    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
+    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
 - function: java.text.DecimalFormat#<init>
   signature: (java.lang.String, java.text.DecimalFormatSymbols) void
   taintCopyOnly: true
@@ -144,36 +144,24 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.text.DecimalFormat#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormat#decimalConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
 - function: java.text.MessageFormat#format
   signature: (java.lang.String, java.lang.Object[]) java.lang.String
   copy:
   - from: arg(0)
     to: result
   - from:
-    - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
+    - arg(1)
+    - '[*]'
     to: result
-  - from:
-    - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
-    to: result
-  - from:
-    - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
-    to: arg(1)
-  - from:
-    - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
-    to: arg(1)
 - function: java.text.ChoiceFormat#<init>
   signature: (java.lang.String) void
   taintCopyOnly: true
@@ -188,7 +176,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.text.DateFormatSymbols#<rule-storage>#java.lang.Object
+    - .java.text.DateFormatSymbols#dateSymbols#java.lang.Object
 - function: java.text.NumberFormat#format
   signature: (double, java.lang.StringBuffer, java.text.FieldPosition) java.lang.StringBuffer
   copy:
@@ -240,7 +228,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.text.DateFormatSymbols#<rule-storage>#java.lang.Object
+    - .java.text.DateFormatSymbols#dateSymbols#java.lang.Object
     to: result
 - function: java.text.DecimalFormat#toPattern
   signature: (boolean) java.lang.String
@@ -274,18 +262,6 @@ passThrough:
     to:
     - this
     - .java.text.ChoiceFormat#pattern#java.lang.String
-- function: java.text.MessageFormat#format
-  signature: (java.lang.String, java.lang.Object[]) java.lang.String
-  taintCopyOnly: true
-  copy:
-  - from: arg(0)
-    to: arg(1)
-  - from: arg(1)
-    to: result
-  - from: this
-    to: result
-  - from: this
-    to: arg(1)
 - function: java.text.NumberFormat#format
   signature: (double, java.lang.StringBuffer, java.text.FieldPosition) java.lang.StringBuffer
   taintCopyOnly: true
@@ -323,7 +299,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.text.DecimalFormatSymbols#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormatSymbols#decimalSymbols#java.lang.Object
     to: result
 - function:
     package: java.text
@@ -357,15 +333,15 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.text.DecimalFormat#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormat#decimalConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
 - function: java.text.DecimalFormatSymbols#<init>
   signature:
     params:
@@ -384,11 +360,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
+    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
     to: result
 - function:
     package: java.text
@@ -407,15 +383,15 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.DecimalFormat#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormat#decimalConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
     to: result
 - function: java.text.ChoiceFormat#<init>
   signature:
@@ -432,15 +408,15 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.DecimalFormat#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormat#decimalConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
     to: result
 - function: java.text.DecimalFormat#toPattern
   signature: () java.lang.String
@@ -514,29 +490,29 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.ChoiceFormat#<rule-storage>#java.lang.Object
+    - .java.text.ChoiceFormat#choiceConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
 - function: java.text.ChoiceFormat#toPattern
   signature: () java.lang.String
   copy:
   - from:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.ChoiceFormat#<rule-storage>#java.lang.Object
+    - .java.text.ChoiceFormat#choiceConfiguration#java.lang.Object
     to: result
 - function: java.text.Format#format
   signature: (java.lang.Object) java.lang.String
@@ -566,27 +542,27 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .java.text.DecimalFormat#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormat#decimalConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.DecimalFormat#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormat#decimalConfiguration#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
 - function:
     package: java.text
     class: DecimalFormat
@@ -674,19 +650,19 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
+    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
+    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
     to: arg(1)
   - from:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
     to: arg(1)
 - function: java.text.NumberFormat#format
   signature: (double) java.lang.String
@@ -742,11 +718,11 @@ passThrough:
     - '[*]'
     to:
     - this
-    - .java.text.DateFormatSymbols#<rule-storage>#java.lang.Object
+    - .java.text.DateFormatSymbols#dateSymbols#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.DateFormatSymbols#<rule-storage>#java.lang.Object
+    - .java.text.DateFormatSymbols#dateSymbols#java.lang.Object
 - function: java.text.MessageFormat#format
   signature: (java.lang.Object, java.lang.StringBuffer, java.text.FieldPosition) java.lang.StringBuffer
   taintCopyOnly: true
@@ -819,7 +795,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.text.DecimalFormatSymbols#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormatSymbols#decimalSymbols#java.lang.Object
 - function:
     package: java.text
     class: MessageFormat
@@ -831,21 +807,21 @@ passThrough:
     - '[*]'
     to:
     - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
+    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
+    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
 - function: java.text.NumberFormat#equals
   signature: (java.lang.Object) boolean
   copy:
@@ -858,15 +834,15 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.DecimalFormat#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormat#decimalConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
     to: result
 - function: java.text.DateFormat#format
   signature: (java.lang.Object, java.lang.StringBuffer, java.text.FieldPosition) java.lang.StringBuffer
@@ -940,7 +916,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.text.DecimalFormatSymbols#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormatSymbols#decimalSymbols#java.lang.Object
     to: result
 - function: java.text.NumberFormat#format
   signature: (double) java.lang.String
@@ -972,7 +948,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.text.DateFormatSymbols#<rule-storage>#java.lang.Object
+    - .java.text.DateFormatSymbols#dateSymbols#java.lang.Object
     to: result
 - function:
     package: java.text
@@ -997,11 +973,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
+    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
 - function: java.text.MessageFormat#format
   signature: (java.lang.Object, java.lang.StringBuffer, java.text.FieldPosition) java.lang.StringBuffer
   copy:
@@ -1013,19 +989,19 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
+    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
+    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
     to: arg(1)
   - from:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
     to: arg(1)
 - function: java.text.NumberFormat#format
   signature: (long, java.lang.StringBuffer, java.text.FieldPosition) java.lang.StringBuffer
@@ -1099,15 +1075,15 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.text.DecimalFormat#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormat#decimalConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
 - function: java.text.ChoiceFormat#<init>
   signature:
     params:
@@ -1129,11 +1105,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
+    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
     to: result
 - function:
     package: java.text
@@ -1144,15 +1120,15 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.text.DecimalFormat#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormat#decimalConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
 - function: java.text.Format#format
   signature: (java.lang.Object, java.lang.StringBuffer, java.text.FieldPosition) java.lang.StringBuffer
   taintCopyOnly: true
@@ -1273,49 +1249,49 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .java.text.ChoiceFormat#<rule-storage>#java.lang.Object
+    - .java.text.ChoiceFormat#choiceConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.ChoiceFormat#<rule-storage>#java.lang.Object
+    - .java.text.ChoiceFormat#choiceConfiguration#java.lang.Object
   - from:
     - arg(1)
     - '[*]'
     to:
     - this
-    - .java.text.ChoiceFormat#<rule-storage>#java.lang.Object
+    - .java.text.ChoiceFormat#choiceConfiguration#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
   - from:
     - arg(1)
     - '[*]'
     to:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .java.text.ChoiceFormat#<rule-storage>#java.lang.Object
+    - .java.text.ChoiceFormat#choiceConfiguration#java.lang.Object
   - from:
     - arg(1)
     - '[*]'
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
@@ -1323,17 +1299,17 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
   - from:
     - arg(0)
     - '[*]'
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
 - function: java.text.DateFormatSymbols#<init>
   signature: (java.util.Locale) void
   taintCopyOnly: true
@@ -1413,15 +1389,15 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.text.DecimalFormat#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormat#decimalConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
 - function:
     package: java.text
     class: DecimalFormatSymbols
@@ -1431,7 +1407,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.text.DecimalFormatSymbols#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormatSymbols#decimalSymbols#java.lang.Object
 - function: java.text.NumberFormat#format
   signature: (long, java.lang.StringBuffer, java.text.FieldPosition) java.lang.StringBuffer
   taintCopyOnly: true
@@ -1450,15 +1426,15 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.ChoiceFormat#<rule-storage>#java.lang.Object
+    - .java.text.ChoiceFormat#choiceConfiguration#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
 - function: java.text.NumberFormat#format
   signature: (java.lang.Object, java.lang.StringBuffer, java.text.FieldPosition) java.lang.StringBuffer
   taintCopyOnly: true
@@ -1508,15 +1484,15 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.text.NumberFormat#<rule-storage>#java.lang.Object
+    - .java.text.NumberFormat#numberConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.DecimalFormat#<rule-storage>#java.lang.Object
+    - .java.text.DecimalFormat#decimalConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
     to: result
 - function: java.text.DateFormatSymbols#<init>
   signature: (java.util.Locale) void
@@ -1524,7 +1500,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.text.DateFormatSymbols#<rule-storage>#java.lang.Object
+    - .java.text.DateFormatSymbols#dateSymbols#java.lang.Object
 - function: java.text.MessageFormat#equals
   signature: (java.lang.Object) boolean
   copy:
@@ -1532,11 +1508,11 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.text.MessageFormat#<rule-storage>#java.lang.Object
+    - .java.text.MessageFormat#messageConfiguration#java.lang.Object
     to: result
   - from:
     - this
-    - .java.text.Format#<rule-storage>#java.lang.Object
+    - .java.text.Format#formatConfiguration#java.lang.Object
     to: result
   - from: this
     to: result

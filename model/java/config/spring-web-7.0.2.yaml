@@ -294,7 +294,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    - .org.springframework.http.RequestEntity#requestData#java.lang.Object
     to: result
 - function: org.springframework.http.RequestEntity$HeadersBuilder#header
   taintCopyOnly: true
@@ -325,7 +325,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.http.HttpHeaders#<rule-storage>#java.lang.Object
+    - .org.springframework.http.HttpHeaders#headerMap#java.lang.Object
 - function: org.springframework.web.util.UriComponentsBuilder#cloneBuilder
   overrides: false
   copy:
@@ -335,13 +335,13 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    - .org.springframework.http.RequestEntity#requestData#java.lang.Object
     to: result
 - function: org.springframework.http.RequestEntity#post
   copy:
   - from:
     - this
-    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    - .org.springframework.http.RequestEntity#requestData#java.lang.Object
     to: result
 - function: org.springframework.http.RequestEntity#head
   taintCopyOnly: true
@@ -363,11 +363,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    - .org.springframework.http.RequestEntity#requestData#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    - .org.springframework.http.RequestEntity#requestData#java.lang.Object
 - function: org.springframework.http.ResponseEntity$HeadersBuilder#header
   taintCopyOnly: true
   copy:
@@ -419,7 +419,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    - .org.springframework.http.RequestEntity#requestData#java.lang.Object
     to: result
 - function: org.springframework.http.ResponseEntity#ok
   copy:
@@ -560,7 +560,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    - .org.springframework.http.RequestEntity#requestData#java.lang.Object
     to: result
 - function: org.springframework.http.ResponseEntity$HeadersBuilder#location
   copy:
@@ -685,7 +685,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    - .org.springframework.http.RequestEntity#requestData#java.lang.Object
     to: result
 - function: org.springframework.web.util.HtmlUtils#htmlEscapeDecimal
   copy:
@@ -848,7 +848,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    - .org.springframework.http.RequestEntity#requestData#java.lang.Object
     to: result
 - function:
     package: org.springframework.web.server
@@ -1009,7 +1009,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    - .org.springframework.http.RequestEntity#requestData#java.lang.Object
     to: result
 - function: org.springframework.http.ResponseEntity$HeadersBuilder#header
   signature: (java.lang.String, *) *

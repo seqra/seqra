@@ -37,6 +37,61 @@ public class SsrfSamples {
 
     // ssrf
 
+    /**
+     * The URLEncoder sanitizer is written without a star, so it cleans the encoded string
+     * at depth one. The byte content of that string has to go with it: the engine appends
+     * the String bytes slot to every clean action on a String position
+     * (JIRTaintCleanActionEvaluator), and here the slot is genuinely populated - the value
+     * came in through new String(byte[]), which writes it. If the engine's slot and the
+     * slot the java.lang.String model writes ever drift apart, the getBytes round trip
+     * reads the stale slot back and this reports.
+     */
+    /**
+     * Control for the pair below: the same byte round trip with no sanitizer in between
+     * has to report, otherwise the negative twin proves nothing.
+     */
+    @WebServlet("/ssrf/unsafe-bytes-round-trip")
+    public static class UnsafeBytesRoundTripProxyServlet extends HttpServlet {
+
+        @Override
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String target = new String(request.getParameter("url").getBytes());
+            String roundTripped = new String(target.getBytes());
+
+            URL url = new URL(roundTripped);
+            url.openConnection();
+        }
+    }
+
+    /**
+     * The URLEncoder sanitizer is written without a star, so it cleans the encoded string
+     * at depth one. The byte content of that string has to go with it: the engine appends
+     * the String bytes slot to every clean action on a String position
+     * (JIRTaintCleanActionEvaluator), and the slot is genuinely populated here because the
+     * value came in through new String(byte[]). If the engine's slot and the slot the
+     * java.lang.String model writes ever drift apart, the getBytes round trip reads the
+     * stale slot back and this reports.
+     */
+    /**
+     * Not registered, and java.net.URLEncoder#encode is deliberately NOT modelled as a
+     * passthrough. Adding `arg(0) -> result` for it makes both of these report: the rule
+     * declares URLEncoder.encode a sanitizer, but with a passthrough on the same method
+     * the taint reaches the result anyway, with or without the byte round trip. Kept as
+     * the record of that experiment.
+     */
+    @WebServlet("/ssrf/safe-encoded-direct")
+    public static class SafeEncodedDirectProxyServlet extends HttpServlet {
+
+        @Override
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String encoded = java.net.URLEncoder.encode(request.getParameter("url"));
+            URL url = new URL(encoded);
+            url.openConnection();
+        }
+    }
+
     @WebServlet("/ssrf/unsafe-proxy")
     public static class UnsafeProxyServlet extends HttpServlet {
 

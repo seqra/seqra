@@ -14,7 +14,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .java.util.logging.LogRecord#<rule-storage>#java.lang.Object
+    - .java.util.logging.LogRecord#message#java.lang.Object
 - function: java.util.logging.LogRecord#<init>
   signature: (java.util.logging.Level, java.lang.String) void
   taintCopyOnly: true

@@ -14,7 +14,7 @@ passThrough:
   - from: arg(2)
     to:
     - this
-    - .javax.xml.bind.JAXBElement#<rule-storage>#java.lang.Object
+    - .javax.xml.bind.JAXBElement#elementData#java.lang.Object
   - from: arg(2)
     to: this
 - function: javax.xml.bind.util.JAXBSource#<init>
@@ -22,14 +22,14 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.xml.bind.util.JAXBSource#<rule-storage>#java.lang.Object
+    - .javax.xml.bind.util.JAXBSource#sourceObject#java.lang.Object
   - from: arg(1)
     to: this
 - function: javax.xml.bind.JAXBElement#getName
   copy:
   - from:
     - this
-    - .javax.xml.bind.JAXBElement#<rule-storage>#java.lang.Object
+    - .javax.xml.bind.JAXBElement#elementData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -38,7 +38,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.xml.bind.JAXBElement#<rule-storage>#java.lang.Object
+    - .javax.xml.bind.JAXBElement#elementData#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.xml.bind.Marshaller#marshal
@@ -62,7 +62,7 @@ passThrough:
   - from: arg(3)
     to:
     - this
-    - .javax.xml.bind.JAXBElement#<rule-storage>#java.lang.Object
+    - .javax.xml.bind.JAXBElement#elementData#java.lang.Object
 - function: javax.xml.bind.Unmarshaller#unmarshal
   copy:
   - from: arg(0)
@@ -75,7 +75,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.xml.bind.JAXBElement#<rule-storage>#java.lang.Object
+    - .javax.xml.bind.JAXBElement#elementData#java.lang.Object
     to: result
   - from: this
     to: result

@@ -66,7 +66,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Source#sourceData#java.lang.Object
 - function:
     package: javax.xml.transform
     class: Transformer
@@ -94,7 +94,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Result#resultData#java.lang.Object
     to: result
 - function:
     package: javax.xml.transform
@@ -104,7 +104,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Source#sourceData#java.lang.Object
     to: result
 - function:
     package: javax.xml.transform
@@ -315,7 +315,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Result#resultData#java.lang.Object
 - function:
     package: javax.xml.transform
     class: Result

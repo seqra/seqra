@@ -18,7 +18,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpPut#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpPut#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.impl.client.DefaultHttpClient#<init>
@@ -30,7 +30,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.impl.client.DefaultHttpClient#<rule-storage>#java.lang.Object
+    - .org.apache.http.impl.client.DefaultHttpClient#clientConfiguration#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.client.utils.URIBuilder#toString
@@ -42,7 +42,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpRequestBase#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpRequestBase#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.client.utils.URIBuilder#setParameter
@@ -62,7 +62,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpGet#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpGet#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.conn.ssl.SSLSocketFactory#<init>
@@ -74,7 +74,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.conn.ssl.SSLSocketFactory#<rule-storage>#java.lang.Object
+    - .org.apache.http.conn.ssl.SSLSocketFactory#socketConfiguration#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.client.utils.URIBuilder#setQuery
@@ -90,7 +90,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpTrace#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpTrace#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.client.methods.HttpDelete#setURI
@@ -98,7 +98,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpDelete#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpDelete#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.client.methods.HttpRequestBase#toString
@@ -107,7 +107,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.http.client.methods.HttpRequestBase#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpRequestBase#uri#java.lang.Object
     to: result
 - function: org.apache.http.client.utils.URIBuilder#addParameters
   copy:
@@ -122,7 +122,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpGet#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpGet#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.cookie.Cookie#getPath
@@ -140,7 +140,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpHead#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpHead#uri#java.lang.Object
 - function: org.apache.http.client.utils.URIBuilder#addParameter
   copy:
   - from: arg(0)
@@ -150,7 +150,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.apache.http.client.CredentialsProvider#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.CredentialsProvider#credentials#java.lang.Object
   - from: arg(1)
     to: this
 - function: org.apache.http.conn.scheme.SchemeRegistry#setItems
@@ -160,7 +160,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.conn.scheme.SchemeRegistry#<rule-storage>#java.lang.Object
+    - .org.apache.http.conn.scheme.SchemeRegistry#schemes#java.lang.Object
   - from: arg(0)
     to: this
 - function:
@@ -172,7 +172,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpOptions#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpOptions#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function:
@@ -184,7 +184,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpDelete#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpDelete#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.cookie.Cookie#getComment
@@ -212,7 +212,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.apache.http.conn.scheme.Scheme#<rule-storage>#java.lang.Object
+    - .org.apache.http.conn.scheme.Scheme#schemeData#java.lang.Object
   - from: arg(1)
     to: this
 - function: org.apache.http.cookie.Cookie#getCommentURL
@@ -234,7 +234,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpHead#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpHead#uri#java.lang.Object
 - function: org.apache.http.client.utils.URIBuilder#setPath
   copy:
   - from: arg(0)
@@ -272,7 +272,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.conn.ClientConnectionManager#<rule-storage>#java.lang.Object
+    - .org.apache.http.conn.ClientConnectionManager#connectionData#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.client.methods.HttpPut#setURI
@@ -280,7 +280,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpPut#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpPut#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.client.methods.HttpPost#setURI
@@ -288,7 +288,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpPost#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpPost#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.client.utils.CloneUtils#clone
@@ -306,7 +306,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.conn.scheme.SchemeRegistry#<rule-storage>#java.lang.Object
+    - .org.apache.http.conn.scheme.SchemeRegistry#schemes#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.client.methods.HttpOptions#setURI
@@ -314,7 +314,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpOptions#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpOptions#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.cookie.Cookie#toString
@@ -327,7 +327,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .org.apache.http.client.methods.HttpRequestBase#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpRequestBase#uri#java.lang.Object
     to: result
 - function:
     package: org.apache.http.client.methods
@@ -338,7 +338,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpPatch#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpPatch#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.client.methods.HttpPatch#setURI
@@ -346,7 +346,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpPatch#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpPatch#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.client.utils.URIBuilder#setPort
@@ -365,7 +365,7 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .org.apache.http.conn.ClientConnectionManager#<rule-storage>#java.lang.Object
+    - .org.apache.http.conn.ClientConnectionManager#connectionData#java.lang.Object
   - from: arg(1)
     to: this
 - function:
@@ -377,7 +377,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpPost#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpPost#uri#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.http.client.methods.HttpTrace#setURI
@@ -385,6 +385,6 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.http.client.methods.HttpTrace#<rule-storage>#java.lang.Object
+    - .org.apache.http.client.methods.HttpTrace#uri#java.lang.Object
   - from: arg(0)
     to: this

@@ -10,7 +10,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+    - .org.apache.commons.digester.Digester#parsedObjects#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.digester.xmlrules.DigesterLoader#load
@@ -31,7 +31,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+    - .org.apache.commons.digester.Digester#parsedObjects#java.lang.Object
     to: result
   - from: this
     to: result
@@ -43,7 +43,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+    - .org.apache.commons.digester.Digester#parsedObjects#java.lang.Object
     to: result
   - from: this
     to: result
@@ -56,11 +56,11 @@ passThrough:
   - from: arg(2)
     to:
     - this
-    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+    - .org.apache.commons.digester.Digester#parsedObjects#java.lang.Object
   - from: arg(3)
     to:
     - this
-    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+    - .org.apache.commons.digester.Digester#parsedObjects#java.lang.Object
   - from: arg(3)
     to: this
   - from: arg(1)
@@ -68,11 +68,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+    - .org.apache.commons.digester.Digester#parsedObjects#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+    - .org.apache.commons.digester.Digester#parsedObjects#java.lang.Object
   - from: arg(2)
     to: this
   - from: arg(0)
@@ -91,7 +91,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+    - .org.apache.commons.digester.Digester#parsedObjects#java.lang.Object
     to: result
   - from: this
     to: result
@@ -106,11 +106,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+    - .org.apache.commons.digester.Digester#parsedObjects#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+    - .org.apache.commons.digester.Digester#parsedObjects#java.lang.Object
   - from: arg(0)
     to: this
 - function: org.apache.commons.digester.Digester#<init>
@@ -118,6 +118,6 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+    - .org.apache.commons.digester.Digester#parsedObjects#java.lang.Object
   - from: arg(0)
     to: this

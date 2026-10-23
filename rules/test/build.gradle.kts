@@ -79,6 +79,7 @@ allprojects {
 
         // JSF API for FacesContext samples
         implementation("javax.faces:javax.faces-api:2.3")
+        implementation("javax.json:javax.json-api:1.1.4")
 
         // JBoss Seam for @Name and logging samples (from JBoss public repository)
         implementation("org.jboss.seam:jboss-seam:2.3.1.Final")

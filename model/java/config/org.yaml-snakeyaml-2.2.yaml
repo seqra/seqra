@@ -29,3 +29,12 @@ passThrough:
     to:
     - result
     - .java.lang.Iterable#Element#java.lang.Object
+- function: org.yaml.snakeyaml.Yaml#dump
+  signature: (java.lang.Object) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.String#<serialized-value>#java.lang.Object

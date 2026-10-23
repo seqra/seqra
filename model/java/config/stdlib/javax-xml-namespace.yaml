@@ -3,28 +3,27 @@ passThrough:
 - function: javax.xml.namespace.QName#<init>
   signature: (java.lang.String) void
   copy:
-  - from: arg(*)
+  - from: arg(0)
     to:
     - this
-    - .javax.xml.namespace.QName#<rule-storage>#java.lang.Object
+    - .javax.xml.namespace.QName#localPart#java.lang.String
 - function: javax.xml.namespace.QName#<init>
   signature: (java.lang.String, java.lang.String) void
-  taintCopyOnly: true
   copy:
-  - from: arg(*)
-    to: this
-- function: javax.xml.namespace.QName#getPrefix
-  signature: () java.lang.String
-  taintCopyOnly: true
-  copy:
-  - from: this
-    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.namespace.QName#namespaceURI#java.lang.String
+  - from: arg(1)
+    to:
+    - this
+    - .javax.xml.namespace.QName#localPart#java.lang.String
 - function: javax.xml.namespace.QName#getPrefix
   signature: () java.lang.String
   copy:
   - from:
     - this
-    - .javax.xml.namespace.QName#<rule-storage>#java.lang.Object
+    - .javax.xml.namespace.QName#prefix#java.lang.String
     to: result
 - function: javax.xml.namespace.QName#valueOf
   signature: (java.lang.String) javax.xml.namespace.QName
@@ -32,32 +31,12 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
-- function: javax.xml.namespace.QName#<init>
-  signature: (java.lang.String) void
-  taintCopyOnly: true
-  copy:
-  - from: arg(*)
-    to: this
-- function: javax.xml.namespace.QName#getLocalPart
-  signature:
-    return: java.lang.String
-  copy:
-  - from:
-    - this
-    - .javax.xml.namespace.QName#localPart#java.lang.String
-    to: result
-- function: javax.xml.namespace.QName#getNamespaceURI
-  signature: () java.lang.String
-  taintCopyOnly: true
-  copy:
-  - from: this
-    to: result
 - function: javax.xml.namespace.QName#getNamespaceURI
   signature: () java.lang.String
   copy:
   - from:
     - this
-    - .javax.xml.namespace.QName#<rule-storage>#java.lang.Object
+    - .javax.xml.namespace.QName#namespaceURI#java.lang.String
     to: result
 - function: javax.xml.namespace.QName#valueOf
   signature:
@@ -70,70 +49,25 @@ passThrough:
     to:
     - result
     - .javax.xml.namespace.QName#localPart#java.lang.String
-- function: javax.xml.namespace.QName#getPrefix
-  signature:
-    return: java.lang.String
-  copy:
-  - from:
-    - this
-    - .javax.xml.namespace.QName#localPart#java.lang.String
-    to: result
 - function: javax.xml.namespace.QName#getLocalPart
   signature: () java.lang.String
   copy:
   - from:
     - this
-    - .javax.xml.namespace.QName#<rule-storage>#java.lang.Object
-    to: result
-- function: javax.xml.namespace.QName#<init>
-  signature:
-    params:
-    - index: 0
-      type: java.lang.String
-  copy:
-  - from: arg(0)
-    to:
-    - this
-    - .javax.xml.namespace.QName#localPart#java.lang.String
-  - from: arg(0)
-    to:
-    - this
-    - .javax.xml.namespace.QName#localPart#java.lang.String
-  - from: arg(0)
-    to:
-    - this
-    - .javax.xml.namespace.QName#localPart#java.lang.String
-- function: javax.xml.namespace.QName#getNamespaceURI
-  signature:
-    return: java.lang.String
-  copy:
-  - from:
-    - this
     - .javax.xml.namespace.QName#localPart#java.lang.String
     to: result
-- function: javax.xml.namespace.QName#<init>
-  signature: (java.lang.String, java.lang.String) void
-  copy:
-  - from: arg(*)
-    to:
-    - this
-    - .javax.xml.namespace.QName#<rule-storage>#java.lang.Object
 - function: javax.xml.namespace.QName#<init>
   signature: (java.lang.String, java.lang.String, java.lang.String) void
   copy:
-  - from: arg(*)
+  - from: arg(0)
     to:
     - this
-    - .javax.xml.namespace.QName#<rule-storage>#java.lang.Object
-- function: javax.xml.namespace.QName#getLocalPart
-  signature: () java.lang.String
-  taintCopyOnly: true
-  copy:
-  - from: this
-    to: result
-- function: javax.xml.namespace.QName#<init>
-  signature: (java.lang.String, java.lang.String, java.lang.String) void
-  taintCopyOnly: true
-  copy:
-  - from: arg(*)
-    to: this
+    - .javax.xml.namespace.QName#namespaceURI#java.lang.String
+  - from: arg(1)
+    to:
+    - this
+    - .javax.xml.namespace.QName#localPart#java.lang.String
+  - from: arg(2)
+    to:
+    - this
+    - .javax.xml.namespace.QName#prefix#java.lang.String

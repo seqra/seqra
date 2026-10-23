@@ -5,7 +5,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.lang.ref.Reference#<rule-storage>#java.lang.Object
+    - .java.lang.ref.Reference#referent#java.lang.Object
     to: result
 - function: java.lang.ref.Reference#<init>
   signature: (java.lang.Object) void
@@ -13,7 +13,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.ref.Reference#<rule-storage>#java.lang.Object
+    - .java.lang.ref.Reference#referent#java.lang.Object
   - from: arg(0)
     to: this
 - function: java.lang.ref.Reference#<init>
@@ -22,7 +22,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.ref.Reference#<rule-storage>#java.lang.Object
+    - .java.lang.ref.Reference#referent#java.lang.Object
   - from: arg(0)
     to: this
 - function: java.lang.ref.Reference#get

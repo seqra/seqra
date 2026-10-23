@@ -20,7 +20,7 @@ passThrough:
   - from: arg(2)
     to:
     - this
-    - .com.fasterxml.jackson.databind.util.TokenBuffer$Segment#<rule-storage>#java.lang.Object
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Segment#buffer#java.lang.Object
   - from: arg(2)
     to: this
 - function: com.fasterxml.jackson.databind.util.ContainerBuilder#startList

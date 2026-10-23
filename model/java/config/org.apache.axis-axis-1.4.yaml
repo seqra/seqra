@@ -11,7 +11,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function: org.apache.axis.SOAPPart#getElementsByTagName
   copy:
   - from: this
@@ -57,7 +57,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function: org.apache.axis.AxisFault#setFaultString
   copy:
   - from: arg(*)
@@ -65,7 +65,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function: org.apache.axis.MessageContext#getCurrentContext
   copy:
   - from: this
@@ -81,7 +81,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function: org.apache.axis.utils.ArrayUtil#convertArrayToObject
   copy:
   - from: arg(*)
@@ -101,7 +101,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function:
     package: org.apache.axis.types
     class:
@@ -119,7 +119,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function: org.apache.axis.SOAPPart#getElementsByTagNameNS
   copy:
   - from: this
@@ -131,7 +131,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function: org.apache.axis.AxisFault#addFaultSubCodeAsString
   copy:
   - from: arg(*)
@@ -139,7 +139,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function:
     package: org.apache.axis
     class: AxisFault
@@ -151,7 +151,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function: org.apache.axis.AxisFault#setFaultNode
   copy:
   - from: arg(*)
@@ -159,7 +159,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function: org.apache.axis.SOAPPart#getCurrentMessage
   copy:
   - from: this
@@ -175,7 +175,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.Message#<rule-storage>#java.lang.Object
+    - .org.apache.axis.Message#messageData#java.lang.Object
 - function: org.apache.axis.AxisFault#addFaultDetailString
   copy:
   - from: arg(*)
@@ -183,7 +183,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function:
     package: org.apache.axis.types
     class:
@@ -198,7 +198,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.axis.Message#<rule-storage>#java.lang.Object
+    - .org.apache.axis.Message#messageData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -213,7 +213,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function: org.apache.axis.types.HexBinary#encode
   copy:
   - from: arg(0)
@@ -222,7 +222,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .org.apache.axis.Message#<rule-storage>#java.lang.Object
+    - .org.apache.axis.Message#messageData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -241,7 +241,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function: org.apache.axis.SOAPPart#getAsBytes
   copy:
   - from: this
@@ -253,7 +253,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function: org.apache.axis.AxisFault#addHostname
   copy:
   - from: arg(*)
@@ -261,7 +261,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function: org.apache.axis.MessageContext#getMessage
   copy:
   - from: this
@@ -277,7 +277,7 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object
 - function: org.apache.axis.AxisFault#setFaultCode
   copy:
   - from: arg(*)
@@ -285,4 +285,4 @@ passThrough:
   - from: arg(*)
     to:
     - this
-    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+    - .org.apache.axis.AxisFault#fault#java.lang.Object

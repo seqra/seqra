@@ -6,7 +6,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.xml.soap.SAAJResult#<rule-storage>#java.lang.Object
+    - .javax.xml.soap.SAAJResult#resultNode#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.xml.soap.SOAPPart#getContent
@@ -17,7 +17,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.xml.soap.SAAJResult#<rule-storage>#java.lang.Object
+    - .javax.xml.soap.SAAJResult#resultNode#java.lang.Object
     to: result
   - from: this
     to: result

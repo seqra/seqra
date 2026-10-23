@@ -19,7 +19,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.mail.Multipart#<rule-storage>#java.lang.Object
+    - .javax.mail.Multipart#multipartData#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.mail.Folder#getMessages
@@ -32,7 +32,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Multipart#<rule-storage>#java.lang.Object
+    - .javax.mail.Multipart#multipartData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -41,7 +41,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -50,7 +50,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Multipart#<rule-storage>#java.lang.Object
+    - .javax.mail.Multipart#multipartData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -64,11 +64,11 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.mail.Header#<rule-storage>#java.lang.Object
+    - .javax.mail.Header#headerData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.mail.Header#<rule-storage>#java.lang.Object
+    - .javax.mail.Header#headerData#java.lang.Object
   - from: arg(1)
     to: this
   - from: arg(0)
@@ -83,7 +83,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -92,11 +92,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Message#<rule-storage>#java.lang.Object
+    - .javax.mail.Message#messageData#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -105,7 +105,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -126,11 +126,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Message#<rule-storage>#java.lang.Object
+    - .javax.mail.Message#messageData#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -161,7 +161,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Header#<rule-storage>#java.lang.Object
+    - .javax.mail.Header#headerData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -170,11 +170,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Message#<rule-storage>#java.lang.Object
+    - .javax.mail.Message#messageData#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -183,7 +183,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -192,11 +192,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Message#<rule-storage>#java.lang.Object
+    - .javax.mail.Message#messageData#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -205,7 +205,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Header#<rule-storage>#java.lang.Object
+    - .javax.mail.Header#headerData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -219,7 +219,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -235,13 +235,13 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.mail.Multipart#<rule-storage>#java.lang.Object
+    - .javax.mail.Multipart#multipartData#java.lang.Object
 - function: javax.mail.Part#getFileName
   signature: () java.lang.String
   copy:
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -256,14 +256,14 @@ passThrough:
     to: result
   - from:
     - this
-    - .javax.mail.Multipart#<rule-storage>#java.lang.Object
+    - .javax.mail.Multipart#multipartData#java.lang.Object
     to: result
 - function: javax.mail.Part#getMatchingHeaders
   signature: (java.lang.String[]) java.util.Enumeration
   copy:
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -272,7 +272,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -282,7 +282,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.mail.Message#addRecipient
@@ -291,11 +291,11 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .javax.mail.Message#<rule-storage>#java.lang.Object
+    - .javax.mail.Message#messageData#java.lang.Object
   - from: arg(1)
     to: this
 - function:
@@ -307,7 +307,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.mail.Multipart#<rule-storage>#java.lang.Object
+    - .javax.mail.Multipart#multipartData#java.lang.Object
   - from: arg(0)
     to: this
 - function: javax.mail.Part#getDescription
@@ -315,7 +315,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -324,11 +324,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Message#<rule-storage>#java.lang.Object
+    - .javax.mail.Message#messageData#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -337,7 +337,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -346,11 +346,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.mail.Message#<rule-storage>#java.lang.Object
+    - .javax.mail.Message#messageData#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
     to: result
   - from: this
     to: result
@@ -398,11 +398,11 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .javax.mail.Message#<rule-storage>#java.lang.Object
+    - .javax.mail.Message#messageData#java.lang.Object
   - from: arg(1)
     to: this
   - from:
@@ -410,13 +410,13 @@ passThrough:
     - '[*]'
     to:
     - this
-    - .javax.mail.Message#<rule-storage>#java.lang.Object
+    - .javax.mail.Message#messageData#java.lang.Object
   - from:
     - arg(1)
     - '[*]'
     to:
     - this
-    - .javax.mail.Part#<rule-storage>#java.lang.Object
+    - .javax.mail.Part#partData#java.lang.Object
 - function: javax.mail.Folder#getName
   signature: () java.lang.String
   copy:

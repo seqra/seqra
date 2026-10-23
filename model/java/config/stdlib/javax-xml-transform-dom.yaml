@@ -20,11 +20,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.dom.DOMResult#resultNodes#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Result#resultData#java.lang.Object
 - function: javax.xml.transform.dom.DOMResult#setNextSibling
   signature: (org.w3c.dom.Node) void
   taintCopyOnly: true
@@ -73,11 +73,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.dom.DOMSource#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.dom.DOMSource#node#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Source#sourceData#java.lang.Object
 - function: javax.xml.transform.dom.DOMResult#setNextSibling
   signature:
     params:
@@ -93,11 +93,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.xml.transform.dom.DOMSource#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.dom.DOMSource#node#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Source#sourceData#java.lang.Object
     to: result
 - function: javax.xml.transform.dom.DOMSource#getNode
   signature:
@@ -131,11 +131,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.dom.DOMResult#resultNodes#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Result#resultData#java.lang.Object
     to: result
   - from:
     - this
@@ -189,19 +189,19 @@ passThrough:
   - from: arg(1)
     to:
     - this
-    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.dom.DOMResult#resultNodes#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.dom.DOMResult#resultNodes#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Result#resultData#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Result#resultData#java.lang.Object
 - function: javax.xml.transform.dom.DOMSource#setNode
   signature: (org.w3c.dom.Node) void
   taintCopyOnly: true
@@ -225,11 +225,11 @@ passThrough:
   copy:
   - from:
     - this
-    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.dom.DOMResult#resultNodes#java.lang.Object
     to: result
   - from:
     - this
-    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Result#resultData#java.lang.Object
     to: result
   - from:
     - this
@@ -262,11 +262,11 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.dom.DOMResult#resultNodes#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Result#resultData#java.lang.Object
 - function: javax.xml.transform.dom.DOMSource#setNode
   signature:
     params:
@@ -283,22 +283,22 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.dom.DOMSource#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.dom.DOMSource#node#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Source#sourceData#java.lang.Object
 - function: javax.xml.transform.dom.DOMSource#<init>
   signature: (org.w3c.dom.Node) void
   copy:
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.dom.DOMSource#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.dom.DOMSource#node#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    - .javax.xml.transform.Source#sourceData#java.lang.Object
 - function:
     package: javax.xml.transform.dom
     class: DOMResult
