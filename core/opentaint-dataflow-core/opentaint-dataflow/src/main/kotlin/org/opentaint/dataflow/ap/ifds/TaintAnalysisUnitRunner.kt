@@ -353,12 +353,15 @@ class TaintAnalysisUnitRunner(
         manager.handleEdgeDroppedOverFieldLimit()
     }
 
+    override fun reachedFactDepthLimit(): Int = manager.reachedFactDepthLimit()
+
     private var factLimit = NormalMethodAnalyzer.INITIAL_ALLOWED_FACT_DEPTH
 
     private fun resumeDelayedAnalyzers(delayedAnalyzers: Collection<MethodAnalyzer>) {
         if (delayedAnalyzers.isEmpty()) return
 
         val increasedFactLimit = ++factLimit
+        manager.handleFactDepthLimitRaised(increasedFactLimit)
         logger.debug { "Increase unit $unit fact limit: $increasedFactLimit" }
 
         delayedAnalyzers.forEach { analyzer ->

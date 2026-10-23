@@ -133,6 +133,7 @@ class TaintAnalysisUnitRunnerManager(
         unitStorage.elements().iterator().forEach { it.resetApManager(manager) }
 
         totalDelayedUnits.set(0)
+        reachedFactDepthLimit.set(NormalMethodAnalyzer.INITIAL_ALLOWED_FACT_DEPTH)
         totalEventsEnqueued.set(0)
         totalEventsProcessed.set(0)
         analysisCompletion = CompletableDeferred()
@@ -197,6 +198,7 @@ class TaintAnalysisUnitRunnerManager(
 
                 reportRunnerProgress(currentProgress)
                 logger.info { "Analysis done in ${timeStart.elapsedNow()}" }
+                logger.info { "Fact depth ladder reached ${reachedFactDepthLimit.get()}" }
                 reportFieldLimit()
             }
         }
@@ -521,6 +523,14 @@ class TaintAnalysisUnitRunnerManager(
     fun handleEdgeDroppedOverFieldLimit() {
         edgesDroppedOverFieldLimit.increment()
     }
+
+    private val reachedFactDepthLimit = AtomicInteger(NormalMethodAnalyzer.INITIAL_ALLOWED_FACT_DEPTH)
+
+    fun handleFactDepthLimitRaised(limit: Int) {
+        reachedFactDepthLimit.accumulateAndGet(limit, ::maxOf)
+    }
+
+    fun reachedFactDepthLimit(): Int = reachedFactDepthLimit.get()
 
     fun handleUnitDelayed() {
         totalDelayedUnits.incrementAndGet()

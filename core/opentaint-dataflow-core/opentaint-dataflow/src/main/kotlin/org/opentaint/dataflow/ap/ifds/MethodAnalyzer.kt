@@ -1358,7 +1358,7 @@ class NormalMethodAnalyzer(
     }
 
     override fun methodTraceResolver(): MethodTraceResolver =
-        MethodTraceResolver(runner, traceResolverStats, analysisContext, edges, methodInstGraph, fieldLimit)
+        MethodTraceResolver(runner, traceResolverStats, analysisContext, edges, methodInstGraph, fieldLimit ?: (runner.reachedFactDepthLimit() + TRACE_LADDER_SLACK))
 
     override fun resolveIntraProceduralForwardFullTrace(
         statement: CommonInst,
@@ -1423,6 +1423,7 @@ class NormalMethodAnalyzer(
 
     companion object {
         const val INITIAL_ALLOWED_FACT_DEPTH = 1
+        const val TRACE_LADDER_SLACK = 1
         const val DEBUG_ANALYSIS_TIME = false
     }
 }
