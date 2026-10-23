@@ -7,15 +7,16 @@ import java.util.Arrays;
 
 // Phase 3 config coverage: each Positive flows taint from a source, through a
 // changed passthrough entry (Phase 1 fold or Phase 2 collapse removal), to a sink.
-// A Positive turning red means the config change dropped a real flow.
+// Array sources and sinks include their elements; the array identity alone is clean.
 @RuleSet("phase3/StdlibCoverage.yaml")
 public abstract class StdlibCoverage implements RuleSample {
     public String[] asrc() { return new String[]{"tainted"}; }
+    public String[] asrcPlain() { return new String[]{"tainted"}; }
     public char[] csrc() { return new char[]{'x'}; }
     public void arrSink(String[] s) {}
     public void strSink(String s) {}
 
-    // Phase 1 fold: java.util.Arrays#copyOf  [arg0,*]->[result,*]  =>  arg0->result
+    // Arrays.copyOf preserves element taint in the newly allocated array.
     static class PositiveArraysCopyOf extends StdlibCoverage {
         @Override public void entrypoint() {
             String[] d = asrc();
@@ -24,7 +25,7 @@ public abstract class StdlibCoverage implements RuleSample {
         }
     }
 
-    // Phase 1 fold: java.util.Arrays#copyOfRange
+    // Arrays.copyOfRange preserves element taint in the selected range.
     static class PositiveArraysCopyOfRange extends StdlibCoverage {
         @Override public void entrypoint() {
             String[] d = asrc();
@@ -33,8 +34,7 @@ public abstract class StdlibCoverage implements RuleSample {
         }
     }
 
-    // Phase 2 collapse removed: java.lang.AbstractStringBuilder#append(char[])
-    // kept whole copy arg0->this; whole char[] taint must still reach the builder.
+    // append(char[]) reads array elements into the builder content slot.
     static class PositiveStringBuilderAppendChars extends StdlibCoverage {
         @Override public void entrypoint() {
             char[] ch = csrc();
@@ -50,6 +50,14 @@ public abstract class StdlibCoverage implements RuleSample {
             String[] d = new String[]{"safe"};
             String[] c = Arrays.copyOf(d, 1);
             arrSink(c);
+        }
+    }
+
+    // A base-only source does not mark the elements copied into a fresh array.
+    static class NegativeBaseOnlyArrayCopy extends StdlibCoverage {
+        @Override public void entrypoint() {
+            String[] d = asrcPlain();
+            arrSink(Arrays.copyOf(d, 1));
         }
     }
 }

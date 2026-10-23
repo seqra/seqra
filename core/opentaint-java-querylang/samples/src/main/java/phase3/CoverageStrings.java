@@ -10,9 +10,8 @@ import java.util.Locale;
 
 // Phase 3 core coverage: java.lang.String factory overloads plus java.text
 // pattern/setter entries. Each Positive flows taint from a source, through the
-// changed passthrough, and back out to a sink. The java.text cases (ChoiceFormat
-// ctor, DecimalFormat set*) rely on arg -> this whole-object taint plus a guessed
-// getter accessor (AnyAccessorEnabled) to read the value back.
+// changed passthrough, and back out to a sink. Array sources include their
+// elements; java.text cases read back the specific property written by the model.
 @RuleSet("phase3/CoverageStrings.yaml")
 public abstract class CoverageStrings implements RuleSample {
     public Object[] osrc() { return new Object[]{"tainted"}; }
@@ -20,7 +19,7 @@ public abstract class CoverageStrings implements RuleSample {
     public String ssrc() { return "tainted"; }
     public void strSink(String s) {}
 
-    // java.lang.String#format(Locale, String, Object[]) : arg2 -> result
+    // String.format reads the elements of its varargs array.
     static class PositiveStringFormatLocale extends CoverageStrings {
         @Override public void entrypoint() {
             Object[] a = osrc();

@@ -78,13 +78,7 @@ public abstract class CoverageRuleStorageFixes implements RuleSample {
         }
     }
 
-    // FAILS as of this writing (see .superpowers/sdd/e2e-fixes-report.md): the
-    // specific field-sensitive bug (a bogus encodedValue->oid String#bytes bridge)
-    // was fixed, but BasicControl#<init> still copies arg(2) (encodedValue) onto
-    // the whole "this" object (0587c523d6, kept deliberately for ctrlSink(c)-style
-    // callers), and AnyAccessorEnabled lets that whole-object mark leak through
-    // getID() even though getID()'s own config is field-sensitive-only. Expected:
-    // no finding. Actual: a finding is reported.
+    // The encoded value must not taint the independent identifier property.
     static class NegativeBasicControlGetID extends CoverageRuleStorageFixes {
         @Override public void entrypoint() {
             byte[] b = bsrc();
@@ -93,13 +87,13 @@ public abstract class CoverageRuleStorageFixes implements RuleSample {
         }
     }
 
-    // 6. javax.naming.ldap.SortControl#<init>(String, boolean): this constructor's
-    // model was deleted and restored; without it the object carries no taint.
+    // 6. SortControl encodes its sort attribute into encodedValue. Read that
+    // property back instead of treating the control identity as tainted.
     static class PositiveSortControlStringCtor extends CoverageRuleStorageFixes {
         @Override public void entrypoint() {
             try {
                 javax.naming.ldap.SortControl c = new javax.naming.ldap.SortControl(ssrc(), true);
-                objSink(c);
+                bytesSink(c.getEncodedValue());
             } catch (java.io.IOException e) {
             }
         }
@@ -165,12 +159,7 @@ public abstract class CoverageRuleStorageFixes implements RuleSample {
         }
     }
 
-    // FAILS as of this writing (see .superpowers/sdd/e2e-fixes-report.md): the
-    // per-property setters are now field-sensitive (9a9141d5c), but that commit's
-    // own message says the generic `set.+` whole-object taintCopyOnly twin on
-    // DecimalFormatSymbols ("the bare whole-object taintCopyOnly twins are left
-    // untouched") is deliberately kept, and AnyAccessorEnabled lets it leak
-    // through any getter. Expected: no finding. Actual: a finding is reported.
+    // The NaN symbol must not taint the independent currency symbol property.
     static class NegativeDecimalFormatSymbolsCurrencySymbol extends CoverageRuleStorageFixes {
         @Override public void entrypoint() {
             java.text.DecimalFormatSymbols dfs = new java.text.DecimalFormatSymbols();

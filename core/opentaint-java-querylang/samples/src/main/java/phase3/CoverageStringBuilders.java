@@ -4,8 +4,8 @@ import base.RuleSample;
 import base.RuleSet;
 
 // Phase 3 core coverage: char[] overloads of the string-builder append/insert
-// entries. Each Positive flows a tainted char[] through the builder (arg -> this)
-// and reads it back via toString. StringBuilder.append(char[]) is already covered
+// entries. Each Positive flows tainted array elements into the builder content
+// slot and reads them back via toString. StringBuilder.append(char[]) is already covered
 // in StdlibCoverage; here we exercise the remaining char[] overloads. The abstract
 // java.lang.AbstractStringBuilder#append/#insert entries are non-instantiable and
 // are therefore covered transitively through StringBuilder / StringBuffer below.

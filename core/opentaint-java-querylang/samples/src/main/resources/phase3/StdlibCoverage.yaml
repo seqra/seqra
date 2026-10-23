@@ -7,14 +7,17 @@ rules:
     mode: taint
     pattern-sources:
       - patterns:
-          - pattern: $X = asrc();
+          - pattern: $*X = asrc();
           - focus-metavariable: $X
       - patterns:
-          - pattern: $X = csrc();
+          - pattern: $*X = csrc();
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: $X = asrcPlain();
           - focus-metavariable: $X
     pattern-sinks:
       - patterns:
-          - pattern: arrSink($Y);
+          - pattern: arrSink($*Y);
           - focus-metavariable: $Y
       - patterns:
           - pattern: strSink($Y);
