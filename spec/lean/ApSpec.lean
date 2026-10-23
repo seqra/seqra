@@ -168,3 +168,6 @@ import ApSpec.ExactClassMarkers
 import ApSpec.Run1StaticFieldAblation
 import ApSpec.Run1OperationStaticWriters
 import ApSpec.Run1SummaryAliasAdmission
+import ApSpec.Run1TemporaryStaticSupplies
+import ApSpec.Run1FullReturnCleanup
+import ApSpec.Run1WorkBatchingClosure

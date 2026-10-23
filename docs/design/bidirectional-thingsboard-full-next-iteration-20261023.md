@@ -1,6 +1,10 @@
 # Remove repeated Thingsboard FULL run-1 work
 
 Date: 23 October 2026. Status: proposal; no optimization below is implemented.
+The user selected temporary static supply merging and bulk FULL return
+cleanup. The [complete selected spec](../../spec/run1-full-return-cleanup-and-static-supply-batching.md)
+and its proof dossier now define those two changes. The image-cohort
+candidate remains unselected.
 FULL is the selected run-1 default. GROUP remains an explicit experiment.
 Measured runtime: `b68b3a1c9389c8d1b8ab6ad513af0c586a546895`.
 Latest reached in each Thingsboard FULL attempt: **run-1 OOM**.
@@ -38,16 +42,16 @@ they are synthetic. Those would be separate design changes.
 
 | Priority | Proposal | Measured scope and remaining gate |
 | --- | --- | --- |
-| 1, select | Merge temporary static supplies | Exact duplicates exceed 99.95% in the two largest batches; all temporary batches retain 521.8 MB. Retain existing actual binding and barriers. |
-| 2, measure eligible blocks before selection | Bulk FULL return cleanup | 782,080 cleaner point rows; cleaner-chain scope is 12.55% Java CPU and 24.10% allocation weight. The equal-geometry pure-block share is not measured. |
+| 1, selected | Merge temporary static supplies | Exact duplicates exceed 99.95% in the two largest batches; all temporary batches retain 521.8 MB. Retain existing actual binding and barriers. |
+| 2, selected | Bulk FULL return cleanup | 782,080 cleaner point rows; cleaner-chain scope is 12.55% Java CPU and 24.10% allocation weight. Measure the eligible share and replacement costs during implementation. |
 | Investigate | Exact pending-image cohorts | Call stages own 3,966,089 memberships. Per-point equal-root multiplicity is unknown because the final query failed. Do not predict a saving from global sharing. |
 
-Only the first proposal has a measured duplicate population sufficient for
-selection now. Its benefit is primarily less temporary retention and
-fewer service offers. It does not prove that Thingsboard will finish
-run-1, meet 60 seconds, or use half the whole-engine work. The next two
-entries target larger repeated action or membership populations, with
-explicit measurement gates before implementation selection.
+The first two proposals are selected. The supply proposal has an exact
+measured duplicate population; its benefit is primarily less temporary
+retention and fewer service offers. Cleaner-block eligibility still needs
+measurement to quantify impact. Neither proposal proves that Thingsboard
+will finish run-1, meet 60 seconds, or use half the whole-engine work.
+The pending-image representation remains an investigation.
 
 ## 1. Admit static supplies before retaining duplicate packets
 

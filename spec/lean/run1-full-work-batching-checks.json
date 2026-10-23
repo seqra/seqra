@@ -1,0 +1,138 @@
+{
+  "status": "SELECTED_SPEC_AND_CONSTRUCTIVE_PROOFS_CHECKED_RUNTIME_UNCHANGED",
+  "generated_utc": "2026-10-23T08:49:42.632378+00:00",
+  "reference_analyzer": "8ab1445b8167a4b2db73f97788653aa4e21a3933",
+  "documentation_parent": "7554c06fc32b202b292a9f418108206313dae460",
+  "selected": [
+    "Merge temporary static supplies",
+    "Bulk FULL return cleanup"
+  ],
+  "execution_scope": "Forward run-1 FULL canonical batches and eligible equal-geometry nonstatic plain return-cleaner blocks only.",
+  "unselected": [
+    "Pending-image cohorts",
+    "Grounding support",
+    "Field processing changes",
+    "Source/exit changes",
+    "IR storage changes",
+    "Reference-manager changes"
+  ],
+  "implementation_changed": false,
+  "new_project_runs": false,
+  "sha256": {
+    "spec/run1-full-return-cleanup-and-static-supply-batching.md": "00369d600739b897e7c3fe9a22cbe3c1ae04d1f2894a505bf23586f581d98f36",
+    "spec/run1-full-return-cleanup-and-static-supply-batching-proofs.md": "1a5b71a4765efb4f191e06ae476f189a54669454fd3ac41b4830e3e137143504",
+    "spec/lean/ApSpec/Run1TemporaryStaticSupplies.lean": "27f6486ec0291f558a339adeebe4498e1aa0c05b52051c8909f330dce6db351d",
+    "spec/lean/ApSpec/Run1FullReturnCleanup.lean": "4632e637b6c18ace44a37c255e8ec7dfa023dd95a0e11b2eea80813f08704eec",
+    "spec/lean/ApSpec/Run1WorkBatchingClosure.lean": "103ae146649a231603283dad51e2f0ad94b2091f078b0c4d7e740100a98228f3",
+    "spec/lean/run1-temporary-static-supplies-audit.lean": "f59cad3dedc62dac4494e42b0ab3cef77acb9f9e2f3aab4216f46021335d5fde",
+    "spec/lean/run1-full-return-cleanup-audit.lean": "20828b0f235a9ecd4474416c4bc5d2f6136693ccdf36c506acfe4a5bb86a74bc",
+    "spec/lean/run1-full-work-batching-audit.lean": "850ff74060bb873b10c1bab556bac29b4bbe9c176cc27212466938d3934dd72f",
+    "spec/lean/ApSpec.lean": "1d7f80fdc35eea7b9df58ad4020d7cb1bfbaade63bc991856f523760c46f0164",
+    "spec/proof-status.md": "3955f6d477c4855e6a4d15be43725af2edbeddde08dd44310c91a3bcd88df9fc",
+    "docs/design/bidirectional-thingsboard-full-next-iteration-20261023.md": "662967adc9b103917a41ea38529835848b90bd1aed824b0751686109181d1d44"
+  },
+  "checks": [
+    {
+      "argv": [
+        "lake",
+        "build",
+        "ApSpec.Run1TemporaryStaticSupplies",
+        "ApSpec.Run1FullReturnCleanup",
+        "ApSpec.Run1WorkBatchingClosure"
+      ],
+      "cwd": "spec/lean",
+      "exit_code": 0,
+      "jobs": 4
+    },
+    {
+      "argv": [
+        "lake",
+        "build",
+        "ApSpec"
+      ],
+      "cwd": "spec/lean",
+      "exit_code": 0,
+      "jobs": 174
+    },
+    {
+      "argv": [
+        "lake",
+        "env",
+        "lean",
+        "run1-full-work-batching-audit.lean"
+      ],
+      "cwd": "spec/lean",
+      "exit_code": 0,
+      "owned_declarations": 1610,
+      "module_declarations": {
+        "Run1TemporaryStaticSupplies": 877,
+        "Run1FullReturnCleanup": 653,
+        "Run1WorkBatchingClosure": 80
+      },
+      "controls": 71,
+      "control_split": {
+        "supply": 24,
+        "cleanup": 38,
+        "closure": 9
+      }
+    },
+    {
+      "argv": [
+        "lake",
+        "env",
+        "lean",
+        "run1-temporary-static-supplies-audit.lean"
+      ],
+      "cwd": "spec/lean",
+      "exit_code": 0,
+      "controls": 48,
+      "included_module_controls": 24,
+      "additional_integration_controls": 24
+    },
+    {
+      "argv": [
+        "lake",
+        "env",
+        "lean",
+        "run1-full-return-cleanup-audit.lean"
+      ],
+      "cwd": "spec/lean",
+      "exit_code": 0,
+      "controls": 38
+    }
+  ],
+  "distinct_executable_controls": 95,
+  "axiom_policy": {
+    "permitted": [
+      "propext",
+      "Quot.sound"
+    ],
+    "forbidden_dependencies": 0,
+    "executable_finite_derivation_transport_axioms": []
+  },
+  "source_review": {
+    "path": "/drive-testcomp/opentaint-go-rules/run1-static-summary-erasure-20261022/validation/selected-run1-work-spec-20261023/source-review.md",
+    "result": "No unavoidable semantic change under selected gates; nonexistent config.forward pseudocode corrected."
+  },
+  "limits": [
+    "Local executable models and parametric finite-closure/handoff transport, not a checked Kotlin engine refinement.",
+    "Concrete trie/spatial decoding, observation-preserving packing/collector normalization and addressed per-mark pending image adapters require implementation correspondence tests.",
+    "No arbitrary E or NORMAL TAINT bulk cleanup: nonfixed inputs execute scalar fallback.",
+    "Raw broad class first-match behavior keeps ordered route; no unproved packet reordering outside canonical profile.",
+    "No termination, whole-engine speedup, OOM-prefix equality or 60-second guarantee."
+  ],
+  "latest_measurement": {
+    "project": "Thingsboard",
+    "mode": "FULL",
+    "repetitions": 3,
+    "latest_reached": "run-1 OOM",
+    "latest_complete": null,
+    "latest_accepted_forward": null,
+    "measured_runtime": "b68b3a1c9389c8d1b8ab6ad513af0c586a546895"
+  },
+  "document_checks": {
+    "resolved_local_links": 137,
+    "balanced_fences": true,
+    "missing_targets": []
+  }
+}
