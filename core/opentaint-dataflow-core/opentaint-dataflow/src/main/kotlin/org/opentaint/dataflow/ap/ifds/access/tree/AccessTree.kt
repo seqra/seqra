@@ -25,6 +25,7 @@ import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.FIN
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.TYPE_INFO_GROUP_ACCESSOR_IDX
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.VALUE_ACCESSOR_IDX
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldAccessor
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldDepthAccessor
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isStaticAccessor
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isTaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isTypeInfoAccessor
@@ -231,6 +232,17 @@ class AccessTree(
     override val depth: Int
         get() = access.maxDepth
 
+    override fun exceedsFieldLimit(limit: Int): Boolean = access.maxFieldDepth > limit
+
+    override fun splitFieldLimit(limit: Int): FinalFactAp.FieldLimitSplit {
+        if (access.maxFieldDepth <= limit) return FinalFactAp.FieldLimitSplit(within = this, rest = null)
+        if (access.minFieldDepth > limit) return FinalFactAp.FieldLimitSplit(within = null, rest = this)
+
+        val within = access.fieldLimitWithin(limit)?.let { AccessTree(apManager, base, it, exclusions) }
+        val rest = access.fieldLimitRest(limit)?.let { AccessTree(apManager, base, it, exclusions) }
+        return FinalFactAp.FieldLimitSplit(within, rest)
+    }
+
     override fun toString(): String = buildString {
         access.print(this, "$base", suffix = "/$exclusions")
         if (this[lastIndex] == '\n') {
@@ -270,6 +282,8 @@ class AccessTree(
         @JvmField val hash: Long
         @JvmField val size: Long
         @JvmField val maxDepth: Int
+        @JvmField val maxFieldDepth: Short
+        @JvmField val minFieldDepth: Short
         @JvmField val containsStatic: Boolean
 
         init {
@@ -281,6 +295,8 @@ class AccessTree(
         init {
             var hash = 0L
             var depth = 0
+            var maxFieldDepth = 0
+            var minFieldDepth = if (isFinal || isAbstract) 0 else Int.MAX_VALUE
             var containsStatic = false
 
             if (isAbstract) hash += 1
@@ -301,6 +317,13 @@ class AccessTree(
 
                 depth = accessorNodes.maxOf { it.maxDepth } + 1
 
+                for (i in accessorNodes.indices) {
+                    val node = accessorNodes[i]
+                    val edgeFieldDepth = if (accessors!![i].isFieldDepthAccessor()) 1 else 0
+                    maxFieldDepth = maxOf(maxFieldDepth, node.maxFieldDepth + edgeFieldDepth)
+                    minFieldDepth = minOf(minFieldDepth, node.minFieldDepth + edgeFieldDepth)
+                }
+
                 containsStatic = containsStatic || accessorNodes.any { it.containsStatic }
             }
 
@@ -310,6 +333,8 @@ class AccessTree(
 
             this.hash = hash
             this.maxDepth = depth
+            this.maxFieldDepth = maxFieldDepth.toShort()
+            this.minFieldDepth = (if (minFieldDepth == Int.MAX_VALUE) 0 else minFieldDepth).toShort()
             this.containsStatic = containsStatic
         }
 
@@ -731,6 +756,34 @@ class AccessTree(
 
         fun abstractOnly(): AccessNode =
             manager.create(isAbstract = true, isFinal = false, deepAccessorExclusion, accessors = null, accessorNodes = null)
+
+        fun fieldLimitWithin(limit: Int): AccessNode? {
+            if (maxFieldDepth <= limit) return this
+            if (minFieldDepth > limit) return null
+
+            return transformAccessorsNonEmpty { accessor, node ->
+                val childLimit = fieldLimitBelow(accessor, limit)
+                if (childLimit < 0) null else node.fieldLimitWithin(childLimit)
+            }
+        }
+
+        fun fieldLimitRest(limit: Int): AccessNode? {
+            if (maxFieldDepth <= limit) return null
+            if (minFieldDepth > limit) return this
+
+            val restAccessors = transformAccessors(accessors, accessorNodes) { accessor, node ->
+                val childLimit = fieldLimitBelow(accessor, limit)
+                if (childLimit < 0) node else node.fieldLimitRest(childLimit)
+            }
+
+            val accessors = restAccessors?.first ?: accessors
+            val accessorNodes = restAccessors?.second ?: accessorNodes
+            return manager.create(isAbstract = false, isFinal = false, deepAccessorExclusion = null, accessors, accessorNodes)
+                .takeIf { !it.isEmpty }
+        }
+
+        private fun fieldLimitBelow(accessor: AccessorIdx, limit: Int): Int =
+            if (accessor.isFieldDepthAccessor()) limit - 1 else limit
 
         fun annotateAbstractNodes(
             incoming: DeepAccessorExclusion,

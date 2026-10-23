@@ -19,6 +19,13 @@ data class AccessGraphFinalFactAp(
     override val size: Int get() = access.size
     override val depth: Int get() = size
 
+    override fun exceedsFieldLimit(limit: Int): Boolean = access.exceedsFieldLimit(limit)
+
+    // todo: no precise split for the access graph yet
+    override fun splitFieldLimit(limit: Int): FinalFactAp.FieldLimitSplit =
+        if (!exceedsFieldLimit(limit)) FinalFactAp.FieldLimitSplit(within = this, rest = null)
+        else FinalFactAp.FieldLimitSplit(within = null, rest = this)
+
     override fun rebase(newBase: AccessPathBase): FinalFactAp =
         AccessGraphFinalFactAp(newBase, access, exclusions)
 

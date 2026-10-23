@@ -206,6 +206,13 @@ func (cb *OpentaintCommandBuilder) WithTrackExternalMethods(enabled bool) *Opent
 	return cb
 }
 
+func (cb *OpentaintCommandBuilder) WithIterationLimit(limit int) *OpentaintCommandBuilder {
+	if limit > 0 {
+		cb.flags["iteration-limit"] = strconv.Itoa(limit)
+	}
+	return cb
+}
+
 // WithPartialFingerprint adds repeatable --partial-fingerprint filters.
 func (cb *OpentaintCommandBuilder) WithPartialFingerprint(fingerprints []string) *OpentaintCommandBuilder {
 	for _, f := range fingerprints {

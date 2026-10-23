@@ -25,6 +25,7 @@ data class CommonAnalysisOptions(
     val symbolicExecutionTimeout: Duration = Duration.ZERO,
     val storeSummaries: Boolean = false,
     val experimentalAAInterProcCallDepth: Int = 1,
+    val iterationLimit: Int? = null,
 ) {
     val summariesApMode get() = ifdsApMode.takeIf { storeSummaries }
 
@@ -37,5 +38,6 @@ data class CommonAnalysisOptions(
         experimentalAAInterProcCallDepth = experimentalAAInterProcCallDepth,
         debugOptions = debugOptions,
         tracePathLimit = sarifGenerationOptions.sarifCodeFlowLimit,
+        iterationLimit = iterationLimit,
     )
 }

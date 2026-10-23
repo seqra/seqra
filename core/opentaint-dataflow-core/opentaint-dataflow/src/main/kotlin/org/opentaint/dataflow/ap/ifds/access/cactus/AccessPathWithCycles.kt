@@ -4,6 +4,7 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
+import org.opentaint.dataflow.ap.ifds.isFieldDepthAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 
@@ -96,6 +97,11 @@ class AccessPathWithCycles(
 
     override val depth: Int get() = size
 
+    override fun exceedsFieldLimit(limit: Int): Boolean {
+        val node = access ?: return limit < 0
+        return node.fieldCount > limit
+    }
+
     override fun toString(): String = "$base${access ?: ""}.*/$exclusions"
 
     override fun equals(other: Any?): Boolean {
@@ -172,6 +178,7 @@ class AccessPathWithCycles(
     ): Iterable<Pair<Accessor, List<Cycle>>> {
         private val hash: Int
         val size: Int
+        @JvmField val fieldCount: Short
 
         init {
             var hash = accessor.hashCode() * 31 + cycles.hashCode()
@@ -183,6 +190,14 @@ class AccessPathWithCycles(
             var size = 1
             if (next != null) size += next.size
             this.size = size
+        }
+
+        init {
+            var fieldCount = 0
+            if (cycles.any { cycle -> cycle.any { it.isFieldDepthAccessor() } }) fieldCount++
+            if (accessor.isFieldDepthAccessor()) fieldCount++
+            if (next != null) fieldCount += next.fieldCount
+            this.fieldCount = fieldCount.toShort()
         }
 
         override fun hashCode(): Int = hash

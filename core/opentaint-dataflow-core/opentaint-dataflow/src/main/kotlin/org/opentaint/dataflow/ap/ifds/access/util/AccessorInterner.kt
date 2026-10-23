@@ -129,6 +129,9 @@ class AccessorInterner {
         fun AccessorIdx.isTaintMarkAccessor(): Boolean = getAccessorBasicKind() == TAINT_KIND
         fun AccessorIdx.isTypeInfoAccessor(): Boolean = getAccessorKind(TYPES_OR_MARKER_KIND_MASK) == TYPES_KIND
 
+        fun AccessorIdx.isFieldDepthAccessor(): Boolean =
+            isFieldAccessor() || this == ELEMENT_ACCESSOR_IDX || this == ANY_ACCESSOR_IDX
+
         fun AccessorIdx.isAlwaysUnrollNext(): Boolean =
             isTaintMarkAccessor()
                     || (this == FINAL_ACCESSOR_IDX)

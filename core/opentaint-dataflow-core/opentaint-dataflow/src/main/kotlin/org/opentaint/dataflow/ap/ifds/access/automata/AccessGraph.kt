@@ -14,6 +14,7 @@ import org.opentaint.dataflow.ap.ifds.access.DeepAccessorExclusion
 import org.opentaint.dataflow.ap.ifds.access.forExclusions
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker.CompatibilityFilterResult
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldDepthAccessor
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
 import org.opentaint.dataflow.util.PersistentArrayBuilder
@@ -140,6 +141,17 @@ class AccessGraph(
         }
 
         return hash
+    }
+
+    fun exceedsFieldLimit(limit: Int): Boolean = fieldDepthAccessorCount() > limit
+
+    private fun fieldDepthAccessorCount(): Int {
+        var count = 0
+        val accessors = edges.keys.iterator()
+        while (accessors.hasNext()) {
+            if (accessors.nextInt().isFieldDepthAccessor()) count++
+        }
+        return count
     }
 
     override fun hashCode(): Int = hash

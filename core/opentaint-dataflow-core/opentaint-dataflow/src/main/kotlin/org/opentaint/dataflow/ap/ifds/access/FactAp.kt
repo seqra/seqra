@@ -23,6 +23,8 @@ interface FactAp: AccessorList {
 
     val size: Int
     val depth: Int
+
+    fun exceedsFieldLimit(limit: Int): Boolean
 }
 
 interface InitialFactAp : FactAp, ReadableAccessorList<InitialFactAp> {
@@ -76,4 +78,8 @@ interface FinalFactAp : FactAp, ReadableAccessorList<FinalFactAp> {
         delta(other).any { it.isEmpty }
 
     fun clearAllAccessorOccurrences(accessor: Accessor, keepStartAccessor: Boolean): FinalFactAp?
+
+    data class FieldLimitSplit(val within: FinalFactAp?, val rest: FinalFactAp?)
+
+    fun splitFieldLimit(limit: Int): FieldLimitSplit
 }

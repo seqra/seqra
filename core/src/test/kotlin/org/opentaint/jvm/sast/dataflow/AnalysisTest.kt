@@ -131,7 +131,8 @@ abstract class AnalysisTest : BasicTestUtils() {
     fun runAnalysis(
         config: SerializedTaintConfig,
         entryPointClass: String,
-        entryPointMethod: String
+        entryPointMethod: String,
+        iterationLimit: Int? = null,
     ): List<VulnerabilityWithTrace> {
         val cls = cp.findClassOrNull(entryPointClass) ?: error("Class $entryPointClass not found in CP")
         val ep = cls.declaredMethods.singleOrNull { it.name == entryPointMethod }
@@ -154,7 +155,8 @@ abstract class AnalysisTest : BasicTestUtils() {
 
         val options = TaintAnalyzerOptions(
             ifdsTimeout = 1.minutes,
-            ifdsApMode = apMode
+            ifdsApMode = apMode,
+            iterationLimit = iterationLimit,
         )
 
         val analyzer = object : TaintAnalyzer<JIRMethod, JIRInst>(options) {
@@ -177,8 +179,9 @@ abstract class AnalysisTest : BasicTestUtils() {
         entryPointName: String,
         ruleId: String,
         testName: String,
+        iterationLimit: Int? = null,
     ) {
-        val traces = runAnalysis(config, testCls, entryPointName)
+        val traces = runAnalysis(config, testCls, entryPointName, iterationLimit)
         assertTrue(traces.isNotEmpty(), "$testName: expected taint to reach the sink, but no vulnerability was found")
         traces.forEach { vt ->
             assertEquals(
@@ -193,8 +196,9 @@ abstract class AnalysisTest : BasicTestUtils() {
         testCls: String,
         entryPointName: String,
         testName: String,
+        iterationLimit: Int? = null,
     ) {
-        val traces = runAnalysis(config, testCls, entryPointName)
+        val traces = runAnalysis(config, testCls, entryPointName, iterationLimit)
         assertTrue(traces.isEmpty(), "$testName: expected no vulnerability, but found ${traces.size}")
     }
 }

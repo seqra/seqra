@@ -112,6 +112,7 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
         symbolicExecutionTimeout = symbolicExecutionTimeout.seconds,
         storeSummaries = false,
         experimentalAAInterProcCallDepth = experimentalAAInterProcCallDepth,
+        iterationLimit = iterationLimit,
     )
 
     override fun commonOptions(): CommonAnalysisOptions = commonOptions

@@ -17,6 +17,7 @@ import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.FIN
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.TYPE_INFO_GROUP_ACCESSOR_IDX
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.VALUE_ACCESSOR_IDX
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldAccessor
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldDepthAccessor
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isStaticAccessor
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isTaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isTypeInfoAccessor
@@ -236,6 +237,11 @@ class AccessPath(
 
     override val depth: Int get() = size
 
+    override fun exceedsFieldLimit(limit: Int): Boolean {
+        val node = access ?: return limit < 0
+        return node.fieldCount > limit
+    }
+
     override fun toString(): String = "$base${access ?: ""}.*/$exclusions"
 
     override fun equals(other: Any?): Boolean {
@@ -265,6 +271,7 @@ class AccessPath(
     ) {
         private val hash: Int
         val size: Int
+        @JvmField val fieldCount: Short
 
         init {
             var hash = accessor
@@ -276,6 +283,12 @@ class AccessPath(
             var size = 1
             if (next != null) size += next.size
             this.size = size
+        }
+
+        init {
+            var fieldCount = if (accessor.isFieldDepthAccessor()) 1 else 0
+            if (next != null) fieldCount += next.fieldCount
+            this.fieldCount = fieldCount.toShort()
         }
 
         override fun hashCode(): Int = hash

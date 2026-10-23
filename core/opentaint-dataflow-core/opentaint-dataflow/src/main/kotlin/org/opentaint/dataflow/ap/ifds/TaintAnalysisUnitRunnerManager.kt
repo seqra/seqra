@@ -61,6 +61,7 @@ class TaintAnalysisUnitRunnerManager(
     override val unitResolver: UnitResolver<CommonMethod>,
     private val summarySerializationContext: SummarySerializationContext,
     private val taintRulesStatsSamplingPeriod: Int?,
+    private val iterationLimit: Int?,
 ): AnalysisUnitRunnerManager, AutoCloseable {
     enum class Status {
         OK, EXCEPTION, TIMEOUT, OOM
@@ -469,7 +470,8 @@ class TaintAnalysisUnitRunnerManager(
             graph = graph,
             unitResolver = unitResolver,
             summarySerializationContext = summarySerializationContext,
-            taintRulesStatsSamplingPeriod = taintRulesStatsSamplingPeriod
+            taintRulesStatsSamplingPeriod = taintRulesStatsSamplingPeriod,
+            iterationLimit = iterationLimit,
         )
 
         startRunner(unit, runner)

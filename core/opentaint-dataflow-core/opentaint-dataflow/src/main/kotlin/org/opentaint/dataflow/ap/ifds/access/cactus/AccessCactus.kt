@@ -14,6 +14,7 @@ import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.TypeInfoAccessor
 import org.opentaint.dataflow.ap.ifds.TypeInfoGroupAccessor
 import org.opentaint.dataflow.ap.ifds.ValueAccessor
+import org.opentaint.dataflow.ap.ifds.isFieldDepthAccessor
 import org.opentaint.dataflow.ap.ifds.access.DeepAccessorExclusion
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
@@ -276,6 +277,13 @@ class AccessCactus(
     override val depth: Int
         get() = access.depth
 
+    override fun exceedsFieldLimit(limit: Int): Boolean = access.exceedsFieldLimit(limit)
+
+    // todo: no precise split for the access cactus yet
+    override fun splitFieldLimit(limit: Int): FinalFactAp.FieldLimitSplit =
+        if (!exceedsFieldLimit(limit)) FinalFactAp.FieldLimitSplit(within = this, rest = null)
+        else FinalFactAp.FieldLimitSplit(within = null, rest = this)
+
     override fun toString(): String = buildString {
         access.print(this, "$base", suffix = "/$exclusions")
         if (lastIndex != -1 && this[lastIndex] == '\n') {
@@ -511,6 +519,22 @@ class AccessCactus(
                     body(edge.accessor, it)
                 }
             }
+        }
+
+        fun exceedsFieldLimit(limit: Int): Boolean {
+            if (limit < 0) return true
+
+            forEachEdge { edge ->
+                val counted = when (edge) {
+                    is CycleStartEdge -> edge.cycleEdges.any { it.accessor.isFieldDepthAccessor() }
+                    else -> edge.accessor.isFieldDepthAccessor()
+                }
+                val childLimit = if (counted) limit - 1 else limit
+                val exceeds = edge.node?.exceedsFieldLimit(childLimit) ?: (childLimit < 0)
+                if (exceeds) return true
+            }
+
+            return false
         }
 
         private inline fun forEachEdge(body: (Edge) -> Unit) {

@@ -70,6 +70,7 @@ class MethodTraceResolver(
     private val analysisContext: MethodAnalysisContext,
     private val edges: MethodAnalyzerEdges,
     private val graph: MethodInstGraph,
+    private val initialDepthLimit: Int,
 ) {
     private val methodEntryPoint: MethodEntryPoint = analysisContext.methodEntryPoint
     private val analysisManager: AnalysisManager get() = runner.analysisManager
@@ -148,6 +149,12 @@ class MethodTraceResolver(
 
         data class MethodTraceNDEdge(val initialFacts: Set<InitialFactAp>, override val fact: InitialFactAp) : TraceEdge {
             override fun replaceFact(newFact: InitialFactAp): MethodTraceNDEdge = copy(fact = newFact)
+        }
+
+        fun exceedsFieldLimit(limit: Int): Boolean = when (this) {
+            is SourceTraceEdge -> fact.exceedsFieldLimit(limit)
+            is MethodTraceEdge -> fact.exceedsFieldLimit(limit) || initialFact.exceedsFieldLimit(limit)
+            is MethodTraceNDEdge -> fact.exceedsFieldLimit(limit) || initialFacts.any { it.exceedsFieldLimit(limit) }
         }
     }
 
@@ -373,6 +380,7 @@ class MethodTraceResolver(
         finalEntry: TraceEntry.Final,
         val cancellation: Cancellation,
         private val collectActionVariants: Boolean,
+        var depthLimit: Int,
     ) {
         val entryManager = EntryManager()
         val finalEntryId: Int = entryManager.entryId(finalEntry)
@@ -382,8 +390,16 @@ class MethodTraceResolver(
         val predecessors = Int2ObjectOpenHashMap<CompactIntSet>()
         val successors = Int2ObjectOpenHashMap<CompactIntSet>()
         var steps = 0
+        private var delayedPredecessors = arrayListOf<DelayedPredecessor>()
+
+        private class DelayedPredecessor(val current: TraceEntry, val predecessor: TraceEntry, val enqueue: Boolean)
 
         fun addPredecessor(current: TraceEntry, predecessor: TraceEntry, enqueue: Boolean = true) {
+            if (predecessor.edges.any { it.exceedsFieldLimit(depthLimit) }) {
+                delayedPredecessors.add(DelayedPredecessor(current, predecessor, enqueue))
+                return
+            }
+
             val currentId = entryManager.entryId(current)
             val predecessorId = entryManager.entryId(predecessor)
 
@@ -406,6 +422,20 @@ class MethodTraceResolver(
                     unprocessedEntryIds.add(predecessorId)
                 }
             }
+        }
+
+        fun increaseDepthLimit(): Boolean {
+            if (delayedPredecessors.isEmpty()) return false
+
+            depthLimit++
+            val delayed = delayedPredecessors
+            delayedPredecessors = arrayListOf()
+            delayed.forEach { addPredecessor(it.current, it.predecessor, it.enqueue) }
+            return true
+        }
+
+        fun dropDelayedPredecessors() {
+            delayedPredecessors = arrayListOf()
         }
 
         fun addStartEntry(entry: TraceEntry) {
@@ -544,7 +574,7 @@ class MethodTraceResolver(
         val st = summaryTrace.universeTrace()
         check(st.method == methodEntryPoint) { "Incorrect summary trace" }
 
-        val builder = TraceBuilder(st.final, cancellation, collectActionVariants = false)
+        val builder = TraceBuilder(st.final, cancellation, collectActionVariants = false, initialDepthLimit)
         builder.resolveTrace(st.traceKind)
         stats.traceResolverSteps += builder.steps
 
@@ -564,7 +594,7 @@ class MethodTraceResolver(
         val st = summaryTrace.universeTrace()
         check(st.method == methodEntryPoint) { "Incorrect summary trace" }
 
-        val builder = TraceBuilder(st.final, cancellation, collectActionVariants = true)
+        val builder = TraceBuilder(st.final, cancellation, collectActionVariants = true, initialDepthLimit)
         builder.resolveTrace(st.traceKind)
         stats.traceResolverSteps += builder.steps
 
@@ -583,11 +613,11 @@ class MethodTraceResolver(
     ): List<FullStart2FinalTrace> {
         check(start2FinalTrace.method == methodEntryPoint) { "Incorrect summary trace" }
 
-        val builder = TraceBuilder(start2FinalTrace.final, cancellation, collectActionVariants = true)
-        builder.resolveTrace(start2FinalTrace.traceKind)
+        val builder = TraceBuilder(start2FinalTrace.final, cancellation, collectActionVariants = true, initialDepthLimit)
+        val requiredStartId = builder.entryManager.entryId(start2FinalTrace.startEntry)
+        builder.resolveTrace(start2FinalTrace.traceKind) { startEntryIds.get(requiredStartId) }
         stats.traceResolverSteps += builder.steps
 
-        val requiredStartId = builder.entryManager.entryId(start2FinalTrace.startEntry)
         if (!builder.startEntryIds.contains(requiredStartId)) {
             logger.warn("Trace start entry to found for: $methodEntryPoint")
             return emptyList()
@@ -769,7 +799,23 @@ class MethodTraceResolver(
         return allSuccessors
     }
 
-    private fun TraceBuilder.resolveTrace(traceKind: TraceKind) {
+    private fun TraceBuilder.resolveTrace(
+        traceKind: TraceKind,
+        startReached: TraceBuilder.() -> Boolean = { !startEntryIds.isEmpty },
+    ) {
+        while (cancellation.isActive()) {
+            processUnprocessedEntries(traceKind)
+
+            if (startReached()) {
+                dropDelayedPredecessors()
+                return
+            }
+
+            if (!increaseDepthLimit()) return
+        }
+    }
+
+    private fun TraceBuilder.processUnprocessedEntries(traceKind: TraceKind) {
         while (unprocessedEntryIds.isNotEmpty() && cancellation.isActive()) {
             if (actions() > TRACE_RESOLUTION_ACTION_HARD_LIMIT && !startEntryIds.isEmpty) {
                 logger.warn { "Trace resolution stopped for $methodEntryPoint: hard limit" }

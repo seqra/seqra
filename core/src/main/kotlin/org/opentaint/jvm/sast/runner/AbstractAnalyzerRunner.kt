@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.clikt.parameters.types.int
+import com.github.ajalt.clikt.parameters.types.restrictTo
 import mu.KLogging
 import org.opentaint.common.sast.CommonAnalysisOptions
 import org.opentaint.common.sast.CommonProjectAnalyzer
@@ -30,6 +31,9 @@ abstract class AbstractAnalyzerRunner : CliWithLogger() {
     protected val ifdsApMode: ApMode by option(help = "IFDS Ap mode")
         .choice(ApMode.entries.associateBy { it.name })
         .default(ApMode.Tree)
+
+    protected val iterationLimit: Int? by option(help = "Cap the iterative-deepening fact depth at N field accessors and drop facts over it (unlimited by default)")
+        .int().restrictTo(min = 0)
 
     private val debugTaintRulesStats: Boolean by
         option(help = "Enable reporting stats about analyzer steps per taint rule")
