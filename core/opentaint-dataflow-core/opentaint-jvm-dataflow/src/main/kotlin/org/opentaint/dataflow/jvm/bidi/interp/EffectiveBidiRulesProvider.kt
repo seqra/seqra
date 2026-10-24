@@ -16,7 +16,8 @@ class EffectiveBidiRulesProvider(private val delegate: TaintRulesProvider,
     /** Select only after full signed folding, binding and original role admission. */
     internal fun groupConditions(cancellation: Cancellation): GroupRuleConditions = GroupRuleConditions(catalog, cancellation)
 
-    private fun <R> materialized(values: Iterable<R>): List<R> = values.toList()
+    private fun <R> materialized(values: Iterable<R>): List<R> =
+        if (values is SpecializedRules<R>) values else values.toList()
 
     override fun entryPointRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) =
         materialized(delegate.entryPointRulesForMethod(method, statement, fact, allRelevant))

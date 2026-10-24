@@ -20,6 +20,7 @@ import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethodImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualParameter
 import org.opentaint.jvm.sast.ast.BasicTestUtils
 import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
+import org.opentaint.jvm.sast.dataflow.rules.RuleResolutionStatistics
 import org.opentaint.jvm.sast.project.spring.SpringRuleProvider
 import org.opentaint.jvm.sast.project.spring.SpringWebProjectContext
 import org.opentaint.jvm.sast.rules.JIRSemgrepRuleProvider
@@ -50,7 +51,7 @@ class BidiMarkDeclarationsTest : BasicTestUtils() {
             SerializedCondition.And(listOf(SerializedCondition.Not(SerializedCondition.True), contains("false branch"))),
             SerializedCondition.Not(contains("negative")),
         ))
-        val config = TaintConfiguration(cp)
+        val config = TaintConfiguration(cp, RuleResolutionStatistics())
         config.loadConfig(SerializedTaintConfig(
             entryPoint = listOf(SerializedRule.EntryPoint(function, condition = contains("entry condition"), taint = listOf(assign("entry output")))),
             source = listOf(SerializedRule.Source(function, condition = rawCondition, taint = listOf(assign("source output")))),
@@ -82,7 +83,7 @@ class BidiMarkDeclarationsTest : BasicTestUtils() {
     }
 
     @Test fun `provider reads current detached metadata after configuration loading`() {
-        val config = TaintConfiguration(cp)
+        val config = TaintConfiguration(cp, RuleResolutionStatistics())
         val provider = JIRTaintRulesProvider(config)
         val before = provider.markDeclarations
         config.loadConfig(SerializedTaintConfig(source = listOf(SerializedRule.Source(function,
@@ -99,7 +100,7 @@ class BidiMarkDeclarationsTest : BasicTestUtils() {
         val rule = TaintRuleFromSemgrep<SerializedItem>(outer,
             TaintRuleFromSemgrep.Structure.Matching(emptyList()),
             markOwners = mapOf(full to outer), primitiveByOwner = mapOf(outer to true))
-        val config = TaintConfiguration(cp)
+        val config = TaintConfiguration(cp, RuleResolutionStatistics())
         config.loadConfig(SerializedTaintConfig(sink = listOf(SerializedRule.Sink(function,
             condition = contains("inactive"), trackFactsReachAnalysisEnd = listOf(assign("disabled end declaration"))))))
         val semgrep = JIRSemgrepRuleProvider(listOf(rule), config)
@@ -162,17 +163,10 @@ class BidiMarkDeclarationsTest : BasicTestUtils() {
     }
 
     private fun assertBoundCachesEmpty(config: TaintConfiguration) {
-        val stores = listOf("entryPointConfig", "sourceConfig", "exitSourceConfig", "sinkConfig", "passThroughConfig",
-            "cleanerConfig", "methodExitSinkConfig", "methodEntrySinkConfig", "staticFieldSourceConfig")
-        for (name in stores) {
-            val store = config.javaClass.getDeclaredField(name).also { it.isAccessible = true }.get(config)
-            val caches = if (name == "staticFieldSourceConfig") listOf("fieldItems") else
-                listOf("methodItems", "methodAllRelevantItems", "methodWithoutEndFactsItems", "methodWithoutEndFactsAllRelevantItems")
-            for (cache in caches) {
-                val entries = store.javaClass.getDeclaredField(cache).also { it.isAccessible = true }.get(store) as Map<*, *>
-                assertTrue(entries.isEmpty(), "$name.$cache must not be populated by declaration collection")
-            }
-        }
+        val statistics = checkNotNull(config.resolutionStatistics)
+        assertEquals(0L, statistics.cacheQueries, "Declaration collection must not query any bound-role cache/view")
+        assertEquals(0L, statistics.binderCalls, "Declaration collection must not enter a method binder")
+        assertEquals(0L, statistics.contextVisits, "Declaration collection must not enumerate binding contexts")
     }
 
     /** Any accidental bound-role lookup fails this metadata-only test immediately. */

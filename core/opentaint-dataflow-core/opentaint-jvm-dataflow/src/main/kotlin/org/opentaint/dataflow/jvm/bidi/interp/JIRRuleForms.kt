@@ -60,6 +60,8 @@ import org.opentaint.dataflow.configuration.jvm.RemoveAllMarks
 import org.opentaint.dataflow.configuration.jvm.RemoveMark
 import org.opentaint.dataflow.configuration.jvm.TaintCleaner
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
+import org.opentaint.dataflow.configuration.jvm.ruleOrdinal
+import org.opentaint.dataflow.configuration.jvm.actionOrdinal
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationSink
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationSource
 import org.opentaint.dataflow.configuration.jvm.TaintMark as RuleMark
@@ -468,7 +470,7 @@ internal class JIRRuleForms(
         rule.actionsAfter.forEachIndexed { ordinal, action ->
             val target = markTarget(rule, action)
             if (target.base == AccessPathBase.ClassStatic) {
-                val actionId = ActionId(id, ActionRole.SOURCE, ordinal)
+                val actionId = ActionId(id, ActionRole.SOURCE, rule.actionOrdinal(ordinal))
                 b.staticOperation(StaticOperation.Write(OperationId(id.form, action = actionId),
                     Pattern(target, ExclusionSet.Empty), action = actionId))
             }
@@ -476,12 +478,12 @@ internal class JIRRuleForms(
         if (predicate.isTrue) {
             rule.actionsAfter.forEachIndexed { ordinal, action ->
                 b.sourceEdge(PathEdge(ZERO_FACT, markTarget(rule, action), ExclusionSet.Empty),
-                    ActionId(id, ActionRole.SOURCE, ordinal))
+                    ActionId(id, ActionRole.SOURCE, rule.actionOrdinal(ordinal)))
             }
             return predicate
         }
         val actions = rule.actionsAfter.mapIndexed { ordinal, action ->
-            SourceAction(ActionId(id, ActionRole.SOURCE, ordinal), markTarget(rule, action))
+            SourceAction(ActionId(id, ActionRole.SOURCE, rule.actionOrdinal(ordinal)), markTarget(rule, action))
         }
         if (view == RuleView.FULL) {
             markInputs(predicate, id).forEach(b::staticOperation)
@@ -528,8 +530,8 @@ internal class JIRRuleForms(
             b.keepZero()
             for ((actionOrdinal, action) in rule.actionsAfter.withIndex()) {
                 val p = checkNotNull(pos(rule, action.position))
-                val id = ActionId(RuleOccurrenceId(form, RuleKind.FIELD_SOURCE, ruleOrdinal),
-                    ActionRole.SOURCE, actionOrdinal)
+                val id = ActionId(RuleOccurrenceId(form, RuleKind.FIELD_SOURCE, rule.ruleOrdinal(ruleOrdinal)),
+                    ActionRole.SOURCE, rule.actionOrdinal(actionOrdinal))
                 b.sourceEdge(PathEdge(ZERO_FACT, p.copy(base = x).sourceFact(mark(action.mark)),
                     ExclusionSet.Empty), id)
             }
@@ -581,7 +583,7 @@ internal class JIRRuleForms(
     fun cleanSteps(rule: TaintCleaner, cond: ExprOrConstant, types: PositionTypeResolver,
                    id: RuleOccurrenceId? = null): List<CleanStep> =
         if (cond.isTrue) rule.actionsAfter.flatMapIndexed { ordinal, action ->
-            unconditional(rule, action, types, id?.let { ActionId(it, ActionRole.BOUND_CLEANER, ordinal) })
+            unconditional(rule, action, types, id?.let { ActionId(it, ActionRole.BOUND_CLEANER, rule.actionOrdinal(ordinal)) })
         } else emptyList()
 
     fun unconditional(rule: TaintConfigurationItem, a: Action, types: PositionTypeResolver,

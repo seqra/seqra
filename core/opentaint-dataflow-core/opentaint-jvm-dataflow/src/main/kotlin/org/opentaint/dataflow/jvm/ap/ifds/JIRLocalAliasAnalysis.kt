@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
+import org.opentaint.dataflow.jvm.ap.ifds.taint.originalPassThroughRulesForAliases
+
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.analysis.alias.AAHeapAccessor
 import org.opentaint.dataflow.ap.ifds.analysis.alias.AAInfo
@@ -70,7 +72,7 @@ class JIRLocalAliasAnalysis(
 
     private inner class CallModelProvider : ExternalCallModelProvider {
         override fun provideModel(method: JIRMethod): List<ExternalAssign> {
-            val rules = modelProvider?.passTroughRulesForMethod(method, null, null, false)?.toList().orEmpty()
+            val rules = modelProvider?.originalPassThroughRulesForAliases(method)?.toList().orEmpty()
             if (rules.isEmpty()) return emptyList()
 
             val actions = rules

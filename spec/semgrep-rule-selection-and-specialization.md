@@ -1,6 +1,6 @@
 # Semgrep rule selection, mark reduction and early specialization
 
-Date: 24 October 2026. Status: **selected specification; implementation unchanged**.
+Date: 24 October 2026. Status: **implemented; new project measurements pending**.
 Reference source: `f35aae4e4` (documentation revision; runtime unchanged).
 Its runtime is the measured `fb84969c0b91ccae0500389b5e25e045557b0eb3`.
 Read the [proof dossier](semgrep-rule-selection-and-specialization-proofs.md)
@@ -11,8 +11,8 @@ This specification replaces the selected parts of the
 It includes the two added mark reductions. It does not select local
 liveness, sparse propagation or origin batching.
 
-Latest measured Thingsboard state: **run-1 OOM**, with no COMPLETE or
-accepted forward iteration. No new project run is part of this document.
+Latest historical Thingsboard state: **run-1 OOM**, with no COMPLETE or
+accepted forward iteration. The selected local checks pass. The fresh project campaign is pending.
 The [measurement report](../docs/reports/bidirectional-full-work-batching-performance-20261023.md)
 keeps the remaining precision and performance failures.
 
@@ -531,7 +531,32 @@ readers use it. A different snapshot requires the joined boundary. An
 integer/hash match alone is insufficient unless it identifies the same
 immutable policy and catalog content.
 
-### 6.3 Retire obsolete safe caches; preserve unsafe identity
+### 6.3 Preserve original provider combination admission
+
+Normalize the same admitted program on both the late and early paths.
+Preserve the existing EXTEND, OVERRIDE and IGNORE choices before false or
+empty rows disappear. A removed extra row must not enable a base fallback.
+
+For Go OVERRIDE, carry the original extra-query presence with that query's
+result. It is a query-local value, not the normalized list's size and not a
+mutable map shared by statements. For JVM OVERRIDE, retain the original
+extra conditions as well as original presence. Filter base rows by their
+original condition keys. A folded extra condition must not override a base
+row which the original combination retained. Keep the original combined
+row order and logical labels when normalized rows disappear.
+
+Known provider catalogs can expose their raw executable scope through a
+separate capability. Default method delegation must not silently bypass a
+custom provider's overridden roles. Unknown scope uses TOP protection and
+the original query path. Catalog union is conservative compiler scope;
+it does not replace the original per-query combination decision.
+
+The [composition model](lean/ApSpec/RuleProviderComposition.lean) proves
+normalization commutes with those original admission decisions when every
+normalized row retains its original row label. Runtime wrappers must supply
+that label and query-local presence; no source/field approximation is added.
+
+### 6.4 Retire obsolete safe caches; preserve unsafe identity
 
 Drop obsolete selection-sensitive, ID-stable cache slots after their
 readers are gone. Keep raw catalogs, declarations, hierarchy/pattern
@@ -582,7 +607,8 @@ Before implementation acceptance, cover:
 - Unchanged S reduction; active unselected internal resets; shared owner,
   mark and item-ID closure; null/empty/unknown roles; all public true routes.
 - Negative method/class/arity relaxation; normal versus relevant caches;
-  ordinary/no-END views; default/approximation and opaque wrapper roles.
+  ordinary/no-END views; default/approximation and opaque wrapper roles;
+  original combination presence/condition keys before compaction.
 - Positive/negative absent CM, compound simplification, cascading reduction,
   unused GEN, protected external/END uses, same-name/different-owner marks,
   primitive keys, effective reset positions and binding/action identity.
@@ -603,8 +629,9 @@ Before implementation acceptance, cover:
   answers and marked run-2/later witness guidance under the revised rules.
 
 No existing failed expectation may be changed to hide a new mismatch.
-Spec and proofs come first; runtime changes remain out of scope for this
-request. Use the fixed project parameters for later measurements.
+The runtime implementation now follows this contract. Implementation checks
+and the fixed project campaign remain separate acceptance gates. No new
+candidate project result is certified here. Use the fixed project parameters.
 
 ## 8. Measurement limits
 

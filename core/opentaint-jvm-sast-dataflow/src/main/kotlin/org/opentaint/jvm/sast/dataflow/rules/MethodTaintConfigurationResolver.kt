@@ -90,6 +90,7 @@ class MethodTaintConfigurationResolver(
     val objectTypeName: TypeName,
     val method: JIRMethod,
     private val ignoreSinkEndFacts: Boolean = false,
+    private val bindingStatistics: RuleResolutionStatistics? = null,
 ) {
     private val typedMethod by lazy { resolveTypedMethod() }
     
@@ -157,6 +158,7 @@ class MethodTaintConfigurationResolver(
     private inline fun SerializedRule.resolveMethodRuleWithConditionResolver(
         resolveCondition: (SerializedCondition?, AnyArgSpecializationCtx) -> Condition
     ): List<TaintConfigurationItem> {
+        bindingStatistics?.entered()
         val serializedCondition = when (this) {
             is SinkRule -> condition
             is SourceRule -> condition
@@ -176,6 +178,7 @@ class MethodTaintConfigurationResolver(
         }
 
         val contexts = anyArgSpecializationContexts(serializedCondition, actions)
+        bindingStatistics?.contexts(contexts.size)
         return contexts.flatMap {
             val condition = resolveCondition(serializedCondition, it).simplify()
             if (condition.isFalse()) return@flatMap emptyList()

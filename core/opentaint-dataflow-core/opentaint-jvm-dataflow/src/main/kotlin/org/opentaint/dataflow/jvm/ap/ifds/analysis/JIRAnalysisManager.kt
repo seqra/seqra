@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
+import org.opentaint.dataflow.jvm.ap.ifds.taint.selectRulesWithScope
+
 import mu.KLogger
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
@@ -124,7 +126,7 @@ class JIRAnalysisManager(
         contexts.forEach { it.resetAnalysisCache() }
         when (phase) {
             Phase.Prescan -> {}
-            Phase.FullScan -> taintConfig.selectRules(relevantRuleIds)
+            Phase.FullScan -> taintConfig.selectRulesWithScope(relevantRuleIds)
         }
     }
 

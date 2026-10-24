@@ -157,6 +157,13 @@ abstract class TaintAnalyzer<Method: CommonMethod, Statement: CommonInst>(
             return vulnerabilities to Status(bidi.status(report), TaintAnalysisUnitRunnerManager.Status.OK)
         }
 
+        // Selection can retire method rule caches. Check quiescence before
+        // selectPhase mutates them; a joined timeout keeps the legacy policy.
+        runCatching { ifdsEngine.requirePrescanJoined() }.getOrElse { failure ->
+            logger.error(failure) { "Full scan requires joined prescan jobs" }
+            return emptyList<VulnerabilityWithTrace>() to
+                Status(TaintAnalysisUnitRunnerManager.Status.EXCEPTION, TaintAnalysisUnitRunnerManager.Status.OK)
+        }
         logger.info { "Start full scan phase" }
         val fullScanResult = fullScan(analysisStart, entryPoints, startMethods)
         logger.info { "Finish full scan phase" }

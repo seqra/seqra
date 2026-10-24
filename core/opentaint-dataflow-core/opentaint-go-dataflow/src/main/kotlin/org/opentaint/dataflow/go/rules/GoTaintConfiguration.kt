@@ -14,6 +14,9 @@ import org.opentaint.dataflow.configuration.go.serialized.GoSerializedTaintConfi
 import org.opentaint.dataflow.configuration.isFalse
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.selection.RuleRole
+import org.opentaint.dataflow.configuration.selection.RuleSelectionSnapshot
+import org.opentaint.dataflow.configuration.selection.ReducedMarkPlan
 import org.opentaint.dataflow.go.GoFieldSignature
 import org.opentaint.dataflow.go.GoFunctionSignature
 import org.opentaint.dataflow.go.GoGlobalFieldSignature
@@ -21,7 +24,14 @@ import org.opentaint.ir.go.inst.GoIRInst
 import org.opentaint.ir.go.type.GoIRType
 import java.util.concurrent.atomic.AtomicInteger
 
-class GoTaintConfiguration : GoTaintRulesProvider {
+class GoTaintConfiguration : GoRuleSelectionCapability {
+    private var catalogGeneration = 0L
+    private val rawGlobalSources = mutableListOf<GoSerializedGlobalSource>()
+    private val rawFieldSources = mutableListOf<GoSerializedFieldSource>()
+    private val rawSources = mutableListOf<GoSerializedRule.Source>()
+    private val rawSinks = mutableListOf<GoSerializedRule.Sink>()
+    private val rawPasses = mutableListOf<GoSerializedRule.PassThrough>()
+    private val rawCleaners = mutableListOf<GoSerializedRule.Cleaner>()
     private val globalSourceSimple = hashMapOf<String, MutableList<GoSerializedGlobalSource>>()
     private val globalSourcePatterns = mutableListOf<GoSerializedGlobalSource>()
     private val globalSourceMemo = hashMapOf<GoGlobalFieldSignature, List<TaintRule.GlobalReadSource>>()
@@ -50,6 +60,13 @@ class GoTaintConfiguration : GoTaintRulesProvider {
 
     @Synchronized
     fun loadConfig(config: GoSerializedTaintConfig) {
+        rawGlobalSources += config.globalSource
+        rawFieldSources += config.fieldSource
+        rawSources += config.source
+        rawSinks += config.sink
+        rawPasses += config.passThrough
+        rawCleaners += config.cleaner
+        catalogGeneration++
         config.globalSource.forEach { addRule(it) }
         config.fieldSource.forEach { addRule(it) }
         config.source.forEach { addRule(it) }
@@ -64,6 +81,185 @@ class GoTaintConfiguration : GoTaintRulesProvider {
         sinkMemo.clear()
         passMemo.clear()
         cleanerMemo.clear()
+    }
+
+    /** Compiler inventory only. Binding always uses the original raw rows. */
+    @Synchronized
+    fun rawCatalog(): GoSerializedTaintConfig = GoSerializedTaintConfig(
+        rawGlobalSources.toList(), rawFieldSources.toList(), rawSources.toList(),
+        rawSinks.toList(), rawPasses.toList(), rawCleaners.toList())
+
+    @Synchronized
+    override fun executableRuleCatalog(): GoExecutableRuleCatalog = GoExecutableRuleCatalog(rawCatalog(), catalogGeneration)
+
+    @Synchronized
+    override fun markReductionView(plan: ReducedMarkPlan): GoTaintRulesProvider {
+        val raw = rawCatalog()
+        val ids = (raw.globalSource + raw.fieldSource + raw.source + raw.sink + raw.passThrough + raw.cleaner)
+            .mapNotNullTo(linkedSetOf()) { it.serializedId }
+        return selectedView(RuleSelectionSnapshot(catalogGeneration, ids, ids, ids, plan))
+    }
+
+    /** The caller installs this view only after the previous phase's readers join.
+     * The unfiltered configuration remains a separate compatibility consumer. */
+    @Synchronized
+    fun selectedView(snapshot: RuleSelectionSnapshot): SelectedView {
+        globalSourceMemo.clear()
+        fieldSourceMemo.clear()
+        sourceMemo.clear()
+        passMemo.clear()
+        cleanerMemo.clear()
+        // Unsafe broad sink values and the owner-wide generator are one lane.
+        // Removing these values would assign different public IDs on a rebuild.
+        sinkMemo.keys.removeAll { signature -> sinkCandidates(signature).all(::stableSinkBinding) }
+        return SelectedView(this, snapshot, catalogGeneration)
+    }
+
+    private fun sinkCandidates(signature: GoFunctionSignature) = candidates(signature, sinkSimple, sinkPatterns)
+    private fun stableSinkIdentity(rule: GoSerializedRule.Sink): Boolean =
+        rule.id != null || !rule.meta?.cwe.isNullOrEmpty()
+
+    private fun stableSourceBinding(rule: GoSerializedRule.Source): Boolean =
+        GoBindingSafety.condition(rule.condition) && rule.taint.all { GoBindingSafety.position(it.rawPosition()) }
+
+    private fun stableSinkBinding(rule: GoSerializedRule.Sink): Boolean =
+        stableSinkIdentity(rule) && GoBindingSafety.condition(rule.condition) &&
+            rule.trackFactsReachAnalysisEnd.orEmpty().all { GoBindingSafety.position(it.rawPosition()) }
+
+    private fun stableCleanerBinding(rule: GoSerializedRule.Cleaner): Boolean =
+        GoBindingSafety.condition(rule.condition) && rule.cleans.all { GoBindingSafety.position(it.pos) }
+
+    class SelectedView internal constructor(
+        private val owner: GoTaintConfiguration,
+        private val snapshot: RuleSelectionSnapshot,
+        private val generation: Long,
+    ) : GoRuleSelectionCapability {
+        private val normalizer = GoSelectedRuleNormalizer(snapshot.markPlan)
+        private val globals = hashMapOf<GoGlobalFieldSignature, List<TaintRule.GlobalReadSource>>()
+        private val fields = hashMapOf<GoFieldSignature, List<TaintRule.FieldReadSource>>()
+        private val sources = hashMapOf<Pair<GoFunctionSignature, Boolean>, List<TaintRule.Source>>()
+        private val sinks = hashMapOf<GoFunctionSignature, List<TaintRule.Sink>>()
+        private val passes = hashMapOf<GoFunctionSignature, List<TaintRule.PassThrough>>()
+        private val cleaners = hashMapOf<Pair<GoFunctionSignature, Boolean>, List<TaintRule.Cleaner>>()
+        private val functionPresence = hashMapOf<Triple<GoFunctionSignature, RuleRole, Boolean>, Boolean>()
+        private val globalPresence = hashMapOf<GoGlobalFieldSignature, Boolean>()
+        private val fieldPresence = hashMapOf<GoFieldSignature, Boolean>()
+
+        private inline fun <T> query(block: () -> T): T = synchronized(owner) {
+            check(generation == owner.catalogGeneration) { "Obsolete Go rule-selection catalog generation" }
+            block()
+        }
+
+        private fun <Raw, Bound : Any> bindSelected(
+            raw: List<Raw>, role: RuleRole, metadata: Boolean,
+            id: (Raw) -> String?, stable: (Raw) -> Boolean, bind: (Raw) -> Bound?,
+        ): List<Bound> = if (raw.all(stable)) {
+            raw.asSequence().filter { snapshot.keepsRaw(id(it), role, metadata) }.mapNotNull(bind).toList()
+        } else {
+            // Complete original order, even for rejected validation/IR-dependent rows.
+            raw.mapNotNull { row -> bind(row)?.let { id(row) to it } }
+                .filter { snapshot.keepsRaw(it.first, role, metadata) }.map { it.second }
+        }
+
+        fun sourceForGlobal(signature: GoGlobalFieldSignature): List<TaintRule.GlobalReadSource> = query {
+            globals.getOrPut(signature) {
+                val (pkg, name) = signature.name.splitFullName()
+                val raw = owner.candidates(name, owner.globalSourceSimple, owner.globalSourcePatterns) { global }
+                    .filter { owner.run { it.pkg.matchPackage(pkg) } }
+                bindSelected(raw, RuleRole.SOURCE, false, { it.serializedId }, {
+                    GoBindingSafety.condition(it.condition, field = true) && it.taint.all { action ->
+                        action.rawPosition().base is PositionBase.Result && GoBindingSafety.position(action.rawPosition())
+                    }
+                }) { owner.specialize(it, signature.name, signature.type) }.also {
+                    globalPresence[signature] = it.isNotEmpty()
+                }.mapNotNull(normalizer::global)
+            }
+        }
+
+        fun sourceForFieldRead(signature: GoFieldSignature): List<TaintRule.FieldReadSource> = query {
+            fields.getOrPut(signature) {
+                val raw = owner.candidates(signature.name, owner.fieldSourceSimple, owner.fieldSourcePatterns) { field }
+                bindSelected(raw, RuleRole.SOURCE, false, { it.serializedId }, {
+                    GoBindingSafety.condition(it.condition, field = true) && it.taint.all { action ->
+                        action.rawPosition().base is PositionBase.Result && GoBindingSafety.position(action.rawPosition())
+                    }
+                }) { owner.specialize(it, signature.name, signature.type, signature.receiverType) }
+                    .also { fieldPresence[signature] = it.isNotEmpty() }
+                    .mapNotNull(normalizer::field)
+            }
+        }
+
+        fun sourceForFunction(signature: GoFunctionSignature, allRelevant: Boolean): List<TaintRule.Source> = query {
+            sources.getOrPut(signature to allRelevant) {
+                bindSelected(owner.candidates(signature, owner.sourceSimple, owner.sourcePatterns),
+                    RuleRole.SOURCE, allRelevant, { it.serializedId }, owner::stableSourceBinding) {
+                    owner.specialize(it, signature)
+                }.also { functionPresence[Triple(signature, RuleRole.SOURCE, allRelevant)] = it.isNotEmpty() }
+                    .mapNotNull { normalizer.source(it, allRelevant) }
+            }
+        }
+
+        fun sinkForFunction(signature: GoFunctionSignature): List<TaintRule.Sink> = query {
+            sinks.getOrPut(signature) {
+                val candidates = owner.sinkCandidates(signature)
+                val bound = if (candidates.all(owner::stableSinkBinding)) {
+                    candidates.asSequence().filter { snapshot.keepsRaw(it.serializedId, RuleRole.SINK, false) }
+                        .mapNotNull { owner.specialize(it, signature) }.toList()
+                } else {
+                    owner.sinkForFunction(signature).filter {
+                        snapshot.keepsRaw(it.serializedId, RuleRole.SINK, false)
+                    }
+                }
+                functionPresence[Triple(signature, RuleRole.SINK, false)] = bound.isNotEmpty()
+                bound.mapNotNull(normalizer::sink)
+            }
+        }
+
+        fun passThroughForFunction(signature: GoFunctionSignature): List<TaintRule.PassThrough> = query {
+            passes.getOrPut(signature) {
+                owner.candidates(signature, owner.passSimple, owner.passPatterns).mapNotNull { owner.specialize(it, signature) }
+            }
+        }
+
+        fun cleanerForFunction(signature: GoFunctionSignature, allRelevant: Boolean): List<TaintRule.Cleaner> = query {
+            cleaners.getOrPut(signature to allRelevant) {
+                bindSelected(owner.candidates(signature, owner.cleanerSimple, owner.cleanerPatterns),
+                    RuleRole.CLEANER, allRelevant, { it.serializedId }, owner::stableCleanerBinding) {
+                    owner.specialize(it, signature)
+                }.also { functionPresence[Triple(signature, RuleRole.CLEANER, allRelevant)] = it.isNotEmpty() }
+                    .mapNotNull { normalizer.cleaner(it, allRelevant) }
+            }
+        }
+
+        override fun sourceRulesForGlobal(signature: GoGlobalFieldSignature, statement: GoIRInst) = sourceForGlobal(signature)
+        override fun sourceRulesForFieldRead(signature: GoFieldSignature, statement: GoIRInst) = sourceForFieldRead(signature)
+        override fun sourceRulesForCall(signature: GoFunctionSignature, statement: GoIRInst, allRelevant: Boolean) =
+            sourceForFunction(signature, allRelevant)
+        override fun sinkRulesForCall(signature: GoFunctionSignature, statement: GoIRInst) = sinkForFunction(signature)
+        override fun passThroughRulesForCall(signature: GoFunctionSignature, statement: GoIRInst) = passThroughForFunction(signature)
+        override fun cleanerRulesForCall(signature: GoFunctionSignature, statement: GoIRInst, allRelevant: Boolean) =
+            cleanerForFunction(signature, allRelevant)
+        override fun sourceRulesForGlobalWithPresence(signature: GoGlobalFieldSignature, statement: GoIRInst) = query {
+            val rows = sourceForGlobal(signature)
+            GoRuleQueryResult(rows, globalPresence.getValue(signature))
+        }
+        override fun sourceRulesForFieldReadWithPresence(signature: GoFieldSignature, statement: GoIRInst) = query {
+            val rows = sourceForFieldRead(signature)
+            GoRuleQueryResult(rows, fieldPresence.getValue(signature))
+        }
+        override fun sourceRulesForCallWithPresence(signature: GoFunctionSignature, statement: GoIRInst, allRelevant: Boolean) = query {
+            val rows = sourceForFunction(signature, allRelevant)
+            GoRuleQueryResult(rows, functionPresence.getValue(Triple(signature, RuleRole.SOURCE, allRelevant)))
+        }
+        override fun sinkRulesForCallWithPresence(signature: GoFunctionSignature, statement: GoIRInst) = query {
+            val rows = sinkForFunction(signature)
+            GoRuleQueryResult(rows, functionPresence.getValue(Triple(signature, RuleRole.SINK, false)))
+        }
+        override fun cleanerRulesForCallWithPresence(signature: GoFunctionSignature, statement: GoIRInst, allRelevant: Boolean) = query {
+            val rows = cleanerForFunction(signature, allRelevant)
+            GoRuleQueryResult(rows, functionPresence.getValue(Triple(signature, RuleRole.CLEANER, allRelevant)))
+        }
+        override fun selectedMarkPlan(): ReducedMarkPlan = snapshot.markPlan
     }
 
     override fun sourceRulesForGlobal(signature: GoGlobalFieldSignature, statement: GoIRInst): List<TaintRule.GlobalReadSource> =

@@ -4,6 +4,7 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.CombinedMethodContext
 import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
 import org.opentaint.dataflow.ap.ifds.MethodContext
+import org.opentaint.dataflow.configuration.jvm.ruleOrdinal
 import org.opentaint.dataflow.bidi.ap.MarkSlot
 import org.opentaint.dataflow.bidi.ap.MethodKey
 import org.opentaint.dataflow.bidi.ap.TaintMark
@@ -58,14 +59,14 @@ internal object JIRBoundaryForms {
             if (!forms.valid(rule)) continue
             val condition = forms.rewriteSourceOrSink(rule, rewriter, projectNegatives = false)
             if (condition.isTrue) forms.source(builder, rule,
-                RuleOccurrenceId(form, RuleKind.ENTRY_SOURCE, ordinal), condition)
+                RuleOccurrenceId(form, RuleKind.ENTRY_SOURCE, rule.ruleOrdinal(ordinal)), condition)
         }
         val sinks = interp.rules.sinkRulesForMethodEntry(method, node, fact = null)
             .withIndex().flatMap { (ordinal, rule) ->
                 if (!forms.valid(rule)) return@flatMap emptyList()
                 val condition = forms.rewriteSourceOrSink(rule, rewriter, projectNegatives = false)
                 if (condition.isTrue) forms.sinks(rule, condition,
-                    RuleOccurrenceId(form, RuleKind.ENTRY_SINK, ordinal)) else emptyList()
+                    RuleOccurrenceId(form, RuleKind.ENTRY_SINK, rule.ruleOrdinal(ordinal))) else emptyList()
             }
         forms.sinkInputs(sinks).forEach(builder::staticOperation)
         return RuleStatement(builder.build(), genSummary(sinks), sinks)
@@ -92,14 +93,14 @@ internal object JIRBoundaryForms {
         val form = FormKey(interp.entries.formOwner, method, null, exit)
         for ((ordinal, rule) in interp.rules.exitSourceRulesForMethod(method, exit, fact = null).withIndex()) {
             if (!forms.valid(rule)) continue
-            val predicate = forms.source(builder, rule, RuleOccurrenceId(form, RuleKind.EXIT_SOURCE, ordinal),
+            val predicate = forms.source(builder, rule, RuleOccurrenceId(form, RuleKind.EXIT_SOURCE, rule.ruleOrdinal(ordinal)),
                 forms.rewriteSourceOrSink(rule, rewriter))
             predicate.leaves.forEach { builder.keep(it.fact.base) }
         }
         val sinks = interp.rules.sinkRulesForMethodExit(method, exit, fact = null, initialFacts = null)
             .withIndex().flatMap { (ordinal, rule) ->
                 if (!forms.valid(rule)) emptyList() else forms.sinks(rule, forms.rewriteSourceOrSink(rule, rewriter),
-                    RuleOccurrenceId(form, RuleKind.EXIT_SINK, ordinal))
+                    RuleOccurrenceId(form, RuleKind.EXIT_SINK, rule.ruleOrdinal(ordinal)))
             }
         forms.sinkInputs(sinks).forEach(builder::staticOperation)
         return ExitRules(RuleStatement(builder.build(), genSummary(sinks), sinks),

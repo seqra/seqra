@@ -40,6 +40,7 @@ sealed interface TaintRule: CommonTaintConfigurationItem {
         override val actionsAfter: List<GoAssignAction>,
         override val info: ItemInfo?,
         override val serializedId: String? = null,
+        val effectiveRelevantTaintMarks: Set<String>? = null,
     ) : GoSourceRule
 
     data class Sink(
@@ -71,5 +72,6 @@ sealed interface TaintRule: CommonTaintConfigurationItem {
         val actionsAfter: List<GoTaintAction>,
         override val info: ItemInfo?,
         override val serializedId: String? = null,
+        val effectiveRelevantTaintMarks: Set<String>? = null,
     ) : TaintRule, CommonTaintConfigurationItem, CommonTaintAction
 }

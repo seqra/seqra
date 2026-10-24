@@ -29,6 +29,7 @@ import org.opentaint.dataflow.go.analysis.alias.GoLocalAliasAnalysis
 import org.opentaint.dataflow.go.graph.GoApplicationGraph
 import org.opentaint.dataflow.go.rules.GoTaintAnalysisContext
 import org.opentaint.dataflow.go.rules.GoTaintRulesProvider
+import org.opentaint.dataflow.go.rules.selectRulesWithScope
 import org.opentaint.dataflow.go.trace.GoMethodCallPrecondition
 import org.opentaint.dataflow.go.trace.GoMethodSequentPrecondition
 import org.opentaint.dataflow.go.trace.GoMethodStartPrecondition
@@ -66,7 +67,7 @@ class GoAnalysisManager(
         selectedPhase = phase
         contexts.forEach { it.resetAnalysisCache() }
         if (phase is Phase.FullScan) {
-            taintConfig.selectRules(relevantRuleIds)
+            taintConfig.selectRulesWithScope(relevantRuleIds)
         }
     }
 

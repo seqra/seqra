@@ -180,3 +180,4 @@ import ApSpec.RuleProviderReplay
 import ApSpec.SemgrepReducedMarksTermination
 import ApSpec.SemgrepRuleCompaction
 import ApSpec.SemgrepMetadataProjection
+import ApSpec.RuleProviderComposition

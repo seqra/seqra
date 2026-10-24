@@ -5,8 +5,8 @@
 The [complete specification](semgrep-rule-selection-and-specialization.md)
 and [proof dossier](semgrep-rule-selection-and-specialization-proofs.md)
 cover active metadata support, guarded raw-item selection, cache handoff,
-and the added absent-CM/unchecked-GEN reductions. The implementation is
-unchanged. The clarified policy uses executable rules only for available/
+and the added absent-CM/unchecked-GEN reductions. The implementation passes its selected local checks. The full application
+suite retains 11 reference failures. New project measurements are a separate gate. The clarified policy uses executable rules only for available/
 used marks. The shared live set is assigned ∩ CM-used. Rule deletion occurs
 inside the fixed point. Final live keys then filter effective metadata
 mark-removal targets; false rules and actionless source/
@@ -27,13 +27,15 @@ The constructive models cover conservative owner/FULL/item-ID closure,
 negative reset coverage, ordered binding/counter/work laws, exact/any-field/
 any-accessor CM, role-aware fixed-point termination, GEN/metadata action
 pruning, positive reset transport, producer data witnesses, cache epochs
-and interactive replay. Read the
+and interactive replay. The composition adapter also proves that original
+OVERRIDE presence and condition keys survive normalization without enabling
+new base fallbacks or suppressing unrelated base rows. Read the
 [owned audit receipt](lean/semgrep-rule-selection-checks.json) for final
 counts, source hashes and commands. Kotlin census/lowering, real reader
 joins and end-to-end handoff adapters remain implementation gates.
 
-The final build passes 183 jobs. The audit checks 3,235 owned declarations
-and 160 executable controls, with no unexpected axioms. This result covers
+The integrated proof build passes 184 jobs. The audit checks 3,392 owned declarations
+and 167 executable controls, with no unexpected axioms. This result covers
 the shared live set and metadata carrier preservation.
 
 Latest measured Thingsboard state remains run-1 OOM, with no COMPLETE or

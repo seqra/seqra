@@ -7,6 +7,7 @@ import ApSpec.RuleProviderReplay
 import ApSpec.SemgrepReducedMarksTermination
 import ApSpec.SemgrepRuleCompaction
 import ApSpec.SemgrepMetadataProjection
+import ApSpec.RuleProviderComposition
 import Lean
 
 open Lean Elab Command
@@ -16,7 +17,8 @@ run_elab do
     `ApSpec.SemgrepReducedMarks, `ApSpec.RuleSelectionEpoch,
     `ApSpec.RuleMarkCoverage, `ApSpec.RuleProviderReplay,
     `ApSpec.SemgrepReducedMarksTermination,
-    `ApSpec.SemgrepRuleCompaction, `ApSpec.SemgrepMetadataProjection]
+    `ApSpec.SemgrepRuleCompaction, `ApSpec.SemgrepMetadataProjection,
+    `ApSpec.RuleProviderComposition]
   let env ← getEnv
   let mut total : Nat := 0
   for owner in owners do
@@ -143,9 +145,10 @@ end TerminationControls
   let termination := TerminationControls.checks
   let compaction := ApSpec.SemgrepRuleCompaction.Controls.checks
   let metadata := ApSpec.SemgrepMetadataProjection.Controls.checks
-  let all := selection ++ binding ++ reduction ++ epoch ++ coverage ++ replay ++ termination ++ compaction ++ metadata
+  let composition := ApSpec.RuleProviderComposition.Controls.checks
+  let all := selection ++ binding ++ reduction ++ epoch ++ coverage ++ replay ++ termination ++ compaction ++ metadata ++ composition
   if !(all.all id) then throw (IO.userError "Provider/reduction control failed")
-  IO.println s!"Provider/reduction executable controls: {all.length} passed (selection {selection.length}, binding {binding.length}, reduction {reduction.length}, epoch {epoch.length}, coverage {coverage.length}, replay {replay.length}, termination {termination.length}, compaction {compaction.length}, metadata {metadata.length})."
+  IO.println s!"Provider/reduction executable controls: {all.length} passed (selection {selection.length}, binding {binding.length}, reduction {reduction.length}, epoch {epoch.length}, coverage {coverage.length}, replay {replay.length}, termination {termination.length}, compaction {compaction.length}, metadata {metadata.length}, composition {composition.length})."
 
 #print axioms ApSpec.SemgrepProviderSelection.active_graph_metadata_complete
 #print axioms ApSpec.SemgrepProviderSelection.active_flow_observation_preserved
@@ -171,3 +174,7 @@ end TerminationControls
 #print axioms ApSpec.SemgrepMetadataProjection.actual_used_reset_membership
 #print axioms ApSpec.SemgrepMetadataProjection.canonical_taint_survivor_equal
 #print axioms ApSpec.SemgrepMetadataProjection.canonical_mx_equal
+
+#print axioms ApSpec.RuleProviderComposition.go_admission_preserved
+#print axioms ApSpec.RuleProviderComposition.jvm_admission_preserved
+#print axioms ApSpec.RuleProviderComposition.query_envelope_preserves_original_presence

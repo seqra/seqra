@@ -3,7 +3,9 @@
 Date: 24 October 2026. Contract:
 [complete specification](semgrep-rule-selection-and-specialization.md).
 Reference source: `f35aae4e4` (documentation revision; runtime unchanged).
-Implementation remains unchanged.
+The implementation passes its selected local checks. The full application
+suite retains 11 reference failures. New project measurements are pending.
+The proof receipt does not certify the Kotlin engine or project outcomes.
 
 ## 1. Claims and proof boundary
 
@@ -37,6 +39,7 @@ The constructive modules are:
 | [RuleProviderReplay](lean/ApSpec/RuleProviderReplay.lean) | Interactive finite engine replay and unchanged handoff under local provider correspondence |
 | [SemgrepRuleCompaction](lean/ApSpec/SemgrepRuleCompaction.lean) | Role-aware removal inside the executable fixed point; executable-only metadata action keys |
 | [SemgrepMetadataProjection](lean/ApSpec/SemgrepMetadataProjection.lean) | Live-key reset preservation, rejected carrier-pruning counterexample and unchanged metadata admission |
+| [RuleProviderComposition](lean/ApSpec/RuleProviderComposition.lean) | Original EXTEND/OVERRIDE/IGNORE admission, query-local presence and original JVM condition keys survive normalization |
 
 The audit checks all declarations owned by these modules, including
 private helpers and generated declarations. It permits only propext and
@@ -413,6 +416,34 @@ binding module supplies equality for stable queries. The source workflow
 must establish real reader joins, owner-qualified views, correct cache
 migration and preservation of unsafe Go rows/counter.
 
+## 10.1 Original composition admission
+
+Normalization can remove every returned extra row or fold its condition.
+Using that new list's emptiness for OVERRIDE can admit a base row which the
+original provider rejected. Using its folded conditions for JVM OVERRIDE
+can instead reject a base row which the original provider admitted.
+
+RuleProviderComposition compares normalization after original composition
+with composition of normalized rows. Go retains original extra presence.
+JVM also retains the original extra condition keys and filters normalized
+base rows using their original condition keys. The normalizer may remove
+or change row payloads; every retained result keeps its original row label.
+Induction over ordered filtering gives exact normalized list equality.
+The query envelope carries original presence through nested providers.
+It queries no custom provider twice and needs no shared statement cache.
+
+Checked anchors are go_admission_preserved, jvm_admission_preserved and
+query_envelope_preserves_original_presence. Seven controls cover deleted
+extra rows, folded-condition collisions, empty original extras, ordering,
+IGNORE and nested presence. These laws preserve existing combination
+admission; they do not authorize a new default/approximation policy.
+
+The Kotlin adapter must preserve raw presence/condition labels through
+wrappers and compaction. Executable-catalog export is a separate capability:
+unknown or overridden providers must keep their original query behavior.
+A conservative catalog union does not prove that all unioned rows are
+admitted by every concrete method query.
+
 ## 11. Finite replay and later-run guidance
 
 The interactive replay model chooses its next query from the evolving
@@ -474,11 +505,11 @@ The [check receipt](lean/semgrep-rule-selection-checks.json) records the
 final hashes, commands, declaration counts, executable controls and source
 review. Failed intermediate attempts are not passing checks.
 
-The final integrated build passes 183 jobs. The audit checks 3,235 owned
-declarations and 160 executable controls, with no unexpected axioms. The
+The integrated proof build passes 184 jobs. The audit checks 3,392 owned
+declarations and 167 executable controls, with no unexpected axioms. The
 receipt pins the final shared-live-set and carrier-preservation models.
 
-Before runtime implementation, retain the spec's differential controls.
+During runtime implementation, retain the spec's differential controls.
 In particular, test actual JVM/Go raw-to-bound mark identity, CM Any variants,
 reset positions after unused GEN removal, sink ID counters, phase joins and
 marked run-2/static replay. The checked models do not waive any of those

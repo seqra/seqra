@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.jvm.bidi
 
 import org.opentaint.dataflow.jvm.ap.ifds.taint.forBidirectionalCore
+import org.opentaint.dataflow.jvm.ap.ifds.taint.selectRulesWithScope
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
@@ -94,7 +95,7 @@ class JIRBidiAnalysis internal constructor(
         }
         val ids = source.prescanRuleIds()
         val lambdas = source.prescanLambdas()
-        taintConfig.selectRules(ids)
+        taintConfig.selectRulesWithScope(ids)
         prescan = PrescanResult(ids, lambdas, roots, source.factTypeChecker,
             source.externalMethodTracker, graph)
 

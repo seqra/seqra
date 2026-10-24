@@ -37,6 +37,10 @@ import org.opentaint.dataflow.configuration.jvm.Position
 import org.opentaint.dataflow.configuration.jvm.PositionWithAccess
 import org.opentaint.dataflow.configuration.jvm.RemoveMark
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
+import org.opentaint.dataflow.configuration.jvm.ruleOrdinal
+import org.opentaint.dataflow.configuration.jvm.actionOrdinal
+import org.opentaint.dataflow.configuration.jvm.originalRuleCount
+import org.opentaint.dataflow.configuration.jvm.resetMarks
 import org.opentaint.dataflow.configuration.jvm.TaintMark as RuleMark
 import org.opentaint.dataflow.configuration.jvm.serialized.UserDefinedRuleInfo
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
@@ -147,7 +151,7 @@ internal class JIRCallPlanBuilder(
             .flatMap { (ordinal, rule) ->
                 if (!forms.valid(rule)) emptyList() else forms.sinks(rule,
                     forms.rewriteSourceOrSink(rule, rewriter),
-                    occurrence(RuleKind.CALL_SINK, ordinal), mayBeArray)
+                    occurrence(RuleKind.CALL_SINK, rule.ruleOrdinal(ordinal)), mayBeArray)
             }
     }
 
@@ -202,17 +206,18 @@ internal class JIRCallPlanBuilder(
         forms.sinkInputs(sinks).forEach(::staticOperation)
         for ((ordinal, rule) in forms.rules.sourceRulesForMethod(callee, s, fact = null).withIndex()) {
             if (!forms.valid(rule)) continue
-            forms.source(this, rule, occurrence(RuleKind.CALL_SOURCE, ordinal),
+            forms.source(this, rule, occurrence(RuleKind.CALL_SOURCE, rule.ruleOrdinal(ordinal)),
                 forms.rewriteSourceOrSink(rule, rewriter))
         }
     }.buildStage()
 
     private fun cleanSteps(): List<CleanStep> = buildList {
-        var ordinal = 0
-        for (rule in forms.rules.cleanerRulesForMethod(callee, s, fact = null)) {
-            val id = occurrence(RuleKind.CLEANER, ordinal++)
+        val rules = forms.rules.cleanerRulesForMethod(callee, s, fact = null)
+        for ((ordinal, rule) in rules.withIndex()) {
+            val id = occurrence(RuleKind.CLEANER, rule.ruleOrdinal(ordinal))
             if (forms.valid(rule)) addAll(forms.cleanSteps(rule, rewriter.rewrite(rule.condition), types, id))
         }
+        var ordinal = rules.originalRuleCount()
         for (cleaner in (callee as? CallCleaners)?.callCleaners.orEmpty()) {
             val id = ActionId(occurrence(RuleKind.CLEANER, ordinal++), ActionRole.GENERATED_CLEANER, 0)
             add(forms.lowerCleaner(cleaner, types, TemporaryKey(id)))
@@ -223,8 +228,8 @@ internal class JIRCallPlanBuilder(
         val out = ArrayList<CleanStep>()
         fun add(rule: TaintConfigurationItem, id: RuleOccurrenceId,
                 positions: List<Pair<Int, Position>>, source: Boolean) {
-            val info = rule.info as? UserDefinedRuleInfo ?: return
-            for ((actionOrdinal, p) in positions) for ((markOrdinal, m) in info.relevantTaintMarks.withIndex()) {
+            if (rule.info !is UserDefinedRuleInfo) return
+            for ((actionOrdinal, p) in positions) for ((markOrdinal, m) in rule.resetMarks()) {
                 val anyTarget = source && forms.pos(rule, p)?.any == true
                 val action = if (anyTarget)
                     RemoveMark(RuleMark(m), (p as PositionWithAccess).base, TaintCleanReach.ExactAndAnyField)
@@ -233,17 +238,18 @@ internal class JIRCallPlanBuilder(
                     ActionId(id, ActionRole.RETURN_REWRITER, actionOrdinal, markOrdinal))
             }
         }
-        var ordinal = 0
-        for (rule in forms.rules.sourceRulesForMethod(callee, s, fact = null, allRelevant = true)) {
-            val id = occurrence(RuleKind.REWRITER, ordinal++)
+        val sources = forms.rules.sourceRulesForMethod(callee, s, fact = null, allRelevant = true)
+        for ((ordinal, rule) in sources.withIndex()) {
+            val id = occurrence(RuleKind.REWRITER, rule.ruleOrdinal(ordinal))
             if (forms.valid(rule) && !forms.rewriteSourceOrSink(rule, rewriter, projectNegatives = false).isFalse)
-                add(rule, id, rule.actionsAfter.mapIndexed { i, action -> i to action.position }, source = true)
+                add(rule, id, rule.actionsAfter.mapIndexed { i, action -> rule.actionOrdinal(i) to action.position }, source = true)
         }
-        for (rule in forms.rules.cleanerRulesForMethod(callee, s, fact = null, allRelevant = true)) {
-            val id = occurrence(RuleKind.REWRITER, ordinal++)
+        val offset = sources.originalRuleCount()
+        for ((ordinal, rule) in forms.rules.cleanerRulesForMethod(callee, s, fact = null, allRelevant = true).withIndex()) {
+            val id = occurrence(RuleKind.REWRITER, offset + rule.ruleOrdinal(ordinal))
             if (forms.valid(rule) && rewriter.rewrite(rule.condition).isTrue)
                 add(rule, id, rule.actionsAfter.mapIndexedNotNull { i, action ->
-                    (action as? RemoveMark)?.let { i to it.position }
+                    (action as? RemoveMark)?.let { rule.actionOrdinal(i) to it.position }
                 }, source = false)
         }
         return out
@@ -284,20 +290,26 @@ internal class JIRCallPlanBuilder(
 
     /** The default identity is in its own unfiltered stage. */
     private fun passRules(): StatementSummary = MicroEdgeBuilder().apply {
-        val rules = forms.rules.passTroughRulesForMethod(callee, s, fact = null).filter(forms::valid)
-            .map { Triple(it, rewriter.rewrite(it.condition), true) } +
+        val supplied = forms.rules.passTroughRulesForMethod(callee, s, fact = null)
+        val valid = supplied.filter(forms::valid)
+        val defaultOffset = if (supplied is org.opentaint.dataflow.configuration.jvm.SpecializedRules<*> ||
+            valid.any { it.specialization != null }) supplied.originalRuleCount() else valid.size
+        val rules = valid.mapIndexed { ordinal, rule ->
+            Triple(rule, rewriter.rewrite(rule.condition), true to rule.ruleOrdinal(ordinal))
+        } +
             defaultGetModel?.defaultPropagationRules(callee).orEmpty().filter { forms.valid(it.rule) }
-                .map { Triple(it.rule, it.condition, false) }
+                .mapIndexed { ordinal, rule -> Triple(rule.rule, rule.condition, false to (defaultOffset + ordinal)) }
         val read = LinkedHashSet<AccessPathBase>()
         val written = LinkedHashSet<AccessPathBase>()
-        for ((ruleOrdinal, item) in rules.withIndex()) {
-            val (rule, cond, ofRuleSet) = item
+        for (item in rules) {
+            val (rule, cond, identity) = item
+            val (ofRuleSet, ruleOrdinal) = identity
             if (cond.isFalse) continue
             if (!cond.isTrue)
                 forms.errors.applied(rule, "pass rule with a mark literal (interpreter.md §4.2, D24): applied without it")
             for ((actionOrdinal, a) in rule.actionsAfter.withIndex()) {
                 val actionId = ActionId(occurrence(RuleKind.PASS_THROUGH, ruleOrdinal),
-                    ActionRole.PASS_THROUGH, actionOrdinal)
+                    ActionRole.PASS_THROUGH, rule.actionOrdinal(actionOrdinal))
                 val (from, to) = forms.pass(this, rule, a, OperationId(formKey, action = actionId)) ?: continue
                 read += from
                 written += to
