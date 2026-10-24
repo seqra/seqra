@@ -1,5 +1,36 @@
 # Current proof status
 
+## Selected: Semgrep provider selection and early specialization
+
+The [complete specification](semgrep-rule-selection-and-specialization.md)
+and [proof dossier](semgrep-rule-selection-and-specialization-proofs.md)
+cover active metadata support, guarded raw-item selection, cache handoff,
+and the added absent-CM/unchecked-GEN reductions. The implementation is
+unchanged. Original return-cleanup conditions and reset positions remain
+separate from executable normalization.
+
+Metadata pruning and executable mark reduction are explicit rule-program
+corrections. They preserve protected observations, not every old inactive
+FLOW exclusion or unused source hit. Early binding preserves complete
+ordered results of that corrected program. Unsafe report-ID queries keep
+the original binder; Go fallback memo/counter state survives selection.
+Field transfer, mark declarations, source/exit machinery, static handling,
+GROUP projection rules and later-run limits are not redesigned.
+
+The constructive models cover conservative owner/FULL/item-ID closure,
+negative reset coverage, ordered binding/counter/work laws, exact/any-field/
+any-accessor CM, total fixed-point termination, GEN pruning, producer data
+witnesses, cache epochs and interactive replay. Read the
+[owned audit receipt](lean/semgrep-rule-selection-checks.json) for final
+counts, source hashes and commands. Kotlin census/lowering, real reader
+joins and end-to-end handoff adapters remain implementation gates.
+
+The integrated build passes 181 jobs. The owned audit checks 2,381
+declarations and 118 executable controls, with no unexpected axioms.
+
+Latest measured Thingsboard state remains run-1 OOM, with no COMPLETE or
+accepted forward run. No new project measurement is claimed by these proofs.
+
 ## Implemented: FULL return cleanup and temporary static supplies
 
 The [selected specification](run1-full-return-cleanup-and-static-supply-batching.md)

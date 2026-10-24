@@ -171,3 +171,10 @@ import ApSpec.Run1SummaryAliasAdmission
 import ApSpec.Run1TemporaryStaticSupplies
 import ApSpec.Run1FullReturnCleanup
 import ApSpec.Run1WorkBatchingClosure
+import ApSpec.SemgrepProviderSelection
+import ApSpec.RuleSpecializationSelection
+import ApSpec.SemgrepReducedMarks
+import ApSpec.RuleSelectionEpoch
+import ApSpec.RuleMarkCoverage
+import ApSpec.RuleProviderReplay
+import ApSpec.SemgrepReducedMarksTermination
