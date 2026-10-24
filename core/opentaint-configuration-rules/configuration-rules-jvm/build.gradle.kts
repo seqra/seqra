@@ -1,6 +1,7 @@
 import OpentaintIrDependency.opentaint_ir_api_jvm
 import OpentaintIrDependency.opentaint_ir_core
 import org.opentaint.common.KotlinDependency
+import org.opentaint.common.JunitDependencies
 
 plugins {
     id("kotlin-conventions")
@@ -8,6 +9,9 @@ plugins {
 }
 
 dependencies {
+    testImplementation(JunitDependencies.Libs.junit_jupiter_api)
+    testRuntimeOnly(JunitDependencies.Libs.junit_jupiter_engine)
+
     api(project(":configuration-rules-common"))
 
     implementation(opentaint_ir_api_jvm)

@@ -3,8 +3,12 @@
 Date: 24 October 2026. Contract:
 [complete specification](semgrep-rule-selection-and-specialization.md).
 Reference source: `f35aae4e4` (documentation revision; runtime unchanged).
-The implementation passes its selected local checks. The full application
-suite retains 11 reference failures. New project measurements are pending.
+The first implementation passes its selected local checks. Its full application
+suite retains 11 reference failures. The first project campaign exposed a
+configuration-row equality regression. An isolated correction restores the old
+equality/hash contract while retaining occurrence labels; its 13 focused tests
+pass. Full integration checks and fresh corrected-candidate measurements remain
+separate gates. The first campaign's reports are retained without rewriting.
 The proof receipt does not certify the Kotlin engine or project outcomes.
 
 ## 1. Claims and proof boundary
@@ -220,6 +224,37 @@ stable_query_zero_counter_effect and fixed_cache_query_trace_equal.
 The data predicates are public-report stability, not merely presence of
 a serialized ID. Other observable binder effects also need classification;
 unknown effects take the original path.
+
+### 6.1 Configuration equality is independent of ordinal labels
+
+The first implementation campaign exposed an unintended adapter change.
+`RuleSpecializationIndices` was a primary data-class field. Adding ordinal
+0 and ordinal 1 to otherwise equal sink rows changed a `VulnerabilityKey`
+set from one entry to two. The pure-JVM control uses the captured reference
+and candidate classpaths and actual production objects; it does not run an
+analyzer. Its receipt is `validation/fresh-precision-analysis/sink-equality-control.json`
+in the 24 October implementation campaign. Exported occurrence changes are
+not callback diagnostic variation.
+
+The configuration-layer correction gives all nine JVM row classes explicit
+allocation-free equality and hash functions. They compare every original
+field, omit only specialization, and keep the original field hash order.
+Constructors, `copy`, components, duplicate ordered list entries, original
+labels and internal occurrence IDs remain available. The analyzer core and
+`VulnerabilityKey` implementation do not change.
+
+`RuleProviderComposition.MetadataIdentity` models the complete original
+semantic key separately from optional labels. Its constructive laws prove
+label-independent key equality/hash projection, separation of differing
+semantic fields, identical ordered key streams, retained occurrence counts,
+and equality of every observer of that key stream. The controls include two
+equal semantic rows with different ordinals. This is a finite local adapter
+model. It does not verify Kotlin bytecode, attribute every measured duplicate
+to a raw binding, or prove a configuration row is unchanged when its actual
+condition/actions change. Configuration equality tests and actual
+`VulnerabilityKey` controls provide the production bridge. Corrected candidate
+project measurements are required after integration; the first campaign's
+counts remain historical evidence and are not overwritten.
 
 ## 7. Absent CM is false under constructive producer coverage
 
@@ -505,8 +540,8 @@ The [check receipt](lean/semgrep-rule-selection-checks.json) records the
 final hashes, commands, declaration counts, executable controls and source
 review. Failed intermediate attempts are not passing checks.
 
-The integrated proof build passes 184 jobs. The audit checks 3,392 owned
-declarations and 167 executable controls, with no unexpected axioms. The
+The integrated proof build passes 184 jobs. The audit checks 3,506 owned
+declarations and 174 executable controls, with no unexpected axioms. The
 receipt pins the final shared-live-set and carrier-preservation models.
 
 During runtime implementation, retain the spec's differential controls.

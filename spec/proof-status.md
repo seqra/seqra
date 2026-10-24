@@ -34,12 +34,25 @@ new base fallbacks or suppressing unrelated base rows. Read the
 counts, source hashes and commands. Kotlin census/lowering, real reader
 joins and end-to-end handoff adapters remain implementation gates.
 
-The integrated proof build passes 184 jobs. The audit checks 3,392 owned declarations
-and 167 executable controls, with no unexpected axioms. This result covers
+The integrated proof build passes 184 jobs. The audit checks 3,506 owned declarations
+and 174 executable controls, with no unexpected axioms. This result covers
 the shared live set and metadata carrier preservation.
 
-Latest measured Thingsboard state remains run-1 OOM, with no COMPLETE or
-accepted forward run. No new project measurement is claimed by these proofs.
+The first implementation campaign exposed an unintended equality change:
+ordinal metadata changed configuration-row equality and public vulnerability
+deduplication. The isolated configuration correction excludes only specialization
+from equality/hash, preserving every original semantic field and duplicate
+ordered occurrences. Five equality/hash tests, two actual vulnerability-key/
+occurrence tests, six existing output tests and the pure production-object
+control pass. The local key-projection model proves that labels do not affect
+legacy key observers; it does not verify Kotlin bytecode or identify the raw
+bindings behind every measured duplicate. This is a correction to the existing
+preservation contract, not a selected new analyzer behavior.
+
+Latest measured Thingsboard state in the first campaign remains run-1 OOM,
+with no COMPLETE or accepted forward run. Corrected-candidate full integration
+checks and project remeasurement are pending. No project outcome is certified
+by these constructive models.
 
 ## Implemented: FULL return cleanup and temporary static supplies
 

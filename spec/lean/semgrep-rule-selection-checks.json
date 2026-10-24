@@ -1,6 +1,6 @@
 {
-  "status": "CONSTRUCTIVE_MODELS_CHECKED_RUNTIME_IMPLEMENTED_PROJECT_CAMPAIGN_PENDING",
-  "generated_utc": "2026-10-24T09:16:38.828626+00:00",
+  "status": "CONSTRUCTIVE_MODELS_CHECKED_EQUALITY_CORRECTION_FOCUSED_PASSED_REMEASUREMENT_PENDING",
+  "generated_utc": "2026-10-24T10:32:53.142074+00:00",
   "reference_source": "f35aae4e420eff7091aa3791ff351c4e6f02c621",
   "reference_runtime": "fb84969c0b91ccae0500389b5e25e045557b0eb3",
   "selected": [
@@ -12,7 +12,7 @@
     "Use final live keys for effective metadata removal targets; preserve original conditions and position carriers",
     "Preserve original provider EXTEND/OVERRIDE/IGNORE admission and labels through normalization"
   ],
-  "semantic_boundary": "Executable mark reduction and rule compaction change unused rule outputs. Metadata keeps original relevant guard admission and every live-key reset. Early selection is exact relative to the corrected late provider. Original provider-combination admission is preserved before normalization; opaque providers require a separate capability or their original compatibility route.",
+  "semantic_boundary": "Executable mark reduction and rule compaction change unused rule outputs. Metadata keeps original relevant guard admission and every live-key reset. Early selection is exact relative to the corrected late provider. Original provider-combination admission is preserved before normalization; opaque providers require a separate capability or their original compatibility route. Specialization labels do not change legacy configuration-row equality/hash; duplicate ordered list entries and internal logical occurrence IDs remain.",
   "implementation_changed": true,
   "latest_historical_thingsboard_iteration": {
     "reached": "run-1",
@@ -22,12 +22,12 @@
   },
   "toolchain": "Lean 4.33.1, commit 819816b2e0a3bf405af45ae5c7af2491d8f5e",
   "sha256": {
-    "spec/semgrep-rule-selection-and-specialization.md": "e4cf452586a84f2da37696bb9388872a602baf4c0647e13a5baa472baf8cfb2b",
-    "spec/semgrep-rule-selection-and-specialization-proofs.md": "40093a60d3ee3535dc0efd5c469e7a60afcc0b0eb2d761cdde270fab663fc941",
-    "spec/proof-status.md": "a8643513292d792f23ce9755e3f01ff82ab96bc048085b88d456dfd31373b831",
+    "spec/semgrep-rule-selection-and-specialization.md": "6febc7e163a3b2d2c9145d517a3a0f9a0f79ebcbe5282812e0685470754f1a84",
+    "spec/semgrep-rule-selection-and-specialization-proofs.md": "56aaddc043a178bb026b4fc3f3a0c6e9d2e8ff6f76876d9555fff668b3cb19f6",
+    "spec/proof-status.md": "b22d2bb283aaa52bfb6f7cf3fe9e131d241d6be90a110113b0f354bb461e92fa",
     "spec/proof-guide.md": "bfe6c31a70f4a66472a682967c1e72251dcf9cd4dff8c556510e9cb67e42684f",
     "spec/lean/ApSpec.lean": "0b29e7c8dc3ad786bb994d521ab61c80a0bea446e77474c87fa3c88a47528441",
-    "spec/lean/semgrep-rule-selection-audit.lean": "692620161295dfae5790916b84585a99224738be16e759c4707d7ce74fc262c5",
+    "spec/lean/semgrep-rule-selection-audit.lean": "a6a5cef58d10aa2285572db6a0235bbeedd618db8efc72e6f366b183a9f55640",
     "spec/lean/lean-toolchain": "3aac669c7a910ec2389f4e4f921b605adf6ebf2d1e0c9b9cd0be4d33f3f5db71",
     "spec/lean/lakefile.lean": "2d43a998f55ac4cc27594eaa111a1dfbffb61c2802ed49dec39b8eab6120a26d",
     "spec/lean/ApSpec/SemgrepProviderSelection.lean": "495360f40341826ccd243033a585f8326fd065d1a71d73cac95d46a98e47fbe5",
@@ -39,7 +39,7 @@
     "spec/lean/ApSpec/RuleProviderReplay.lean": "d81d4f0bb5a278d4a71e6a6ce472fcbfb3e1e0bad6c6f957e9f15f36cb79872c",
     "spec/lean/ApSpec/SemgrepRuleCompaction.lean": "6300f9e183fd6ebc6673572b3d044ac292c74656bf6acd424620459922f08a09",
     "spec/lean/ApSpec/SemgrepMetadataProjection.lean": "ebfa1512d16d5927e056930e33e8ed638a396ad6aaa5cdfe7bfeccf8d0f1ac5f",
-    "spec/lean/ApSpec/RuleProviderComposition.lean": "6f0c325689dc7f1bd02053150a65b4af8afef90dc59a68a9859075e26f324a2f"
+    "spec/lean/ApSpec/RuleProviderComposition.lean": "96e2fedea756f39e8ffd9e439562b526164684b288f218fd096199f00ad40f4d"
   },
   "checks": [
     {
@@ -49,12 +49,13 @@
         "ApSpec"
       ],
       "cwd": "spec/lean",
-      "start_utc": "2026-10-24T08:28:01.639634+00:00",
-      "end_utc": "2026-10-24T08:28:02.297384+00:00",
+      "start_utc": null,
+      "end_utc": "2026-10-24T10:30:08.710755+00:00",
       "exit_code": 0,
-      "log": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-policy-20261024/composition-integrated-build-implementation.log",
-      "log_sha256": "a092240f71b1d1393f7cde3d64a166f636d238cc3732f41dea99c4b24a6c264c",
-      "jobs": 184
+      "log": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/lean-integrated-build.log",
+      "log_sha256": "160ba2cb4a603666e608061311f9aa1474624c1c57c1f6d4af9732a8f6613064",
+      "jobs": 184,
+      "cache_note": "Reused unchanged artifact cache from measured abd checkout; Lake rebuilt changed imports and aggregate by dependency hashes."
     },
     {
       "argv": [
@@ -64,12 +65,12 @@
         "semgrep-rule-selection-audit.lean"
       ],
       "cwd": "spec/lean",
-      "start_utc": "2026-10-24T08:28:02.297898+00:00",
-      "end_utc": "2026-10-24T08:28:26.080463+00:00",
+      "start_utc": null,
+      "end_utc": "2026-10-24T10:31:53.120147+00:00",
       "exit_code": 0,
-      "log": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-policy-20261024/composition-owned-audit-implementation.log",
-      "log_sha256": "0d981da6d69e72daa493273bc9a0c79630583c354011f4b4350ddcf7b07262fe",
-      "owned_declarations": 3392,
+      "log": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/lean-owned-audit-final.log",
+      "log_sha256": "d8780bc6011a6a22c5b77b68655ebb68079180bf5c92b2108f93676737f5c671",
+      "owned_declarations": 3506,
       "module_declarations": {
         "SemgrepProviderSelection": 575,
         "RuleSpecializationSelection": 600,
@@ -80,9 +81,9 @@
         "SemgrepReducedMarksTermination": 120,
         "SemgrepRuleCompaction": 535,
         "SemgrepMetadataProjection": 319,
-        "RuleProviderComposition": 157
+        "RuleProviderComposition": 271
       },
-      "executable_controls": 167,
+      "executable_controls": 174,
       "control_split": {
         "selection": 30,
         "binding": 15,
@@ -93,7 +94,7 @@
         "termination": 10,
         "compaction": 22,
         "metadata": 20,
-        "composition": 7
+        "composition": 14
       },
       "unexpected_axioms": 0
     }
@@ -140,7 +141,8 @@
     "Total executable normalization, shared-live versus split helper equivalence, P/C nonincrease and no metadata feedback.",
     "Exact live-key reset membership, scalar survivor equality and FLOW exclusion membership equality under original metadata admission.",
     "Cache handoff/unsafe sink counter controls and conditional finite interactive replay.",
-    "Ordered normalization commutes with original Go/JVM provider composition under retained origin labels and query-local original admission."
+    "Ordered normalization commutes with original Go/JVM provider composition under retained origin labels and query-local original admission.",
+    "Local semantic-key equality/hash projection ignores specialization labels while preserving ordered key streams and occurrence counts."
   ],
   "remaining_runtime_adapters": [
     "Complete raw-to-bound and generated FullMark producer/CM inventory across JVM/Go modes.",
@@ -161,24 +163,28 @@
     "Whole Kotlin implementation formally verified",
     "Whole-engine or arbitrary-project termination",
     "A new successful project run",
-    "A CPU-time, heap-byte, 2x or 60-second guarantee"
+    "A CPU-time, heap-byte, 2x or 60-second guarantee",
+    "Exact raw-binding attribution of every first-campaign duplicate or corrected-candidate project outcomes."
   ],
   "historical_evidence": {
     "previous_receipt": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-policy-20261024/previous-checks.json",
     "previous_sha256": "1c24a66af227c5785b346ab6492d82d845432ea348ef9d8f6f1461fee96172d9",
     "intermediate_logs": "*.intermediate are superseded model-scope evidence, not final-policy certification.",
     "pre_composition_receipt": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-policy-20261024/checks-before-composition-implementation.json",
-    "pre_composition_sha256": "9683978c385dab4a7d8d5fca375e144fba6e02b0c2c4c07d172d4dc8849094cb"
+    "pre_composition_sha256": "9683978c385dab4a7d8d5fca375e144fba6e02b0c2c4c07d172d4dc8849094cb",
+    "before_equality_correction_receipt": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/proof-checks-before-equality-correction.json",
+    "before_equality_correction_sha256": "0a8ef35de91c7190d69bb14d29d431d99c282746dac511524ae01c2b17dcebba"
   },
   "hygiene": {
     "git_diff_check": true,
     "doc_links_and_fences": true,
     "runtime_diff_from_HEAD_empty": false,
     "runtime_diff_from_measured_reference_empty": false,
-    "authorized_runtime_implementation_in_progress": true,
-    "unrelated_worktree_changes_preserved": true
+    "authorized_runtime_implementation_in_progress": false,
+    "unrelated_worktree_changes_preserved": true,
+    "isolated_equality_correction": true
   },
-  "implementation_status": "IN_PROGRESS_KOTLIN_AND_PROJECT_ACCEPTANCE_PENDING",
+  "implementation_status": "ISOLATED_CONFIGURATION_EQUALITY_CORRECTION_FOCUSED_CHECKS_PASSED_INTEGRATION_AND_REMEASUREMENT_PENDING",
   "new_candidate_project_results_certified": false,
   "project_campaign_scope": "Separate implementation validation campaign; this receipt certifies only the listed proof commands.",
   "runtime_local_validation": {
@@ -212,13 +218,33 @@
     "reference_comparison": "All 11 expected/actual failure assertions match the fresh reference; no new failing cases. Set members are compared without order. This does not equate every exception stack.",
     "full_receipt": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/current-tests/full-2/summary.json",
     "failure_comparison_receipt": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/current-tests/full-2/reference-failure-comparison.json",
-    "project_campaign": "PENDING",
+    "project_campaign": "First implementation campaign closed; correction integration and fresh candidate repeat pending.",
     "nested_scope_regression": {
       "counterexample": "A known transparent wrapper can have an opaque child and therefore an unknown raw catalog. The marker alone cannot certify complete mark inventory.",
       "fix": "Require the explicit capability and a nonnull raw catalog once at the selection boundary; no per-fact lookup.",
       "red": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/current-tests/nested-boundary-red.log",
       "red_result": "23 tests; two new controls fail.",
       "green_result": "The full-2 application suite includes all 23 controls with no failures; the same 11 reference failures remain elsewhere."
+    },
+    "full_suites_source": "abdbe345e9c1c91ed8a87a488dffe0fbfdd73b1a (before the isolated equality correction)",
+    "equality_correction": {
+      "baseline": "abdbe345e9c1c91ed8a87a488dffe0fbfdd73b1a",
+      "corrected_core_tree": "c986cba8f1ea0531f7db2a4c91a10c90c2743fd4",
+      "worktree": "/tmp/opentaint-rule-selection-equality-abdbe345-20261024",
+      "red_config_tests": {
+        "tests": 5,
+        "failures": 2,
+        "log": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/red-tests.log"
+      },
+      "green_focused_tests": {
+        "tests": 13,
+        "failures": 0,
+        "summary": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/focused-tests-summary.json"
+      },
+      "production_key_red_control": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/fresh-precision-analysis/sink-equality-control.json",
+      "production_key_green_control": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/sink-equality-green.json",
+      "scope": "Explicit equals/hashCode excluding only specialization on nine JVM rows; configuration tests and actual VulnerabilityKey/internal occurrence regressions. No analyzer core production or field/mark/source/exit change.",
+      "whole_suites_and_project_repeat": "PENDING after parent integration"
     }
   }
 }

@@ -178,3 +178,10 @@ end TerminationControls
 #print axioms ApSpec.RuleProviderComposition.go_admission_preserved
 #print axioms ApSpec.RuleProviderComposition.jvm_admission_preserved
 #print axioms ApSpec.RuleProviderComposition.query_envelope_preserves_original_presence
+
+#print axioms ApSpec.RuleProviderComposition.MetadataIdentity.equality_ignores_labels
+#print axioms ApSpec.RuleProviderComposition.MetadataIdentity.hash_ignores_labels
+#print axioms ApSpec.RuleProviderComposition.MetadataIdentity.semantic_fields_stay_distinct
+#print axioms ApSpec.RuleProviderComposition.MetadataIdentity.labeled_key_stream
+#print axioms ApSpec.RuleProviderComposition.MetadataIdentity.occurrence_count_preserved
+#print axioms ApSpec.RuleProviderComposition.MetadataIdentity.legacy_key_observer_preserved

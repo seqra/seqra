@@ -99,6 +99,15 @@ late specialization of the same corrected program preserves those values.
 The metadata action policy can erase resets of nonlive marks, but it cannot
 erase a live mark's reset. Use the projected reset laws for that comparison.
 No origin substitution is selected.
+
+Specialization labels are compiler metadata. They must not change the legacy
+`equals` or `hashCode` of a JVM configuration row. Compare all original
+semantic fields, in their original hash order, and exclude only the attached
+specialization labels. Keep duplicate entries in the ordered rule list and
+keep their original rule/action ordinals. Equal configuration rows can still
+have distinct internal occurrence IDs. Do not turn ordinal preservation into
+additional public vulnerability identities. This is an existing-behavior
+preservation requirement, not an added semantic feature.
 Opaque observers, imported inputs and unknown provider dependencies need
 conservative support or the unchanged path.
 
@@ -619,6 +628,9 @@ Before implementation acceptance, cover:
 - Original metadata guard admission; no new cleaner admission from absent-CM
   substitution; exact reset membership for live keys; unused carrier marks
   do not justify dropping a live-key reset.
+- Unlabelled versus labelled configuration equality/hash; differing ordinal
+  labels; all original semantic fields; duplicate ordered occurrences and
+  distinct internal IDs without additional `VulnerabilityKey` identities.
 - Exact ordered late/early rule lists and the real 20-by-20 context product;
   explicit/CWE IDs; JVM fallback numbering; Go memo/counter preservation.
 - Global catalog normalization before measuring; production round/fold

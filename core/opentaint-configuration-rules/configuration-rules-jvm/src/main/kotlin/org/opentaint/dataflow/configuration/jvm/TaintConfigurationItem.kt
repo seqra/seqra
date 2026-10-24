@@ -110,7 +110,27 @@ data class TaintEntryPointSource(
     override val info: ItemInfo?,
     override val serializedId: String? = null,
     override val specialization: RuleSpecializationIndices? = null,
-) : TaintConfigurationSource
+) : TaintConfigurationSource {
+    // Original occurrence labels must not change configuration-row equality.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is TaintEntryPointSource) return false
+        return method == other.method &&
+            condition == other.condition &&
+            actionsAfter == other.actionsAfter &&
+            info == other.info &&
+            serializedId == other.serializedId
+    }
+
+    override fun hashCode(): Int {
+        var result = method.hashCode()
+        result = 31 * result + condition.hashCode()
+        result = 31 * result + actionsAfter.hashCode()
+        result = 31 * result + (info?.hashCode() ?: 0)
+        result = 31 * result + (serializedId?.hashCode() ?: 0)
+        return result
+    }
+}
 
 data class TaintMethodSource(
     val method: CommonMethod,
@@ -119,7 +139,27 @@ data class TaintMethodSource(
     override val info: ItemInfo?,
     override val serializedId: String? = null,
     override val specialization: RuleSpecializationIndices? = null,
-) : TaintConfigurationSource
+) : TaintConfigurationSource {
+    // Original occurrence labels must not change configuration-row equality.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is TaintMethodSource) return false
+        return method == other.method &&
+            condition == other.condition &&
+            actionsAfter == other.actionsAfter &&
+            info == other.info &&
+            serializedId == other.serializedId
+    }
+
+    override fun hashCode(): Int {
+        var result = method.hashCode()
+        result = 31 * result + condition.hashCode()
+        result = 31 * result + actionsAfter.hashCode()
+        result = 31 * result + (info?.hashCode() ?: 0)
+        result = 31 * result + (serializedId?.hashCode() ?: 0)
+        return result
+    }
+}
 
 data class TaintMethodExitSource(
     val method: CommonMethod,
@@ -128,7 +168,27 @@ data class TaintMethodExitSource(
     override val info: ItemInfo?,
     override val serializedId: String? = null,
     override val specialization: RuleSpecializationIndices? = null,
-) : TaintConfigurationSource
+) : TaintConfigurationSource {
+    // Original occurrence labels must not change configuration-row equality.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is TaintMethodExitSource) return false
+        return method == other.method &&
+            condition == other.condition &&
+            actionsAfter == other.actionsAfter &&
+            info == other.info &&
+            serializedId == other.serializedId
+    }
+
+    override fun hashCode(): Int {
+        var result = method.hashCode()
+        result = 31 * result + condition.hashCode()
+        result = 31 * result + actionsAfter.hashCode()
+        result = 31 * result + (info?.hashCode() ?: 0)
+        result = 31 * result + (serializedId?.hashCode() ?: 0)
+        return result
+    }
+}
 
 data class TaintStaticFieldSource(
     val field: JIRField,
@@ -137,7 +197,27 @@ data class TaintStaticFieldSource(
     override val info: ItemInfo?,
     override val serializedId: String? = null,
     override val specialization: RuleSpecializationIndices? = null,
-) : TaintConfigurationSource
+) : TaintConfigurationSource {
+    // Original occurrence labels must not change configuration-row equality.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is TaintStaticFieldSource) return false
+        return field == other.field &&
+            condition == other.condition &&
+            actionsAfter == other.actionsAfter &&
+            info == other.info &&
+            serializedId == other.serializedId
+    }
+
+    override fun hashCode(): Int {
+        var result = field.hashCode()
+        result = 31 * result + condition.hashCode()
+        result = 31 * result + actionsAfter.hashCode()
+        result = 31 * result + (info?.hashCode() ?: 0)
+        result = 31 * result + (serializedId?.hashCode() ?: 0)
+        return result
+    }
+}
 
 sealed interface TaintConfigurationSink : TaintConfigurationItem, CommonTaintConfigurationSink {
     val condition: Condition
@@ -159,7 +239,31 @@ data class TaintMethodSink(
     override val info: ItemInfo?,
     override val serializedId: String? = null,
     override val specialization: RuleSpecializationIndices? = null,
-) : TaintConfigurationSink
+) : TaintConfigurationSink {
+    // Original occurrence labels must not change configuration-row equality.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is TaintMethodSink) return false
+        return method == other.method &&
+            condition == other.condition &&
+            trackFactsReachAnalysisEnd == other.trackFactsReachAnalysisEnd &&
+            id == other.id &&
+            meta == other.meta &&
+            info == other.info &&
+            serializedId == other.serializedId
+    }
+
+    override fun hashCode(): Int {
+        var result = method.hashCode()
+        result = 31 * result + condition.hashCode()
+        result = 31 * result + trackFactsReachAnalysisEnd.hashCode()
+        result = 31 * result + id.hashCode()
+        result = 31 * result + meta.hashCode()
+        result = 31 * result + (info?.hashCode() ?: 0)
+        result = 31 * result + (serializedId?.hashCode() ?: 0)
+        return result
+    }
+}
 
 data class TaintMethodExitSink(
     val method: CommonMethod,
@@ -170,7 +274,31 @@ data class TaintMethodExitSink(
     override val info: ItemInfo?,
     override val serializedId: String? = null,
     override val specialization: RuleSpecializationIndices? = null,
-) : TaintConfigurationSink
+) : TaintConfigurationSink {
+    // Original occurrence labels must not change configuration-row equality.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is TaintMethodExitSink) return false
+        return method == other.method &&
+            condition == other.condition &&
+            trackFactsReachAnalysisEnd == other.trackFactsReachAnalysisEnd &&
+            id == other.id &&
+            meta == other.meta &&
+            info == other.info &&
+            serializedId == other.serializedId
+    }
+
+    override fun hashCode(): Int {
+        var result = method.hashCode()
+        result = 31 * result + condition.hashCode()
+        result = 31 * result + trackFactsReachAnalysisEnd.hashCode()
+        result = 31 * result + id.hashCode()
+        result = 31 * result + meta.hashCode()
+        result = 31 * result + (info?.hashCode() ?: 0)
+        result = 31 * result + (serializedId?.hashCode() ?: 0)
+        return result
+    }
+}
 
 data class TaintMethodEntrySink(
     val method: CommonMethod,
@@ -181,7 +309,31 @@ data class TaintMethodEntrySink(
     override val info: ItemInfo?,
     override val serializedId: String? = null,
     override val specialization: RuleSpecializationIndices? = null,
-) : TaintConfigurationSink
+) : TaintConfigurationSink {
+    // Original occurrence labels must not change configuration-row equality.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is TaintMethodEntrySink) return false
+        return method == other.method &&
+            condition == other.condition &&
+            trackFactsReachAnalysisEnd == other.trackFactsReachAnalysisEnd &&
+            id == other.id &&
+            meta == other.meta &&
+            info == other.info &&
+            serializedId == other.serializedId
+    }
+
+    override fun hashCode(): Int {
+        var result = method.hashCode()
+        result = 31 * result + condition.hashCode()
+        result = 31 * result + trackFactsReachAnalysisEnd.hashCode()
+        result = 31 * result + id.hashCode()
+        result = 31 * result + meta.hashCode()
+        result = 31 * result + (info?.hashCode() ?: 0)
+        result = 31 * result + (serializedId?.hashCode() ?: 0)
+        return result
+    }
+}
 
 data class TaintPassThrough(
     val method: CommonMethod,
@@ -190,7 +342,27 @@ data class TaintPassThrough(
     override val info: ItemInfo?,
     override val serializedId: String? = null,
     override val specialization: RuleSpecializationIndices? = null,
-) : TaintConfigurationItem
+) : TaintConfigurationItem {
+    // Original occurrence labels must not change configuration-row equality.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is TaintPassThrough) return false
+        return method == other.method &&
+            condition == other.condition &&
+            actionsAfter == other.actionsAfter &&
+            info == other.info &&
+            serializedId == other.serializedId
+    }
+
+    override fun hashCode(): Int {
+        var result = method.hashCode()
+        result = 31 * result + condition.hashCode()
+        result = 31 * result + actionsAfter.hashCode()
+        result = 31 * result + (info?.hashCode() ?: 0)
+        result = 31 * result + (serializedId?.hashCode() ?: 0)
+        return result
+    }
+}
 
 data class TaintCleaner(
     val method: CommonMethod,
@@ -199,4 +371,24 @@ data class TaintCleaner(
     override val info: ItemInfo?,
     override val serializedId: String? = null,
     override val specialization: RuleSpecializationIndices? = null,
-) : TaintConfigurationItem
+) : TaintConfigurationItem {
+    // Original occurrence labels must not change configuration-row equality.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is TaintCleaner) return false
+        return method == other.method &&
+            condition == other.condition &&
+            actionsAfter == other.actionsAfter &&
+            info == other.info &&
+            serializedId == other.serializedId
+    }
+
+    override fun hashCode(): Int {
+        var result = method.hashCode()
+        result = 31 * result + condition.hashCode()
+        result = 31 * result + actionsAfter.hashCode()
+        result = 31 * result + (info?.hashCode() ?: 0)
+        result = 31 * result + (serializedId?.hashCode() ?: 0)
+        return result
+    }
+}
