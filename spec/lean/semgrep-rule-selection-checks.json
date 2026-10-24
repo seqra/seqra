@@ -1,15 +1,17 @@
 {
   "status": "SELECTED_SPEC_AND_CONSTRUCTIVE_MODELS_CHECKED_RUNTIME_UNCHANGED",
-  "generated_utc": "2026-10-24T01:57:26.991328+00:00",
-  "reference_source": "8c6a512e674b378f3185a037df07f2f5a2ae79f7",
+  "generated_utc": "2026-10-24T07:55:57.261405+00:00",
+  "reference_source": "f35aae4e420eff7091aa3791ff351c4e6f02c621",
   "reference_runtime": "fb84969c0b91ccae0500389b5e25e045557b0eb3",
   "selected": [
     "Correct selection at the provider boundary",
     "Avoid binding rules which selection will discard",
-    "Replace CM without a possible producer by false",
-    "Remove GEN assignments without a CM or protected observer"
+    "Executable-only live keys = assigned intersect CM-used",
+    "Use live keys for executable CM folding and GEN pruning",
+    "Compact false rules and actionless source/cleaner rules inside the executable fixed point",
+    "Use final live keys for effective metadata removal targets; preserve original conditions and position carriers"
   ],
-  "semantic_boundary": "Metadata and executable mark reduction change the effective rule program; early selection is exact relative to the corrected late provider. Original reset metadata and binding/action identities remain intact.",
+  "semantic_boundary": "Executable mark reduction and rule compaction change unused rule outputs. Metadata keeps original relevant guard admission and every live-key reset. Early selection is exact relative to the corrected late provider.",
   "implementation_changed": false,
   "new_project_runs": false,
   "latest_historical_thingsboard_iteration": {
@@ -20,20 +22,23 @@
   },
   "toolchain": "Lean 4.33.1, commit 819816b2e0a3bf405af45ae5c7af2491d8f5e",
   "sha256": {
-    "spec/semgrep-rule-selection-and-specialization.md": "5c7c6a5e7fd702fcff19380fbcce7dc5d7e33b6332397280c25f3a05186db3d4",
-    "spec/semgrep-rule-selection-and-specialization-proofs.md": "2410018fd8677e6d767656be470f8fd8a084c4c980ed58dfcc65b0d91bfc06a3",
-    "spec/proof-status.md": "318e92b8e78e294d17e7cb4b8f68f5b3c0fa1f0325c0033068975ee53db05e44",
+    "spec/semgrep-rule-selection-and-specialization.md": "37ec6a5849074778b5512295bc2045c858a610bfdddf9d70e484573c4e97e4d0",
+    "spec/semgrep-rule-selection-and-specialization-proofs.md": "e73c8130a71745668690425a64608657fda6657499f48dc5cdaed7b6e76b58e9",
+    "spec/proof-status.md": "4ceade282e7b35360b381c355b1305a66d76a36bbe18c7ed971e0335926d0cff",
     "spec/proof-guide.md": "bfe6c31a70f4a66472a682967c1e72251dcf9cd4dff8c556510e9cb67e42684f",
-    "spec/lean/ApSpec.lean": "b707c5902aeb16eff8e985d55e235d9ec64d4ffe78a85214d2b5784b7c800328",
-    "spec/lean/semgrep-rule-selection-audit.lean": "8effded515308b5f34a850913f5d718845e0cb4152449c61edfd8a0f766bcbe8",
+    "spec/lean/ApSpec.lean": "7486e435c665290e3de25e58f49772abad6c53c1d8502b3abb9a609d696b5e8e",
+    "spec/lean/semgrep-rule-selection-audit.lean": "ede66137006ecb723ae0397690eb8ff7d72e3f26c4e4783d56cb75d665fcf492",
     "spec/lean/lean-toolchain": "3aac669c7a910ec2389f4e4f921b605adf6ebf2d1e0c9b9cd0be4d33f3f5db71",
+    "spec/lean/lakefile.lean": "2d43a998f55ac4cc27594eaa111a1dfbffb61c2802ed49dec39b8eab6120a26d",
     "spec/lean/ApSpec/SemgrepProviderSelection.lean": "495360f40341826ccd243033a585f8326fd065d1a71d73cac95d46a98e47fbe5",
     "spec/lean/ApSpec/RuleSpecializationSelection.lean": "8f2c895a013535b391f95fa4fe1d8c81172bed080b99b61b36b5cdbd1559267b",
     "spec/lean/ApSpec/SemgrepReducedMarks.lean": "bb5502845e7d4d4de73dce97ebfd6fc4cb58945d7d5201203335b822ff995ff4",
     "spec/lean/ApSpec/SemgrepReducedMarksTermination.lean": "555441ee52e29745b356506d6f836278de11681879b41570d274a9a17289bba0",
     "spec/lean/ApSpec/RuleSelectionEpoch.lean": "d96a68f8a5b3d8a9c96a980669ab335c77bc52c35a7e9fbf2b82e7e92fdba291",
     "spec/lean/ApSpec/RuleMarkCoverage.lean": "ddd8aefae696e00c324ce2cef9cbd200f042c3ae58a67f5e2ccc3c31c260738c",
-    "spec/lean/ApSpec/RuleProviderReplay.lean": "d81d4f0bb5a278d4a71e6a6ce472fcbfb3e1e0bad6c6f957e9f15f36cb79872c"
+    "spec/lean/ApSpec/RuleProviderReplay.lean": "d81d4f0bb5a278d4a71e6a6ce472fcbfb3e1e0bad6c6f957e9f15f36cb79872c",
+    "spec/lean/ApSpec/SemgrepRuleCompaction.lean": "6300f9e183fd6ebc6673572b3d044ac292c74656bf6acd424620459922f08a09",
+    "spec/lean/ApSpec/SemgrepMetadataProjection.lean": "ebfa1512d16d5927e056930e33e8ed638a396ad6aaa5cdfe7bfeccf8d0f1ac5f"
   },
   "checks": [
     {
@@ -43,12 +48,12 @@
         "ApSpec"
       ],
       "cwd": "spec/lean",
-      "start_utc": "2026-10-24T01:54:51.342038+00:00",
-      "end_utc": "2026-10-24T01:54:56.604265+00:00",
+      "start_utc": "2026-10-24T07:53:50.993869+00:00",
+      "end_utc": "2026-10-24T07:53:53.097669+00:00",
       "exit_code": 0,
-      "log": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-spec-20261024/integrated-build.log",
-      "log_sha256": "b7223db5aa750e037a3c5659eeda983a1d3cc5d85e1d841cae3997daa7a8eaac",
-      "jobs": 181
+      "log": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-policy-20261024/integrated-build.log",
+      "log_sha256": "2e9cd0225648be7a5285aada9b6ab89d7c91b867381a12430765ddba9ee3bf12",
+      "jobs": 183
     },
     {
       "argv": [
@@ -58,12 +63,12 @@
         "semgrep-rule-selection-audit.lean"
       ],
       "cwd": "spec/lean",
-      "start_utc": "2026-10-24T01:54:56.605656+00:00",
-      "end_utc": "2026-10-24T01:55:29.498124+00:00",
+      "start_utc": "2026-10-24T07:53:53.099332+00:00",
+      "end_utc": "2026-10-24T07:54:20.036412+00:00",
       "exit_code": 0,
-      "log": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-spec-20261024/owned-audit.log",
-      "log_sha256": "e86d01e438ab08571f6e0dfadaa8a1e94533e41c77e1ff96b0acf2298524f9b0",
-      "owned_declarations": 2381,
+      "log": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-policy-20261024/owned-audit.log",
+      "log_sha256": "bf9dbd9377a3354bf8c70e0063627a0f3870bffcef78c1bf1e4694e65600373e",
+      "owned_declarations": 3235,
       "module_declarations": {
         "SemgrepProviderSelection": 575,
         "RuleSpecializationSelection": 600,
@@ -71,9 +76,11 @@
         "RuleSelectionEpoch": 355,
         "RuleMarkCoverage": 49,
         "RuleProviderReplay": 54,
-        "SemgrepReducedMarksTermination": 120
+        "SemgrepReducedMarksTermination": 120,
+        "SemgrepRuleCompaction": 535,
+        "SemgrepMetadataProjection": 319
       },
-      "executable_controls": 118,
+      "executable_controls": 160,
       "control_split": {
         "selection": 30,
         "binding": 15,
@@ -81,7 +88,9 @@
         "epoch": 28,
         "coverage": 6,
         "replay": 7,
-        "termination": 10
+        "termination": 10,
+        "compaction": 22,
+        "metadata": 20
       },
       "unexpected_axioms": 0
     }
@@ -95,49 +104,63 @@
     "Classical.choice",
     "any other axiom"
   ],
-  "source_review": {
-    "path": "/drive-testcomp/opentaint-go-rules/run1-full-work-batching-20261023/validation/semgrep-selection-and-algorithmic-20261023/provider-selection-cache-source-review.json",
-    "sha256": "4d476c7ea03a8a6f9be2906dcd0a6e8d5432a99f36c90a2a34c654c39f7838ac",
-    "source_hashes_revalidated": 25,
-    "source_controls": {
-      "JVM_32_method_cache_maps_plus_one_field_map": true,
-      "Go_source_and_cleaner_currently_memoize_without_allRelevant": true,
-      "JVM_sink_generated_counter_is_resolver_local": true,
-      "Go_sink_generated_counter_is_configuration_global": true,
-      "bidi_explicit_join_before_selection": true,
-      "legacy_Go_common_fullScan_selects_before_reset_join_guard": true,
-      "normal_pass_cleaner_roles_are_unfiltered": true,
-      "alias_model_queries_pass_false_unchanged": true,
-      "no_runtime_or_source_edit_no_project_MAT_probe": true
+  "source_reviews": [
+    {
+      "path": "/drive-testcomp/opentaint-go-rules/run1-full-work-batching-20261023/validation/semgrep-selection-and-algorithmic-20261023/provider-selection-cache-source-review.json",
+      "sha256": "4d476c7ea03a8a6f9be2906dcd0a6e8d5432a99f36c90a2a34c654c39f7838ac",
+      "source_hashes_revalidated": 25,
+      "mismatches": []
     },
-    "mismatches": []
-  },
-  "review_notes": [
-    "Global producer and consumer inventory; no query-local absence inference.",
-    "One-time catalog Boolean/NNF preparation precedes the measured loop; repeated fold must match the checked same-or-strict constructors.",
-    "Unsafe generated sink IDs keep original binding and shared Go memo/counter state.",
-    "Executable GEN removal preserves original reset metadata; no reset-behavior change is selected."
+    {
+      "path": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-policy-20261024/source-review.json",
+      "sha256": "84ce0742f7fbda880b8573af5c6f04be4a2cdb5fb9efcf785023ef7bd71e90e3",
+      "source_hashes_revalidated": 6,
+      "mismatches": []
+    }
   ],
+  "policy": {
+    "inventory": "Global executable catalog only; metadata references never contribute.",
+    "live_set": "assigned intersect CM-used; recomputed after every compacting executable round.",
+    "executable_conditions": "Only executable CM outside live is replaced by false.",
+    "executable_assignments": "Only GEN with live target survives, retaining original action identities.",
+    "metadata_conditions": "Original relevant-resolution conditions and admission; no new CM specialization.",
+    "metadata_actions": "Filter effective removal targets by final live keys; preserve carriers whose own mark is unused but which provide a live reset position.",
+    "rule_removal": "False rows in their own resolved view; actionless source/cleaner effects; empty sinks remain.",
+    "unknown_executable_scope": "TOP protection or original compatibility view, never empty inferred availability.",
+    "alias_reader": "Original pass compatibility view; ignored guards do not create executable CM uses."
+  },
   "proof_scope": [
-    "Complete ordered provider equality for stable early binding versus corrected late binding.",
-    "Conservative metadata closure and projected active reset observations, under source adapter coverage.",
-    "Absent CM truth and checked GEN output preservation under constructive producer and observer coverage.",
-    "Total global compiler normalization bound and fixed point for the specified fold.",
-    "Cache epoch/handoff and unsafe counter controls; finite interactive replay."
+    "Conservative ownership closure and complete ordered provider equality for stable early versus corrected late binding.",
+    "Role-aware per-round checked events and sink observations under current AssignedCover; retained rule/action ordinals.",
+    "Total executable normalization, shared-live versus split helper equivalence, P/C nonincrease and no metadata feedback.",
+    "Exact live-key reset membership, scalar survivor equality and FLOW exclusion membership equality under original metadata admission.",
+    "Cache handoff/unsafe sink counter controls and conditional finite interactive replay."
   ],
   "remaining_runtime_adapters": [
-    "Actual complete raw-to-bound and generated FullMark identities across JVM and Go.",
-    "Production condition fold correspondence and original binding/action identity.",
-    "Complete source/import/END/native/opaque producer and observer coverage.",
-    "Spatial reset lowering and actual joined readers/forms.",
-    "Actual marked static and run-2/later witness guidance under the revised rule program."
+    "Complete raw-to-bound and generated FullMark producer/CM inventory across JVM/Go modes.",
+    "Production fold correspondence and cover for actual compacting rounds; no reuse of old noncompacting RoundCover.",
+    "Original binder/report IDs and all rule/action/relevant-mark ordinals after compaction.",
+    "Actual role-specific metadata admission, position-carrier geometry and spatial reset kernel transport.",
+    "Original alias compatibility reader and real joined cache/form lifetimes.",
+    "Actual marked static and run-2/later guidance under the revised executable rule program."
+  ],
+  "rejected_intermediate_policies": [
+    "Metadata references contributing to producer or CM-use sets.",
+    "Pruning raw position carriers by their own mark and losing a live reset.",
+    "Specializing metadata conditions or enabling a new metadata cleaner.",
+    "P-only or C-only metadata eligibility instead of their intersection."
   ],
   "not_claimed": [
     "Whole Kotlin implementation formally verified",
-    "Arbitrary-project engine termination",
+    "Whole-engine or arbitrary-project termination",
     "A new successful project run",
     "A CPU-time, heap-byte, 2x or 60-second guarantee"
   ],
+  "historical_evidence": {
+    "previous_receipt": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-policy-20261024/previous-checks.json",
+    "previous_sha256": "1c24a66af227c5785b346ab6492d82d845432ea348ef9d8f6f1461fee96172d9",
+    "intermediate_logs": "*.intermediate are superseded model-scope evidence, not final-policy certification."
+  },
   "hygiene": {
     "git_diff_check": true,
     "doc_links_and_fences": true,

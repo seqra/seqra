@@ -178,3 +178,5 @@ import ApSpec.RuleSelectionEpoch
 import ApSpec.RuleMarkCoverage
 import ApSpec.RuleProviderReplay
 import ApSpec.SemgrepReducedMarksTermination
+import ApSpec.SemgrepRuleCompaction
+import ApSpec.SemgrepMetadataProjection

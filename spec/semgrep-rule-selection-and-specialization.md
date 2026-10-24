@@ -1,7 +1,7 @@
 # Semgrep rule selection, mark reduction and early specialization
 
 Date: 24 October 2026. Status: **selected specification; implementation unchanged**.
-Reference source: `8c6a512e674b378f3185a037df07f2f5a2ae79f7`.
+Reference source: `f35aae4e4` (documentation revision; runtime unchanged).
 Its runtime is the measured `fb84969c0b91ccae0500389b5e25e045557b0eb3`.
 Read the [proof dossier](semgrep-rule-selection-and-specialization-proofs.md)
 and [proof guide](proof-guide.md).
@@ -20,23 +20,30 @@ keeps the remaining precision and performance failures.
 
 | Change | Current behavior | Required behavior | Proof obligation |
 | --- | --- | --- | --- |
-| Metadata selection | allRelevant=true bypasses Semgrep selection | Keep complete metadata of supported active graphs, plus conservative unknown/shared support | Preserve active resets and selected observations after projection |
+| Metadata selection | allRelevant=true bypasses Semgrep selection | Start from supported active graphs, plus conservative unknown/shared support | Do not omit metadata candidates with required ownership support |
 | Early specialization | Specialize and cache raw candidates, then discard selected-out items | Reject those raw items before binding when binding/report identity is stable | Exact ordered equality to late filtering of the same catalog |
-| Unassigned CM | A CM guard can remain when its mark has no possible assignment after reduction | Replace that executable CM by false, then simplify Boolean conditions | No-spontaneous-mark cover and truth preservation; cover NOT too |
-| Unchecked GEN | Emit assignments whose mark is never checked by executable CM | Remove those GEN actions while keeping their original logical indices and binding skeleton | Preserve checked-mark outputs and all protected observations |
+| Executable CM | A CM guard can remain when its mark has no possible assignment after reduction | Replace CM for keys outside assigned ∩ CM-used by false; simplify executable conditions only | No-spontaneous-mark cover and truth preservation; cover NOT too |
+| Executable GEN | Emit assignments whose mark is never checked by executable CM | Keep GEN only for keys in that same intersection, with original indices and binding skeleton | Preserve checked-mark outputs and all protected observations |
+| Metadata removals | Metadata can remove marks which executable rules cannot produce or use | Keep effective mark-removal actions only for final executable live keys | Preserve resets of live keys and their original position carriers; omit only irrelevant targets |
+| Rule removal | The previous normalizer kept false/actionless rows | Drop false rows; drop actionless source/cleaner rows; recompute executable mark sets | Role-aware observations, cascading fixed point and strict structural decrease |
 
-The first, third and fourth rows change the effective rule program. Do
+All rows except early specialization change the effective rule program. Do
 not call them byte-for-byte equality of every old summary. Inactive FLOW
 mark exclusions, impossible guards, unused mark facts, unused source hits
 and demand rows for unused marks can disappear. A negative absent-mark
 check can become true and can make a source cube zero-satisfied. This is
-an explicit condition change, not a new origin-selection rule.
+an explicit condition change, not a new origin-selection rule. Metadata
+conditions remain unchanged. Metadata pruning must preserve every reset
+of a live key, including its original action-position carrier. Dropping an
+unused raw assignment must not accidentally remove a live mark's reset.
 
 The second row is an optimization of that corrected rule program. It
 must preserve the complete retained rule lists: order, duplicate variants,
-conditions, action identities, report IDs, binding keys and metadata.
+conditions, surviving action identities, report IDs, binding keys and
+the normalized metadata. Original ordinals must not be renumbered after
+compaction.
 
-Preserve field transfer, exclusions, AP tails, initial grammar, layers,
+Preserve field transfer and field-exclusion rules, AP tails, initial grammar, layers,
 static-pool transitions, summary application, contributing-origin rules,
 controller annotations, exit rules and later full-mark analysis. Keep
 all loaded mark declarations and mark interning. Mark availability below
@@ -87,9 +94,11 @@ reset an existing snapshot. Reuse/reselection is an explicit generation
 transition, not an automatic phase-dependent change.
 
 Logical observations retain full mark, location, rule/action/binding
-identity, every relevant origin, layer and field annotation. A comparison
-can erase only metadata/marks proved irrelevant to the protected rule
-observations. It cannot erase a live reset or substitute one origin.
+identity, every relevant origin, layer and field annotation. Early versus
+late specialization of the same corrected program preserves those values.
+The metadata action policy can erase resets of nonlive marks, but it cannot
+erase a live mark's reset. Use the projected reset laws for that comparison.
+No origin substitution is selected.
 Opaque observers, imported inputs and unknown provider dependencies need
 conservative support or the unchanged path.
 
@@ -113,8 +122,10 @@ or claim new correctness for that existing reducer.
 ### 3.2 Conservative metadata support
 
 Seed support with every applicable outer graph, every graph supporting an
-S item ID, and every uncertain graph. Keep all items of a supported graph,
-including unselected internal branches and join children.
+S item ID, and every uncertain graph. Include all items of a supported graph
+as metadata candidates, including unselected internal branches and join
+children. The executable-derived normalization in section 4 can then remove
+their unused actions, false rules and actionless source/cleaner rules.
 
 Close support over shared mark owners, shared full marks and shared item
 IDs. Include marks mentioned by conditions, GEN actions, cleaners and
@@ -155,30 +166,85 @@ selection, every role keeps its original broad behavior.
 JVM true queries must still call resolveRelevantRule. Preserve its
 negative method-name, class-name and arity relaxation. Go keeps its
 existing resolver semantics; do not add JVM relaxation to Go.
+Apply the normalized action plan and false/empty-rule removal after the
+proper normal/relevant resolver. An executable row rejected by an exact
+method/arity check does not by itself reject its relaxed metadata variant.
 
-## 4. Executable mark reduction
+## 4. Executable-led mark reduction and rule compaction
 
-### 4.1 Keep reset metadata separate
+### 4.1 One-way dependency from execution to metadata
 
-Build the metadata view from the original supported raw items. Retain its
-original relevant-resolution conditions, reset marks, action positions,
-binding skeleton and original action ordinals.
+Only the executable rule set determines possible producers and mark uses.
+Metadata conditions, actions, relevantTaintMarks, reset masks and supported
+graph membership do not make a mark available or used. There is no union
+of executable and metadata producer/consumer sets.
 
-The two added mark simplifications apply to the executable view. They do
-not rewrite that original reset metadata. For example:
+For the current executable rules define:
 
 ```text
-A produces T; an active graph also has B which assigns unused U at Result.
-B's original reset metadata removes T at Result.
-
-Executable B: remove AssignMark(U,Result) if U has no CM consumer.
-Metadata B:   keep the original Result reset position and T reset.
+assigned = possible executable GEN targets
+checked  = executable CM keys, including negative CM
+used     = assigned ∩ checked
 ```
 
-Do not derive reset positions from the filtered GEN list. An actionless
-executable source can still have necessary metadata. A metadata CM is
-not automatically an executable CM consumer; retaining a reset guard
-must not create a new GEN-eligibility rule.
+Include conservative roots/consumers only when they represent executable
+behavior. An unknown executable scope can protect all keys. Metadata-only
+references never contribute to these sets.
+
+Use used for executable CM folding and GEN pruning. Normalize executable
+rules to a fixed point. Then use its final used set for metadata mark-removal
+targets. A metadata mark which cannot be assigned by execution is outside
+used, even if some executable CM originally mentioned it. An assigned mark
+with no remaining executable CM is also outside used.
+
+Keep metadata conditions in their original relevant-resolution mode, with
+the existing Boolean simplification. Absent-CM substitution is an executable
+rewrite, not a metadata-admission policy. Do not turn a metadata cleaner's
+NOT CM(U) guard into true and thereby add a reset.
+
+```text
+Execution assigns and checks T. U is outside used.
+Metadata source B: AssignMark(U, Result); relevant marks are {T,U}.
+
+Original metadata effects: RemoveMark(T, Result), RemoveMark(U, Result).
+Required effects:          RemoveMark(T, Result).
+Retain the Result position carrier even though its raw assignment names U.
+```
+
+Metadata eligibility refers to the target mark of an effective removal,
+not the own mark of a raw source/cleaner position carrier. Current lowering
+crosses action positions with relevantTaintMarks. Preserve those positions
+for every retained removal. Filtering raw GEN/RemoveMark carriers by their
+own mark would be incorrect in the example above.
+
+One implementation can filter the row's relevantTaintMarks to final used
+and retain its original positional actions; another can keep labelled
+effective removals. Either must emit the same live-key resets. Keep structural,
+RemoveAllMarks and opaque effects unless their mark-specific behavior is
+known. The spatial reset kernel and field transfer stay unchanged.
+
+```kotlin
+// Metadata only. Use the original relevant-resolved guard and admission.
+for ((actionOrdinal, position) in originalIndexedResetPositions) {
+    for ((markOrdinal, mark) in originalRelevantMarks.withIndex()) {
+        if (mark in finalExecutableUsed) {
+            emitRemoval(position, mark,
+                originalOccurrence, actionOrdinal, markOrdinal)
+        }
+    }
+}
+// Remove an empty source/cleaner metadata effect; keep an actionless sink.
+```
+
+Original ordinal labels must survive any prior flattening or position
+expansion. Filter after obtaining them; do not renumber a compacted action
+or relevant-mark list. This snippet does not evaluate or specialize a CM
+in the metadata condition.
+
+Keep the original raw binding skeleton, stable rule occurrences and action
+ordinals separately from the effective removal list. Removing an item must
+not renumber surviving reports or trace identities. Metadata is a consumer
+of the final plan; it must never feed another executable normalization round.
 
 ### 4.2 Closed mark inventory
 
@@ -187,10 +253,11 @@ all potential method/entry/exit/static GEN actions before method binding;
 do not infer absence from the set of marks already observed at runtime.
 Currently broad pass/cleaner roles remain in the executable catalog.
 
-Account for all independent mark roots and consumers in the selected
-view. Known default/wrapper/native/END behavior can contribute protected
-producer and observer keys. Legacy END actions and report/trace consumers
-must not be removed through the new core's empty-END assumption. Unknown
+Account for all independent executable mark roots and consumers in the
+selected view. Known default/wrapper/native/END execution can contribute
+protected producer and consumer keys. Protection must describe executable
+behavior, not metadata-only references. Legacy END actions must not be
+removed through the new core's empty-END assumption. Unknown
 inputs, arbitrary mark-sensitive callbacks, unresolved generated names,
 renames or opaque providers require protection or an identity fallback.
 The new core keeps its current empty END behavior; this spec does not
@@ -211,11 +278,12 @@ raw rules and binding skeleton for actual method specialization.
 
 ### 4.3 One reduction round
 
-Let P be the full keys of possible GEN targets in the current executable
-rows, plus protected producers. For every executable condition:
+Let P be possible executable GEN keys plus protected executable producers,
+and C be current executable CM keys plus protected executable consumers.
+Set used = P ∩ C. For every executable condition:
 
 ```text
-CM(position,T), T not in P -> false
+CM(position,T), T not in used -> false
 NOT false                  -> true
 A AND false                -> false
 A OR false                 -> A
@@ -227,49 +295,64 @@ constructors of the checked fold function. Preserve all nonmark tests.
 A full key is tested at all positions: absence is global within this
 closed view, not a new position/type/reachability approximation.
 
-At the start of the same round, collect C from every current executable
-CM occurrence, including negative occurrences, plus protected observers.
-Remove only AssignMark/GEN actions with targets outside C. Preserve other
-actions, cleaners, copy operations, original action IDs and relative order.
+Collect both P and C at the start of the same round. Remove executable
+AssignMark/GEN actions with targets outside used. Keep other
+executable actions under the existing contract. The separate metadata pass
+filters effective removal targets by final used, while retaining their
+original position carriers. Preserve structural, opaque, copy and all-mark
+actions, original IDs and relative order.
 Do not remove a mark merely because its CM check is currently unreachable
 under an unproved program analysis.
 
-A false row executes no actions. It can remain in the provider list with
-its original identity; false rows do not contribute producers. The
-next round sees the simplified conditions and the smaller producer/use
-sets. This simultaneous update preserves original row identities and
-does not require compacting rule ordinals.
+A false row is removed for every role. A source or cleaner with no retained
+actions is removed even if its condition is true or mentions marks. An
+actionless sink is not removed: its check/report is an effect. No general
+empty-action deletion is specified for other roles.
+
+Rule removal is part of the round, not a final formatting pass. The next
+round recomputes P and C from the remaining executable rules. A deleted
+source can remove a CM use; a deleted false source can remove the last
+producer. Neither old mark sets nor removed guards may keep those keys live.
 
 ```kotlin
 val available = assignedTargets(rows) + protectedProducers
 val checked = containsMarkKeys(rows) + protectedObservers
+val used = available intersect checked
 val folded = rows.map {
-    it.withCondition(foldAbsentCMWithBooleanConstructors(it.condition, available))
+    it.withCondition(foldAbsentCMWithBooleanConstructors(it.condition, used))
 }
 val next = folded.map { row ->
     row.keepOriginalActionIndices { action ->
-        action !is AssignMark || action.fullKey in checked
+        action !is AssignMark || action.fullKey in used
     }
+}.filter { row ->
+    !row.condition.isFalse &&
+        !(row.role in setOf(SOURCE, CLEANER) && row.actions.isEmpty())
 }
 ```
 
 This pseudocode uses complete bound identities; it does not compact action
-indices or rebuild binding contexts. Protecting all keys disables the
-reduction safely. A literal's absence can only be used with the stated
+indices or rebuild binding contexts. An unknown executable scope can
+protect all keys: disable CM/mark-action pruning in both views rather than
+treating an unknown used set as empty. Only proved effectless rule compaction
+can remain. A literal's absence can only be used with the stated
 no-spontaneous-mark cover, not with a claim that mark names are illegal.
 Here rows denotes the complete catalog model, not the rows returned for
 one method. Publish its final mark-reduction plan with the snapshot; each
-query applies that same plan to its original bound rows.
+query applies that same plan to its original bound rows, then removes
+false and actionless source/cleaner variants. Bind original candidates
+before compaction whenever skipping them would change binding/report IDs.
 
 ### 4.4 Fixed point and normalization placement
 
-Repeat the reduction because removing a false rule can remove the last
-producer for another condition. CM-use sets, expression weight and GEN
+Repeat the reduction because removing a rule can remove the last producer
+or consumer for another mark. CM-use sets, expression weight and GEN
 sets only shrink. Truth sets need not shrink: NOT CM can become true.
 Use executable equality to verify a fixed point. A bounded implementation
 uses the proved structural bound: give a CM leaf weight two, a Boolean or
 other leaf weight one, and each connective one plus its child weights.
-Sum the guard weights and action-list lengths over all rows. Every changed
+Sum one per row, guard weights and action-list lengths over all rows. The
+positive row cost accounts for removing a rule. Every changed
 round strictly decreases that nonnegative measure. Initial weight plus
 one is therefore sufficient; stop as soon as another round is equal.
 Measure the catalog after its one-time Boolean/NNF normalization. Do not
@@ -286,9 +369,29 @@ an unchecked partial result is never valid.
 This bound covers global compiler rounds. It does not bound per-query
 simplification, method binding or analyzer work.
 
-At a verified fixed point, every remaining CM has a possible/protected
-producer, and every remaining GEN has a CM/protected consumer. Mutual
-cycles can remain. This is not a new reachability solver.
+At a verified fixed point, no rule is false, no source/cleaner is actionless,
+every remaining CM has an executable possible/protected producer, and every
+remaining GEN has an executable CM/protected consumer.
+Mutual cycles can remain. This is not a new reachability solver.
+
+```text
+R1 source: CM(U) -> Assign(V)       // V has no CM consumer
+R2 source: true  -> Assign(U)
+R3 sink:   CM(T)                  // T has a separate retained producer
+
+Round 1: remove Assign(V), then remove actionless R1.
+Round 2: U has no remaining CM consumer; remove Assign(U) and R2.
+         U is no longer available. Recompute before the next round.
+Metadata-only CM(U) cannot keep U live or become its producer.
+```
+
+The final metadata action pass uses used* = P* ∩ C*. It cannot add a
+producer, revive a removed executable rule or change the fixed-point test.
+Use the same false/empty-role tests for metadata variants, testing their own
+original resolved/simplified condition. For metadata source/cleaner rows,
+empty means no effective metadata action remains; a carrier of a live-key
+removal is not empty. Metadata-only conditions never contribute to P*/C*
+and never revive an unused mark.
 
 Compute mark sets from serialized catalog metadata. Apply the executable
 rewrite to already specialized rows before core lowering. Keep the
@@ -310,12 +413,13 @@ data class ExecutableRowView(
     val originalBoundRow: BoundRule,
     val normalizedCondition: Condition,
     val retainedOriginalActionOrdinals: IntArray,
+    val originalRuleOccurrence: RuleOccurrenceKey,
 )
 ```
 
 An implementation can use an equivalent typed representation. Lowering
-must use the retained original indices, rather than withIndex on a
-compacted action list. This is provider/compiler metadata, not a label
+must use the retained original rule/action indices, rather than withIndex
+on compacted lists. This is provider/compiler metadata, not a label
 attached to propagated facts or a new grounding mechanism.
 
 ## 5. Avoid discarded specialization
@@ -431,8 +535,15 @@ immutable policy and catalog content.
 
 Drop obsolete selection-sensitive, ID-stable cache slots after their
 readers are gone. Keep raw catalogs, declarations, hierarchy/pattern
-metadata and unchanged pass-through/alias behavior. An additional filtered
+metadata and the original alias compatibility behavior. An additional filtered
 wrapper above the old full strong cache is insufficient.
+
+The alias-model reader is a separate compatibility consumer. It extracts
+original pass-through CopyAllMarks actions without evaluating their guards.
+Give it the original pass-rule view, not the compacted executable result.
+Otherwise dropping a folded-false executable pass rule can silently change
+alias handling. Those ignored guard marks do not become executable CM uses.
+The ordinary execution view still drops false rules as specified.
 
 Go's unsafe sink memo and global fallback counter need a compatibility
 exception. Retain or transfer those original broad query results, with
@@ -474,7 +585,14 @@ Before implementation acceptance, cover:
   ordinary/no-END views; default/approximation and opaque wrapper roles.
 - Positive/negative absent CM, compound simplification, cascading reduction,
   unused GEN, protected external/END uses, same-name/different-owner marks,
-  primitive keys, original reset positions and binding/action identity.
+  primitive keys, effective reset positions and binding/action identity.
+- Executable-only P/C; removal of false rules and actionless source/cleaner
+  rules inside the loop; lost last producers/consumers; actionless sink reports.
+- Metadata-only CM/GEN cannot preserve mark eligibility; removal targets
+  outside assigned ∩ checked disappear; RemoveAllMarks/structural effects stay.
+- Original metadata guard admission; no new cleaner admission from absent-CM
+  substitution; exact reset membership for live keys; unused carrier marks
+  do not justify dropping a live-key reset.
 - Exact ordered late/early rule lists and the real 20-by-20 context product;
   explicit/CWE IDs; JVM fallback numbering; Go memo/counter preservation.
 - Global catalog normalization before measuring; production round/fold

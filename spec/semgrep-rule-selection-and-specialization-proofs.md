@@ -2,7 +2,7 @@
 
 Date: 24 October 2026. Contract:
 [complete specification](semgrep-rule-selection-and-specialization.md).
-Reference source: `8c6a512e674b378f3185a037df07f2f5a2ae79f7`.
+Reference source: `f35aae4e4` (documentation revision; runtime unchanged).
 Implementation remains unchanged.
 
 ## 1. Claims and proof boundary
@@ -11,13 +11,16 @@ There are two different comparisons:
 
 ```text
 A: current broad metadata, current executable rules, late binding selection
-B: corrected metadata support and executable mark reduction, late selection
+B: executable fixed point, metadata action projection and role compaction;
+   late selection of that corrected program
 C: the same corrected program, guarded early selection and scoped caches
 ```
 
-A to B is a selected rule-program correction. Compare protected mark
-observations and their valid witnesses. Full old FLOW headers, unused
-mark outputs and unused source hits need not be equal. B to C preserves
+A to B is a selected rule-program correction. The shared live set is
+assigned ∩ CM-used, computed from executable rules only. Metadata pruning
+must retain every reset of a live key and every position carrier needed
+for it. Full old FLOW headers, unused mark
+outputs and unused source hits need not be equal. B to C preserves
 complete ordered provider results and logical report IDs. It is an
 optimization of the same rule program.
 
@@ -32,6 +35,8 @@ The constructive modules are:
 | [RuleMarkCoverage](lean/ApSpec/RuleMarkCoverage.lean) | Executable source/import/copy witnesses that establish no-spontaneous-mark cover |
 | [RuleSelectionEpoch](lean/ApSpec/RuleSelectionEpoch.lean) | Query-key separation, cache soundness, joined handoff and preserved unsafe Go memo/counter |
 | [RuleProviderReplay](lean/ApSpec/RuleProviderReplay.lean) | Interactive finite engine replay and unchanged handoff under local provider correspondence |
+| [SemgrepRuleCompaction](lean/ApSpec/SemgrepRuleCompaction.lean) | Role-aware removal inside the executable fixed point; executable-only metadata action keys |
+| [SemgrepMetadataProjection](lean/ApSpec/SemgrepMetadataProjection.lean) | Live-key reset preservation, rejected carrier-pruning counterexample and unchanged metadata admission |
 
 The audit checks all declarations owned by these modules, including
 private helpers and generated declarations. It permits only propext and
@@ -83,10 +88,12 @@ Selected metadata uses null-ID, supported M, or unknown-ID retention;
 uncertainty can select ALL. Cleaner/pass execution keeps its original
 unfiltered role policy.
 
-Selection is a list filter. Its list is a subsequence of the original,
+The raw policy stage is a list filter. Its list is a subsequence of the original,
 and a row appears exactly when the original row appears and its policy
 retains it. Copies, order and duplicate multiplicity remain unchanged.
-This is stronger than equal sets of public rule IDs.
+This is stronger than equal sets of public rule IDs. These laws describe
+raw selection, before the selected action/role compaction. The final list
+need not contain every raw-policy-retained item.
 
 Checked anchors: initial_selection_unfiltered, normal_execution_unchanged,
 phase_change_preserves_selection, execution_rows_unchanged,
@@ -98,45 +105,60 @@ A coherent reload returns the same rows. Stale or foreign-view replies
 are rejected by the modeled adapter. Real cache/form ownership must
 establish that saved addresses hold the appropriate generation.
 
-## 4. Active reset observations are preserved
+## 4. Candidate coverage and the revised reset policy
 
 A raw source item can be absent from S while remaining necessary reset
 metadata. The checked self-loop example has selected producer A for T,
 a one-argument foo call, a B transition with a negated one-argument guard,
 and a selected final consumer F of T. Relevant resolution admits B's
-reset even though ordinary resolution rejects B as a source. Blind S
-filtering loses the T reset; supported metadata keeps it.
+reset even though ordinary resolution rejects B as a source. Supported
+metadata includes B as a candidate. Final live-key projection must retain
+every reset of live T. Candidate coverage and carrier preservation are
+separate obligations.
 
 The formal reset adapter keeps each row's reset position and full mark
 mask. ResetCoverage states that every reset of an observable mark has
 complete raw ownership support or an unknown route. This premise is about
 raw-to-resolved lowering; it is not inferred from a display rule ID.
 
-Fix an observable mark and position. A reset row which contains that mark
-must be retained by coverage. Filtering cannot invent rows. Therefore
-old and new reset masks have equal observable membership at each position.
-A scalar TAINT survives precisely when its mark is not reset there, so
-observable TAINT results are equal. FLOW adds reset marks to mx; intersecting
-old and new mx with the observable set gives equal results. The full
-origin/base/path/tail/layer/field-exclusion header remains equal.
+Current lowering derives resets from action positions crossed with
+relevantTaintMarks. An unused U assignment can supply a position which resets
+live T. Filtering raw assignments by their own mark can remove T's reset.
+The model includes that as a rejected implementation, not selected behavior.
 
-The same mark-membership equality proves positive and negative active
-mark checks agree. Unknown marks remain observable under conservative
-support. There is an executable control where full inactive mx differs;
-this rejects the incorrect stronger full-header equality claim.
+Keep the original metadata admission conditions and relevant-resolution
+mode. Let L be the final executable assigned ∩ CM-used keys. The canonical
+projection keeps original action positions and filters reset target marks
+to L. A row can disappear when it has no effective reset/action. For T in L,
+each old reset has the same row, action position and target mark after
+projection. Conversely filtering cannot invent a reset. This proves exact
+reset membership for live keys. Composition with candidate ResetCoverage
+preserves the required reset from the original broad metadata.
 
-Checked anchors: observable_reset_row_is_kept, projected_reset_mask_equal,
-active_taint_observations_preserved, active_flow_observation_preserved,
-active_mark_check_preserved and active_negative_mark_check_preserved.
+The same membership equality gives equal scalar TAINT results and equal
+FLOW mx membership for T in L, with a common incoming fact. Positive and
+negative checks of live keys therefore agree in this local mask model.
+Full masks can differ on keys outside L; no full-header equality is claimed.
+Generic deletion-only survivor/positive-guard monotonicity remains checked,
+but its weaker law is not a substitute for canonical live-key preservation.
+
+Do not introduce absent-CM folding into metadata guard admission. For a
+metadata cleaner, NOT CM(U) can become true after such folding and admit a
+new reset. That is a different policy and invalidates the deletion-only
+argument. Existing native Boolean simplification/resolution remains shared.
+
+Checked anchors in SemgrepMetadataProjection include projected_reset_subset,
+old_taint_survivor_implies_new and new_mx_subset_old. Canonical anchors
+actual_used_reset_membership, canonical_taint_survivor_equal and
+canonical_mx_equal prove exact live-key preservation. Its controls reject naive
+U-carrier deletion and the forbidden metadata-admission change.
 
 The runtime must still use its original spatial cleaner kernel. This
 scalar mask proof does not permit clearing an entire ANY/MUST subtree.
 Preserve relevant-resolution modes, selector positions and complete
 field annotations when lifting the proof to the current AP implementation.
-The header denotes a normalized scalar leaf. An EXACT scalar leaf does
-not observe an unused containing-tree anyTail carrier. Removing the last
-inactive ANY sibling can canonicalize that carrier through the existing
-factory; it does not authorize changing an active ANY/MUST annotation.
+The header denotes a normalized scalar leaf. This local mask model does
+not certify tree regrouping, active ANY/MUST changes or a new spatial rule.
 
 ## 5. Early selection equals late selection
 
@@ -197,6 +219,14 @@ a serialized ID. Other observable binder effects also need classification;
 unknown effects take the original path.
 
 ## 7. Absent CM is false under constructive producer coverage
+
+The selected shared set is L = P ∩ C. Every CM key is in C by definition,
+so a CM outside L has no possible producer in P. A GEN of a nonfalse
+executable row has its target in P; pruning that GEN by L is therefore the
+same as pruning it by C. False rows are removed. The role-aware model checks
+equivalence of this shared-live round with the split fold-P/prune-C helper.
+This carries the helper's constructive cover and pruning laws to the stated
+single-set policy without letting metadata influence either set.
 
 The expression model has full owner/name keys and query-bearing positions:
 exact, anyField and anyAccessor. Nonmark predicates are separate opaque
@@ -259,30 +289,49 @@ observation domain.
 
 ## 9. Iteration, safe fallback and metadata separation
 
-Each round uses current P and C simultaneously. Folding introduces no CM
+Each executable round uses current P and C simultaneously. Folding introduces no CM
 keys. Pruning introduces no GEN keys. The checked-use and assigned-key
 sets are nonincreasing; expression weight is nonincreasing. Truth need not
 be monotone because negative CM can become true.
+
+The selected role-aware round then removes false rows and empty source/
+cleaner rows. Empty sinks remain because a sink report is an effect even
+with no actions. The event model carries original row/action identities;
+discarded false or actionless producer rows emit no modeled events.
+Filtering therefore preserves ordered events of its input program. Source
+hit/enumeration diagnostics can disappear, as explicitly selected.
+
+Recompute P/C from the compacted executable rows on the next round.
+Removing a source whose only action was unused can remove the last CM(U)
+consumer. The next round removes GEN(U), which removes U from the available
+set. A control checks that cascade. Metadata-only CM(U) or GEN(U) never
+participates in either set. This cannot be modeled as a final compaction
+after the old fixed point.
 
 The short-fuel executable normalizer computes a candidate and checks whether
 another round changes it. A passing check gives a fixed point. A failing
 check returns the exact original rules. It never accepts an unchecked
 partial result.
 
-The selected total normalizer has a stronger constructive result. Its
+The old total normalizer supplies the expression/action decrease lemmas.
+The selected role-aware total normalizer extends their measure. Its
 measure assigns weight two to CM, weight one to other leaves, and one plus
-child weights to connectives. Add each ordered action-list length and sum
-over rows. Structural induction proves that folding either keeps an
+child weights to connectives. Add one per row and each ordered action-list
+length, then sum over rows. Structural induction proves that folding either keeps an
 expression exactly or strictly lowers its weight. Filtering either keeps
-an action list exactly or strictly lowers its length. Row and list
-induction then prove every changed round strictly lowers programWeight.
+an action list exactly or strictly lowers its length. Deleting a row
+strictly lowers the measure because every row has positive cost. Row and list
+induction then prove every changed role-aware round strictly lowers rowsWeight.
 There cannot be more changed rounds than its initial value. Initial
-programWeight plus one rounds suffice for a fixed point. The executable
+rowsWeight plus one rounds suffice for a fixed point. The executable
 stopAtFixed loop stops earlier on equality and returns the same result.
 
-Checked anchors in the termination module are fold_same_or_strict,
-changed_step_decreases, sufficient_rounds_fixed, normalizeTotal_fixed,
-normalizeTotal_idempotent, changed_rounds_bounded and equality_checks_bounded.
+Checked role-aware anchors include compact_preserves_execution_effects,
+compact_keys_sublist, round_same_or_strict, changed_round_decreases,
+enough_rounds_fixed, normalizeTotal_fixed and normalizeTotal_idempotent.
+liveRound_eq_round proves the shared assigned ∩ CM-used rule, and
+projected_resets_exact_live_targets checks the metadata carrier policy.
+The earlier termination module still checks its narrower fold/action stage.
 No classical least-fixed-point existence theorem is used: the function
 computes the list and its structural bound.
 
@@ -301,24 +350,30 @@ cycle can remain; the algorithm does not assume global reachability.
 A four-round cascade and an insufficient-fuel fallback are executable
 controls.
 
-Protected observations compose across rounds under RoundCover. The
-normalizer theorem explicitly requires a valid assigned cover at each
-round for the compared input interpretation. This is not a theorem that
-arbitrary external input marks disappear. The producer-witness adapter,
-protection policy and irrelevant-mark projection establish its valid scope.
-Do not apply it to an input which lacks that cover.
+The selected per-round event theorem requires AssignedCover for the
+current compacted executable rows. A complete comparison must establish
+that cover at every actual role-aware round. The older RoundCover helper
+uses the earlier noncompacting step; it is not automatically a cover for
+the new loop. A source/import witness adapter must supply the current
+constructor history. This is not a theorem that arbitrary external marks
+disappear. Do not apply the local event theorem to an input without cover.
 
-The Bundle model updates execution only. Its metadata parameter and
-complete declarations are definitionally unchanged. Item IDs and original
-position metadata remain unchanged across every iteration. The test with
-an unused GEN at another target retains that target in metadata.
+The old Bundle/metadata_parameter_untouched theorem describes only an
+execution-stage helper. It is not the selected end-to-end policy now.
+The selected metadata pass receives only final executable live keys and
+the metadata candidates. Effective removal targets outside those keys are
+filtered; original source/cleaner position carriers remain whenever they
+support a live-key removal. Do not filter such carriers by their own mark.
+RemoveAllMarks, structural and opaque effects remain.
+False metadata variants and empty metadata source/cleaner variants are
+removed under their own original resolved conditions. They do not feed
+back into executable normalization.
 
-Checked anchors: step_assigned_subset, step_checked_subset,
-normalize_fixed_or_original, fixed_cm_has_producer, fixed_gen_is_checked,
-normalize_protected_observations, normalize_row_identities,
-metadata_parameter_untouched and no_new_mark_eligibility. The total module
-carries those properties to normalizeTotal, including complete metadata
-and declaration identity.
+Retained row keys form an ordered subsequence, not the original complete
+identity list. Their original ordinals, binding metadata and surviving
+action identities remain intact. Complete mark declarations and interning
+remain unchanged; a smaller executable available set is not a new runtime
+mark-legality test.
 
 ## 10. Scoped cache and unsafe compatibility proofs
 
@@ -381,15 +436,19 @@ processing is common to both. Thus the optimized provider cannot lose a
 summary or marked run-2 guide relative to the corrected late provider in
 this finite supported scope.
 
-For A to B, the relevant comparison is protected concrete witnesses.
+For the executable part of A to B, the relevant comparison is covered
+concrete witnesses.
 An absent CM cannot be a true positive literal under producer coverage;
 its negation is true on that domain. A GEN not used by any retained CM or
-protected consumer is not a required marked witness input. Required resets
-remain in the frozen supported metadata. Replaying the unchanged transfer
-steps preserves the required witness paths and their marked guidance.
-Source census, expanded spatial reset coverage, mode projection and actual
-handoff adapters must discharge those premises before runtime acceptance.
-This does not claim equality of all old abstract candidates or internal rows.
+protected executable consumer is not a required marked witness input.
+Compaction removes only effectless false/actionless producer rows in this
+model. Metadata changes only nonlive-key removals; its canonical projection
+preserves live-key resets under unchanged admission. These are local laws,
+not a checked whole-engine replay against arbitrary old abstract inputs.
+Source census, spatial reset transport and
+actual handoff adapters remain implementation gates for preservation of
+required concrete witnesses and marked later-run guidance. Do not claim
+the mask theorem alone discharged them.
 
 ## 12. Counted work, audit and runtime obligations
 
@@ -415,9 +474,9 @@ The [check receipt](lean/semgrep-rule-selection-checks.json) records the
 final hashes, commands, declaration counts, executable controls and source
 review. Failed intermediate attempts are not passing checks.
 
-The final integrated build passes 181 jobs. The owned audit checks 2,381
-declarations and 118 executable controls. It finds no unexpected axioms;
-its permitted dependencies are propext and Quot.sound.
+The final integrated build passes 183 jobs. The audit checks 3,235 owned
+declarations and 160 executable controls, with no unexpected axioms. The
+receipt pins the final shared-live-set and carrier-preservation models.
 
 Before runtime implementation, retain the spec's differential controls.
 In particular, test actual JVM/Go raw-to-bound mark identity, CM Any variants,
