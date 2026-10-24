@@ -3,12 +3,16 @@
 Date: 24 October 2026. Contract:
 [complete specification](semgrep-rule-selection-and-specialization.md).
 Reference source: `f35aae4e4` (documentation revision; runtime unchanged).
-The first implementation passes its selected local checks. Its full application
-suite retains 11 reference failures. The first project campaign exposed a
-configuration-row equality regression. An isolated correction restores the old
-equality/hash contract while retaining occurrence labels; its 13 focused tests
-pass. Full integration checks and fresh corrected-candidate measurements remain
-separate gates. The first campaign's reports are retained without rewriting.
+The corrected implementation `40e20d16f` passes its selected local checks.
+The full application suite retains the same 11 reference failures. The first
+project campaign exposed a configuration-row equality regression. Its
+correction restores the old equality/hash contract while retaining occurrence
+labels: 13 focused checks, 440 JVM dataflow tests and five configuration
+tests pass. The default 4 GiB application run has 1,034 cases and exactly
+the 11 reference failed assertions. All corrected project/profile/heap
+commands are closed. The [measurement report](../docs/reports/bidirectional-rule-selection-performance-20261024.md)
+retains failed precision, CI-count and performance gates. First-campaign
+artifacts and the invalid constrained test setup remain separate history.
 The proof receipt does not certify the Kotlin engine or project outcomes.
 
 ## 1. Claims and proof boundary
@@ -236,8 +240,9 @@ analyzer. Its receipt is `validation/fresh-precision-analysis/sink-equality-cont
 in the 24 October implementation campaign. Exported occurrence changes are
 not callback diagnostic variation.
 
-The configuration-layer correction gives all nine JVM row classes explicit
-allocation-free equality and hash functions. They compare every original
+The configuration-layer correction gives all nine JVM row classes direct
+field equality and hash functions, without added comparison lists or copies.
+They compare every original
 field, omit only specialization, and keep the original field hash order.
 Constructors, `copy`, components, duplicate ordered list entries, original
 labels and internal occurrence IDs remain available. The analyzer core and
@@ -253,8 +258,10 @@ model. It does not verify Kotlin bytecode, attribute every measured duplicate
 to a raw binding, or prove a configuration row is unchanged when its actual
 condition/actions change. Configuration equality tests and actual
 `VulnerabilityKey` controls provide the production bridge. Corrected candidate
-project measurements are required after integration; the first campaign's
-counts remain historical evidence and are not overwritten.
+project measurements after integration now match the full reference export
+multisets for Conductor, PDF and OWASP. Thingsboard's empty report is censored
+by run-1 OOM. The first campaign's counts remain historical evidence and are
+not overwritten. Project results do not extend the local model's proof scope.
 
 ## 7. Absent CM is false under constructive producer coverage
 

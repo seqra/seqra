@@ -22,6 +22,8 @@ Check the spec and its formal model for hidden changes outside that scope.
 In particular, a representation, condition rewrite or correctness helper
 can change field transfer, premise matching, layers or source/sink behavior.
 Do not treat such a change as an implementation detail.
+Check data-class equality and hashing too: adding compiler metadata can
+change deduplication and report counts without changing transfer code.
 
 The previous mark-group/static iteration introduced unselected grounding
 support and field-sensitive writer validation. Use this case as a regression

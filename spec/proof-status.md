@@ -1,12 +1,13 @@
 # Current proof status
 
-## Selected: Semgrep provider selection and early specialization
+## Implemented and measured: Semgrep provider selection and early specialization
 
 The [complete specification](semgrep-rule-selection-and-specialization.md)
 and [proof dossier](semgrep-rule-selection-and-specialization-proofs.md)
 cover active metadata support, guarded raw-item selection, cache handoff,
-and the added absent-CM/unchecked-GEN reductions. The implementation passes its selected local checks. The full application
-suite retains 11 reference failures. New project measurements are a separate gate. The clarified policy uses executable rules only for available/
+and the added absent-CM/unchecked-GEN reductions. Corrected runtime
+`40e20d16f` passes its selected local checks. The full application suite
+retains the same 11 reference failures. The clarified policy uses executable rules only for available/
 used marks. The shared live set is assigned ∩ CM-used. Rule deletion occurs
 inside the fixed point. Final live keys then filter effective metadata
 mark-removal targets; false rules and actionless source/
@@ -40,7 +41,7 @@ the shared live set and metadata carrier preservation.
 
 The first implementation campaign exposed an unintended equality change:
 ordinal metadata changed configuration-row equality and public vulnerability
-deduplication. The isolated configuration correction excludes only specialization
+deduplication. The integrated configuration correction excludes only specialization
 from equality/hash, preserving every original semantic field and duplicate
 ordered occurrences. Five equality/hash tests, two actual vulnerability-key/
 occurrence tests, six existing output tests and the pure production-object
@@ -49,10 +50,17 @@ legacy key observers; it does not verify Kotlin bytecode or identify the raw
 bindings behind every measured duplicate. This is a correction to the existing
 preservation contract, not a selected new analyzer behavior.
 
-Latest measured Thingsboard state in the first campaign remains run-1 OOM,
-with no COMPLETE or accepted forward run. Corrected-candidate full integration
-checks and project remeasurement are pending. No project outcome is certified
-by these constructive models.
+All four corrected project commands, their profiles and all six final OOM
+owner scopes are closed. Latest Thingsboard is **run-1 OOM**, with no COMPLETE
+or accepted forward run. Conductor/PDF reach run-2 OOM after accepting run-1;
+OWASP completes run-11. Conductor/PDF/OWASP export multisets match the fresh
+pre-change control. The [current report](../docs/reports/bidirectional-rule-selection-performance-20261024.md)
+retains the PDF two-location gap, censored Thingsboard result, OWASP 9,179
+trace total versus CI's expected 4,112, and failed 60-second targets.
+No project outcome is certified by these constructive models. The
+[next proposal](../docs/design/bidirectional-rule-selection-next-iteration-20261024.md)
+uses current concrete-mark store replication. It is unselected and its
+transfer/handoff proofs are requirements for future work.
 
 ## Implemented: FULL return cleanup and temporary static supplies
 

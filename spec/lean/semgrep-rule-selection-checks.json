@@ -1,6 +1,6 @@
 {
-  "status": "CONSTRUCTIVE_MODELS_CHECKED_EQUALITY_CORRECTION_FOCUSED_PASSED_REMEASUREMENT_PENDING",
-  "generated_utc": "2026-10-24T10:32:53.142074+00:00",
+  "status": "CONSTRUCTIVE_MODELS_CHECKED_IMPLEMENTATION_VERIFIED_MEASUREMENTS_CLOSED_ACCEPTANCE_GAPS_RETAINED",
+  "generated_utc": "2026-10-24T12:35:40.485157+00:00",
   "reference_source": "f35aae4e420eff7091aa3791ff351c4e6f02c621",
   "reference_runtime": "fb84969c0b91ccae0500389b5e25e045557b0eb3",
   "selected": [
@@ -22,10 +22,10 @@
   },
   "toolchain": "Lean 4.33.1, commit 819816b2e0a3bf405af45ae5c7af2491d8f5e",
   "sha256": {
-    "spec/semgrep-rule-selection-and-specialization.md": "6febc7e163a3b2d2c9145d517a3a0f9a0f79ebcbe5282812e0685470754f1a84",
-    "spec/semgrep-rule-selection-and-specialization-proofs.md": "56aaddc043a178bb026b4fc3f3a0c6e9d2e8ff6f76876d9555fff668b3cb19f6",
-    "spec/proof-status.md": "b22d2bb283aaa52bfb6f7cf3fe9e131d241d6be90a110113b0f354bb461e92fa",
-    "spec/proof-guide.md": "bfe6c31a70f4a66472a682967c1e72251dcf9cd4dff8c556510e9cb67e42684f",
+    "spec/semgrep-rule-selection-and-specialization.md": "b49b02dcc178adc4e541732e57e07b80cdb1488da4610fdd0ebb71d2c2147bb3",
+    "spec/semgrep-rule-selection-and-specialization-proofs.md": "158c6fab9f074a51c663978d05f1fe35c0ad19b899520d13633dc7cddc4d4f13",
+    "spec/proof-status.md": "e2e9e6e89864afb9096349c6c65a619171098b49ee4bb247d0812a59efd18c2f",
+    "spec/proof-guide.md": "c51296c2773f7a09bc96e3a4679c0b97610c38baf792b39e0de7ef2bf4787dcd",
     "spec/lean/ApSpec.lean": "0b29e7c8dc3ad786bb994d521ab61c80a0bea446e77474c87fa3c88a47528441",
     "spec/lean/semgrep-rule-selection-audit.lean": "a6a5cef58d10aa2285572db6a0235bbeedd618db8efc72e6f366b183a9f55640",
     "spec/lean/lean-toolchain": "3aac669c7a910ec2389f4e4f921b605adf6ebf2d1e0c9b9cd0be4d33f3f5db71",
@@ -162,9 +162,9 @@
   "not_claimed": [
     "Whole Kotlin implementation formally verified",
     "Whole-engine or arbitrary-project termination",
-    "A new successful project run",
+    "Project acceptance inferred from these local formal models",
     "A CPU-time, heap-byte, 2x or 60-second guarantee",
-    "Exact raw-binding attribution of every first-campaign duplicate or corrected-candidate project outcomes."
+    "Exact raw-binding attribution of every first-campaign duplicate or complete source/branch witness equivalence from exported location equality."
   ],
   "historical_evidence": {
     "previous_receipt": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-policy-20261024/previous-checks.json",
@@ -184,10 +184,88 @@
     "unrelated_worktree_changes_preserved": true,
     "isolated_equality_correction": true
   },
-  "implementation_status": "ISOLATED_CONFIGURATION_EQUALITY_CORRECTION_FOCUSED_CHECKS_PASSED_INTEGRATION_AND_REMEASUREMENT_PENDING",
+  "implementation_status": "IMPLEMENTED_AND_MEASURED_AT_40e20d16f",
   "new_candidate_project_results_certified": false,
-  "project_campaign_scope": "Separate implementation validation campaign; this receipt certifies only the listed proof commands.",
+  "project_campaign_scope": "Measurement records are separately checked below. This formal-model receipt does not certify whole-engine soundness, project acceptance, timing guarantees or absent false negatives.",
   "runtime_local_validation": {
+    "core_git_tree": "c986cba8f1ea0531f7db2a4c91a10c90c2743fd4",
+    "selected_focused_tests": {
+      "application": 74,
+      "go": 10,
+      "failures": 0,
+      "receipt": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/current-tests/focused-2/summary.json",
+      "limit": "Precedes the last public-base compatibility test; the full suite below includes it."
+    },
+    "full_suites": {
+      "application": {
+        "tests": 1034,
+        "failures": 11,
+        "errors": 0,
+        "skipped": 13,
+        "test_heap": "repository default -Xmx4G"
+      },
+      "common": {
+        "tests": 1793,
+        "failures": 0,
+        "reused_unchanged_module": true
+      },
+      "jvm": {
+        "tests": 440,
+        "failures": 0
+      },
+      "go": {
+        "tests": 1323,
+        "failures": 0,
+        "reused_unchanged_module": true
+      },
+      "jvm_configuration": {
+        "tests": 5,
+        "failures": 0
+      }
+    },
+    "reference_comparison": "All 11 expected/actual failure assertions match the fresh reference; no new failing cases. Set members are compared without order. This does not equate every exception stack.",
+    "full_receipt": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/default-4g-app/summary.json",
+    "failure_comparison_receipt": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/default-4g-app/reference-failure-comparison.json",
+    "project_campaign": "Four corrected candidates closed; eight unchanged main/reference lanes SHA-bound imported; profiles and six required OOM primaries validated.",
+    "nested_scope_regression": {
+      "counterexample": "A known transparent wrapper can have an opaque child and therefore an unknown raw catalog. The marker alone cannot certify complete mark inventory.",
+      "fix": "Require the explicit capability and a nonnull raw catalog once at the selection boundary; no per-fact lookup.",
+      "red": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/current-tests/nested-boundary-red.log",
+      "red_result": "23 tests; two new controls fail.",
+      "green_result": "The full-2 application suite includes all 23 controls with no failures; the same 11 reference failures remain elsewhere."
+    },
+    "full_suites_source": "40e20d16f03ab046df75a53a489bb331b065a9c1; common and Go reuse prior checked results for unchanged modules.",
+    "equality_correction": {
+      "baseline": "abdbe345e9c1c91ed8a87a488dffe0fbfdd73b1a",
+      "corrected_core_tree": "c986cba8f1ea0531f7db2a4c91a10c90c2743fd4",
+      "worktree": "/tmp/opentaint-rule-selection-equality-abdbe345-20261024",
+      "red_config_tests": {
+        "tests": 5,
+        "failures": 2,
+        "log": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/red-tests.log"
+      },
+      "green_focused_tests": {
+        "tests": 13,
+        "failures": 0,
+        "summary": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/focused-tests-summary.json"
+      },
+      "production_key_red_control": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/fresh-precision-analysis/sink-equality-control.json",
+      "production_key_green_control": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/sink-equality-green.json",
+      "scope": "Explicit equals/hashCode excluding only specialization on nine JVM rows; configuration tests and actual VulnerabilityKey/internal occurrence regressions. No analyzer core production or field/mark/source/exit change.",
+      "whole_suites_and_project_repeat": "Complete: corrected default4G application1034 has exactly11 reference failures; JVM440 and configuration5 pass. All4 corrected projects close; exports match reference for conductor/PDF/OWASP. Acceptance gaps are retained.",
+      "immutable_production_control": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/immutable-control/receipt.json",
+      "invalid_constrained_test_control": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/constrained-1g/negative-control.json",
+      "default_heap_four_case_control": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/default-4g-control/summary.json"
+    },
+    "module_receipts": {
+      "jvm_and_configuration": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/equality-correction/full-integration-summary.json",
+      "jvm_configuration_note": "Application part of this constrained record is invalid; JVM440 and configuration5 pass. Application is replaced by the separate default4G full result.",
+      "unchanged_common_and_go": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/current-tests/full-2/summary.json"
+    }
+  },
+  "measured_project_results_verified": true,
+  "measured_project_acceptance_passed": false,
+  "first_implementation_runtime_validation": {
     "core_git_tree": "013e8081ca0f77c60d9740bfeff88f0475730ac5",
     "selected_focused_tests": {
       "application": 74,
@@ -246,5 +324,54 @@
       "scope": "Explicit equals/hashCode excluding only specialization on nine JVM rows; configuration tests and actual VulnerabilityKey/internal occurrence regressions. No analyzer core production or field/mark/source/exit change.",
       "whole_suites_and_project_repeat": "PENDING after parent integration"
     }
+  },
+  "measured_campaign": {
+    "runtime": "40e20d16f03ab046df75a53a489bb331b065a9c1",
+    "core_tree": "c986cba8f1ea0531f7db2a4c91a10c90c2743fd4",
+    "terminal": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-equality-fix-20261024/preparation/terminal.json",
+    "terminal_sha256": "a9194eaa9a3a37bb5c50b78db027f219047e009e110fd3b9acab21383a06392a",
+    "project_results": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-equality-fix-20261024/validation/final-project-results.json",
+    "profile_authority": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-equality-fix-20261024/validation/profile-analysis/analysis-scope.json",
+    "heap_authority": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-equality-fix-20261024/validation/heap-analysis-final-seal.json",
+    "record_comparison": {
+      "conductor": "exact exported fingerprint/strict-location multiset equality",
+      "Stirling-PDF": "exact exported fingerprint/strict-location multiset equality",
+      "OWASP": "exact exported fingerprint/strict-location multiset equality",
+      "thingsboard": "both empty, censored run-1 OOM; no equivalence claim"
+    },
+    "latest": {
+      "thingsboard": {
+        "reached": "run-1",
+        "status": "OOM",
+        "complete": null,
+        "accepted": null
+      },
+      "conductor": {
+        "reached": "run-2",
+        "status": "OOM",
+        "complete": "run-1",
+        "accepted": "run-1"
+      },
+      "Stirling-PDF": {
+        "reached": "run-2",
+        "status": "OOM",
+        "complete": "run-1",
+        "accepted": "run-1"
+      },
+      "OWASP": {
+        "reached": "run-11",
+        "status": "COMPLETE",
+        "complete": "run-11",
+        "accepted": "run-11",
+        "reason": "NO_DEMAND_EDGE"
+      }
+    },
+    "failed_acceptance_gates": [
+      "Thingsboard has no accepted result.",
+      "PDF misses two strict main return locations.",
+      "OWASP9179 exported traces fail CI expected4112 total despite4112 unique main locations.",
+      "Thingsboard/OWASP miss60s run-1 engine target.",
+      "Application retains11 existing reference failures; conductor/PDF later runs OOM."
+    ]
   }
 }

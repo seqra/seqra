@@ -1,6 +1,6 @@
 # Semgrep rule selection, mark reduction and early specialization
 
-Date: 24 October 2026. Status: **implemented; new project measurements pending**.
+Date: 24 October 2026. Status: **implemented and measured; acceptance gaps remain**.
 Reference source: `f35aae4e4` (documentation revision; runtime unchanged).
 Its runtime is the measured `fb84969c0b91ccae0500389b5e25e045557b0eb3`.
 Read the [proof dossier](semgrep-rule-selection-and-specialization-proofs.md)
@@ -11,10 +11,15 @@ This specification replaces the selected parts of the
 It includes the two added mark reductions. It does not select local
 liveness, sparse propagation or origin batching.
 
-Latest historical Thingsboard state: **run-1 OOM**, with no COMPLETE or
-accepted forward iteration. The selected local checks pass. The fresh project campaign is pending.
-The [measurement report](../docs/reports/bidirectional-full-work-batching-performance-20261023.md)
-keeps the remaining precision and performance failures.
+Measured corrected runtime: `40e20d16f03ab046df75a53a489bb331b065a9c1`.
+Latest Thingsboard state: **run-1 OOM**, with no COMPLETE or accepted forward
+iteration. Conductor/PDF reach run-2 OOM after accepting run-1. OWASP
+completes run-11. The selected local checks pass; the application suite
+retains the same 11 reference failures. The
+[current measurement report](../docs/reports/bidirectional-rule-selection-performance-20261024.md)
+keeps the PDF strict-location failures, OWASP CI trace-count failure and
+remaining performance targets explicit. The original reference runtime
+above is also the runtime of measured control `279ac7a6f`.
 
 ## 1. Selected changes and semantic boundary
 
