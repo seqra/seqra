@@ -44,5 +44,5 @@ fun TaintRulesProvider.applyExecutableMarkReduction(reduction: ExecutableMarkRed
 /** The coordinator knows the complete outer provider. Keep its original
  * selectRules dispatch, but do not infer absence below an opaque wrapper. */
 fun TaintRulesProvider.selectRulesWithScope(ruleIds: Set<String>) {
-    RuleSelectionBoundary.withScope(this is JVMRuleSelectionCapability) { selectRules(ruleIds) }
+    RuleSelectionBoundary.withScope(this is JVMRuleSelectionCapability && executableRuleCatalog() != null) { selectRules(ruleIds) }
 }

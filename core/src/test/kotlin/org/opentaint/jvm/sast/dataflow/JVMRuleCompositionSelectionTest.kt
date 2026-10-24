@@ -130,4 +130,23 @@ class JVMRuleCompositionSelectionTest : BasicTestUtils() {
             .flatMap { row -> row.actionsAfter.map { it.mark.name } })
         assertTrue(main.currentMarkReduction()!!.plan.protectAll)
     }
+
+    @Test fun `known transparent wrappers do not certify an opaque child catalog`() {
+        val main = provider(cm("T"), source("main-source", "T").copy(taint = emptyList()))
+        val opaque = object : TaintRulesProvider by main {
+            override fun sourceRulesForMethod(method: org.opentaint.ir.api.common.CommonMethod,
+                statement: CommonInst, fact: org.opentaint.dataflow.ap.ifds.access.FactAp?, allRelevant: Boolean) =
+                main.sourceRulesForMethod(method, statement, fact, allRelevant).map { row ->
+                    row.copy(actionsAfter = listOf(org.opentaint.dataflow.configuration.jvm.AssignMark(
+                        org.opentaint.dataflow.configuration.jvm.TaintMark("T"),
+                        org.opentaint.dataflow.configuration.jvm.Result)))
+                }
+        }
+        val known = StringConcatRuleProvider(JIRMethodExitRuleProvider(opaque))
+        known.selectRulesWithScope(setOf("main-source", "main-sink"))
+        val method = findMethod("test.samples.bidi.BidiAcceptanceSample", "mayPass")
+        assertTrue(main.currentMarkReduction()!!.plan.protectAll)
+        assertEquals(listOf("T"), known.sourceRulesForMethod(method, statement, null)
+            .flatMap { row -> row.actionsAfter.map { it.mark.name } })
+    }
 }

@@ -1,6 +1,6 @@
 {
   "status": "CONSTRUCTIVE_MODELS_CHECKED_RUNTIME_IMPLEMENTED_PROJECT_CAMPAIGN_PENDING",
-  "generated_utc": "2026-10-24T08:55:32.981093+00:00",
+  "generated_utc": "2026-10-24T09:16:38.828626+00:00",
   "reference_source": "f35aae4e420eff7091aa3791ff351c4e6f02c621",
   "reference_runtime": "fb84969c0b91ccae0500389b5e25e045557b0eb3",
   "selected": [
@@ -182,7 +182,7 @@
   "new_candidate_project_results_certified": false,
   "project_campaign_scope": "Separate implementation validation campaign; this receipt certifies only the listed proof commands.",
   "runtime_local_validation": {
-    "core_git_tree": "c6e1fa0db82d0b07ca911fd2e8fe97c1a81d3fbe",
+    "core_git_tree": "013e8081ca0f77c60d9740bfeff88f0475730ac5",
     "selected_focused_tests": {
       "application": 74,
       "go": 10,
@@ -192,7 +192,7 @@
     },
     "full_suites": {
       "application": {
-        "tests": 1032,
+        "tests": 1034,
         "failures": 11,
         "skipped": 13
       },
@@ -210,8 +210,15 @@
       }
     },
     "reference_comparison": "All 11 expected/actual failure assertions match the fresh reference; no new failing cases. Set members are compared without order. This does not equate every exception stack.",
-    "full_receipt": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/current-tests/full-1/summary.json",
-    "failure_comparison_receipt": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/current-tests/full-1/reference-failure-comparison.json",
-    "project_campaign": "PENDING"
+    "full_receipt": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/current-tests/full-2/summary.json",
+    "failure_comparison_receipt": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/current-tests/full-2/reference-failure-comparison.json",
+    "project_campaign": "PENDING",
+    "nested_scope_regression": {
+      "counterexample": "A known transparent wrapper can have an opaque child and therefore an unknown raw catalog. The marker alone cannot certify complete mark inventory.",
+      "fix": "Require the explicit capability and a nonnull raw catalog once at the selection boundary; no per-fact lookup.",
+      "red": "/drive-testcomp/opentaint-go-rules/run1-rule-selection-implementation-20261024/validation/current-tests/nested-boundary-red.log",
+      "red_result": "23 tests; two new controls fail.",
+      "green_result": "The full-2 application suite includes all 23 controls with no failures; the same 11 reference failures remain elsewhere."
+    }
   }
 }

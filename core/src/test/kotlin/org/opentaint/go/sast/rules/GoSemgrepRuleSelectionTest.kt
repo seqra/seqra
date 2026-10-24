@@ -241,4 +241,25 @@ class GoSemgrepRuleSelectionTest {
         assertTrue(provider.sourceRulesForCall(signature, statement, false).single().actionsAfter.isEmpty())
         assertEquals("T", wrapper.sourceRulesForCall(signature, statement, false).single().actionsAfter.single().mark)
     }
+
+    @Test
+    fun `a capability with an unknown catalog cannot certify its hidden source scope`() {
+        val a = source("a", "T").copy(taint = emptyList())
+        val s = sink("s", "T")
+        val provider = GoSemgrepRuleProvider(listOf(graph("r", listOf(a, s), "s", "T")), config(listOf(a), listOf(s)))
+        val opaque = object : GoTaintRulesProvider by provider {
+            override fun sourceRulesForCall(signature: GoFunctionSignature, statement: GoIRInst,
+                allRelevant: Boolean): List<TaintRule.Source> =
+                provider.sourceRulesForCall(signature, statement, allRelevant).map {
+                    it.copy(actionsAfter = listOf(GoAssignAction.Direct("T", Position.Result)))
+                }
+        }
+        val known = object : GoTaintRulesProvider by opaque,
+            org.opentaint.dataflow.go.rules.GoRuleSelectionCapability {
+            override fun selectRules(ruleIds: Set<String>) = opaque.selectRules(ruleIds)
+        }
+        known.selectRulesWithScope(setOf("a", "s"))
+        assertTrue(provider.sourceRulesForCall(signature, statement, false).single().actionsAfter.isEmpty())
+        assertEquals("T", known.sourceRulesForCall(signature, statement, false).single().actionsAfter.single().mark)
+    }
 }

@@ -51,7 +51,7 @@ fun GoTaintRulesProvider.includeExecutableRuleScope(scopeId: Any, scope: () -> G
 fun GoTaintRulesProvider.selectedMarkPlan(): ReducedMarkPlan? =
     (this as? GoRuleSelectionCapability)?.selectedMarkPlan()
 fun GoTaintRulesProvider.selectRulesWithScope(ruleIds: Set<String>) {
-    RuleSelectionBoundary.withScope(this is GoRuleSelectionCapability) { selectRules(ruleIds) }
+    RuleSelectionBoundary.withScope(this is GoRuleSelectionCapability && executableRuleCatalog() != null) { selectRules(ruleIds) }
 }
 fun GoTaintRulesProvider.markReductionView(plan: ReducedMarkPlan): GoTaintRulesProvider =
     (this as? GoRuleSelectionCapability)?.markReductionView(plan) ?: this
